@@ -1,11 +1,316 @@
 # Foodweb aka. "Trophic layer",
-# is special because it does structure the whole network
+# is special because it structures the whole network
 # in a way that makes it a dependency
 # of numerous other biorates and interaction layers.
 # Typically, many default values are calculated from this layer,
 # and values checks are performed against this layer.
 
-"""
+# (reassure JuliaLS)
+(false) && (local Foodweb, _Foodweb, trophic)
+
+# ==========================================================================================
+# Blueprints.
+
+module Foodweb_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: _Species, Species
+
+#-------------------------------------------------------------------------------------------
+# From matrix.
+
+mutable struct Matrix <: Blueprint
+    A::@GraphData SparseMatrix{:bin}
+    species::Brought(Species)
+    Matrix(A, sp = Species) = new(@tographdata(A, SparseMatrix{:bin}), sp)
+end
+# Infer number of species from matrix size.
+F.implied_blueprint_for(bp::Matrix, ::_Species) = Species(size(bp.A, 1))
+@blueprint Matrix "boolean matrix of trophic links"
+export Matrix
+
+function F.early_check(bp::Matrix)
+    (; A) = bp
+    n, m = size(A)
+    n == m || checkfails("The adjacency matrix of size $((m, n)) is not squared.")
+end
+
+function F.late_check(raw, bp::Matrix)
+    (; A) = bp
+    S = @get raw.S
+    @check_size A (S, S)
+end
+
+F.expand!(raw, bp::Matrix) = expand_from_matrix!(raw, bp.A)
+function expand_from_matrix!(raw, A)
+
+    # Internal network is guaranteed to be an 'Internals.FoodWeb'
+    # because NTI components cannot be set before 'Foodweb' component.
+    fw = raw.network
+    fw.A = A
+    fw.method = "from component" # (internals legacy)
+
+    # Add trophic edges to the topology.
+    top = raw._topology
+    Topologies.add_edge_type!(top, :trophic)
+    Topologies.add_edges_within_node_type!(top, :species, :trophic, A)
+
+end
+
+#-------------------------------------------------------------------------------------------
+# From ajacency list.
+
+mutable struct Adjacency <: Blueprint
+    A::@GraphData {Adjacency}{:bin} # (refs are either numbers or names)
+    species::Brought(Species)
+    Adjacency(A, sp = Species) = new(@tographdata(A, {Adjacency}{:bin}), sp)
+end
+
+# Infer number or names of species from the lists.
+F.implied_blueprint_for(bp::Adjacency, ::_Species) = Species(refspace(bp.A))
+
+@blueprint Adjacency "adjacency list of trophic links"
+export Adjacency
+
+function F.late_check(raw, bp::Adjacency)
+    (; A) = bp
+    index = raw._foodweb._species_index
+    @check_list_refs A :species index
+end
+
+function F.expand!(raw, bp::Adjacency)
+    index = raw._foodweb._species_index
+    A = to_sparse_matrix(bp.A, index, index)
+    expand_from_matrix!(raw, A)
+end
+
+end
+
+# ==========================================================================================
+# Component and generic constructors.
+
+@component Foodweb{Internal} requires(Species) blueprints(Foodweb_)
+# Consistency alias.
+const (TrophicLayer, _TrophicLayer) = (Foodweb, _Foodweb)
+export Foodweb, TrophicLayer
+
+# Precise edges specifications.
+function (::_Foodweb)(A)
+    A = @tographdata A {SparseMatrix, Adjacency}{:bin}
+    if A isa AbstractMatrix
+        Foodweb.Matrix(A)
+    else
+        Foodweb.Adjacency(A)
+    end
+end
+
+# Construct blueprint from a random model.
+function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
+    model = @tographdata model Y{}
+    @kwargs_helpers kwargs
+
+    given(:S) || argerr("Random foodweb models require a number of species 'S'.")
+    S = take!(:S)
+
+    # Default values.
+    rc = take_or!(:reject_cycles, false)
+    rd = take_or!(:reject_if_disconnected, true)
+    max = take_or!(:max_iterations, 10^5)
+
+    A = @expand_symbol(
+        model,
+
+        #-----------------------------------------------------------------------------------
+        # Niche model.
+
+        :niche => begin
+
+            (given(:C) || given(:L)) ||
+                argerr("The niche model requires either a connectance value 'C' \
+                        or a number of links 'L'.")
+
+            (given(:C) && given(:L)) &&
+                argerr("Cannot provide both a connectance 'C' \
+                        and a number of links 'L'.")
+
+            if given(:C)
+
+                C = take!(:C, Float64)
+                tol = take_or!(:tol_C, 0.1 * C)
+                no_unused_arguments()
+
+                    #! format: off
+                    Internals.model_foodweb_from_C(
+                        Internals.niche_model,
+                        S, C, nothing, # old 'p_forbidden' ?
+                        tol, rc, rd, max,
+                    )
+                    #! format: on
+            else
+
+                L = take!(:L, Int64)
+                tol = take_or!(:tol_L, round(Int64, 0.1 * L))
+                no_unused_arguments()
+
+                    #! format: off
+                    Internals.model_foodweb_from_L(
+                        Internals.niche_model,
+                        S, L, nothing, # old 'p_forbidden' ?
+                        tol, rc, rd, max,
+                    )
+                    #! format: on
+            end
+        end,
+
+        #-----------------------------------------------------------------------------------
+        # Cascade model.
+
+        :cascade => begin
+
+            given(:C) || argerr("The cascade model requires a connectance value 'C'.")
+
+            C = take!(:C)
+            tol = take_or!(:tol_C, 0.1 * C)
+            no_unused_arguments()
+
+                #! format: off
+                Internals.model_foodweb_from_C(
+                    Internals.cascade_model,
+                    S, C, nothing, # old 'p_forbidden' ?
+                    tol, rc, rd, max,
+                )
+                #! format: on
+        end
+    )
+
+    Foodweb.Matrix(A)
+
+end
+
+# ==========================================================================================
+# Foodweb queries.
+
+@propspace trophic
+
+# Topology as a matrix.
+@expose_data edges begin
+    property(A, trophic.A, trophic.matrix)
+    get(TrophicMatrix{Bool}, sparse, "trophic link")
+    ref(raw -> raw._foodweb.A)
+    @species_index
+    depends(Foodweb)
+end
+
+# Number of links.
+@expose_data graph begin
+    property(trophic.n_links)
+    ref_cached(raw -> sum(@ref raw.trophic.matrix))
+    get(raw -> @ref raw.trophic.n_links)
+    depends(Foodweb)
+end
+
+# Trophic levels.
+@expose_data nodes begin
+    property(trophic.levels)
+    get(TrophicLevels{Float64}, "species")
+    ref_cached(raw -> Internals.trophic_levels(@ref raw.trophic.matrix))
+    @species_index
+    depends(Foodweb)
+end
+
+# More elaborate queries.
+# TODO: abstract over the following to reduce boilerplate.
+# as it all just stems from sparse boolean node information.
+include("./producers-consumers.jl")
+include("./preys-tops.jl")
+
+#-------------------------------------------------------------------------------------------
+# Get a sparse matrix highlighting only the producer-to-producer links.
+
+function calculate_producers_matrix(raw)
+    S = @get raw.S
+    prods = @get raw.producers.indices
+    res = spzeros(Bool, S, S)
+    for i in prods, j in prods
+        res[i, j] = true
+    end
+    res
+end
+
+@expose_data edges begin
+    property(producers.matrix)
+    get(ProducersMatrix{Bool}, sparse, "producer link")
+    ref_cached(calculate_producers_matrix)
+    @species_index
+    depends(Foodweb)
+end
+
+#-------------------------------------------------------------------------------------------
+# Get a sparse matrix highlighting only 'herbivorous' trophic links: consumers-to-producers.
+#                                    or 'carnivorous' trophic links: consumers-to-consumers.
+
+function calculate_herbivory_matrix(raw)
+    S = @get raw.S
+    A = @ref raw.A
+    res = spzeros(Bool, S, S)
+    preds, preys, _ = findnz(A)
+    for (pred, prey) in zip(preds, preys)
+        is_producer(raw, prey) && (res[pred, prey] = true)
+    end
+    res
+end
+
+function calculate_carnivory_matrix(raw)
+    S = @get raw.S
+    A = @ref raw.A
+    res = spzeros(Bool, S, S)
+    preds, preys, _ = findnz(A)
+    for (pred, prey) in zip(preds, preys)
+        is_consumer(raw, prey) && (res[pred, prey] = true)
+    end
+    res
+end
+
+@expose_data edges begin
+    property(trophic.herbivory_matrix)
+    get(HerbivoryMatrix{Bool}, sparse, "herbivorous link")
+    ref_cached(calculate_herbivory_matrix)
+    @species_index
+    depends(Foodweb)
+end
+
+@expose_data edges begin
+    property(trophic.carnivory_matrix)
+    get(CarnivoryMatrix{Bool}, sparse, "carnivorous link")
+    ref_cached(calculate_carnivory_matrix)
+    @species_index
+    depends(Foodweb)
+end
+
+# ==========================================================================================
+
+# Display.
+function F.shortline(io::IO, model::Model, ::_Foodweb)
+    l = model.trophic.n_links
+    p = model.producers.number
+    c = model.consumers.number
+    r = model.preys.number
+    t = model.tops.number
+    n(n) = n > 0 ? "$n" : "no"
+    s(n) = n > 1 ? "s" : ""
+    print(
+        io,
+        "Foodweb: $(n(l)) link$(s(l)), \
+         $(n(p)) producer$(s(p)), \
+         $(n(c)) consumer$(s(c)), \
+         $(n(r)) prey$(s(r)), \
+         $(n(t)) top$(s(t)).",
+    )
+end
+
+# ==========================================================================================
+
+@doc """
 The Foodweb component, aka. "Trophic layer",
 adds a set of trophic links connecting species in the model.
 This is one of the most structuring components.
@@ -213,293 +518,4 @@ julia> m.carnivorous_links
  0  0  0  0  0
  0  0  0  0  0
 ```
-"""
-mutable struct Foodweb <: ModelBlueprint
-    A::@GraphData {SparseMatrix, Adjacency}{:bin}
-
-    # Specify edges by hand.
-    Foodweb(A) = new(@tographdata A EA{:bin})
-
-    # Or draw them at random.
-    # These models typically require a value for S,
-    # which will be used to imply the number of species
-    # if the species component is automatically added,
-    # but which must *match* it if already present.
-    # There is no way to avoid this possible repetition of S
-    # without allowing stochastic / fallible component expansion.
-    # Fortunately, most users will just imply the species compartment
-    # from the foodweb itself.
-    # TODO: stochastic expansion *could* actually happen during early check,
-    # so that failures would be okay,
-    # and the behaviour would match the behaviour of non-trophic layers.
-    # This would result in other blueprints needing to be defined for the foodweb component
-    # like FoodwebFromNiche and FoodwebFromCascade.
-    # Wait on framework refactoring to improve semantics and ergonomics first?
-    function Foodweb(model::Union{Symbol,AbstractString}; kwargs...)
-        model = @tographdata model Y{}
-
-        @kwargs_helpers kwargs
-
-        given(:S) || argerr("Random foodweb models requires a number of species 'S'.")
-        S = take!(:S)
-
-        # Default values.
-        rc = take_or!(:reject_cycles, false)
-        rd = take_or!(:reject_if_disconnected, true)
-        max = take_or!(:max_iterations, 10^5)
-
-        @expand_if_symbol(
-            model,
-
-            # The niche model is either parametrized with C or L.
-            :niche => begin
-
-                (given(:C) || given(:L)) ||
-                    argerr("The niche model requires either a connectance value 'C' \
-                            or a number of links 'L'.")
-
-                (given(:C) && given(:L)) &&
-                    argerr("Cannot provide both a connectance 'C' \
-                            and a number of links 'L'.")
-
-                if given(:C)
-
-                    C = take!(:C, Float64)
-                    tol = take_or!(:tol_C, 0.1 * C)
-                    no_unused_arguments()
-
-                    #! format: off
-                    Internals.model_foodweb_from_C(
-                        Internals.niche_model,
-                        S, C, nothing, # old 'p_forbidden' ?
-                        tol, rc, rd, max,
-                    )
-                    #! format: on
-                else
-
-                    L = take!(:L, Int64)
-                    tol = take_or!(:tol_L, round(Int64, 0.1 * L))
-                    no_unused_arguments()
-
-                    #! format: off
-                    Internals.model_foodweb_from_L(
-                        Internals.niche_model,
-                        S, L, nothing, # old 'p_forbidden' ?
-                        tol, rc, rd, max,
-                    )
-                    #! format: on
-                end
-            end,
-
-            # The cascade model is only parametrized from C.
-            :cascade => begin
-
-                given(:C) || argerr("The cascade model requires a connectance value 'C'.")
-
-                C = take!(:C)
-                tol = take_or!(:tol_C, 0.1 * C)
-                no_unused_arguments()
-
-                #! format: off
-                Internals.model_foodweb_from_C(
-                    Internals.cascade_model,
-                    S, C, nothing, # old 'p_forbidden' ?
-                    tol, rc, rd, max,
-                )
-                #! format: on
-            end
-        )
-        new(sparse(model))
-    end
-end
-
-function F.early_check(_, bp::Foodweb)
-    (; A) = bp
-    if A isa AbstractMatrix
-        n, m = size(A)
-        n == m || checkfails("The adjacency matrix of size $((m, n)) is not squared.")
-    end
-end
-
-# If needed, infer the number of species from adjacency data.
-function Species(bp::Foodweb)
-    (; A) = bp
-    if A isa AbstractMatrix
-        S = size(A, 1)
-        Species(S)
-    elseif A isa BinAdjacency{Int64}
-        S = refspace(A)
-        Species(S)
-    elseif A isa BinAdjacency{Symbol}
-        names = refs(A)
-        Species(names)
-    end
-end
-
-function F.check(m, bp::Foodweb)
-    (; A) = bp
-    (; S) = m
-    index = m._foodweb._species_index
-    @check_size_if_matrix A (S, S)
-    @check_refs_if_list A :species index
-end
-
-function F.expand!(m, bp::Foodweb)
-    (; A) = bp
-    index = m._foodweb._species_index
-
-    @to_sparse_matrix_if_adjacency A index index
-
-    # Internal network is guaranteed to be an 'Internals.FoodWeb'
-    # because NTI components cannot be set before 'Foodweb' component.
-    fw = m.network
-    fw.A = A
-    fw.method = "from component" # (internals legacy)
-
-    # Add trophic edges to the topology.
-    top = m._topology
-    add_edge_type!(top, :trophic)
-    add_edges_within_node_type!(top, :species, :trophic, A)
-
-    # TODO: this should happen with components-combinations-triggered-hooks
-    # (see Nutrient.Nodes expansion)
-    Topologies.has_node_type(top, :nutrients) && Nutrients.connect_producers_to_nutrients(m)
-
-end
-
-@component Foodweb implies(Species)
-export Foodweb
-
-# Consistency alias.
-const TrophicLayer = Foodweb
-export TrophicLayer
-
-# ==========================================================================================
-# Foodweb queries.
-
-# Topology as a matrix.
-@expose_data edges begin
-    property(trophic_links, A)
-    get(TrophicLinks{Bool}, sparse, "trophic link")
-    ref(m -> m._foodweb.A)
-    @species_index
-    depends(Foodweb)
-end
-
-# Number of links.
-@expose_data graph begin
-    property(n_trophic_links)
-    ref_cache(m -> sum(m._trophic_links))
-    get(m -> m._n_trophic_links)
-    depends(Foodweb)
-end
-
-# Trophic levels.
-@expose_data nodes begin
-    property(trophic_levels)
-    get(TrophicLevels{Float64}, "species")
-    ref_cache(m -> Internals.trophic_levels(m._trophic_links))
-    @species_index
-    depends(Foodweb)
-end
-
-# More elaborate queries.
-# TODO: abstract over the following to reduce boilerplate.
-# as it all just stems from sparse boolean node information.
-include("./producers-consumers.jl")
-include("./preys-tops.jl")
-
-#-------------------------------------------------------------------------------------------
-# Get a sparse matrix highlighting only the producer-to-producer links.
-
-function calculate_producers_links(model)
-    (; S) = model
-    prods = model.producers_indices
-    res = spzeros(Bool, S, S)
-    for i in prods, j in prods
-        res[i, j] = true
-    end
-    res
-end
-
-@expose_data edges begin
-    property(producers_links)
-    get(ProducersLinks{Bool}, sparse, "producer link")
-    ref_cache(calculate_producers_links)
-    @species_index
-    depends(Foodweb)
-end
-
-#-------------------------------------------------------------------------------------------
-# Get a sparse matrix highlighting only 'herbivorous' trophic links: consumers-to-producers.
-#                                    or 'carnivorous' trophic links: consumers-to-consumers.
-
-function calculate_herbivorous_links(model)
-    (; S, _trophic_links) = model
-    res = spzeros(Bool, S, S)
-    preds, preys, _ = findnz(_trophic_links)
-    for (pred, prey) in zip(preds, preys)
-        is_producer(model, prey) && (res[pred, prey] = true)
-    end
-    res
-end
-
-function calculate_carnivorous_links(model)
-    (; S, _trophic_links) = model
-    res = spzeros(Bool, S, S)
-    preds, preys, _ = findnz(_trophic_links)
-    for (pred, prey) in zip(preds, preys)
-        is_consumer(model, prey) && (res[pred, prey] = true)
-    end
-    res
-end
-
-@expose_data edges begin
-    property(herbivorous_links)
-    get(HerbivorousLinks{Bool}, sparse, "herbivorous link")
-    ref_cache(calculate_herbivorous_links)
-    @species_index
-    depends(Foodweb)
-end
-
-@expose_data edges begin
-    property(carnivorous_links)
-    get(CarnivorousLinks{Bool}, sparse, "carnivorous link")
-    ref_cache(calculate_carnivorous_links)
-    @species_index
-    depends(Foodweb)
-end
-
-# ==========================================================================================
-# Display.
-
-# Blueprint.
-function Base.show(io::IO, fw::Foodweb)
-    (; A) = fw
-    L = if A isa AbstractMatrix
-        sum(A)
-    else
-        sum(length.(values(A)))
-    end
-    print(io, "blueprint for Foodweb with $L trophic link$(L == 1 ? "" : "s")")
-end
-
-function Base.show(io::IO, ::MIME"text/plain", fw::Foodweb)
-    (; A) = fw
-    print(io, "$fw:\n  A:")
-    if A isa AbstractMatrix
-        println(io, " " * repr(MIME("text/plain"), A))
-    else
-        for (pred, preys) in A
-            preys =
-                isempty(preys) ? "nothing" : join((repr(p) for p in preys), ", ", " and ")
-            print(io, "\n  $(repr(pred)) eats $preys")
-        end
-    end
-end
-
-# Component.
-function F.display(model, fw::Type{Foodweb})
-    n = model.n_trophic_links
-    "Foodweb: $n link$(n > 1 ? "s" : "")"
-end
+""" Foodweb

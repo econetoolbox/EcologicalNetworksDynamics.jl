@@ -13,6 +13,7 @@
 module AllometryApi
 
 using ..AliasingDicts
+include("./allometry_identifiers.jl")
 
 # Convenience shorter aliases.
 @aliasing_dict(

@@ -1,10 +1,12 @@
+include("multiplex_identifiers.jl")
+
 # Construct several layers at once using the "2D" multiplex API.
 nti_components = InteractionDict(
     :trophic => TrophicLayer,
-    :competition => CompetitionLayer,
-    :facilitation => FacilitationLayer,
-    :interference => InterferenceLayer,
-    :refuge => RefugeLayer,
+    :competition => Competition.Layer,
+    :facilitation => Facilitation.Layer,
+    :interference => Interference.Layer,
+    :refuge => Refuge.Layer,
 )
 
 # Construct a sequence of blueprints from 2D kwargs.
@@ -26,7 +28,7 @@ export nontrophic_layers
 
 # Output a blueprint sum for consistency as arguments to default_model.
 NontrophicLayers(; kwargs...) =
-    sum(values(nontrophic_layers(kwargs)); init = ModelBlueprintSum())
+    sum(values(nontrophic_layers(kwargs)); init = BlueprintSum())
 export NontrophicLayers
 
 add_nontrophic_layers!(m::Model, input) = add!(m, values(nontrophic_layers(input))...)
