@@ -31,6 +31,9 @@
 #    provide a function as the `default` to calculate the default value,
 #    only executed if the argument is not present.
 #
+#  populate!(defaults...)
+#    Complete the arguments with default values, not overriding the originals if given.
+#
 #  no_unused_arguments()
 #    Raise an error if there some arguments have been left unused,
 #    indicating possible mispelling or semantic error.
@@ -44,7 +47,18 @@ module KwargsHelpers
 argerr(mess) = throw(ArgumentError(mess))
 
 macro kwargs_helpers(kwargs)
-    (kwargs, alias!, given, miss, left, peek, take!, take_or!, no_unused_arguments) =
+    (
+        kwargs,
+        alias!,
+        given,
+        miss,
+        left,
+        peek,
+        take!,
+        take_or!,
+        populate!,
+        no_unused_arguments,
+    ) =
         esc.((
             kwargs,
             :alias!,
@@ -54,13 +68,14 @@ macro kwargs_helpers(kwargs)
             :peek,
             :take!,
             :take_or!,
+            :populate!,
             :no_unused_arguments,
         ))
     quote
 
         # Copy of the provided kwargs to be consumed.
-        kw = Dict($kwargs)
-        ks = Set(keys(kw)) # Keep unconsumed for `given`.
+        kw = Dict{Symbol,Any}($kwargs)
+        ks = Set{Symbol}(keys(kw)) # Keep unconsumed for `given`.
 
         # Consider identical names for these arguments.
         function $alias!(ref::Symbol, aliases::Symbol...)
@@ -93,7 +108,10 @@ macro kwargs_helpers(kwargs)
 
         # Abstract over both peek and take!.
         function get(get_fn, arg, type)
-            $given(arg) || argerr("Missing required argument: $arg::$type.")
+            if !$given(arg)
+                ty = type === Any ? "" : "::$type"
+                argerr("Missing required argument: $arg$ty.")
+            end
             $left(arg) ||
                 argerr("Argument '$arg' consumed twice: this is a bug in the package.")
 
@@ -129,6 +147,14 @@ macro kwargs_helpers(kwargs)
             end
         end
 
+        # Populate with default args.
+        $populate!(; defs...) =
+            for (k, v) in defs
+                $given(k) && continue
+                push!(ks, k)
+                kw[k] = v
+            end
+
         # Check that all arguments have been consumed.
         function $no_unused_arguments()
             isempty(kw) && return
@@ -143,7 +169,7 @@ export @kwargs_helpers
 # Declare here just to satisfy static code analysis.
 unerr() = throw("Unimplemented kwarg helper. \
                  Has @kwargs_helpers macro been called in this scope?")
-alias(first, args...) = unerr()
+alias!(first, args...) = unerr()
 given(arg) = unerr()
 miss(arg) = unerr()
 left(arg) = unerr()
@@ -151,14 +177,16 @@ left() = unerr()
 peek(arg, type = nothing) = unerr()
 take!(arg, type = nothing) = unerr()
 take_or!(arg, default, type = nothing) = unerr()
+populate!(; defs...) = unerr()
 no_unused_arguments() = unerr()
-export alias
+export alias!
 export given
 export miss
 export left
 export peek
 export take!
 export take_or!
+export populate!
 export no_unused_arguments
 
 end

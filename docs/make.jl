@@ -22,12 +22,12 @@ makedocs(;
         "Welcome" => "index.md",
         "Guide" => [
             "Quick Start" => "man/quickstart.md",
+            "The Model and its Components" => "man/components.md",
             "Generate Food Webs" => "man/foodwebs.md",
             "Build Simple Models" => "man/simple-models.md",
             "Build Advanced Models" => "man/advanced-models.md",
             "Simulate the Community Dynamics" => "man/simulate.md",
             "Analyse the Simulated Dynamics" => "man/output-analysis.md",
-            "Bonus: The Model and its Components (advanced)" => "man/components.md",
         ],
         #  "Tutorials" => [
         #  "Paradox of enrichment" => "example/paradox_enrichment.md",
