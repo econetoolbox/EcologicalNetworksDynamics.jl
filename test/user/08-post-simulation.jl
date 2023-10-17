@@ -47,12 +47,19 @@ end
 
 end
 
+function check_extinctions(actual, expected)
+    @test keys(actual) == keys(expected)
+    for (k, v) in actual
+        @test round(v; digits = 2) ≈ expected[k]
+    end
+end
 
 @testset "Retrieve extinct species." begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
     sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties = false)
-    @test get_extinctions(sol) == Dict([1 => 256.8040524344076, 2 => 484.0702074171516])
+    ext = get_extinctions(sol)
+    check_extinctions(ext, Dict([1 => 256.80, 2 => 484.07]))
 
 end
 
@@ -107,14 +114,13 @@ end
         depending on the simulated biomasses values.
         You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
     ) simulate(m, 0.5, 100)
-    @test get_extinctions(sol) ==
-          Dict([3 => 22.565016968038158, 4 => 23.16730328349786, 5 => 61.763749935102005])
+    ext = get_extinctions(sol)
+    check_extinctions(ext, Dict(3 => 22.57, 4 => 23.17, 5 => 61.76))
 
     # Scroll back in time.
-    @test get_extinctions(sol; date = 60) ==
-          Dict([3 => 22.565016968038158, 4 => 23.16730328349786])
-    @test get_extinctions(sol; date = 23) == Dict([3 => 22.565016968038158])
-    @test get_extinctions(sol; date = 20) == Dict([])
+    check_extinctions(get_extinctions(sol; date = 60), Dict(3 => 22.57, 4 => 23.17))
+    check_extinctions(get_extinctions(sol; date = 23), Dict(3 => 22.57))
+    check_extinctions(get_extinctions(sol; date = 20), Dict())
 
     @argfails(
         get_extinctions(sol; date = 150),

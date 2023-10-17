@@ -18,7 +18,7 @@
     m = base + lg
     @test m.r == [0, 0, 0, 1, 1]
     @test m.K == [0, 0, 0, 1, 1]
-    @test m.producers_competition == [
+    @test m.producers.competition == [
         0 0 0 0 0
         0 0 0 0 0
         0 0 0 0 0
@@ -36,7 +36,7 @@
     m = base + lg
     @test m.r == [0, 0, 0, 1, 1]
     @test m.K == [0, 0, 0, 1, 1]
-    @test m.producers_competition == [
+    @test m.producers.competition == [
         0 0 0 0 0
         0 0 0 0 0
         0 0 0 0 0
@@ -47,12 +47,21 @@
     # Cannot bring blueprints if corresponding components are already there.
     @sysfails(
         base + GrowthRate(5) + LogisticGrowth(; r = 1),
-        Check(LogisticGrowth),
-        "blueprint also brings '$GrowthRate', which is already in the system."
+        Add(
+            BroughtAlreadyInValue,
+            GrowthRate,
+            [GrowthRate.Flat, false, LogisticGrowth.Blueprint],
+        )
     )
 
     # In this situation, just stop bringing.
     m = base + GrowthRate(5) + LogisticGrowth(; r = nothing)
     @test m.r == [0, 0, 0, 5, 5]
+
+    # If you don't bring, make sure the target model completes your incomplete blueprint.
+    @sysfails(
+        base + LogisticGrowth(; r = nothing),
+        Missing(GrowthRate, LogisticGrowth, [LogisticGrowth.Blueprint], nothing),
+    )
 
 end

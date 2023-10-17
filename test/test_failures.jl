@@ -70,7 +70,7 @@ function failswith(src, mod, xp, exception_pattern, expect_expansion_failure)
                Was expecting: $exception_pattern.")
     end
     # Test actual generated code.
-    @gensym e
+    @gensym e # Otherwise unhygienic.
     esc(quote
         try
             $code
@@ -97,7 +97,7 @@ function _check_exception(exception_pattern, e)
 end
 
 # Common exception checker: only the type (like @test_throws).
-function _check_unwrapped_exception(ExceptionType::DataType, e)
+function _check_unwrapped_exception(ExceptionType::Type, e)
     e isa ExceptionType || error("Expected error type:\n  $ExceptionType\n\
                                   got instead:\n  $(typeof(e))")
 end
@@ -114,7 +114,7 @@ end
 
 # To check more than the type, provide args under the form ExceptionType => (args,..)
 # and implementation for what they mean to the type.
-function _check_unwrapped_exception(pair::Pair{DataType,T}, e) where {T<:Tuple}
+function _check_unwrapped_exception(pair::Pair, e)
     ExceptionType, args = pair
     _check_unwrapped_exception(ExceptionType, e) # Type is checked anyway.
     check_exception(e, args...)
@@ -122,14 +122,16 @@ end
 
 # If anything else than an exception is thrown, just test for equality.
 function _check_unwrapped_exception(thrown, actual)
-    thrown == actual || error("Expected thrown value: $(repr(thrown)) ::$(typeof(thrown))\n\
-                               got instead: $(repr(actual)) ::$(typeof(actual))")
+    thrown == actual ||
+        error("Expected thrown value:\n  $(repr(thrown)) ::$(typeof(thrown))\n\
+               got instead:\n  $(repr(actual)) ::$(typeof(actual))")
 end
 
 # Open end for user extension.
-check_exception(e::Exception, args...) =
-    error("Unimplemented exception checking: $(typeof(e)) => $args ::$(typeof(args)). \
+function check_exception(e::Exception, args...)
+    error("Unimplemented exception checking:\n  $(typeof(e)) => $args ::$(typeof(args))\n\
            Received exception $e.")
+end
 
 #-------------------------------------------------------------------------------------------
 # Module-dedicated error.
@@ -163,7 +165,7 @@ end
 # Common expected errors.
 
 # ArgumentError.
-function TestFailures.check_exception(e::ArgumentError, message_pattern)
+function check_exception(e::ArgumentError, message_pattern)
     TestFailures.check_message(message_pattern, eval(e.msg))
 end
 # Expect failure during expansion.
@@ -175,5 +177,16 @@ macro argfails(xp, mess)
     TestFailures.failswith(__source__, __module__, xp, :(ArgumentError => ($mess,)), false)
 end
 export @xargfails, @argfails
+
+# UndefVarError.
+function check_exception(e::UndefVarError, var, scope)
+    e.var == var ||
+        error("Expected undefined symbol: $(repr(var)), got instead: $(repr(e.var))")
+    # This appeared and broke the tests.
+    if VERSION >= v"1.11"
+        e.scope === scope ||
+            error("Expected undefined scope: $(repr(scope)), got instead: $(repr(e.scope))")
+    end
+end
 
 end
