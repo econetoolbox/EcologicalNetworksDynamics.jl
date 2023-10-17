@@ -122,7 +122,7 @@ end
     m = default_model(
         Foodweb([1 => 2, 2 => 3]),
         # Add one facilitation interaction randomly.
-        FacilitationLayer(; A = (L = 1,)),
+        Facilitation.Layer(; A = (L = 1,)),
     )
 
     sol = simulate(m, 0.5, 500)

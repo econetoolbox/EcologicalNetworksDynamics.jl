@@ -6,11 +6,8 @@
     m.h = 3
     @test m.hill_exponent == m.h == 3
 
-    @sysfails(
-        Model(HillExponent(-4)),
-        Check(HillExponent),
-        "Hill exponent needs to be positive. \
-         Received: h = -4.0."
-    )
+    mess = "Not a positive (power) value: h ="
+    @sysfails(Model(HillExponent(-4)), Check(early, [HillExponent.Raw], "$mess -4.0."))
+    @failswith(m.h = -1, WriteError("$mess -1.", :hill_exponent, nothing, -1))
 
 end

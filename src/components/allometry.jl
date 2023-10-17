@@ -8,6 +8,7 @@
 # This file just provides utils to deal with allometric parameters..
 # ..based on the following allometry API.
 include("./allometry_api.jl")
+include("./allometry_identifiers.jl")
 using .AllometryApi
 export Allometry
 

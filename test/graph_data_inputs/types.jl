@@ -12,21 +12,41 @@
     # Convenience symbol only.
     @test Symbol == @GraphData Y{}
     @test Symbol == @GraphData {Symbol}{}
+    @test Symbol == @GraphData Symbol{}
     @test Symbol == @GraphData YY{}
 
-    # Maps and Adjacencies.
-    K = @GraphData K{Float64}
-    @test K == OrderedDict{I,Float64} where {I}
-    @test K{Symbol} == OrderedDict{Symbol,Float64}
+    # Maps and Adjacencies + test aliases.
+    for K in [
+        @GraphData(K{Float64}),
+        @GraphData({Map}{Float64}),
+        @GraphData(Map{Float64}),
+        @GraphData({K}{Float64}),
+    ]
+        @test K == OrderedDict{I,Float64} where {I}
+        @test K{Symbol} == OrderedDict{Symbol,Float64}
+    end
 
-    A = @GraphData A{Float64}
-    @test A == OrderedDict{I,OrderedDict{I,Float64}} where {I}
-    @test A{Symbol} == OrderedDict{Symbol,OrderedDict{Symbol,Float64}}
+    for A in [
+        @GraphData(A{Float64}),
+        @GraphData({Adjacency}{Float64}),
+        @GraphData(Adjacency{Float64}),
+        @GraphData(Adj{Float64}),
+        @GraphData({A}{Float64}),
+    ]
+        @test A == OrderedDict{I,OrderedDict{I,Float64}} where {I}
+        @test A{Symbol} == OrderedDict{Symbol,OrderedDict{Symbol,Float64}}
+    end
 
     # Special boolean case.
-    K = @GraphData K{:bin}
-    @test K == OrderedSet
-    @test K{Int64} == OrderedSet{Int64}
+    for K in [
+        @GraphData(K{:bin}),
+        @GraphData(Map{:bin}),
+        @GraphData({Map}{:bin}),
+        @GraphData({K}{:bin}),
+    ]
+        @test K == OrderedSet
+        @test K{Int64} == OrderedSet{Int64}
+    end
 
     A = @GraphData A{:bin}
     @test A == OrderedDict{I,OrderedSet{I}} where {I}

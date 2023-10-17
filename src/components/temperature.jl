@@ -1,31 +1,49 @@
 # Temperature is a single graph-level scalar
 # useful to calculate allometric values for various biorates.
-#
-# TODO: as model data, temperature gets invalidated as soon as a biorate is edited.
-#       Is this a problem, and if yes, how to solve it?
 
-mutable struct Temperature <: ModelBlueprint
-    T::Float64 # (Kelvin)
-    Temperature(T = 293.15) = new(T)
+# (reassure JuliaLS)
+(false) && (local Temperature, _Temperature)
+
+# ==========================================================================================
+# Blueprints.
+
+module Temperature_
+include("blueprint_modules.jl")
+
+#-------------------------------------------------------------------------------------------
+# From raw value.
+
+mutable struct Raw <: Blueprint
+    T::Float64 # Kelvin.
+end
+@blueprint Raw "value (Kelvin)"
+export Raw
+
+F.early_check(bp::Raw) = check(bp.T)
+check(T) = check_value(>=(0), T, nothing, :T, "Not a positive (Kelvin) value")
+
+F.expand!(raw, bp::Raw) = raw.environment = Internals.Environment(bp.T)
+
 end
 
-function F.check(_, bp::Temperature)
-    (; T) = bp
-    T >= 0.0 || checkfails("Temperature needs to be positive. Received: T = $T.")
-end
+# ==========================================================================================
+# Component and generic constructors.
 
-function F.expand!(model, bp::Temperature)
-    (; T) = bp
-    model.environment = Internals.Environment(T)
-end
-
-@component Temperature
+@component Temperature{Internal} blueprints(Temperature_)
 export Temperature
 
+(::_Temperature)(T = 293.15) = Temperature.Raw(T)
+
+# Basic query.
 @expose_data graph begin
     property(temperature, T)
-    get(m -> m.environment.T)
     depends(Temperature)
+    get(raw -> raw.environment.T)
+    set!((raw, rhs::Real) -> begin
+        Temperature_.check(rhs)
+        raw.environment.T = rhs
+    end)
 end
 
-F.display(model, ::Type{<:Temperature}) = "Temperature: $(model.T)K"
+# Display.
+F.shortline(io::IO, model::Model, ::_Temperature) = print(io, "Temperature: $(model.T)K")

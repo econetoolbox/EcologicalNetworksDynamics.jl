@@ -1,53 +1,104 @@
-FR = Nutrients.TurnoverFromRawValues
-
 @testset "Nutrients turnover component." begin
 
-    # Mostly duplicated from nutrients_turnover.
+    # Mostly duplicated from BodyMass.
 
-    base = Model(Nutrients.Nodes([:a, :b, :c]))
+    base = Model()
 
     #---------------------------------------------------------------------------------------
-    # Construct from raw values.
+    # From raw values.
 
+    # Vector.
     tr = Nutrients.Turnover([1, 2, 3])
     m = base + tr
-    @test m.nutrients_turnover == [1, 2, 3]
-    @test typeof(tr) === FR
+    # Implies nutrients nodes.
+    @test m.nutrients.richness == 3
+    @test m.nutrients.names == [:n1, :n2, :n3]
+    @test m.nutrients.turnover == [1, 2, 3]
+    @test typeof(tr) == Nutrients.Turnover.Raw
 
-    tr = Nutrients.Turnover([:c => 4, :b => 5, :a => 6])
+    # Mapped input.
+    ## Integer keys.
+    tr = Nutrients.Turnover([2 => 1, 3 => 2, 1 => 3])
     m = base + tr
-    @test m.nutrients_turnover == [6, 5, 4]
-    @test typeof(tr) === FR
-
-    tr = Nutrients.Turnover(7)
+    @test m.nutrients.richness == 3
+    @test m.nutrients.names == [:n1, :n2, :n3]
+    @test m.nutrients.turnover == [3, 1, 2]
+    @test typeof(tr) == Nutrients.Turnover.Map
+    ## Symbol keys.
+    tr = Nutrients.Turnover([:a => 1, :b => 2, :c => 3])
     m = base + tr
-    @test m.nutrients_turnover == [7, 7, 7]
-    @test typeof(tr) === FR
+    @test m.nutrients.richness == 3
+    @test m.nutrients.names == [:a, :b, :c]
+    @test m.nutrients.turnover == [1, 2, 3]
+    @test typeof(tr) == Nutrients.Turnover.Map
 
-    # Forbid missing values.
-    @sysfails(
-        base + Nutrients.Turnover([1, 2]),
-        Check(FR),
-        "Invalid size for parameter 't': expected (3,), got (2,)."
-    )
-    @sysfails(
-        base + Nutrients.Turnover([:a => 1]),
-        Check(FR),
-        "Missing 'nutrient' node label in 't': no value specified for :b."
-    )
+    # Editable property.
+    m.nutrients.turnover[1] = 2
+    m.nutrients.turnover[2:3] *= 10
+    @test m.nutrients.turnover == [2, 20, 30]
 
-    # Implies nutrients component.
-    m = Model(Nutrients.Turnover([1, 2, 3]))
-    @test m.nutrients_names == [:n1, :n2, :n3]
-
-    m = Model(Nutrients.Turnover([:a => 1, :b => 2, :c => 3]))
-    @test m.nutrients_names == [:a, :b, :c]
-
-    # Unless we can't infer it.
+    # Scalar (requires nodes to expand).
+    tr = Nutrients.Turnover(2)
+    m = base + Nutrients.Nodes(3) + tr
+    @test m.nutrients.turnover == [2, 2, 2]
+    @test typeof(tr) == Nutrients.Turnover.Flat
     @sysfails(
         Model(Nutrients.Turnover(5)),
-        Check(FR),
-        "missing a required component '$(Nutrients.Nodes)': implied."
+        Missing(Nutrients.Nodes, Nutrients.Turnover, [Nutrients.Turnover.Flat], nothing)
+    )
+
+    # Checked.
+    @sysfails(
+        Model(Nutrients.Nodes(3)) + Nutrients.Turnover([1, 2]),
+        Check(
+            late,
+            [Nutrients.Turnover.Raw],
+            "Invalid size for parameter 't': expected (3,), got (2,).",
+        )
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Input guards.
+
+    @sysfails(
+        Model(Nutrients.Turnover([1, -2])),
+        Check(early, [Nutrients.Turnover.Raw], "Not a positive value: t[2] = -2.0.")
+    )
+
+    # Common ref checks from GraphDataInputs (not tested for every similar component).
+    @sysfails(
+        Model(Nutrients.Nodes(2)) + Nutrients.Turnover([1 => 0.1, 3 => 0.2]),
+        Check(
+            late,
+            [Nutrients.Turnover.Map],
+            "Invalid 'nutrient' node index in 't'. \
+             Index does not fall within the valid range 1:2: [3] (0.2).",
+        )
+    )
+
+    @sysfails(
+        Model(Nutrients.Nodes(2)) + Nutrients.Turnover([:a => 0.1, :b => 0.2]),
+        Check(
+            late,
+            [Nutrients.Turnover.Map],
+            "Invalid 'nutrient' node label in 't'. \
+             Expected either :n1 or :n2, got instead: [:a] (0.1).",
+        )
+    )
+
+    @failswith(
+        (m.nutrients.turnover[1] = 'a'),
+        WriteError("not a value of type Real", :(nutrients.turnover), (1,), 'a')
+    )
+
+    @failswith(
+        (m.nutrients.turnover[2:3] *= -10),
+        WriteError(
+            "Not a positive value: t[2] = -20.0.",
+            :(nutrients.turnover),
+            (2,),
+            -20.0,
+        )
     )
 
 end

@@ -27,11 +27,11 @@ mutable struct ModelParameters
     # From the future: use this cache to store data held
     # by the various views handled to users.
     # Keys into the cache are the corresponding
-    # standard (=first, not aliases) property names,
+    # standard (=first, not aliases) property paths,
     # that the framework ensures to be unique.
     # All data within the cache is *redundant* with the rest of the model,
     # so it could in principle be safely deleted.
-    _cache::Dict{Symbol,Any}
+    _cache::Dict{Union{Symbol,Expr},Any}
     # Empty version for the system.
     function ModelParameters()
         ModelParameters(

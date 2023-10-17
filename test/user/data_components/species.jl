@@ -1,38 +1,66 @@
 @testset "Species components." begin
 
-    m = Model(Species([:a, :b, :c]))
+    base = Model()
 
+    # From names.
+    sp = Species([:a, :b, :c])
+    m = base + sp
     @test m.richness == 3
     @test m.S == 3
-    @test m.species_richness == 3
-    @test m.n_species == 3
-    @test m.species_index == Dict(:a => 1, :b => 2, :c => 3)
-    @test m.species_names == [:a, :b, :c]
+    @test m.species.richness == 3
+    @test m.species.number == 3
+    @test m.species.index == Dict(:a => 1, :b => 2, :c => 3)
+    @test m.species.names == [:a, :b, :c]
+    @test typeof(sp) == Species.Names
 
     # Get a closure to convert index to label.
-    lab = m.species_label
+    lab = m.species.label
     @test lab(1) == :a
     @test lab.([1, 2, 3]) == [:a, :b, :c]
 
-    # Default names.
-    @test Species(3).names == [:s1, :s2, :s3]
+    # From a number of species (default names generated).
+    sp = Species(3)
+    m = base + sp
+    @test m.species.names == [:s1, :s2, :s3]
+    @test typeof(sp) == Species.Number
 
-    @sysfails(
-        Model(Species([:a, :b, :a])),
-        Check(Species),
-        "Species 1 and 3 are both named :a."
+    # From an index.
+    sp = Species(Dict([:a => 1, :b => 2, :c => 3]))
+    m = base + sp
+    @test m.species.names == [:a, :b, :c]
+    @test typeof(sp) == Species.Names
+
+    #---------------------------------------------------------------------------------------
+    # Guards.
+
+    @argfails(
+        Species(Dict([:a => 1, :c => 3])),
+        "Invalid index: received 2 references but one of them is [3] (:c)."
     )
 
     @argfails(
-        Model(Species([:a, :b])).species_label(3),
+        Species(Dict([:a => 1, :c => 1])),
+        "Invalid index: no reference given for index [2]."
+    )
+
+    @argfails(
+        Species(Dict([:a => 5, :b => 2, :c => 3])),
+        "Invalid index: received 3 references but one of them is [5] (:a)."
+    )
+
+    @sysfails(
+        Model(Species([:a, :b, :a])),
+        Check(early, [Species.Names], "Species 1 and 3 are both named :a."),
+    )
+
+    @argfails(
+        Model(Species([:a, :b])).species.label(3),
         "Invalid index (3) when there are 2 species names."
     )
 
-    # Cannot query without the component.
     @sysfails(
         Model().richness,
-        Property(richness),
-        "Component '$Species' is required to read this property."
+        Property(richness, "Component $(EN._Species) is required to read this property."),
     )
 
 end

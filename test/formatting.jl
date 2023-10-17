@@ -2,14 +2,17 @@ module TestFormatting
 
 using EcologicalNetworksDynamics
 using JuliaFormatter
+using Crayons
 
 @info "Checking source code formatting..\n"
 
 root = pkgdir(EcologicalNetworksDynamics)
 
 exclude = [
-    "README.md", # Not formatted according to JuliaFormatter.
-    "CONTRIBUTING.md", # Not formatted according to JuliaFormatter.
+    # Not formatted according to JuliaFormatter.
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
     # Wait on https://github.com/JuliaDocs/Documenter.jl/issues/2025 or the end of boost warnings.
     "docs/src/man/boost.md",
     # Wait on https://github.com/JuliaDocs/Documenter.jl/issues/1420.
@@ -48,11 +51,14 @@ for (folder, _, files) in walkdir(root)
         if !format(path; overwrite = false, format_markdown = true)
             config_path = joinpath(basename(dirname(abspath(".."))), ".JuliaFormatter.toml")
             dev_path = escape_string(abspath(path))
+            short_path = chopprefix(dev_path, abspath(root) * '/')
+            b = crayon"blue"
+            r = crayon"reset"
             println()
-            @warn "Source code in $file is not formatted according \
+            @warn "Source code in $b$short_path$r is not formatted according \
             to the project style defined in $config_path. \
-            Consider formatting it using your editor's autoformatter or with:\n\
-                julia> using JuliaFormatter;\n\
+            Consider formatting it using your editor's autoformatter or with:\n  \
+                julia> using JuliaFormatter;\n  \
                 julia> format(\"$dev_path\", format_markdown=true)\n"
             any_wrong[] = true
         end

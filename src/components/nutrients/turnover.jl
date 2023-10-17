@@ -1,66 +1,96 @@
 # Set or generate turnover rates for every nutrients in the model.
-#
-# One blueprint variant, but keep the same pattern as other biorates
-# just for consistency, in case of future pattern evolution.
+
+# Mostly duplicated from BodyMass.
+
+# (reassure JuliaLS)
+(false) && (local Turnover, _Turnover)
 
 # ==========================================================================================
-abstract type Turnover <: ModelBlueprint end
-# All subtypes must require(Nutrients.Nodes).
+module Turnover_
+include("../blueprint_modules.jl")
+include("../blueprint_modules_identifiers.jl")
+import .EN: Nutrients
 
-Turnover(t) = TurnoverFromRawValues(t)
+#-------------------------------------------------------------------------------------------
+mutable struct Raw <: Blueprint
+    t::Vector{Float64}
+    nutrients::Brought(Nutrients.Nodes)
+    Raw(t, nt = Nutrients._Nodes) = new(@tographdata(t, Vector{Float64}), nt)
+end
+F.implied_blueprint_for(bp::Raw, ::Nutrients._Nodes) = Nutrients.Nodes(length(bp.t))
+@blueprint Raw "turnover values"
+export Raw
+
+F.early_check(bp::Raw) = check_nodes(check, bp.t)
+check(t, ref = nothing) = check_value(>=(0), t, ref, :t, "Not a positive value")
+
+function F.late_check(raw, bp::Raw)
+    (; t) = bp
+    N = @get raw.nutrients.number
+    @check_size t N
+end
+
+F.expand!(raw, bp::Raw) = expand!(raw, bp.t)
+expand!(raw, t) = raw._scratch[:nutrients_turnover] = t
+
+#-------------------------------------------------------------------------------------------
+mutable struct Flat <: Blueprint
+    t::Float64
+end
+@blueprint Flat "uniform turnover value" depends(Nutrients.Nodes)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.t)
+F.expand!(raw, bp::Flat) = expand!(raw, to_size(bp.t, @get raw.nutrients.number))
+
+#-------------------------------------------------------------------------------------------
+mutable struct Map <: Blueprint
+    t::@GraphData Map{Float64}
+    nutrients::Brought(Nutrients.Nodes)
+    Map(t, nt = Nutrients._Nodes) = new(@tographdata(t, Map{Float64}), nt)
+end
+F.implied_blueprint_for(bp::Map, ::Nutrients._Nodes) = Nutrients.Nodes(refspace(bp.t))
+@blueprint Map "[nutrient => turnover] map"
+export Map
+
+F.early_check(bp::Map) = check_nodes(check, bp.t)
+function F.late_check(raw, bp::Map)
+    (; t) = bp
+    index = @ref raw.nutrients.index
+    @check_list_refs t :nutrient index dense
+end
+
+function F.expand!(raw, bp::Map)
+    index = @ref raw.nutrients.index
+    t = to_dense_vector(bp.t, index)
+    expand!(raw, t)
+end
+
+end
+
+# ==========================================================================================
+@component Turnover{Internal} requires(Nutrients.Nodes) blueprints(Turnover_)
 export Turnover
 
-#-------------------------------------------------------------------------------------------
-mutable struct TurnoverFromRawValues <: Turnover
-    t::@GraphData {Scalar, Vector, Map}{Float64}
-    TurnoverFromRawValues(t) = new(@tographdata t SVK{Float64})
-end
-
-F.can_imply(bp::TurnoverFromRawValues, ::Type{Nutrients.Nodes}) = !(bp.t isa Real)
-Nutrients.Nodes(bp::TurnoverFromRawValues) =
-    if bp.t isa Vector
-        Nutrients.Nodes(length(bp.t))
+function (::_Turnover)(t)
+    t = @tographdata t {Scalar, Vector, Map}{Float64}
+    if t isa Real
+        Turnover.Flat(t)
+    elseif t isa AbstractVector
+        Turnover.Raw(t)
     else
-        Nutrients.Nodes(refs(bp.t))
+        Turnover.Map(t)
     end
-
-function F.check(model, bp::TurnoverFromRawValues)
-    (; _nutrients_index) = model
-    N = model.n_nutrients
-    (; t) = bp
-    @check_refs_if_list t :nutrient _nutrients_index dense
-    @check_size_if_vector t N
 end
 
-function F.expand!(model, bp::TurnoverFromRawValues)
-    (; _nutrients_index) = model
-    N = model.n_nutrients
-    (; t) = bp
-    @to_dense_vector_if_map t _nutrients_index
-    @to_size_if_scalar Real t N
-    model._scratch[:nutrients_turnover] = t
-end
-
-@component TurnoverFromRawValues implies(Nutrients.Nodes)
-export TurnoverFromRawValues
-
-#-------------------------------------------------------------------------------------------
-# @conflicts(TurnoverFromRawValues) # Keep in case more alternate blueprints are added.
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:Turnover}) = Turnover
-
-# ==========================================================================================
 @expose_data nodes begin
-    property(nutrients_turnover)
-    get(TurnoverRates{Float64}, "nutrient")
-    ref(m -> m._scratch[:nutrients_turnover])
-    write!((m, rhs, i) -> (m._nutrients_turnover[i] = rhs))
-    @nutrients_index
+    property(nutrients.turnover)
     depends(Turnover)
+    @nutrients_index
+    ref(raw -> raw._scratch[:nutrients_turnover])
+    get(TurnoverRates{Float64}, "nutrient")
+    write!((raw, rhs::Real, i) -> Turnover_.check(rhs, i))
 end
 
-# ==========================================================================================
-display_short(bp::Turnover; kwargs...) = display_short(bp, Turnover; kwargs...)
-display_long(bp::Turnover; kwargs...) = display_long(bp, Turnover; kwargs...)
-F.display(model, ::Type{<:Turnover}) =
-    "Nutrients turnover: [$(join_elided(model._nutrients_turnover, ", "))]"
+F.shortline(io::IO, model::Model, ::_Turnover) =
+    print(io, "Nutrients turnover: [$(join_elided(model.nutrients._turnover, ", "))]")

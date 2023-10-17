@@ -287,7 +287,7 @@
         (@tographdata input YSV{Bool}),
         "Error while attempting to convert 'input' to Vector{Bool} \
          (details further down the stacktrace). \
-         Received [0, 1, 2]::Vector{Int64}.",
+         Received [0, 1, 2] ::Vector{Int64}.",
     )
     # And down the stacktrace:
     @failswith(
@@ -423,7 +423,7 @@ end
     @test refspace(l) == 0
     @test collect(accesses(l)) == []
     @test empty_space(0)
-    @test !inspace(0, 0) && !inspace(1, 0)
+    @test !inspace((0,), 0) && !inspace((1,), 0)
 
     # Map indices.
     bin = [1, 3, 5]
@@ -435,10 +435,10 @@ end
         @test collect(refs(l)) == [1, 3, 5]
         @test nrefspace(l) == 5
         @test refspace(l) == 5
-        @test collect(accesses(l)) == [1, 3, 5]
+        @test collect(accesses(l)) == [(1,), (3,), (5,)]
     end
-    @test all(inspace(i, 5) for i in 1:5)
-    @test !inspace(0, 5) && !inspace(6, 5)
+    @test all(inspace((i,), 5) for i in 1:5)
+    @test !inspace((0,), 5) && !inspace((6,), 5)
 
     # Map symbols.
     bin = [:a, :c, :e]
@@ -451,10 +451,10 @@ end
         @test collect(refs(l)) == [:a, :c, :e]
         @test nrefspace(l) == 3
         @test refspace(l) == OrderedDict(:a => 1, :c => 2, :e => 3)
-        @test collect(accesses(l)) == [:a, :c, :e]
+        @test collect(accesses(l)) == [(:a,), (:c,), (:e,)]
         space = refspace(l)
-        @test all(inspace(s, space) for s in symbols("ace"))
-        @test !inspace(:x, space) && !inspace(:y, space)
+        @test all(inspace((s,), space) for s in symbols("ace"))
+        @test !inspace((:x,), space) && !inspace((:y,), space)
     end
 
     # Adjacency list indices.
@@ -496,9 +496,9 @@ end
         @test nrefs_outer(l) == 3
         @test nrefs_inner(l) == 5
 
-        @test collect(refs(l)) == Symbol.(collect("abcdefg"))
-        @test collect(refs_outer(l)) == Symbol.(collect("ace"))
-        @test collect(refs_inner(l)) == Symbol.(collect("bdefg"))
+        @test collect(refs(l)) == symbols("abcdefg")
+        @test collect(refs_outer(l)) == symbols("ace")
+        @test collect(refs_inner(l)) == symbols("bdefg")
 
         @test nrefspace(l) == 7
         @test nrefspace_outer(l) == 3
@@ -516,5 +516,243 @@ end
             !inspace((:x, i), (u, v)) && !inspace((i, :y), (u, v)) for i in symbols("ze")
         )
     end
+
+end
+
+@testset "Iteration over graph data input types." begin
+
+    check(a, e) = @test collect(items(a)) == e
+    check_nodes(a, e) = @test collect(node_items(a)) == e
+    check_edges(a, e) = @test collect(edge_items(a)) == e
+
+    #---------------------------------------------------------------------------------------
+    # Vectors.
+    check_nodes([], [])
+    check([], [])
+    #! format: off
+    check_nodes([:a, :b, :c], [
+        ((1,), :a),
+        ((2,), :b),
+        ((3,), :c)
+    ])
+    # Default.
+    check([:a, :b, :c], [
+        ((1,), :a),
+        ((2,), :b),
+        ((3,), :c)
+    ])
+    #! format: on
+
+    #---------------------------------------------------------------------------------------
+    # Matrices.
+    check([;;], [])
+    check_edges([;;], [])
+    #! format: off
+    check_edges([
+       :a :b
+       :c :d
+     ], [
+       ((1, 1), :a),
+       ((1, 2), :b),
+       ((2, 1), :c),
+       ((2, 2), :d),
+    ])
+    # Default.
+    check([
+       :a :b
+       :c :d
+     ], [
+       ((1, 1), :a),
+       ((1, 2), :b),
+       ((2, 1), :c),
+       ((2, 2), :d),
+    ])
+    @failswith(node_items([;;]), "Cannot read node data from a 2D matrix.")
+    #! format: on
+
+    #---------------------------------------------------------------------------------------
+    # 2D Nested collections.
+    # Different interpretation of the same input.
+    check_edges([], [])
+    check_nodes([], [])
+    #! format: off
+    check_edges([
+       [:a, :b],
+       [:c, :d],
+     ], [
+       ((1, 1), :a),
+       ((1, 2), :b),
+       ((2, 1), :c),
+       ((2, 2), :d),
+    ])
+    check_nodes([
+       [:a, :b],
+       [:c, :d],
+     ], [
+       ((1,), [:a, :b]),
+       ((2,), [:c, :d]),
+    ])
+    # Default.
+    check([
+       [:a, :b],
+       [:c, :d],
+     ], [
+       ((1,), [:a, :b]),
+       ((2,), [:c, :d]),
+    ])
+    #! format: on
+
+    #---------------------------------------------------------------------------------------
+    # Sparse vectors.
+    check(sparse([]), [])
+    check_nodes(sparse([]), [])
+    #! format: off
+    check_nodes(sparse([0, 1, 0, 0, 2, 0, 3,  0]), [
+       ((2,), 1),
+       ((5,), 2),
+       ((7,), 3),
+    ])
+    # Default.
+    check(sparse([0, 1, 0, 0, 2, 0, 3,  0]), [
+       ((2,), 1),
+       ((5,), 2),
+       ((7,), 3),
+    ])
+    #! format: on
+
+    #---------------------------------------------------------------------------------------
+    # Sparse matrices.
+    check(sparse([;;]), [])
+    check(sparse(zeros(3, 3)), [])
+    check_edges(sparse([;;]), [])
+    check_edges(sparse(zeros(3, 3)), [])
+    #! format: off
+    check_edges(sparse([
+       0 2 0
+       1 0 4
+       0 3 0
+    ]), [
+       ((2, 1), 1),
+       ((1, 2), 2),
+       ((3, 2), 3),
+       ((2, 3), 4),
+    ])
+    # Default.
+    check(sparse([
+       0 2 0
+       1 0 4
+       0 3 0
+    ]), [
+       ((2, 1), 1),
+       ((1, 2), 2),
+       ((3, 2), 3),
+       ((2, 3), 4),
+    ])
+    #! format: on
+    @failswith(node_items(sparse([;;])), "Cannot read node data from a 2D matrix.")
+
+    #---------------------------------------------------------------------------------------
+    # Maps.
+    check(Dict(), [])
+    check(OrderedDict(), [])
+    check_nodes(Dict(), [])
+    check_nodes(OrderedDict(), [])
+    #! format: off
+    check_nodes(Dict([
+       :a => 1,
+       :b => 2,
+       :c => 3,
+    ]), [
+       ((:a,), 1),
+       ((:b,), 2),
+       ((:c,), 3),
+    ])
+    # Default.
+    check(Dict([
+       :a => 1,
+       :b => 2,
+       :c => 3,
+    ]), [
+       ((:a,), 1),
+       ((:b,), 2),
+       ((:c,), 3),
+    ])
+    #! format: on
+
+    #---------------------------------------------------------------------------------------
+    # Adjacency lists.
+    e = Dict{Symbol,Dict}()
+    oe = OrderedDict{Symbol,Dict}()
+    check(e, [])
+    check(oe, [])
+    check_edges(e, [])
+    check_edges(oe, [])
+    check_nodes(e, [])
+    check_nodes(oe, [])
+    # With actual values.
+    #! format: off
+    check_edges(OrderedDict([
+       :a => Dict([:b => 5, :c => 8]),
+       :b => Dict([:a => 2]),
+       :c => Dict([:c => 0]),
+    ]), [
+       ((:a, :b), 5),
+       ((:a, :c), 8),
+       ((:b, :a), 2),
+       ((:c, :c), 0),
+    ])
+    check_nodes(OrderedDict([
+       :a => Dict([:b => 5, :c => 8]),
+       :b => Dict([:a => 2]),
+       :c => Dict([:c => 0]),
+    ]), [
+       ((:a,), Dict([:b => 5, :c => 8])),
+       ((:b,), Dict([:a => 2])),
+       ((:c,), Dict([:c => 0])),
+    ])
+    check_edges(OrderedDict([
+       :a => e,
+       :b => e,
+       :c => e,
+    ]), [])
+    check_nodes(OrderedDict([
+       :a => e,
+       :b => e,
+       :c => e,
+    ]), [
+         ((:a,), e),
+         ((:b,), e),
+         ((:c,), e),
+    ])
+    # Default to edges if common subtype is a dict.
+    check(OrderedDict([
+       :a => e,
+       :b => e,
+       :c => e,
+    ]), [])
+    # Or else default to nodes.
+    check(OrderedDict([
+       :a => e,
+       :b => e,
+       :c => 0,
+    ]), [
+         ((:a,), e),
+         ((:b,), e),
+         ((:c,), 0),
+    ])
+    #! format: on
+
+    #---------------------------------------------------------------------------------------
+    # Drop values info to produce binary maps/adjacency lists.
+
+    input = [:a => 5, :c => 8]
+    input = @tographdata input Map{Float64}
+    result = @tographdata input Map{:bin}
+    @test result == OrderedSet([:a, :c])
+
+    input = [:a => [:b => 5, :d => 9], :c => [:a => 8]]
+    input = @tographdata input Adjacency{Float64}
+    result = @tographdata input Adjacency{:bin}
+    @test result == OrderedDict([:a => OrderedSet([:b, :d]), :c => OrderedSet([:a])])
 
 end

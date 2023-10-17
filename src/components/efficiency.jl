@@ -1,123 +1,165 @@
 # Set or generate efficiency rates for every trophic link in the model.
-#
-# Efficiency rates are either given as-is by user
-# or they are calculated from trophic links,
-# and then they need their own parameters.
-# Again, this leads to the definition
-# of "two different blueprints for the same component".
 
-# TODO: e is supposed to stand between 0 and 1.. but *should* we enforce that?
+# (reassure JuliaLS)
+(false) && (local Efficiency, _Efficiency)
 
 # ==========================================================================================
+# Blueprints.
 
-abstract type Efficiency <: ModelBlueprint end
-# All subtypes must require(Foodweb).
-
-# Construct either variant based on user input.
-function Efficiency(e; kwargs...)
-
-    @check_if_symbol e (:Miele2019,)
-
-    if e == :Miele2019
-        EfficiencyFromMiele2019(; kwargs...)
-    else
-        EfficiencyFromRawValues(e)
-    end
-
-end
-
-export Efficiency
+module Efficiency_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Foodweb, _Foodweb
 
 #-------------------------------------------------------------------------------------------
-# First variant: user provides raw efficiency rates.
+# From raw values.
 
-mutable struct EfficiencyFromRawValues <: Efficiency
-    e::@GraphData {Scalar, SparseMatrix, Adjacency}{Float64}
-    EfficiencyFromRawValues(e) = new(@tographdata e SEA{Float64})
+mutable struct Raw <: Blueprint
+    e::SparseMatrix{Float64}
+    foodweb::Brought(Foodweb)
+    Raw(e, foodweb = _Foodweb) = new(@tographdata(e, SparseMatrix{Float64}), foodweb)
 end
+F.implied_blueprint_for(bp::Raw, ::_Foodweb) = Foodweb(bp.e .!= 0)
+@blueprint Raw "sparse matrix"
+export Raw
 
-function F.check(model, bp::EfficiencyFromRawValues)
-    (; _A, _species_index) = model
+F.early_check(bp::Raw) = check_edges(check, bp.e)
+check(e, ref = nothing) =
+    check_value(e -> 0 <= e <= 1, e, ref, :e, "Not a value within [0, 1]")
+
+function F.late_check(raw, bp::Raw)
     (; e) = bp
-    @check_refs_if_list e "trophic link" _species_index template(_A)
-    @check_template_if_sparse e _A "trophic link"
+    A = @ref raw.trophic.matrix
+    @check_template e A "trophic links"
 end
 
-function F.expand!(model, bp::EfficiencyFromRawValues)
-    (; _A, _species_index) = model
-    (; e) = bp
-    ind = _species_index
-    @to_sparse_matrix_if_adjacency e ind ind
-    @to_template_if_scalar Real e _A
-    model.biorates.e = e
-end
-
-@component EfficiencyFromRawValues requires(Foodweb)
-export EfficiencyFromRawValues
+F.expand!(raw, bp::Raw) = expand!(raw, bp.e)
+expand!(raw, e) = raw.biorates.e = e
 
 #-------------------------------------------------------------------------------------------
-# Second variant: user provides herbivorous/carnivourous rates.
+# From a scalar broadcasted to all trophic links.
 
-mutable struct EfficiencyFromMiele2019 <: Efficiency
+mutable struct Flat <: Blueprint
+    e::Float64
+end
+@blueprint Flat "uniform efficiency" depends(Foodweb)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.e)
+function F.expand!(raw, bp::Flat)
+    (; e) = bp
+    A = @ref raw.trophic.matrix
+    e = to_template(e, A)
+    expand!(raw, e)
+end
+
+#-------------------------------------------------------------------------------------------
+# From a species-indexed adjacency list.
+
+mutable struct Adjacency <: Blueprint
+    e::@GraphData Adjacency{Float64}
+    foodweb::Brought(Foodweb)
+    Adjacency(e, foodweb = _Foodweb) = new(@tographdata(e, Adjacency{Float64}), foodweb)
+end
+function F.implied_blueprint_for(bp::Adjacency, ::_Foodweb)
+    (; e) = bp
+    Foodweb(@tographdata e Adjacency{:bin})
+end
+@blueprint Adjacency "[predactor => [prey => efficiency]] adjacency list"
+export Adjacency
+
+F.early_check(bp::Adjacency) = check_edges(check, bp.e)
+function F.late_check(raw, bp::Adjacency)
+    (; e) = bp
+    index = @ref raw.species.index
+    A = @ref raw.trophic.matrix
+    @check_list_refs e "trophic link" index template(A)
+end
+
+function F.expand!(raw, bp::Adjacency)
+    index = @ref raw.species.index
+    e = to_sparse_matrix(bp.e, index, index)
+    expand!(raw, e)
+end
+
+#-------------------------------------------------------------------------------------------
+# From herbivorous/carnivourous rates.
+
+miele2019_rates() = (; e_herbivorous = 0.45, e_carnivorous = 0.85)
+
+mutable struct Miele2019 <: Blueprint
     e_herbivorous::Float64
     e_carnivorous::Float64
-    function EfficiencyFromMiele2019(; kwargs...)
+    function Miele2019(; kwargs...)
         @kwargs_helpers kwargs
-        eh = take_or!(:e_herbivorous, 0.45)
-        ec = take_or!(:e_carnivorous, 0.85)
+        populate!(; miele2019_rates()...)
+        eh = take!(:e_herbivorous)
+        ec = take!(:e_carnivorous)
         no_unused_arguments()
         new(eh, ec)
     end
 end
+@blueprint Miele2019 "herbivorous/carnivorous efficiencies" depends(Foodweb)
+export Miele2019
 
-# TODO anything to check?
-function F.expand!(model, bp::EfficiencyFromMiele2019)
-    (; _herbivorous_links, _carnivorous_links) = model
+function F.early_check(bp::Miele2019)
+    (; e_herbivorous, e_carnivorous) = bp
+    check(e_herbivorous, (:herbivorous,))
+    check(e_carnivorous, (:carnivorous,))
+end
+
+function F.expand!(raw, bp::Miele2019)
+    hA = @ref raw.trophic.herbivory_matrix
+    cA = @ref raw.trophic.carnivory_matrix
     eh = bp.e_herbivorous
     ec = bp.e_carnivorous
-    model.biorates.e = eh * _herbivorous_links + ec * _carnivorous_links
+    e = eh * hA + ec * cA
+    expand!(raw, e)
 end
 
-@component EfficiencyFromMiele2019 requires(Foodweb)
-export EfficiencyFromMiele2019
-
-#-------------------------------------------------------------------------------------------
-# Don't specify simultaneously.
-@conflicts(EfficiencyFromRawValues, EfficiencyFromMiele2019)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:Efficiency}) = Efficiency
+end
 
 # ==========================================================================================
-# These rates are terminal (yet): they can be both queried and modified.
+# Component and generic constructors.
 
+@component Efficiency{Internal} requires(Foodweb) blueprints(Efficiency_)
+export Efficiency
+
+function (::_Efficiency)(e; kwargs...)
+
+    e = @tographdata e {Symbol, Scalar, SparseMatrix, Adjacency}{Float64}
+    @check_if_symbol e (:Miele2019,)
+    @kwargs_helpers kwargs
+
+    if e == :Miele2019
+        return Efficiency.Miele2019(; kwargs...)
+    end
+
+    no_unused_arguments()
+
+    if e isa SparseMatrix
+        Efficiency.Raw(e)
+    elseif e isa Real
+        Efficiency.Flat(e)
+    else
+        Efficiency.Adjacency(e)
+    end
+
+end
+
+# Basic query.
 @expose_data edges begin
     property(efficiency, e)
-    get(EfficiencyRates{Float64}, sparse, "trophic link")
-    ref(m -> m.biorates.e)
-    template(m -> m._A)
-    write!((m, rhs, i, j) -> (m.biorates.e[i, j] = rhs))
-    @species_index
     depends(Efficiency)
+    @species_index
+    ref(raw -> raw.biorates.e)
+    get(EfficiencyRates{Float64}, sparse, "trophic link")
+    template(raw -> @ref raw.trophic.matrix)
+    write!((raw, rhs::Real, i, j) -> Efficiency_.check(rhs, (i, j)))
 end
 
-# ==========================================================================================
-# Display.
-
-# Highjack display to make it like all blueprints provide the same component.
-display_short(bp::Efficiency; kwargs...) = display_short(bp, Efficiency; kwargs...)
-display_long(bp::Efficiency; kwargs...) = display_long(bp, Efficiency; kwargs...)
-
 # Just display range.
-function F.display(model, ::Type{<:Efficiency})
-    nz = findnz(model._e)[3]
-    "Efficiency: " * if isempty(nz)
-        "·"
-    else
-        min, max = minimum(nz), maximum(nz)
-        if min == max
-            "$min"
-        else
-            "$min to $max."
-        end
-    end
+function F.shortline(io::IO, model::Model, ::_Efficiency)
+    print(io, "Efficiency: ")
+    showrange(io, model._e)
 end

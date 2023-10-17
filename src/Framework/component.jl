@@ -1,185 +1,97 @@
-# Components are not values, but they are reified here as julia *types*
-# whose instances are the blueprints required to construct them.
+# Components are not values, but they are reified here as julia *singletons types*
+# whose corresponding blueprints associate to.
 #
 # No concrete component type can be added twice to the system.
 #
-# When users wants to add a component to the system,
-# they provide a blueprint value which needs to be expanded into a component.
+# When user wants to add components to the system,
+# they provide a blueprint value which is then *expanded* into components.
 #
-# The data inside the blueprint is only useful to run the internal `expand!()` method once,
-# and must not lend caller references to the system,
-# so its internal state cannot be broken later.
-# For now, this is enforced by requiring that all blueprints be copy-able.
-# Only a copy of the caller blueprint is actually used for component expansion.
-#
-# This also permits that the whole system forks,
-# including its own history of components as a collection of the blueprints used.
-#
-# Components require other components:
-#
-#   - Either because the data it brings is meaningless without the requirement ('requires').
-#
-#   - Or because it actually adds other components prior to its own expansion process.
-#     TODO: This is actually a property of the *blueprint* and not exactly the component,
-#           and this should be clarified in future refactoring of the framework.
-#     In this situation, the blueprint either:
-#       - Automatically adds them if not already present ('implies').
-#       - Automatically adds them but errors if already present ('brings').
-#     TODO: unify the above two situations into just 'bringing' with different behaviours?
-#
-#   - Or because the blueprint just needs the data
-#     for its own check/expand! process ('buildsfrom'),
-#     but the component data produced after expansion is meaningful even without them.
+# Components may 'require' other components,
+# because the data they represent are meaningless without them.
+# If A requires B, it means that A cannot be added in a system with no B.
 #
 # Components also 'conflict' with each other:
+# because the data they represent make no sense within their context.
+# If A conflicts with B, it means that an error should be raised
+# when attempting to add A in a system with B.
 #
-#   - It is a failure to add a component if it conflicts
-#     with another component already added.
-#
-#   - An abstract component type cannot conflict with a component subtyping itself.
-#
-# Component types can be structured with a julia abstract type hierarchy:
-#
-#   - Requiring an abstract component A
-#     is requiring that any component subtyping A be present.
-#
-#   - Implying / Bringing / Building-from an abstract component A
-#     is implying or bringing or building-from some component subtyping A
-#     but it is unspecified which one.
+# Component types can be structured with julia's abstract type hierarchy:
 #
 #   - Conflicting with an abstract component A
-#     is conflicting with any component subtyping A.
+#     means conflicting with any component subtyping A.
 #
-# It is not currently possible for an abstract component
-# to 'require', 'imply', 'bring', 'buildfrom', 'check' or 'expand!'.
-# But this might be implemented for a convincingly motivated need,
-# at the cost of extending @component macro to accept abstract types.
+#   - If component B subtypes A, then A and B cannot conflict with each other.
 #
-# The parametric type 'V' for the component/blueprint
-# is the type of the value wrapped by the system.
-abstract type Blueprint{V} end
-const Component{V} = Type{<:Blueprint{V}} # TODO: this is too constrained: refactor.
-export Blueprint, Component
+# It is not currently possible for an abstract component to 'require'.
+# This might be implemented in the future for a convincingly motivated need,
+# at the cost of extending @component macro to produce abstract types.
 
-# Extract component from blueprint or blueprint type.
-# Not actually used within the framework logic,
-# because it needs to be all refactored in this respect,
-# but useful to framework users for future compatibility.
-# Override to fix semantics when implementing the 'several blueprints for one component' pattern.
-componentof(::Type{B}) where {B<:Blueprint} = B
-componentof(bp::B) where {B<:Blueprint} = componentof(typeof(bp))
+# Retrieve type from either instance or the type itself.
+component_type(C::CompType) = C
+component_type(c::Component) = typeof(c)
+component_type(x::Any) =
+    argerr("Not a component or a component type: $(repr(x)) ::$(typeof(x))")
 
-# Blueprints must be copyable, but be careful that the default (deepcopy)
-# is not necessarily what component devs are after.
-Base.copy(b::Blueprint) = deepcopy(b)
+# Component types being singleton, we *can* infer the value from the type at runtime.
+singleton_instance(c::Component) = c
+singleton_instance(C::CompType) = throw("No concrete singleton instance of '$C'.")
+
+# Extract underlying system wrapped value type from a component.
+system_value_type(::CompRef{V}) where {V} = V
+
+# Typecheck regardless of the instance/type.
+isacomponent(::CompType) = true
+isacomponent(::Component) = true
+isacomponent(::Any) = false
+export isacomponent
 
 #-------------------------------------------------------------------------------------------
 # Requirements.
 
+# When specifying a 'component' requirement,
+# possibly invoke a 'reason' for it.
+# Requirements need to be specified in terms of component types
+# because it is possible to require *abstract* components.
+const Reason = Option{String}
+const CompsReasons{V} = OrderedDict{CompType{V},Reason}
+
 # Specify which components are needed for the focal one to make sense.
-# like [Component => "reason", OtherComponent].
-# (these may or may not be implied/brought by the corresponding blueprints)
-requires(::Component) = Component[]
+requires(::CompType{V}) where {V} = () # Require nothing by default.
+requires(c::Component) = requires(typeof(c))
 
-# Same, but the returned components are needed for the expansion process
-# of this particular blueprint,
-# even though the corresponding component itself would make sense without these.
-buildsfrom(::Blueprint) = Union{Component,Pair{Component,String}}[]
-# TODO: not formally tested yet.. but maybe wait on the framework to be refactored first?
+# List all possible blueprints types providing the component.
+blueprints(C::CompType{V}) where {V} = throw("No blueprint type specified for $C.")
+blueprints(c::Component{V}) where {V} = throw("No blueprint type specified for $c.")
 
-# Specify which components are automatically added
-# during blueprint expansion if not present.
-# Every blueprint type listed here needs to be constructible from the focal blueprint.
-implies(::Blueprint) = Type{<:Blueprint}[]
-construct_implied(B::Type{<:Blueprint}, b::Blueprint) =
-    throw("Implying '$B' from '$(typeof(b))' is unimplemented.")
-# Same, but these components need to be not present.
-brings(::Blueprint) = Type{<:Blueprint}[]
-construct_brought(B::Type{<:Blueprint}, b::Component) =
-    throw("Bringing '$B' from '$(typeof(b))' is unimplemented.")
-
-#-------------------------------------------------------------------------------------------
+# ==========================================================================================
 # Conflicts.
 
-# TODO: it appears that these global dicts (+ the one for PROPERTIES)
-#       are maybe not actually required, since the mapping Component ↦ information
-#       could very well be implemented with traditional julia dispatched methods.
-#       Check this out and remove them.
 # Components that contradict each other can be grouped into mutually exclusive clusters.
 # The clusters need to be defined *after* the components themselves,
 # so they can all refer to each other
-# as a clique of incompatible nodes in the component graph.
-# {component => {conflicting_component => reason}}
-const Reason = Union{Nothing,String}
-global CONFLICTS = Dict{Type,OrderedDict{Component,Reason}}()
-# Consistency of the above value is ensured by the exposed @conflicts macro.
-
-#-------------------------------------------------------------------------------------------
-# Add component to the system.
-
-# Assuming that all component addition conditions are met
-# verify that the internal system value can still receive it.
-# Typically: the blueprint value must match the current value structure.
-# The objective is to avoid failure during expansion,
-# as these would result in inconsistent system state.
-# Raise a blueprint error if not the case.
-check(_, ::Blueprint) = nothing # No particular constraint by default.
-
-# Quick hook patch: run checks before implied/brought components are addressed
-# and the corresponding blueprints possibly constructed.
-# When this runs, it is guaranteed
-# that there is no conflicting component in the system
-# and that all 'required' components are met,
-# but nothing is yet known about 'implied/brought' components.
-# TODO: add formal test for this.
-early_check(_, ::Blueprint) = nothing
-
-# The expansion step is when a particular blueprint value is read
-# and the wrapped system value finally modified to feature the associated component.
-# This is only called if all component addition conditions are met
-# and the above check passed.
-# This function must not fail,
-# otherwise the system ends up in a bad state.
-# TODO: must it also be deterministic?
-# Or can a random component expansion happen
-# if based on consistent blueprint input and infallible.
-# Note that random expansion would result in:
-# (System{Value}() + blueprint).property != (System{Value}() + blueprint).property
-# which may be confusing.
-expand!(_, ::Blueprint) = nothing # Expanding does nothing by default.
-
-# NOTE: the above signatures for default functions could be more strict
-# like eg. `check(::V, ::Blueprint{V}) where {V}`,
-# but this would force framework users to always specify the first argument type
-# or concrete calls to `check(system, myblueprint)` would be ambiguous.
-
-# When components "optionally depend" on others,
-# it may be useful to check whether they are present in the system
-# within the methods above.
-# To this end, an optional, additional argument
-# can be received with a reference to the system,
-# and can be queried for eg. `has_component(system, component)`.
-# This third argument is ignored by default,
-# unless in overriden methods.
-check(v, b::Blueprint, _) = check(v, b)
-early_check(v, b::Blueprint, _) = early_check(v, b)
-expand!(v, b::Blueprint, _) = expand!(v, b)
+# as a clique of incompatible nodes in the components graph.
+conflicts_(::CompType{V}) where {V} = CompsReasons{V}()
+conflicts_(c::Component) = conflicts_(typeof(c))
+# When specialized, the above method yields a reference to underlying value,
+# updated according to this module's own logic. Don't expose.
 
 #-------------------------------------------------------------------------------------------
 # Raise error based on "vertical" subtyping relations.
 # (factorizing out a common check pattern)
 
-are_subtypes(a::Component, b::Component) = (a <: b) ? (a, b) : (b <: a) ? (b, a) : nothing
+are_subtypes(A::CompType, B::CompType) = (A <: B) ? (A, B) : (B <: A) ? (B, A) : nothing
 
-function vertical_guard(a::Component, b::Component, diverging_err::Function)
-    vert = are_subtypes(a, b)
+# The provided function yields the error to emit in case the inputs subtype each other.
+function vertical_guard(A::CompType, B::CompType, diverging_err::Function)
+    vert = are_subtypes(A, B)
     isnothing(vert) && return
     sub, sup = vert
     diverging_err(sub, sup)
 end
 
-function vertical_guard(a::Component, b::Component, err_same::Function, err_diff::Function)
-    vert = are_subtypes(a, b)
+# Provide one special function to error in case inputs are identical.
+function vertical_guard(A::CompType, B::CompType, err_same::Function, err_diff::Function)
+    vert = are_subtypes(A, B)
     isnothing(vert) && return
     sub, sup = vert
     sub === sup && err_same()
@@ -187,8 +99,8 @@ function vertical_guard(a::Component, b::Component, err_same::Function, err_diff
 end
 
 #-------------------------------------------------------------------------------------------
-# The CONFLICT global dict either contains abstract or concrete type as entries,
-# which makes checking information for one particular type not as simple as haskey(C, k).
+# The 'conflicts_' mapping entries are either abstract or concrete component,
+# which makes checking information for one particular component not exactly straighforward.
 
 # (for some reason this is absent from Base)
 function supertypes(T::Type)
@@ -196,74 +108,123 @@ function supertypes(T::Type)
     S === T ? (T,) : (T, supertypes(S)...)
 end
 
-# Iterate over all keys in CONFLICTS with the given type or a supertype of it.
-super_conflict_keys(c::Component) =
-    Iterators.filter(supertypes(c)) do sup
-        haskey(CONFLICTS, sup)
-    end
-
-# Iterate over all conflicts for one particular component type.
+# Iterate over all conflicts for one particular component.
 # yields (conflict_key, conflicting_component, reason)
-# The yielded conflict key may be a supertype of the given component.
-function conflicts(c::Component)
-    Iterators.flatten(Iterators.map(super_conflict_keys(c)) do key
-        Iterators.map(CONFLICTS[key]) do (conflicting, reason)
-            (key, conflicting, reason)
+# The yielded conflict key may be a supercomponent of the focal one.
+function all_conflicts(C::CompType)
+    supers = ifilter(T -> T !== Any, supertypes(C))
+    Iterators.flatten(imap(supers) do Sup
+        entries = conflicts_(Sup)
+        imap(entries) do (k, v)
+            (Sup, k, v)
         end
     end)
 end
 
-# Guard against declaring conflicts between sub/super components.
-function vertical_conflict(err)
-    (sub, sup) -> begin
-        it = sub === sup ? "itself" : "its own supertype '$sup'"
-        err("Component '$sub' cannot conflict with $it.")
-    end
-end
+# ==========================================================================================
+# Triggers.
 
-# Declare one particular conflict with a reason.
-# Guard against redundant reasons specifications.
-function declare_conflict(a::Component, b::Component, reason, err)
-    vertical_guard(a, b, vertical_conflict(err))
-    needs_new_entry = true
-    for (k, c, reason) in conflicts(a)
-        k === a && (needs_new_entry = false)
-        isnothing(reason) && continue
-        if b <: c
-            as_K = k === a ? "" : " (as '$k')"
-            as_C = b === c ? "" : " (as '$c')"
-            err("Component '$a'$as_K already declared to conflict with '$b'$as_C \
-                 for the following reason:\n  $(reason)")
-        end
-    end
-    sub = needs_new_entry ? (CONFLICTS[a] = OrderedDict{Component,Reason}()) : CONFLICTS[a]
-    sub[b] = reason
-end
+# Associate particular components combinations
+# with callbacks that will be called immediately after these combinations become available.
+# {ValueType => {Component combination => [triggered functions]}}
+triggers_(::Type{V}) where {V} = OrderedDict{Set{CompType{V}},OrderedSet{Function}}()
+# (same reference/specialization logic as `conflicts_`)
 
-# Fill up a clique, not overriding any existing reason.
-# (called from @conflict macro)
-function declare_conflicts_clique(err, components::Component...)
+# Setup a trigger.
+# The trigger callback signature is either
+#   trig(::V)
+#   trig(::V, ::System{V}) # (created if missing)
+# and is guaranteed to be called as soon as the given combination of components
+# becomes available in the system.
+function add_trigger!(components, fn::Function)
+    V = nothing
+    first = nothing
+    set = Set()
+    for comp in components
+        C = component_type(comp)
 
-    function process_pair(a, b)
-        vertical_guard(a, b, vertical_conflict(err))
-        if haskey(CONFLICTS, a)
-            sub = CONFLICTS[a]
-            haskey(sub, b) || (sub[b] = nothing)
+        # Guard against inconsistent target values.
+        if isnothing(V)
+            V = system_value_type(C)
+            first = comp
         else
-            CONFLICTS[a] = OrderedDict{Component,Reason}(b => nothing)
+            aV = system_value_type(C)
+            aV == V || argerr("Both components for '$V' and '$aV' \
+                               provided within the same trigger: $first and $comp.")
+        end
+
+        # Triangular-check against redundancies.
+        for already in set
+            vertical_guard(
+                C,
+                already,
+                () -> argerr("Component $comp specified twice in the same trigger."),
+                (sub, sup) -> argerr("Both component $sub and its supertype $sup \
+                                      specified in the same trigger."),
+            )
+        end
+
+        push!(set, C)
+    end
+
+    # Guard against inconsistent signatures.
+    if !hasmethod(fn, Tuple{V,System{V}})
+        if hasmethod(fn, Tuple{V})
+            # Append method for consistency.
+            eval(quote
+                (::typeof($fn))(v::$V, ::System{$V}) = $fn(v)
+            end)
+        else
+            argerr("Missing expected method on the given trigger function: $fn(::$V).")
         end
     end
 
-    # Triangular-iterate to guard against redundant items.
-    for (i, a) in enumerate(components)
-        for b in components[i+1:end]
-            process_pair(a, b)
-            process_pair(b, a)
-        end
+    current = triggers_(V) # Creates a new empty value if falling back on default impl.
+    if isempty(current)
+        # Specialize to always yield the right reference.
+        eval(quote
+            triggers_(::Type{$V}) = $current
+        end)
     end
 
+    # Append trigger to this particular combination.
+    fns = if haskey(current, set)
+        current[set]
+    else
+        current[set] = OrderedSet{Function}()
+    end
+    fn in fns && argerr("Function '$fn' already added to triggers for combination \
+                         {$(join(sort(collect(set); by=T->T.name.name), ", "))}.")
+    push!(fns, fn)
+
+    nothing
 end
+export add_trigger! # Expose directly..
 
 # ==========================================================================================
-# Specialize to refine system display component per component.
-display(::V, C::Component{V}) where {V} = "$C"
+# Display.
+
+# By default, strip the standard leading '_' in component type, wrap in angle brackets <>,
+# and don't display blueprint details within component values.
+# NOTE: this enhances ergonomics
+# but it makes unexpected framework errors rather confusing.
+# Comment out when debugging.
+
+strip_compname(name::Symbol) = Symbol(lstrip(String(name), '_'))
+function fmt_compname(name; col = false)
+    c, r = col ? (component_color, reset) : ("", "")
+    "$c<$name>$r"
+end
+
+comp_path(C::CompType) = stripped_path(C)
+comp_path(::Type{V}, C::Type{Component{V}}) where {V} = "$(comp_path(C)){$V}"
+Base.show(io::IO, C::CompType) = print(io, fmt_compname(comp_path(C)))
+Base.show(io::IO, c::Component) = print(io, comp_path(typeof(c)))
+
+# More explicit terminal display.
+function Base.show(io::IO, ::MIME"text/plain", C::CompType)
+    abs = isabstracttype(C) ? "abstract " : ""
+    print(io, "$component_color$C$reset $grayed($(abs)component type ")
+    @invoke show(io::IO, C::DataType)
+    print(io, ")$reset")
+end

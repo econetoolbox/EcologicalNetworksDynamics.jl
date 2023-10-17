@@ -1,66 +1,94 @@
 # Set or generate attack rates for every trophic link in the model.
-#
-# Adapted from handling times.
+
+# Mostly duplicated from handling times.
+
+# (reassure JuliaLS)
+(false) && (local AttackRate, _AttackRate)
 
 # ==========================================================================================
-abstract type AttackRate <: ModelBlueprint end
-# All subtypes must require(Foodweb).
-
-# Construct either variant based on user input,
-# but disallow direct allometric input in this constructor,
-# for consistence with other allometry-compliant biorates.
-function AttackRate(a_r)
-
-    @check_if_symbol a_r (:Miele2019, :Binzer2016)
-
-    if a_r == :Binzer2016
-        AttackRateFromTemperature(a_r)
-    else
-        AttackRateFromRawValues(a_r)
-    end
-
-end
-
-export AttackRate
+module AttackRate_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Foodweb, _Foodweb, BodyMass, MetabolicClass, _Temperature
 
 #-------------------------------------------------------------------------------------------
-mutable struct AttackRateFromRawValues <: AttackRate
-    a_r::@GraphData {Scalar, Symbol, SparseMatrix, Adjacency}{Float64}
-    function AttackRateFromRawValues(a_r)
-        @check_if_symbol a_r (:Miele2019,)
-        new(@tographdata a_r SYEA{Float64})
-    end
+mutable struct Raw <: Blueprint
+    a_r::SparseMatrix{Float64}
+    foodweb::Brought(Foodweb)
+    Raw(a_r, foodweb = _Foodweb) = new(@tographdata(a_r, SparseMatrix{Float64}), foodweb)
 end
+F.implied_blueprint_for(bp::Raw, ::_Foodweb) = Foodweb(bp.a_r .!= 0)
+@blueprint Raw "sparse matrix"
+export Raw
 
-# Default rates from Miele2019 require a value of M.
-F.buildsfrom(bp::AttackRateFromRawValues) =
-    (bp.a_r == :Miele2019) ?
-    [BodyMass => "Miele2019 method for calculating attack rates \
-                  requires individual body mass data."] : []
+F.early_check(bp::Raw) = check_edges(check, bp.a_r)
+check(a_r, ref = nothing) = check_value(>=(0), a_r, ref, :a_r, "Not a positive value")
 
-function F.check(model, bp::AttackRateFromRawValues)
-    (; _A, _species_index) = model
+function F.late_check(raw, bp::Raw)
     (; a_r) = bp
-    @check_if_symbol a_r (:Miele2019,)
-    @check_refs_if_list a_r "trophic link" _species_index template(_A)
-    @check_template_if_sparse a_r _A "trophic link"
+    A = @ref raw.trophic.matrix
+    @check_template a_r A "trophic links"
 end
 
-function F.expand!(model, bp::AttackRateFromRawValues)
-    (; _A, _species_index) = model
-    (; a_r) = bp
-    ind = _species_index
-    @expand_if_symbol(a_r, :Miele2019 => Internals.attack_rate(model._foodweb))
-    @to_sparse_matrix_if_adjacency a_r ind ind
-    @to_template_if_scalar Real a_r _A
-    model._scratch[:attack_rate] = a_r
-end
+F.expand!(raw, bp::Raw) = expand!(raw, bp.a_r)
 
-@component AttackRateFromRawValues requires(Foodweb)
-export AttackRateFromRawValues
+# Stored only in scratch space: only used within adequate functional response.
+expand!(raw, a_r) = raw._scratch[:attack_rate] = a_r
 
 #-------------------------------------------------------------------------------------------
-binzer2016_attack_rate_allometry_rates() = (
+mutable struct Flat <: Blueprint
+    a_r::Float64
+end
+@blueprint Flat "uniform attack rate" depends(Foodweb)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.a_r)
+function F.expand!(raw, bp::Flat)
+    (; a_r) = bp
+    A = @ref raw.trophic.matrix
+    a_r = to_template(a_r, A)
+    expand!(raw, a_r)
+end
+
+#-------------------------------------------------------------------------------------------
+mutable struct Adjacency <: Blueprint
+    a_r::@GraphData Adjacency{Float64}
+    foodweb::Brought(Foodweb)
+    Adjacency(a_r, foodweb = _Foodweb) = new(@tographdata(a_r, Adjacency{Float64}), foodweb)
+end
+function F.implied_blueprint_for(bp::Adjacency, ::_Foodweb)
+    (; a_r) = bp
+    Foodweb(@tographdata a_r Adjacency{:bin})
+end
+@blueprint Adjacency "[predactor => [prey => attack rate]] adjacency list"
+export Adjacency
+
+F.early_check(bp::Adjacency) = check_edges(check, bp.a_r)
+function F.late_check(raw, bp::Adjacency)
+    (; a_r) = bp
+    index = @ref raw.species.index
+    A = @ref raw.trophic.matrix
+    @check_list_refs a_r "trophic link" index template(A)
+end
+
+function F.expand!(raw, bp::Adjacency)
+    index = @ref raw.species.index
+    a_r = to_sparse_matrix(bp.a_r, index, index)
+    expand!(raw, a_r)
+end
+
+#-------------------------------------------------------------------------------------------
+# With Miele2019 formulae.
+mutable struct Miele2019 <: Blueprint end
+@blueprint Miele2019 "body masses" depends(BodyMass)
+export Miele2019
+function F.expand!(raw, ::Miele2019)
+    a_r = Internals.attack_rate(raw._foodweb)
+    expand!(raw, a_r)
+end
+
+#-------------------------------------------------------------------------------------------
+binzer2016_allometry_rates() = (
     E_a = -0.38,
     allometry = Allometry(;
         producer = (a = 0, b = 0.25, c = -0.8), # ? Is that intended @hanamayall?
@@ -69,67 +97,80 @@ binzer2016_attack_rate_allometry_rates() = (
     ),
 )
 
-mutable struct AttackRateFromTemperature <: AttackRate
+mutable struct Temperature <: Blueprint
     E_a::Float64
     allometry::Allometry
-    AttackRateFromTemperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
-    AttackRateFromTemperature(E_a, allometry::Allometry) = new(E_a, allometry)
-    function AttackRateFromTemperature(default::Symbol)
-        @check_if_symbol default (:Binzer2016,)
-        return @build_from_symbol default (
-            :Binzer2016 => new(binzer2016_attack_rate_allometry_rates()...)
-        )
+    Temperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
+    Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
+    function Temperature(default::Symbol)
+        @check_symbol default (:Binzer2016,)
+        @expand_symbol default (:Binzer2016 => new(binzer2016_allometry_rates()...))
     end
 end
+@blueprint Temperature "allometric rates and activation energy" depends(
+    _Temperature,
+    BodyMass,
+    MetabolicClass,
+)
+export Temperature
 
-F.buildsfrom(::AttackRateFromTemperature) = [Temperature, BodyMass, MetabolicClass]
-
-function F.check(_, bp::AttackRateFromTemperature)
-    al = bp.allometry
-    (_, template) = binzer2016_attack_rate_allometry_rates()
-    check_template(al, template, "attack rates from temperature")
+function F.early_check(bp::Temperature)
+    (; allometry) = bp
+    check_template(
+        allometry,
+        binzer2016_allometry_rates()[2],
+        "attack_rate (from temperature)",
+    )
 end
 
-function F.expand!(model, bp::AttackRateFromTemperature)
-    (; _M, T, _metabolic_classes, _A) = model
+function F.expand!(raw, bp::Temperature)
     (; E_a) = bp
-    a_r = sparse_edges_allometry(bp.allometry, _A, _M, _metabolic_classes; E_a, T)
-    model._scratch[:attack_rate] = a_r
+    T = @get raw.T
+    M = @ref raw.M
+    mc = @ref raw.metabolic_class
+    A = @ref raw.trophic.matrix
+    a_r = sparse_edges_allometry(bp.allometry, A, M, mc; E_a, T)
+    expand!(raw, a_r)
 end
 
-@component AttackRateFromTemperature requires(Foodweb)
-export AttackRateFromTemperature
-
-#-------------------------------------------------------------------------------------------
-@conflicts(AttackRateFromRawValues, AttackRateFromTemperature)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:AttackRate}) = AttackRate
+end
 
 # ==========================================================================================
+@component AttackRate{Internal} requires(Foodweb) blueprints(AttackRate_)
+export AttackRate
+
+function (::_AttackRate)(a_r)
+
+    a_r = @tographdata a_r {Symbol, Scalar, SparseMatrix, Adjacency}{Float64}
+    @check_if_symbol a_r (:Miele2019, :Binzer2016)
+
+    if a_r isa Symbol
+        @expand_symbol(
+            a_r,
+            :Miele2019 => AttackRate.Miele2019(),
+            :Binzer2016 => AttackRate.Temperature(a_r),
+        )
+    elseif a_r isa Real
+        AttackRate.Flat(a_r)
+    elseif a_r isa AbstractMatrix
+        AttackRate.Raw(a_r)
+    else
+        AttackRate.Adjacency(a_r)
+    end
+
+end
+
 @expose_data edges begin
     property(attack_rate)
-    get(AttackRates{Float64}, sparse, "trophic link")
-    ref(m -> m._scratch[:attack_rate])
-    template(m -> m._A)
-    write!((m, rhs, i, j) -> (m._attack_rate[i, j] = rhs))
-    @species_index
     depends(AttackRate)
+    @species_index
+    ref(raw -> raw._scratch[:attack_rate])
+    get(AttackRates{Float64}, sparse, "trophic link")
+    template(raw -> @ref raw.trophic.matrix)
+    write!((raw, rhs::Real, i, j) -> AttackRate_.check(rhs, (i, j)))
 end
 
-# ==========================================================================================
-display_short(bp::AttackRate; kwargs...) = display_short(bp, AttackRate; kwargs...)
-display_long(bp::AttackRate; kwargs...) = display_long(bp, AttackRate; kwargs...)
-function F.display(model, ::Type{<:AttackRate})
-    nz = findnz(model._attack_rate)[3]
-    "Attack rates: " * if isempty(nz)
-        "·"
-    else
-        min, max = minimum(nz), maximum(nz)
-        if min == max
-            "$min"
-            "$min"
-        else
-            "$min to $max."
-        end
-    end
+function F.shortline(io::IO, model::Model, ::_AttackRate)
+    print(io, "Attack rate: ")
+    showrange(io, model._attack_rate)
 end

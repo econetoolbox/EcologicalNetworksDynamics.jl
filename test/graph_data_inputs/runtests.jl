@@ -7,7 +7,8 @@ using EcologicalNetworksDynamics.GraphDataInputs
 using ..TestFailures
 using Test
 
-import EcologicalNetworksDynamics: SparseMatrix, BlueprintCheckFailure
+import EcologicalNetworksDynamics: SparseMatrix, Framework
+import .Framework: CheckError
 
 include("./types.jl")
 include("./convert.jl")

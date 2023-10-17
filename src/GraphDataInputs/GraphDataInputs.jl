@@ -249,7 +249,7 @@ using OrderedCollections
 
 import ..SparseMatrix
 import ..argerr
-import ..checkfails
+import ..Framework: checkfails
 import ..join_elided
 
 # Unhygienically define `loc` variable in macros to point to invocation line.

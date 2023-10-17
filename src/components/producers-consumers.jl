@@ -2,21 +2,27 @@
 # 'Producer' species are all non-sources of trophic links.
 # 'Consumer species are all sources of trophic links.
 
+# (reassure JuliaLS)
+(false) && (local producers, consumers)
+
 #-------------------------------------------------------------------------------------------
 # Spot species sub-compartments.
 
+@propspace producers
+@propspace consumers
+
 @expose_data nodes begin
-    property(producers_mask)
+    property(producers.mask)
     get(ProducersMask{Bool}, sparse, "species")
-    ref_cache(m -> sparse([!any(row) for row in eachrow(m._trophic_links)]))
+    ref_cached(raw -> sparse([!any(row) for row in eachrow(@ref raw.A)]))
     @species_index
     depends(Foodweb)
 end
 
 @expose_data nodes begin
-    property(consumers_mask)
+    property(consumers.mask)
     get(ConsumersMask{Bool}, sparse, "species")
-    ref_cache(m -> sparse([any(row) for row in eachrow(m._trophic_links)]))
+    ref_cached(raw -> sparse([any(row) for row in eachrow(@ref raw.A)]))
     @species_index
     depends(Foodweb)
 end
@@ -25,37 +31,39 @@ end
 # Count either
 
 @expose_data graph begin
-    property(n_producers)
-    get(m -> sum(m._producers_mask))
+    property(producers.number)
+    ref_cached(raw -> sum(@ref raw.producers.mask))
+    get(raw -> @ref raw.producers.number)
     depends(Foodweb)
 end
 
 @expose_data graph begin
-    property(n_consumers)
-    get(m -> sum(m._consumers_mask))
+    property(consumers.number)
+    ref_cached(raw -> sum(@ref raw.consumers.mask))
+    get(raw -> @ref raw.consumers.number)
     depends(Foodweb)
 end
 
 #-------------------------------------------------------------------------------------------
 # Query one particular index.
 
-is_producer(m::InnerParms, i) = m.producers_mask[i]
-is_consumer(m::InnerParms, i) = m.consumers_mask[i]
-is_producer(m::InnerParms, i::Integer) = m._producers_mask[i]
-is_consumer(m::InnerParms, i::Integer) = m._consumers_mask[i] # No need for the view/index.
+is_producer(raw::Internal, i) = (@get raw.producers.mask)[i]
+is_consumer(raw::Internal, i) = (@get raw.consumers.mask)[i]
+is_producer(raw::Internal, i::Integer) = (@ref raw.producers.mask)[i] # No need for the view/index.
+is_consumer(raw::Internal, i::Integer) = (@ref raw.consumers.mask)[i]
 @method is_producer depends(Foodweb)
 @method is_consumer depends(Foodweb)
 export is_producer, is_consumer
 
 # Get corresponding species indices (iterator).
 @expose_data graph begin
-    property(producers_indices)
-    get(m -> (i for (i, is_cons) in enumerate(m._producers_mask) if is_cons))
+    property(producers.indices)
+    get(raw -> (i for (i, is_cons) in enumerate(@ref raw.producers.mask) if is_cons))
     depends(Foodweb)
 end
 @expose_data graph begin
-    property(consumers_indices)
-    get(m -> (i for (i, is_cons) in enumerate(m._consumers_mask) if is_cons))
+    property(consumers.indices)
+    get(raw -> (i for (i, is_cons) in enumerate(@ref raw.consumers.mask) if is_cons))
     depends(Foodweb)
 end
 
@@ -63,20 +71,24 @@ end
 # Get corresponding (orderded) Symbol ↦ Integer indexes, in the space of species indices.
 
 @expose_data graph begin
-    property(producers_sparse_index)
-    ref_cache(
-        m -> OrderedDict(name => i for (name, i) in m._species_index if is_producer(m, i)),
+    property(producers.sparse_index)
+    ref_cached(
+        raw -> OrderedDict(
+            name => i for (name, i) in @ref(raw.species.index) if is_producer(raw, i)
+        ),
     )
-    get(m -> deepcopy(m._producers_sparse_index))
+    get(raw -> deepcopy(@ref raw.producers.sparse_index))
     depends(Foodweb)
 end
 
 @expose_data graph begin
-    property(consumers_sparse_index)
-    ref_cache(
-        m -> OrderedDict(name => i for (name, i) in m._species_index if is_consumer(m, i)),
+    property(consumers.sparse_index)
+    ref_cached(
+        raw -> OrderedDict(
+            name => i for (name, i) in @ref(raw.species.index) if is_consumer(raw, i)
+        ),
     )
-    get(m -> deepcopy(m._consumers_sparse_index))
+    get(raw -> deepcopy(@ref raw.consumers.sparse_index))
     depends(Foodweb)
 end
 
@@ -84,23 +96,25 @@ end
 # Same, but within a new dedicated, compact indices space.
 
 @expose_data graph begin
-    property(producers_dense_index)
-    ref_cache(
-        m -> OrderedDict(
-            name => i for (i, name) in enumerate(m.species_names[m.producers_mask])
+    property(producers.dense_index)
+    ref_cached(
+        raw -> OrderedDict(
+            name => i for
+            (i, name) in enumerate(@ref(raw.species.names)[@ref(raw.producers.mask)])
         ),
     )
-    get(m -> deepcopy(m._producers_dense_index))
+    get(raw -> deepcopy(@ref raw.producers.dense_index))
     depends(Foodweb)
 end
 
 @expose_data graph begin
-    property(consumers_dense_index)
-    ref_cache(
-        m -> OrderedDict(
-            name => i for (i, name) in enumerate(m.species_names[m.consumers_mask])
+    property(consumers.dense_index)
+    ref_cached(
+        raw -> OrderedDict(
+            name => i for
+            (i, name) in enumerate(@ref(raw.species.names)[@ref(raw.consumers.mask)])
         ),
     )
-    get(m -> deepcopy(m._consumers_dense_index))
+    get(raw -> deepcopy(@ref(raw.consumers.dense_index)))
     depends(Foodweb)
 end

@@ -39,8 +39,11 @@
     # Cannot bring blueprints if corresponding components are already there.
     @sysfails(
         base + ConsumersPreferences(:homogeneous) + LinearResponse(; w = :homogeneous),
-        Check(LinearResponse),
-        "blueprint also brings '$ConsumersPreferences', which is already in the system."
+        Add(
+            BroughtAlreadyInValue,
+            ConsumersPreferences,
+            [ConsumersPreferences.Homogeneous, false, LinearResponse.Blueprint],
+        ),
     )
 
     # In this situation, just stop bringing.

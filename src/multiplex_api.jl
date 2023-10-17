@@ -6,6 +6,8 @@ using ..AliasingDicts
 import ..Option
 import ..SparseMatrix
 
+include("multiplex_identifiers.jl")
+
 @aliasing_dict(
     InteractionDict,
     "interaction layer",

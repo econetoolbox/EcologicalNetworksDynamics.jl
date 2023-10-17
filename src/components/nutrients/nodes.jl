@@ -1,29 +1,39 @@
-# Nutrients nodes compartments, akin to `Nodes`.
-# Two possible blueprints because their number can be inferred from producer species.
+# Nutrients nodes compartments, akin to species nodes.
+# Call it 'Nodes' because the module is already named 'Nutrients'.
+
+(false) && (local Nodes, _Nodes)
 
 # ==========================================================================================
-# Call it 'Nodes' because the module is already named 'Nutrients'.
-abstract type Nodes <: ModelBlueprint end
-# Don't export, to encourage disambiguated access as `Nutrients.Nodes`.
+module Nodes_
+include("../blueprint_modules.jl")
+include("../blueprint_modules_identifiers.jl")
+import .EN: Foodweb
 
-Nodes(raw) =
-    if raw isa Symbol
-        NodesFromFoodweb(raw)
-    else
-        RawNodes(raw)
+#-------------------------------------------------------------------------------------------
+# From a given set of names.
+
+mutable struct Names <: Blueprint
+    names::Vector{Symbol}
+
+    # Convert anything to symbols.
+    Names(names) = new(@tographdata(names, Vector{Symbol}))
+    Names(names...) = new(Symbol.(collect(names)))
+
+    # From an index (useful when implied).
+    function Names(index::AbstractDict{Symbol,Int})
+        check_index(index)
+        new(to_dense_refs(index))
     end
 
-# Akin to Species.
-mutable struct RawNodes <: Nodes
-    names::Vector{Symbol}
-    RawNodes(names) = new(Symbol.(names))
-    RawNodes(n::Integer) = new([Symbol(:n, i) for i in 1:n])
-    RawNodes(names::Vector{Symbol}) = new(names)
+    # Don't own data if useful to user.
+    Names(names::Vector{Symbol}) = new(names)
 end
+@blueprint Names "raw nutrients names"
+export Names
 
-function F.check(_, bp::RawNodes)
+# Forbid duplicates (triangular check).
+function F.early_check(bp::Names)
     (; names) = bp
-    # Forbid duplicates (triangular check).
     for (i, a) in enumerate(names)
         for j in (i+1):length(names)
             b = names[j]
@@ -32,131 +42,118 @@ function F.check(_, bp::RawNodes)
     end
 end
 
-function add_nutrients!(m, names)
+F.expand!(raw, bp::Names) = expand!(raw, bp.names)
+function expand!(raw, names)
     # Store in the scratch, and only alias to model.producer_growth
     # if the corresponding component is loaded.
-    m._scratch[:nutrients_names] = names
-    m._scratch[:nutrients_index] = OrderedDict(n => i for (i, n) in enumerate(names))
+    raw._scratch[:nutrients_names] = names
+    raw._scratch[:nutrients_index] = OrderedDict(n => i for (i, n) in enumerate(names))
 
     # Update topology.
-    top = m._topology
+    top = raw._topology
     add_nodes!(top, names, :nutrients)
-
-    # For now, consider that the only presence of nutrients
-    # implies that every producer species is topologically connected to every nutrient.
-    # TODO: maybe this should be alleviated in case feeding coefficients are zero.
-    # In this situation, the edges would only appear when adding
-    # concentration/half-saturation coefficients.
-
-    # TODO: This is only possible if a foodweb already exists,
-    # which leads us to a feature gap in the framework:
-    # things need to happen only when special components combinations occur,
-    # so as not to require that `Model() + Foodweb() + Nutrients()`
-    #  behaves differently than `Model() + Nutrients() + Foodweb()`.
-    # Whatever the order here, the following should only happen on the second '+'.
-    # For now, work around this by having:
-    #  - `Foodweb` expansion check for `Nutrients.Node` presence.
-    #  - `Nutrients.Node` expansion check for `Foodweb` presence.
-    # But this will not scale.
-    Topologies.has_edge_type(top, :trophic) && connect_producers_to_nutrients(m)
-    #             ^^^^^
-    # + TODO: the above should be something like `has_component(m, Foodweb)` instead.
 end
-
-# Either called when adding Nutrients.Nodes to a model with a Foodweb, or the opposite.
-function connect_producers_to_nutrients(m)
-    edges = repeat(m._producers_mask, 1, m.n_nutrients)
-    add_edges_accross_node_types!(m._topology, :species, :nutrients, :trophic, edges)
-end
-
-F.expand!(model, bp::Nodes) = add_nutrients!(model, bp.names)
-
-@component RawNodes
 
 #-------------------------------------------------------------------------------------------
-mutable struct NodesFromFoodweb <: Nodes
-    method::Symbol
-    function NodesFromFoodweb(method)
-        method = Symbol(method)
-        @check_symbol method (:one_per_producer,)
-        new(method)
-    end
-end
+# From a plain number and generate dummy names.
 
-function F.early_check(_, bp::NodesFromFoodweb)
-    (; method) = bp
-    @check_symbol method (:one_per_producer,)
+mutable struct Number <: Blueprint
+    n::UInt
 end
+@blueprint Number "number of nutrients"
+export Number
 
-function F.expand!(model, bp::NodesFromFoodweb)
-    (; method) = bp
-    (; n_producers) = model
-    names = @build_from_symbol(
-        method,
-        :one_per_producer => [Symbol(:n, i) for i in 1:n_producers],
-    )
-    add_nutrients!(model, names)
-end
-
-@component NodesFromFoodweb requires(Foodweb)
+F.expand!(raw, bp::Number) = expand!(raw, default_names(bp.n))
+default_names(n) = [Symbol(:n, i) for i in 1:n]
 
 #-------------------------------------------------------------------------------------------
-@conflicts(RawNodes, NodesFromFoodweb)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:Nodes}) = Nodes
+# From a foodweb.
+mutable struct PerProducer <: Blueprint
+    n::UInt # Number of nutrients per producer.
+    PerProducer(n = 1) = new(n)
+end
+@blueprint PerProducer "producers in the foodweb" depends(Foodweb)
+export PerProducer
+
+function F.expand!(raw, bp::PerProducer)
+    n = bp.n * @get raw.producers.number
+    expand!(raw, default_names(n))
+end
+
+end
 
 # ==========================================================================================
-# See similar methods in Species component.
+@component Nodes{Internal} blueprints(Nodes_)
+# Don't export, to encourage disambiguated access as `Nutrients.Nodes`.
 
-@expose_data graph begin
-    property(nutrients_richness, n_nutrients)
-    get(m -> length(m._scratch[:nutrients_names]))
-    depends(Nutrients.Nodes)
+# In the presence of trophic links, all producers
+# become connected to all nutrient nodes.
+# TODO: maybe this should be alleviated in case feeding coefficients are zero.
+# In this situation, the edges would only appear when adding
+# concentration/half-saturation coefficients.
+F.add_trigger!(
+    [Foodweb, Nodes],
+    raw -> begin
+        top = raw._topology
+        edges = repeat(@ref(raw.producers.mask), 1, @get(raw.nutrients.number))
+        add_edges_accross_node_types!(top, :species, :nutrients, :trophic, edges)
+    end,
+)
+
+(::_Nodes)(n::Integer) = Nodes.Number(n)
+(::_Nodes)(names) = Nodes.Names(names)
+(::_Nodes)(; per_producer = 1) = Nodes.PerProducer(per_producer)
+
+function F.shortline(io::IO, model::Model, ::_Nodes)
+    N = model.nutrients.number
+    names = model.nutrients.names
+    print(io, "Nutrients: $N ($(join_elided(names, ", ")))")
 end
+
+# ==========================================================================================
+# Queries, similar to Species components.
 
 @expose_data nodes begin
-    property(nutrients_names)
+    property(nutrients.names)
     get(NutrientsNames{Symbol}, "nutrient")
-    ref(m -> m._scratch[:nutrients_names])
-    depends(Nutrients.Nodes)
+    ref(raw -> raw._scratch[:nutrients_names])
+    depends(Nodes)
 end
 
 @expose_data graph begin
-    property(nutrients_index)
-    ref_cache(m -> m._scratch[:nutrients_index])
-    get(m -> deepcopy(m._nutrients_index))
-    depends(Nutrients.Nodes)
+    property(nutrients.number, nutrients.richness)
+    get(raw -> length(@ref raw.nutrients.names))
+    depends(Nodes)
 end
 
 @expose_data graph begin
-    property(nutrient_label)
-    ref_cache(
-        m ->
+    property(nutrients.index)
+    ref_cached(
+        raw -> OrderedDict(name => i for (i, name) in enumerate(@ref raw.nutrients.names)),
+    )
+    get(raw -> deepcopy(@ref raw.nutrients.index))
+    depends(Nodes)
+end
+
+@expose_data graph begin
+    property(nutrients.label)
+    ref_cached(
+        raw ->
             (i) -> begin
-                names = m._nutrients_names
+                names = @ref raw.nutrients.names
                 n = length(names)
                 if 1 <= i <= length(names)
                     names[i]
                 else
                     (are, s) = n > 1 ? ("are", "s") : ("is", "")
-                    argerr("Invalid index ($(i)) when there $are $n nutrient$s name$s.")
+                    argerr("Invalid index ($(i)) when there $are $n nutrient name$s.")
                 end
             end,
     )
-    get(m -> m._nutrient_label)
-    depends(Nutrients.Nodes)
+    get(raw -> @ref raw.nutrients.label)
+    depends(Nodes)
 end
 
-# ==========================================================================================
 macro nutrients_index()
-    esc(:(index(m -> m._nutrients_index)))
-end
-
-# ==========================================================================================
-display_short(bp::Nodes; kwargs...) = display_short(bp, Nodes; kwargs...)
-display_long(bp::Nodes; kwargs...) = display_long(bp, Nodes; kwargs...)
-function F.display(model, ::Type{<:Nodes})
-    N = model.n_nutrients
-    names = model.nutrients_names
-    "Nutrients: $N ($(join_elided(names, ", ")))"
+    esc(:(index(raw -> @ref raw.nutrients.index)))
 end

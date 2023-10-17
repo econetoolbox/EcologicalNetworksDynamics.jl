@@ -15,10 +15,16 @@ using Test
 
 # Generate many small "markers" components just to toy with'em.
 for letter in 'A':'Z'
-    eval(:(struct $(Symbol(letter)) <: Blueprint{Value} end))
+    C = Symbol(letter)
+    Bp = Symbol(C, :_b)
+    eval(quote
+        struct $Bp <: Blueprint{Value} end
+        @blueprint $Bp
+        @component $C{Value} blueprints(b::$Bp)
+    end)
 end
 
-@testset "Invocations variations for @conflicts macro." begin
+@testset "Declaring components @conflicts." begin
 
     #---------------------------------------------------------------------------------------
     # Provide enough data for the declaration to be meaningful.
@@ -43,16 +49,18 @@ end
         (@conflicts(A => ())),
         "At least two components are required to declare a conflict not only :A."
     )
-    @xconffails((@conflicts(A, A)), "Component '$A' cannot conflict with itself.")
-    @xconffails(
-        (@conflicts(A, Invocations.A)),
-        "Component '$A' cannot conflict with itself."
-    )
+    @xconffails((@conflicts(A, A)), "Component $_A cannot conflict with itself.")
+    @xconffails((@conflicts(A, A)), "Component $_A cannot conflict with itself.")
 
     #---------------------------------------------------------------------------------------
     # No conflicts *a priori*, they are declared by the macro invocation.
 
-    confs(C) = sort(collect(Framework.conflicts(C)); by = repr)
+    confs(C) = sort(
+        collect(Iterators.map(Framework.all_conflicts(typeof(C))) do (a, b, r)
+                (Framework.singleton_instance(a), Framework.singleton_instance(b), r)
+            end);
+        by = repr,
+    )
     @test confs(A) == []
 
     @conflicts(A, B)
@@ -78,37 +86,50 @@ end
 
     @xconffails(
         (@conflicts(4 + 5, 6)),
-        "First conflicting entry: expression does not evaluate to a $DataType: :(4 + 5), \
-         but to a $Int64: 9.",
+        "First conflicting entry: expression does not evaluate to a component:\n\
+         Expression: :(4 + 5)\n\
+         Result: 9 ::$Int"
     )
 
     @xconffails(
         (@conflicts(A, 6)),
-        "Conflicting entry: expression does not evaluate to a $DataType: 6, \
-         but to a $Int64: 6.",
+        "Conflicting entry: expression does not evaluate \
+         to a component for '$Value':\n\
+         Expression: 6\n\
+         Result: 6 ::$Int"
     )
 
     @xconffails(
-        (@conflicts(Int64, Float64)),
-        "First conflicting entry: not a subtype of '$Blueprint': '$Int64'.",
+        (@conflicts(Int, Float64)),
+        "First conflicting entry: expression does not evaluate \
+         to a subtype of $Component:\n\
+         Expression: :Int\n\
+         Result: $Int ::DataType",
     )
 
     @xconffails(
         (@conflicts(A, Float64)), # 'Value' inferred from the first entry.
-        "Conflicting entry: '$Float64' does not subtype '$Blueprint{$Value}'.",
+        "Conflicting entry: expression does not evaluate \
+         to a subtype of '$Component':\n\
+         Expression: :Float64\n\
+         Result: $Float64 ::DataType",
     )
 
     a = 5
     @xconffails(
         (@conflicts(a, a)),
-        "First conflicting entry: expression does not evaluate to a $DataType: :a, \
-         but to a Int64: 5.",
+        "First conflicting entry: expression does not evaluate \
+         to a component:\n\
+         Expression: :a\n\
+         Result: 5 ::$Int",
     )
 
     @xconffails(
         (@conflicts(A, a)),
-        "Conflicting entry: expression does not evaluate to a $DataType: :a, \
-         but to a Int64: 5.",
+        "Conflicting entry: expression does not evaluate \
+         to a component for '$Value':\n\
+         Expression: :a\n\
+         Result: 5 ::$Int",
     )
 
     #---------------------------------------------------------------------------------------
@@ -118,60 +139,80 @@ end
     @test confs(C) == [(C, D, nothing)]
     @test confs(D) == [(D, C, "D dislikes C.")]
 
-    s = System{Value}(A(), C())
-    @sysfails(s + D(), Check(D), "conflicts with component '$C': D dislikes C.")
+    s = System{Value}(A.b(), C.b())
+    @sysfails(
+        s + D.b(),
+        Add(ConflictWithSystemComponent, _D, nothing, [D.b], _C, nothing, "D dislikes C.")
+    )
 
     # Invalid reasons specs.
     @xconffails(
         (@conflicts(E, (4 + 5) => (E => "ok"))),
-        "Conflicting entry: expression does not evaluate to a $DataType: :(4 + 5), \
-         but to a Int64: 9.",
+        "Conflicting entry: expression does not evaluate \
+         to a component for '$Value':\n\
+         Expression: :(4 + 5)\n\
+         Result: 9 ::$Int",
     )
+
     @pconffails((@conflicts(E, F => (4 + 5))), "Not a list of conflict reasons: :(4 + 5).")
+
     @xconffails(
         (@conflicts(E, F => (E => 4 + 5))),
-        "Reason message: expression does not evaluate to a String: :(4 + 5), \
-         but to a Int64: 9."
+        "Reason message: expression does not evaluate to a 'String':\n\
+         Expression: :(4 + 5)\n\
+         Result: 9 ::$Int"
     )
+
     @xconffails(
         (@conflicts(E, F => (4 + 5 => "ok"))),
-        "Reason reference: expression does not evaluate to a $DataType: :(4 + 5), \
-         but to a Int64: 9."
+        "Reason reference: expression does not evaluate \
+         to a component for '$Value':\n\
+         Expression: :(4 + 5)\n\
+         Result: 9 ::$Int",
     )
+
     @xconffails(
         (@conflicts(E, F => (A => "A dislikes F."))),
         "Conflict reason does not refer to a component listed \
-         in the same @conflicts invocation: $A => \"A dislikes F.\"."
+         in the same @conflicts invocation: $_A => \"A dislikes F.\"."
     )
+
     @xconffails(
         (@conflicts(E, F => (F => "F again?"))),
-        "Component '$F' cannot conflict with itself."
+        "Component $_F cannot conflict with itself."
     )
+
     @xconffails(
-        (@conflicts(E, F => (Invocations.F => "F again?"))),
-        "Component '$F' cannot conflict with itself."
+        (@conflicts(E, F => (F => "F again?"))),
+        "Component $_F cannot conflict with itself."
     )
+
     @xconffails(
         (@conflicts(E, F => (B => "B?"))),
         "Conflict reason does not refer to a component \
-         listed in the same @conflicts invocation: $B => \"B?\"."
+         listed in the same @conflicts invocation: $_B => \"B?\"."
     )
 
     # Same, but with a list of reasons.
     @xconffails(
         (@conflicts(E, F, G => (F => "ok", E => 4 + 5))),
-        "Reason message: expression does not evaluate to a String: :(4 + 5), \
-         but to a Int64: 9."
+        "Reason message: expression does not evaluate to a 'String':\n\
+         Expression: :(4 + 5)\n\
+         Result: 9 ::$Int"
     )
+
     @xconffails(
         (@conflicts(E, F, G => [F => "ok", 4 + 5 => "message"])),
-        "Reason reference: expression does not evaluate to a $DataType: :(4 + 5), \
-         but to a Int64: 9."
+        "Reason reference: expression does not evaluate \
+         to a component for '$Value':\n\
+         Expression: :(4 + 5)\n\
+         Result: 9 ::$Int",
     )
+
     @xconffails(
         (@conflicts(E, F, G => (F => "ok", A => "A dislikes F."))),
         "Conflict reason does not refer to a component listed \
-         in the same @conflicts invocation: $A => \"A dislikes F.\"."
+         in the same @conflicts invocation: $_A => \"A dislikes F.\"."
     )
 
     #---------------------------------------------------------------------------------------
@@ -219,7 +260,7 @@ end
     # .. unless it would override the reason already specified.
     @xconffails(
         (@conflicts(B, U, V => (U => "New reason why V dislikes U."))),
-        "Component '$V' already declared to conflict with '$U' \
+        "Component $_V already declared to conflict with $_U \
          for the following reason:\n  V dislikes U.",
     )
 
@@ -234,9 +275,9 @@ using Main: @sysfails, @pconffails, @xconffails
 using Test
 
 const S = System{Value}
-comps(s) = sort(collect(components(s)); by = repr)
+comps(s) = collect(components(s))
 
-@testset "Abstract component types conflicts." begin
+@testset "Abstract component conflicts semantics." begin
 
     # Component type hierachy.
     #
@@ -246,80 +287,121 @@ comps(s) = sort(collect(components(s)); by = repr)
     #  │ │   │  │ │ │
     #  D E   F  H I J
     #
-    abstract type A <: Blueprint{Value} end
-    abstract type G <: Blueprint{Value} end
+    abstract type A <: Component{Value} end
+    abstract type G <: Component{Value} end
     abstract type B <: A end
     abstract type C <: A end
-    struct D <: B end
-    struct E <: C end
-    struct F <: C end
-    struct H <: G end
-    struct I <: G end
-    struct J <: G end
-    @component D
-    @component E
-    @component F
-    @component H
-    @component I
-    @component J
+    struct D_b <: Blueprint{Value} end
+    struct E_b <: Blueprint{Value} end
+    struct F_b <: Blueprint{Value} end
+    struct H_b <: Blueprint{Value} end
+    struct I_b <: Blueprint{Value} end
+    struct J_b <: Blueprint{Value} end
+    @blueprint D_b
+    @blueprint E_b
+    @blueprint F_b
+    @blueprint H_b
+    @blueprint I_b
+    @blueprint J_b
+    @component D <: B blueprints(b::D_b)
+    @component E <: C blueprints(b::E_b)
+    @component F <: C blueprints(b::F_b)
+    @component H <: G blueprints(b::H_b)
+    @component I <: G blueprints(b::I_b)
+    @component J <: G blueprints(b::J_b)
 
     # Conflict between abstract and concrete component types.
     @conflicts(A, H => (A => "H dislikes A."))
-    @test comps(S(D(), I())) == [D, I] #
-    @test comps(S(D(), I())) == [D, I] # (allowed combinations)
-    @test comps(S(J(), D())) == [D, J] #
-    @test comps(S(J(), D())) == [D, J] #
+    @test comps(S(D.b(), I.b())) == [D, I] #
+    @test comps(S(I.b(), D.b())) == [I, D] # (allowed combinations)
+    @test comps(S(D.b(), J.b())) == [D, J] #
+    @test comps(S(J.b(), D.b())) == [J, D] #
     @sysfails(
-        S(D(), H()), # (with an explicit reason)
-        Check(H),
-        "conflicts with component '$D' (as '$A'): H dislikes A."
+        S(D.b(), H.b()), # (with an explicit reason)
+        Add(ConflictWithSystemComponent, _H, nothing, [H_b], _D, A, "H dislikes A."),
     )
     @sysfails(
-        S(H(), D()), # (without explicit reason)
-        Check(D),
-        "conflicts (as '$A') with component '$H'."
+        S(H.b(), D.b()), # (without explicit reason)
+        Add(ConflictWithSystemComponent, _D, A, [D_b], H, nothing, nothing),
     )
 
     # Conflict between two abstract component types.
     @conflicts(C => (B => "C dislikes B."), B)
-    @test comps(S(E(), I())) == [E, I] #
-    @test comps(S(F(), I())) == [F, I] # (allowed combinations)
-    @test comps(S(J(), E())) == [E, J] #
-    @test comps(S(J(), F())) == [F, J] #
+    @test comps(S(E.b(), I.b())) == [E, I] #
+    @test comps(S(F.b(), I.b())) == [F, I] # (allowed combinations)
+    @test comps(S(J.b(), E.b())) == [J, E] #
+    @test comps(S(J.b(), F.b())) == [J, F] #
     @sysfails(
-        S(D(), E()), # (with an explicit reason)
-        Check(E),
-        "conflicts (as '$C') with component '$D' (as '$B'): C dislikes B."
+        S(D.b(), E.b()), # (with an explicit reason)
+        Add(ConflictWithSystemComponent, _E, C, [E_b], _D, B, "C dislikes B."),
     )
     @sysfails(
-        S(E(), D()), # (without explicit reason)
-        Check(D),
-        "conflicts (as '$B') with component '$E' (as '$C')."
+        S(E.b(), D.b()), # (without explicit reason)
+        Add(ConflictWithSystemComponent, _D, B, [D_b], _E, C, nothing),
     )
 
     # Forbid vertical conflicts.
     @xconffails(
         @conflicts(G, I),
-        "Component '$I' cannot conflict with its own supertype '$G'."
+        "Component $_I cannot conflict with its own super-component $G."
     )
     @xconffails(
         @conflicts(I, G),
-        "Component '$I' cannot conflict with its own supertype '$G'."
+        "Component $_I cannot conflict with its own super-component $G."
     )
 
     # Guard against redundant reason specifications.
     @xconffails(
         @conflicts(F, H => (F => "H dislikes F.")),
-        "Component '$H' already declared to conflict with '$F' (as '$A') \
+        "Component $_H already declared to conflict with $_F (as $A) \
          for the following reason:\n  H dislikes A."
     )
     @xconffails(
         @conflicts(D, E => (D => "E dislikes D.")),
-        "Component '$E' (as '$C') already declared to conflict with '$D' (as '$B') \
+        "Component $_E (as $C) already declared to conflict with $_D (as $B) \
          for the following reason:\n  C dislikes B."
     )
 
-end
-end
+    # Conflict with brought components.
+    struct Crh_b <: Blueprint{Value}
+        c::Brought(C)
+    end
+    Framework.implied_blueprint_for(::Crh_b, ::C) = E.b()
+    @blueprint Crh_b
+    Framework.componentsof(::Crh_b) = (_D,)
 
+    crh = Crh_b(E.b())
+    @sysfails(
+        S(crh),
+        Add(
+            ConflictWithBroughtComponent,
+            _D,
+            B,
+            [Crh_b],
+            _E,
+            C,
+            [E.b, false, Crh_b],
+            nothing,
+        )
+    )
+
+    # Or implied.
+    crh = Crh_b(E)
+    @sysfails(
+        S(crh),
+        Add(
+            ConflictWithBroughtComponent,
+            _D,
+            B,
+            [Crh_b],
+            _E,
+            C,
+            [E.b, true, Crh_b],
+            nothing,
+        )
+    )
+
+
+end
+end
 end

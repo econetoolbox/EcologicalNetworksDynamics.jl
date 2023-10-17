@@ -1,65 +1,111 @@
 # Set or generate half saturations for every producer-to-nutrient link in the model.
-#
-# Copied and adapted from concentrations.
+
+# Mostly duplicated from HalfSaturation.
+
+# (reassure JuliaLS)
+(false) && (local HalfSaturation, _HalfSaturation)
 
 # ==========================================================================================
-abstract type HalfSaturation <: ModelBlueprint end
-# All subtypes must require(Nutrients.Nodes,Foodweb).
+module HalfSaturation_
+include("../blueprint_modules.jl")
+include("../blueprint_modules_identifiers.jl")
+import .EN: Foodweb, Nutrients
 
-HalfSaturation(h) = HalfSaturationFromRawValues(h)
+#-------------------------------------------------------------------------------------------
+mutable struct Raw <: Blueprint
+    h::Matrix{Float64}
+    nutrients::Brought(Nutrients.Nodes)
+    Raw(h, nt = Nutrients._Nodes) = new(@tographdata(h, Matrix{Float64}), nt)
+end
+F.implied_blueprint_for(bp::Raw, ::Nutrients._Nodes) = Nutrients.Nodes(size(bp.h)[2])
+@blueprint Raw "producers × nutrients half-saturation matrix"
+export Raw
+
+F.early_check(bp::Raw) = check_edges(check, bp.h)
+check(h, ref = nothing) = check_value(>=(0), h, ref, :h, "Not a positive value")
+
+function F.late_check(raw, bp::Raw)
+    (; h) = bp
+    P = @get raw.producers.number
+    N = @get raw.nutrients.number
+    @check_size h (P, N)
+end
+
+F.expand!(raw, bp::Raw) = expand!(raw, bp.h)
+expand!(raw, h) = raw._scratch[:nutrients_half_saturation] = h
+
+#-------------------------------------------------------------------------------------------
+mutable struct Flat <: Blueprint
+    h::Float64
+end
+@blueprint Flat "uniform half-saturation value" depends(Foodweb, Nutrients.Nodes)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.h)
+function F.expand!(raw, bp::Flat)
+    P = @get raw.producers.number
+    N = @get raw.nutrients.number
+    expand!(raw, to_size(bp.h, (P, N)))
+end
+
+#-------------------------------------------------------------------------------------------
+mutable struct Adjacency <: Blueprint
+    h::@GraphData Adjacency{Float64}
+    nutrients::Brought(Nutrients.Nodes)
+    Adjacency(h, nt = Nutrients._Nodes) = new(@tographdata(h, Adjacency{Float64}), nt)
+end
+F.implied_blueprint_for(bp::Adjacency, ::Nutrients._Nodes) =
+    Nutrients.Nodes(refspace_inner(bp.h))
+@blueprint Adjacency "[producer => [nutrient => half-saturation]] map"
+export Adjacency
+
+F.early_check(bp::Adjacency) = check_edges(check, bp.h)
+function F.late_check(raw, bp::Adjacency)
+    (; h) = bp
+    p_index = @ref raw.producers.sparse_index
+    n_index = @ref raw.nutrients.index
+    @check_list_refs h "producer trophic" (p_index, n_index) dense
+end
+
+function F.expand!(raw, bp::Adjacency)
+    p_index = @ref raw.producers.dense_index
+    n_index = @ref raw.nutrients.index
+    h = to_dense_matrix(bp.h, p_index, n_index)
+    expand!(raw, h)
+end
+
+end
+
+# ==========================================================================================
+@component begin
+    HalfSaturation{Internal}
+    requires(Foodweb, Nutrients.Nodes)
+    blueprints(HalfSaturation_)
+end
 export HalfSaturation
 
-#-------------------------------------------------------------------------------------------
-mutable struct HalfSaturationFromRawValues <: HalfSaturation
-    h::@GraphData {Scalar, Matrix}{Float64}
-    HalfSaturationFromRawValues(h) = new(@tographdata h SM{Float64})
-end
-
-F.can_imply(bp::HalfSaturationFromRawValues, ::Type{Nutrients.Nodes}) = !(bp.h isa Real)
-Nutrients.Nodes(bp::HalfSaturationFromRawValues) = Nutrients.Nodes(size(bp.h, 2))
-
-function F.check(model, bp::HalfSaturationFromRawValues)
-    (; n_producers, n_nutrients) = model
-    (; h) = bp
-    @check_size_if_matrix h (n_producers, n_nutrients)
-end
-
-function F.expand!(model, bp::HalfSaturationFromRawValues)
-    (; n_producers, n_nutrients) = model
-    (; h) = bp
-    @to_size_if_scalar Real h (n_producers, n_nutrients)
-    model._scratch[:nutrients_half_saturation] = h
-end
-
-@component HalfSaturationFromRawValues requires(Foodweb) implies(Nutrients.Nodes)
-export HalfSaturationFromRawValues
-
-#-------------------------------------------------------------------------------------------
-# Keep in case more alternate blueprints are added.
-# @conflicts(HalfSaturationFromRawValues)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:HalfSaturation}) = HalfSaturation
-
-# ==========================================================================================
-@expose_data edges begin
-    property(nutrients_half_saturation)
-    get(HalfSaturations{Float64}, "producer-to-nutrient link")
-    ref(m -> m._scratch[:nutrients_half_saturation])
-    write!((m, rhs, i, j) -> (m._nutrients_half_saturation[i, j] = rhs))
-    row_index(m -> m._producers_dense_index)
-    col_index(m -> m._nutrients_index)
-    depends(HalfSaturation)
-end
-
-# ==========================================================================================
-display_short(bp::HalfSaturation; kwargs...) = display_short(bp, HalfSaturation; kwargs...)
-display_long(bp::HalfSaturation; kwargs...) = display_long(bp, HalfSaturation; kwargs...)
-function F.display(model, ::Type{<:HalfSaturation})
-    h = model.nutrients_half_saturation
-    min, max = minimum(h), maximum(h)
-    "Nutrients half-saturation: " * if min == max
-        "$min"
+function (::_HalfSaturation)(h)
+    h = @tographdata h {Scalar, Matrix, Adjacency}{Float64}
+    if h isa Real
+        HalfSaturation.Flat(h)
+    elseif h isa AbstractMatrix
+        HalfSaturation.Raw(h)
     else
-        "ranging from $min to $max."
+        HalfSaturation.Adjacency(h)
     end
+end
+
+@expose_data edges begin
+    property(nutrients.half_saturation)
+    depends(HalfSaturation)
+    row_index(raw -> @ref raw.producers.dense_index)
+    col_index(raw -> @ref raw.nutrients.index)
+    ref(raw -> raw._scratch[:nutrients_half_saturation])
+    get(HalfSaturations{Float64}, "producer-to-nutrient link")
+    write!((raw, rhs::Real, i, j) -> HalfSaturation_.check(rhs, (i, j)))
+end
+
+function F.shortline(io::IO, model::Model, ::_HalfSaturation)
+    print(io, "Nutrients half-saturation: ")
+    showrange(io, model.nutrients._half_saturation)
 end

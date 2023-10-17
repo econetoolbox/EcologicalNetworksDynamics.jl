@@ -1,10 +1,16 @@
 # The Ecological Model and Components
 
-`EcologicalNetworksDynamics` represents an ecological network
-as a julia value of type [`Model`](@ref).
+The package `EcologicalNetworksDynamics`
+represents an ecological network as a julia value of type [`Model`](@ref).
 
 ```@setup econetd
 using EcologicalNetworksDynamics
+using Crayons
+function showerr(e)
+  print(stderr, "$(crayon"red")ERROR:$(crayon"reset") ")
+  showerror(stderr, e)
+  nothing
+end
 ```
 
 ```@example econetd
@@ -34,50 +40,56 @@ There are three possible "levels" for this data:
 ## Model Properties
 
 The data held by the model can be accessed via the various model *properties*,
-with functions named `get_<X>`:
+accessed with julia's `m.<P>` property accessor:
 ```@example econetd
-get_hill_exponent(m) # Graph-level data (a number).
-```
-```@example econetd
-get_body_masses(m) # Node-level data (a vector with one value per species).
-```
-```@example econetd
-get_efficiency(m) # Edge-level data (a matrix with one value per species interaction).
-```
-
-Alternately, the data can also be accessed
-*via* julia's `m.<x>` property accessor:
-```@example econetd
-m.hill_exponent # Same as get_hill_exponent(m).
-m.body_masses   # Same as get_body_masses(m).
-m.efficiency    # Same as get_efficiency(m).
+m.hill_exponent # Graph-level data (a number).
+m.body_mass     # Node-level data (a vector with one value per species).
+m.efficiency    # Edge-level data (a matrix with one value per species interaction).
 nothing # hide
 ```
 
-Some data can be modified this way,
-either with `set_<x>!(m, value)`.
+Properties are grouped into *property spaces*:
+```@example econetd
+m.species
+```
+
+You can navigate the property spaces with successive `.` accesses:
+```@example econetd
+m.species.number
+```
+
+```@example econetd
+m.trophic.matrix
+```
+
+Some data can be modified this way with `m.<P> = <value>`.
 But *not all*:
 ```@example econetd
 # Okay: this is terminal data.
-set_hill_exponent!(m, 2.1)
-m.hill_exponent = 2.1 # (alternate syntax for the same operation)
+m.hill_exponent = 2.1
 
 try # hide
 # Not okay: this could make the rest of the model data inconsistent.
-m.species_richness = 4
-catch err; print(stderr, "ERROR: "); showerror(stderr, err); end # hide
+m.species.richness = 4
+catch e showerr(e) end # hide
 ```
 
 If you need a model with different values for read-only data,
 you need to build a new model with the values you desire.
 ```@example econetd
 m = default_model(Foodweb([:a => :b, :b => [:c, :d]])) # Re-construct with a 4th species.
-m.species_richness # Now the value is what you want.
+m.species.richness # Now the value is what you want.
 ```
 
 The full list of available model properties can be queried with:
 ```@example econetd
 properties(m)
+nothing # hide
+```
+
+Some properties are just convenience aliases for each other.
+```@example econetd
+m.A == m.trophic.matrix
 nothing # hide
 ```
 
@@ -87,7 +99,7 @@ The [`Model`](@ref) value is very flexible
 and can represent a variety of different networks.
 It is made from the combination of various *components*.
 
-### Empty Model and the `add!` Method.
+### Empty Model and the `add!` Method
 
 When you start from a [`default_model`](@ref),
 you typically obtain a full-fledged value,
@@ -105,8 +117,8 @@ An empty model cannot be simulated,
 because the data required for simulation is missing from it.
 ```@example econetd
 try # hide
-simulate(m, 0.5)
-catch err; print(stderr, "ERROR: "); showerror(stderr, err); end # hide
+simulate(m, 0.5, 100)
+catch e showerr(e) end # hide
 ```
 
 Also, an empty model cannot be queried for data,
@@ -114,7 +126,7 @@ because there is no data inside:
 ```@example econetd
 try # hide
 m.richness
-catch e; print(stderr, "ERROR: "); showerror(stderr, e); end # hide
+catch e showerr(e) end # hide
 ```
 
 The most basic way to add a [`Species`](@ref) component to your model
@@ -126,37 +138,37 @@ add!(m, Species(3))
 Now that the [`Species`](@ref) component has been added,
 the related properties can be queried from the model:
 ```@example econetd
-m.richness
+m.species.richness
 ```
 ```@example econetd
-m.species_names
+m.species.names
 ```
 
 But the other properties cannot be queried,
 because the associated components are still missing:
 ```@example econetd
 try # hide
-m.trophic_links
-catch err; print(stderr, "ERROR: "); showerror(stderr, err); end # hide
+m.trophic.matrix
+catch e showerr(e) end # hide
 ```
 
 Before we add the missing [`Foodweb`](@ref) component,
 let us explain that the component addition we did above
 actually happened in *two stages*.
 
-### Blueprints Expand into Components.
+### Blueprints Expand into Components
 
 To add a component to a model,
 we first need to create a *blueprint* for the component.
 A blueprint is a julia value
-containing all the data needed to construct a component.
+containing all the data needed to *expand* into a component.
 ```@example econetd
-sp = Species(3) # This is a blueprint, useful to later expand into a model component.
+sp = Species([:hen, :fox, :snake]) # This is a blueprint, useful to later expand into a model component.
 ```
 
 When you call the [`add!`](@ref) function,
 you feed it with a model and a blueprint.
-The blueprint is read and *expanded* into a component within the given model:
+The blueprint is read and expanded within the given model:
 ```@example econetd
 m = Model() # Empty model.
 add!(m, sp) # Expand blueprint `sp` into a `Species` component within `m`.
@@ -168,8 +180,8 @@ you cannot always edit the component data directly.
 For instance, the following does not work:
 ```@example econetd
 try # hide
-m.species_names[2] = "rhino"
-catch err; print(stderr, "ERROR: "); showerror(stderr, err); end # hide
+m.species.names[2] = "rhino"
+catch e showerr(e) end # hide
 ```
 
 However, you can always edit the *blueprint*,
@@ -185,13 +197,31 @@ Blueprints can get sophisticated.
 For instance,
 here are various ways to create blueprints for a [`Foodweb`](@ref) component.
 ```@example econetd
-fw = Foodweb(:niche, S = 5, C = 0.2) # From a random model.
-fw = Foodweb([0 1 0; 1 0 1; 0 0 0])  # From an adjacency matrix.
-fw = Foodweb([1 => 2, 2 => 3])       # From an adjacency list.
+fw = Foodweb(:niche, S = 5, C = 0.2)         # From a random model.
+fw = Foodweb([0 1 0; 1 0 1; 0 0 0])          # From an adjacency matrix.
+fw = Foodweb([:fox => :hen, :hen => :snake]) # From an adjacency list.
 nothing # hide
 ```
 
-If you want to test the corresponding `Foodweb` component,
+So, although the value `Foodweb` represents a component,
+you can *call* it to produce blueprints expanding into this component.
+In Julia linguo:
+`Foodweb` is a singleton functor value
+that forwards its calls to actual blueprint constructors.
+
+Instead of calling the `Foodweb` component as a functor,
+you can be more explicit by calling the blueprint constructors directly:
+```@example econetd
+fw = Foodweb.Matrix([0 1 0; 1 0 1; 0 0 0])
+fw = Foodweb.Adjacency([:fox => :hen, :hen => :snake])
+nothing # hide
+```
+
+Here, `Foodweb.Matrix` and `Foodweb.Adjacency`
+are two different types of blueprints providing the component `Foodweb`.
+The call to `Fooweb(:niche, ...)` yields a random `Foodweb.Matrix` blueprint.
+
+If you want to test the component,
 but you don't want to loose the original model,
 you can keep a safe [`copy`](@ref) of it
 before you actually expand the blueprint:
@@ -213,7 +243,7 @@ gives you flexibility when creating your models.
 Blueprints can either be thrown after use,
 or kept around to be modified and reused without limits.
 
-## Model Constraints.
+## Model Constraints
 
 Of course, you cannot expand blueprints into components
 that would yield inconsistent models:
@@ -222,7 +252,7 @@ base = Model(Species(3)) # A model a with 3-species compartment.
 try # hide
 global m # hide
 m = base + Foodweb([0 1; 0 0]) # An adjacency matrix with only 2×2 values.
-catch e; print(stderr, "ERROR: "); showerror(stderr, e); end # hide
+catch e showerr(e) end # hide
 ```
 
 Components cannot be *removed* from a model,
@@ -233,9 +263,10 @@ m = Model(Foodweb(:niche, S = 5, C = 0.2))
 try # hide
 global m # hide
 m += Foodweb([:a => :b]) # Nope: already added.
-catch e; print(stderr, "ERROR: "); showerror(stderr, e); end # hide
+catch e showerr(e) end # hide
 ```
 
+In other terms: models can only be build *monotonically*.  
 If you ever feel like you need
 to "change a component" or "remove a component" from a model,
 the correct way to do so is to construct a new model
@@ -249,40 +280,50 @@ m = Model(Species(3))
 try # hide
 global m # hide
 m += Efficiency(4)
-catch e; print(stderr, "ERROR: "); showerror(stderr, e); end # hide
+catch e showerr(e) end # hide
 ```
 
-## Blueprint Nesting (advanced).
+## Bringing Blueprints
 
 To help you not hit the above problem too often,
 some blueprints take advantage of the fact
 that they contain the information needed
 to *also* expand into some of the components they require.
-Conceptually, they embed smaller blueprints within them.
+Conceptually, they carry the information needed
+to *bring* smaller blueprints within them.
+
+
+### *Imply*
 
 For instance, the following blueprint for a foodweb
 contains enough information to expand into both a [`Foodweb`](@ref) component,
 *and* the associated [`Species`](@ref) component if needed:
 ```@example econetd
 fw = Foodweb([1 => 2, 2 => 3]) # Species nodes can be inferred from this blueprint..
-m = Model(fw) # .. a blank model given only this blueprint becomes equiped with the 2 components.
+m = Model(fw) # .. so a blank model given only this blueprint becomes equiped with the 2 components.
 ```
 
-So it is not an error to expand the `Foodweb` component
+As a consequence,
+it is not an error to expand the `Foodweb.Adjacency` blueprint
 into a model not already having a `Species` compartment.
-We say that the `Foodweb` blueprint *implies* a `Species` blueprint.
+We say that the `Foodweb.Adjacency` blueprint
+*implies* a blueprint for component `Species`.
 
 If you need more species in your model than appear in your foodweb blueprint,
-you can still explicitly expand the `Species` blueprint
+you can still explicitly provide a larger `Species` blueprint
 before you add the foodweb:
 ```@example econetd
 m = Model(Species(5), Foodweb([1 => 2, 2 => 3])) # A model with 2 isolated species.
 ```
 
-Some blueprints, on the other hand, explicitly *bring* other blueprints.
+In other words, *implied* blueprints are only expanded if needed.
+
+### *Embed*
+
+Some blueprints, on the other hand, explicitly *embed* other blueprints.
 For instance, the [`LinearResponse`](@ref)
-brings both [`ConsumptionRate`](@ref)
-and [`ConsumersPreference`](@ref) sub-blueprints:
+embeds both [`ConsumptionRate`](@ref)
+and [`ConsumersPreference`](@ref) "sub-blueprints":
 ```@example econetd
 lin = LinearResponse()
 ```
@@ -293,27 +334,28 @@ So a model given this single blueprint can expand with 3 additional components.
 m += lin
 ```
 
-The difference with "implication" though,
-is that the sub-blueprints "brought" *do* conflict with existing components:
+The difference between *embedding* and *implying*
+is that the *embedded* sub-blueprints are always expanded.
+The direct consequence is that they *do* conflict with existing components:
 ```@example econetd
 m = Model(fw, ConsumptionRate(2)) # This model already has a consumption rate.
 try # hide
 global m # hide
 m += lin # So it is an error to bring another consumption rate with this blueprint.
-catch e; print(stderr, "ERROR: "); showerror(stderr, e); end # hide
+catch e showerr(e) end # hide
 ```
 
 This protects you from obtaining a model value with ambiguous consumption rates.
 
-To prevent the sub-blueprint [`ConsumptionRate`](@ref) from being brought,
-you need to explicitly remove it from the blueprint containing it:
+To prevent the [`ConsumptionRate`](@ref) from being brought,
+you need to explicitly remove it from the blueprint embedding it:
 ```@example econetd
 lin.alpha = nothing # Remove the brought sub-blueprint.
-lin = LinearResponse(alpha = nothing) # Or create directly without the brought sub-blueprint.
+lin = LinearResponse(alpha = nothing) # Or create directly without the embedded blueprint.
 m += lin # Consistent model obtained.
 ```
 
-# Using the Default Model.
+# Using the Default Model
 
 Building a model from scratch can be tedious,
 because numerous components are required
@@ -364,15 +406,15 @@ m = default_model(fw)
 ```
 
 But you can feed other blueprints into it
-to fine-tweak only the parameters you want to modify.
+to fine-tweak just the parameters you want.
 ```@example econetd
-m = default_model(fw, BodyMass(Z = 1.5), Efficiency(2))
-(m.body_masses, m.efficiency)
+m = default_model(fw, BodyMass(Z = 1.5), Efficiency(.2))
+(m.body_mass, m.efficiency)
 ```
 
 The function [`default_model`](@ref) tries hard
 to figure the default model you expect
-based on the few blueprints you input.
+based on the only few blueprints you input.
 For instance, it assumes that you need
 a different type of functional response
 if you input a [`Temperature`](@ref) component,
@@ -387,26 +429,13 @@ as a separate nodes compartment in your ecological network:
 m = default_model(fw, Nutrients.Nodes(2))
 ```
 
-But the function will not choose between two similar blueprints
-if you bring both, even implicitly:
-```@example econetd
-try # hide
-global m # hide
-m = default_model(
-  fw,
-  BodyMass(Z = 1.5),      # <- Customize body mass.
-  ClassicResponse(e = 2), # <- This blueprint also brings a BodyMassy
-)
-catch e; print(stderr, "ERROR: "); showerror(stderr, e); end # hide
-```
+## /!\ Find fresh example snippets /!\
 
-In this situation,
-either stop implicitly bringing `BodyMass`
-with `ClassicResponse(e=2, M=nothing)`,
-or directly move you custom body mass input into the larger blueprint:
-```@example econetd
-m = default_model(
-  fw,
-  ClassicResponse(e = 2, M = (; Z = 1.5)),
-)
-```
+This page of the manual is up-to-date with the latest version of the package,
+but not the other pages yet.  
+However, you will already (and always) find up-to-date examples of manipulating
+models/blueprints/components under the [`test/user`](../../test/user) folder.
+Have a look in there to get familiar with all the package features ;)
+
+If you were accustomed to a former version of the package,
+also take a look at our [`CHANGELOG.md`](../../CHANGELOG.md).

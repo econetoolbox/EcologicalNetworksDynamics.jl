@@ -1,7 +1,7 @@
 module TestModelTopology
 
 using EcologicalNetworksDynamics
-import ..TestTopologies: check_display
+import Main.TestTopologies: check_display
 using Test
 using Random
 
@@ -11,11 +11,11 @@ using Random
         Foodweb([:a => [:b, :c], :b => :d, :c => :d, :e => [:c], :f => :g]),
         Nutrients.Nodes(2),
     )
-    m += NontrophicInteractions.RefugeTopology(; A = [:g => :c, :d => :g])
+    m += NontrophicInteractions.Refuge.Topology(; A = [:g => :c, :d => :g])
 
     g = m.topology
-    @test n_live_species(g) == 7
-    @test n_live_nutrients(g) == 2
+    @test n_live_species(g) == m.species.live.number == 7
+    @test n_live_nutrients(g) == m.nutrients.live.number == 2
 
     g = get_topology(m; without_species = [:c, :f], without_nutrients = [:n1])
     @test n_live_species(g) == 5
@@ -25,8 +25,8 @@ using Random
     @test n_live_producers(m; without...) == 2
     @test n_live_consumers(m; without...) == 3
 
-    sp(it) = m.species_label.(collect(it))
-    nt(it) = m.nutrient_label.(collect(it))
+    sp(it) = m.species.label.(collect(it))
+    nt(it) = m.nutrients.label.(collect(it))
     labs(str) = Symbol.(collect(str))
     @test sp(live_species(g)) == labs("abdeg")
     @test nt(live_nutrients(g)) == [:n2]
@@ -125,10 +125,10 @@ end
     # But no degenerated species yet.
     check_set(fn, tops, expected, indices...) =
         for top in tops
-            @test Set(m.species_label.(fn(top, indices...))) == Set(expected)
+            @test Set(m.species.label.(fn(top, indices...))) == Set(expected)
         end
-    prods = m.producers_indices
-    cons = m.consumers_indices
+    prods = m.producers.indices
+    cons = m.consumers.indices
     check_set(isolated_producers, (g, u, v), [], prods)
     check_set(starving_consumers, (g, u, v), [], prods, cons)
 

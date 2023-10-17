@@ -2,20 +2,26 @@
 # the functional response required for the simulation to run,
 # and all associated required data.
 # They are all mutually exclusive.
-abstract type FunctionalResponse <: ModelBlueprint end
+abstract type FunctionalResponse <: Component end
 export FunctionalResponse
 
+# For the sake of simplicity, to not have defaults lying everywhere.
+# But this is open to discussion.
+abstract type FunctionalResponseBlueprint <: Blueprint end
+F.implied_blueprint_for(::FunctionalResponseBlueprint, ::Component) =
+    F.cannot_imply_construct()
+
 #-------------------------------------------------------------------------------------------
-mutable struct BioenergeticResponse <: FunctionalResponse
-    e::Option{Efficiency}
-    y::Option{MaximumConsumption}
-    h::Option{HillExponent}
-    w::Option{ConsumersPreferences}
-    c::Option{IntraspecificInterference}
-    half_saturation_density::Option{HalfSaturationDensity}
-    BioenergeticResponse(; kwargs...) = new(
+mutable struct BioenergeticResponse_ <: FunctionalResponseBlueprint
+    e::Brought(Efficiency)
+    y::Brought(MaximumConsumption)
+    h::Brought(HillExponent)
+    w::Brought(ConsumersPreferences)
+    c::Brought(IntraspecificInterference)
+    half_saturation_density::Brought(HalfSaturationDensity)
+    BioenergeticResponse_(; kwargs...) = new(
         fields_from_kwargs(
-            BioenergeticResponse,
+            BioenergeticResponse_,
             kwargs;
             default = (
                 e = :Miele2019,
@@ -28,8 +34,9 @@ mutable struct BioenergeticResponse <: FunctionalResponse
         )...,
     )
 end
+@blueprint BioenergeticResponse_
 
-function F.expand!(model, ::BioenergeticResponse)
+function F.expand!(model, ::BioenergeticResponse_)
     s = model._scratch
     ber = Internals.BioenergeticResponse(
         s[:hill_exponent],
@@ -40,21 +47,35 @@ function F.expand!(model, ::BioenergeticResponse)
     model.functional_response = ber
 end
 
-@component BioenergeticResponse
+(false) && (local BioenergeticResponse, _BioenergeticResponse) # (reassure JuliaLS)
+@component begin
+    BioenergeticResponse <: FunctionalResponse
+    requires(
+        Efficiency,
+        MaximumConsumption,
+        HillExponent,
+        ConsumersPreferences,
+        IntraspecificInterference,
+        HalfSaturationDensity,
+    )
+    blueprints(Blueprint::BioenergeticResponse_)
+end
 export BioenergeticResponse
 
+(::_BioenergeticResponse)(args...; kwargs...) = BioenergeticResponse_(args...; kwargs...)
+
 #-------------------------------------------------------------------------------------------
-mutable struct ClassicResponse <: FunctionalResponse
-    M::Option{BodyMass}
-    e::Option{Efficiency}
-    h::Option{HillExponent}
-    w::Option{ConsumersPreferences}
-    c::Option{IntraspecificInterference}
-    handling_time::Option{HandlingTime}
-    attack_rate::Option{AttackRate}
-    ClassicResponse(; kwargs...) = new(
+mutable struct ClassicResponse_ <: FunctionalResponseBlueprint
+    M::Brought(BodyMass)
+    e::Brought(Efficiency)
+    h::Brought(HillExponent)
+    w::Brought(ConsumersPreferences)
+    c::Brought(IntraspecificInterference)
+    handling_time::Brought(HandlingTime)
+    attack_rate::Brought(AttackRate)
+    ClassicResponse_(; kwargs...) = new(
         fields_from_kwargs(
-            ClassicResponse,
+            ClassicResponse_,
             kwargs;
             default = (
                 # Don't bring BodyMass by default,
@@ -71,8 +92,9 @@ mutable struct ClassicResponse <: FunctionalResponse
         )...,
     )
 end
+@blueprint ClassicResponse_
 
-function F.expand!(model, ::ClassicResponse)
+function F.expand!(model, ::ClassicResponse_)
     s = model._scratch
     clr = Internals.ClassicResponse(
         s[:hill_exponent],
@@ -84,35 +106,58 @@ function F.expand!(model, ::ClassicResponse)
     model.functional_response = clr
 end
 
-@component ClassicResponse
+(false) && (local ClassicResponse, _ClassicResponse) # (reassure JuliaLS)
+@component begin
+    ClassicResponse <: FunctionalResponse
+    requires(
+        BodyMass,
+        Efficiency,
+        HillExponent,
+        ConsumersPreferences,
+        IntraspecificInterference,
+        HandlingTime,
+        AttackRate,
+    )
+    blueprints(Blueprint::ClassicResponse_)
+end
 export ClassicResponse
 
+(::_ClassicResponse)(args...; kwargs...) = ClassicResponse_(args...; kwargs...)
+
 #-------------------------------------------------------------------------------------------
-mutable struct LinearResponse <: FunctionalResponse
-    alpha::Option{ConsumptionRate}
-    w::Option{ConsumersPreferences}
-    LinearResponse(; kwargs...) = new(
+mutable struct LinearResponse_ <: FunctionalResponseBlueprint
+    alpha::Brought(ConsumptionRate)
+    w::Brought(ConsumersPreferences)
+    LinearResponse_(; kwargs...) = new(
         fields_from_kwargs(
-            LinearResponse,
+            LinearResponse_,
             kwargs;
             default = (alpha = 1, w = :homogeneous),
         )...,
     )
 end
+@blueprint LinearResponse_
 
-function F.expand!(model, ::LinearResponse)
+function F.expand!(model, ::LinearResponse_)
     s = model._scratch
     lr = Internals.LinearResponse(s[:consumers_preferences], s[:consumption_rate])
     model.functional_response = lr
 end
 
-@component LinearResponse
+(false) && (local LinearResponse, _LinearResponse) # (reassure JuliaLS)
+@component begin
+    LinearResponse <: FunctionalResponse
+    requires(ConsumptionRate, ConsumersPreferences)
+    blueprints(Blueprint::LinearResponse_)
+end
 export LinearResponse
+
+(::_LinearResponse)(args...; kwargs...) = LinearResponse_(args...; kwargs...)
 
 #-------------------------------------------------------------------------------------------
 # Set one, but not the others.
 # TODO: this would be made easier set with an actual concept of 'Enum' components?
 # (eg. all abstracts inheriting from `EnumBlueprint <: Blueprint`?)
 @conflicts(BioenergeticResponse, ClassicResponse, LinearResponse)
-@conflicts(BioenergeticResponse, NtiLayer)
-@conflicts(LinearResponse, NtiLayer)
+@conflicts(BioenergeticResponse, Nti.Layer)
+@conflicts(LinearResponse, Nti.Layer)

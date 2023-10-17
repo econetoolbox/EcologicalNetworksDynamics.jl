@@ -9,69 +9,46 @@
 #   - method(v::Value, ..) -> Runs, with undefined behaviour if components are missing.
 #
 # Only the second one needs to be specified by the framework user,
-# along with its components dependencies.
+# and then the @method macro should do the rest (see documentation there).
+#
+# The polymorphism of methods use julia dispatch over function types.
 
-# Also, methods with these exact signatures:
-#
-#   - method(v::Value)
-#
-#   - method!(v::Value, rhs)
-#
-# Can optionally become properties of the system/value,
-# in the sense of julia's `getproperty/set_property`.
-# This requires module-level bookkeeping of the associated property names.
-#
-# The properties also come in two styles:
-#
-#   - system.property -> Checks that the required components exist.
-#
-#   - value.property -> Runs and see what happens.
-#
-# Method's polymorphism use julia dispatch over function types.
-# The wrapped system value type must always be specified.
-
-# Methods depend on nothing by default.
-depends(::Type, ::Type{<:Function}) = []
-missing_dependency_for(::Type, ::Type{<:Function}, _) = nothing
+# Methods depend on nothing by default (see properties.jl for the meaning of 'P').
+depends(::Type{P}, ::Type{<:Function}) where {P} = CompType{system_value_type(P)}[]
+missing_dependencies_for(fn::Type{<:Function}, p::P) where {P} =
+    Iterators.filter(depends(P, fn)) do dep
+        !has_component(system(p), dep)
+    end
+# Just pick the first one. Return nothing if dependencies are met.
+function first_missing_dependency_for(fn::Type{<:Function}, p::P) where {P}
+    for dep in missing_dependencies_for(fn, p)
+        return dep
+    end
+    nothing
+end
 
 # Direct call with the functions themselves.
-depends(V::Type, fn::Function) = depends(V, typeof(fn))
-missing_dependency_for(V::Type, fn::Function, s) = missing_dependency_for(V, typeof(fn), s)
-
-mutable struct Property
-    read::Function
-    write::Union{Nothing,Function} # Leave blank if the property is read-only.
-    Property(read) = new(read, nothing)
-end
-
-# {SystemWrappedValueType => {:propname => property_functions}}
-global PROPERTIES = Dict{Type,Dict{Symbol,Property}}()
+depends(T::Type, fn::Function) = depends(T, typeof(fn))
+missing_dependencies_for(fn::Function, p::P) where {P} =
+    missing_dependencies_for(typeof(fn), p)
+first_missing_dependency_for(fn::Function, p::P) where {P} =
+    first_missing_dependency_for(typeof(fn), p)
 
 # Hack flag to avoid that the checks below interrupt the `Revise` process.
-# Raise when done defining properties in the package.
+# Raise when done defining methods in the package.
 global REVISING = false
 
-# Set read property first..
-function set_read_property!(V::Type, name::Symbol, mth::Function)
-    haskey(PROPERTIES, V) || (PROPERTIES[V] = Dict())
-    sub = PROPERTIES[V]
-    (haskey(sub, name) && !REVISING) &&
-        properr(V, name, "Readable property already exists.")
-    sub[name] = Property(mth)
-end
+# ==========================================================================================
+# Dedicated exceptions.
 
-# .. and only after, and optionally, the corresponding write property.
-function set_write_property!(V::Type, name::Symbol, mth::Function)
-    if !haskey(PROPERTIES, V) || !haskey(PROPERTIES[V], name)
-        properr(
-            V,
-            name,
-            "Property cannot be set writable \
-             without having been set readable first.",
-        )
-    end
-    prop = PROPERTIES[V][name]
-    (isnothing(prop.write) || REVISING) ||
-        properr(V, name, "Writable property already exists.")
-    prop.write = mth
+# About method use.
+struct MethodError{V} <: SystemException
+    name::Union{Symbol,Expr} # Name or Path.To.Name.
+    message::String
+    _::PhantomData{V}
+    MethodError(::Type{V}, n, m) where {V} = new{V}(n, m, PhantomData{V}())
 end
+function Base.showerror(io::IO, e::MethodError{V}) where {V}
+    println(io, "In method '$(e.name)' for '$V': $(e.message)")
+end
+metherr(V, n, m) = throw(MethodError(V, n, m))

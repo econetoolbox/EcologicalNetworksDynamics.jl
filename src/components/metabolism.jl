@@ -1,98 +1,108 @@
 # Set or generate metabolism rates for every species in the model.
 
-# Three blueprint variants "for the same component",
-# depending on whether raw values or allometric rules
-# with/without temperature response are used.
+# Mostly duplicated from Mortality.
+
+# (reassure JuliaLS)
+(false) && (local Metabolism, _Metabolism)
 
 # ==========================================================================================
-abstract type Metabolism <: ModelBlueprint end
-# All subtypes must require(Species).
+# Blueprints.
 
-function Metabolism(x)
-
-    @check_if_symbol x (:Miele2019, :Binzer2016)
-
-    if x == :Miele2019
-        MetabolismFromAllometry(x)
-    elseif x == :Binzer2016
-        MetabolismFromTemperature(x)
-    else
-        MetabolismFromRawValues(x)
-    end
-
-end
-
-export Metabolism
+module Metabolism_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Species, _Species, BodyMass, MetabolicClass, _Temperature
 
 #-------------------------------------------------------------------------------------------
-mutable struct MetabolismFromRawValues <: Metabolism
-    x::@GraphData {Scalar, Vector, Map}{Float64}
-    MetabolismFromRawValues(x) = new(@tographdata x SVK{Float64})
+mutable struct Raw <: Blueprint
+    x::Vector{Float64}
+    species::Brought(Species)
+    Raw(x::Vector{Float64}, sp = _Species) = new(x, sp)
+    Raw(x, sp = _Species) = new(@tographdata(x, Vector{Float64}), sp)
 end
+F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.x))
+@blueprint Raw "metabolism values"
+export Raw
 
-F.can_imply(bp::MetabolismFromRawValues, ::Type{Species}) = !(bp.x isa Real)
-Species(bp::MetabolismFromRawValues) =
-    if bp.x isa Vector
-        Species(length(bp.x))
-    else
-        Species(refs(bp.x))
-    end
+F.early_check(bp::Raw) = check_nodes(check, bp.x)
+check(x, ref = nothing) = check_value(>=(0), x, ref, :x, "Not a positive value")
 
-function F.check(model, bp::MetabolismFromRawValues)
-    (; S, _species_index) = model
+function F.late_check(raw, bp::Raw)
     (; x) = bp
-    @check_refs_if_list x :species _species_index dense
-    @check_size_if_vector x S
+    S = @get raw.species.number
+    @check_size x S
 end
 
-function F.expand!(model, bp::MetabolismFromRawValues)
-    (; S, _species_index) = model
-    (; x) = bp
-    @to_dense_vector_if_map x _species_index
-    @to_size_if_scalar Real x S
-    model.biorates.x = x
-end
-
-@component MetabolismFromRawValues implies(Species)
-export MetabolismFromRawValues
+F.expand!(raw, bp::Raw) = expand!(raw, bp.x)
+expand!(raw, x) = raw.biorates.x = x
 
 #-------------------------------------------------------------------------------------------
-miele2019_metabolism_allometry_rates() = Allometry(;
+mutable struct Flat <: Blueprint
+    x::Float64
+end
+@blueprint Flat "uniform metabolism" depends(Species)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.x)
+F.expand!(raw, bp::Flat) = expand!(raw, to_size(bp.x, @get raw.species.number))
+
+#-------------------------------------------------------------------------------------------
+mutable struct Map <: Blueprint
+    x::@GraphData Map{Float64}
+    species::Brought(Species)
+    Map(x, sp = _Species) = new(@tographdata(x, Map{Float64}), sp)
+end
+F.implied_blueprint_for(bp::Map, ::_Species) = Species(refspace(bp.x))
+@blueprint Map "[species => metabolism] map"
+export Map
+
+F.early_check(bp::Map) = check_nodes(check, bp.x)
+function F.late_check(raw, bp::Map)
+    (; x) = bp
+    index = @ref raw.species.index
+    @check_list_refs x :species index dense
+end
+
+function F.expand!(raw, bp::Map)
+    index = @ref raw.species.index
+    r = to_dense_vector(bp.x, index)
+    expand!(raw, r)
+end
+
+#-------------------------------------------------------------------------------------------
+miele2019_allometry_rates() = Allometry(;
     producer = (a = 0, b = 0),
     invertebrate = (a = 0.314, b = -1 / 4),
     ectotherm = (a = 0.88, b = -1 / 4),
 )
 
-mutable struct MetabolismFromAllometry <: Metabolism
+mutable struct Allometric <: Blueprint
     allometry::Allometry
-    MetabolismFromAllometry(; kwargs...) = new(parse_allometry_arguments(kwargs))
-    MetabolismFromAllometry(allometry::Allometry) = new(allometry)
-    function MetabolismFromAllometry(default::Symbol)
-        @check_if_symbol default (:Miele2019,)
-        return @build_from_symbol default (
-            :Miele2019 => new(miele2019_metabolism_allometry_rates())
-        )
+    Allometric(; kwargs...) = new(parse_allometry_arguments(kwargs))
+    Allometric(allometry::Allometry) = new(allometry)
+    # Default values.
+    function Allometric(default::Symbol)
+        @check_symbol default (:Miele2019,)
+        @expand_symbol default (:Miele2019 => new(miele2019_allometry_rates()))
     end
 end
+@blueprint Allometric "allometric rates" depends(BodyMass, MetabolicClass)
+export Allometric
 
-F.buildsfrom(::MetabolismFromAllometry) = [BodyMass, MetabolicClass]
-
-function F.check(_, bp::MetabolismFromAllometry)
-    al = bp.allometry
-    check_template(al, miele2019_metabolism_allometry_rates(), "metabolism rate")
+function F.early_check(bp::Allometric)
+    (; allometry) = bp
+    check_template(allometry, miele2019_allometry_rates(), "metabolism rates")
 end
 
-function F.expand!(model, bp::MetabolismFromAllometry)
-    (; _M, _metabolic_classes) = model
-    x = dense_nodes_allometry(bp.allometry, _M, _metabolic_classes)
-    model.biorates.x = collect(x)
+function F.expand!(raw, bp::Allometric)
+    M = @ref raw.M
+    mc = @ref raw.metabolic_class
+    x = dense_nodes_allometry(bp.allometry, M, mc)
+    expand!(raw, x)
 end
-
-@component MetabolismFromAllometry requires(Foodweb)
-export MetabolismFromAllometry
 
 #-------------------------------------------------------------------------------------------
-binzer2016_metabolism_allometry_rates() = (
+binzer2016_allometry_rates() = (
     E_a = -0.69,
     allometry = Allometry(;
         producer = (a = 0, b = -0.31), # ? Is that intended @hanamayall?
@@ -101,54 +111,74 @@ binzer2016_metabolism_allometry_rates() = (
     ),
 )
 
-mutable struct MetabolismFromTemperature <: Metabolism
+mutable struct Temperature <: Blueprint
     E_a::Float64
     allometry::Allometry
-    MetabolismFromTemperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
-    MetabolismFromTemperature(E_a, allometry::Allometry) = new(E_a, allometry)
-    function MetabolismFromTemperature(default::Symbol)
-        @check_if_symbol default (:Binzer2016,)
-        return @build_from_symbol default (
-            :Binzer2016 => new(binzer2016_metabolism_allometry_rates()...)
-        )
+    Temperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
+    Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
+    function Temperature(default::Symbol)
+        @check_symbol default (:Binzer2016,)
+        @expand_symbol default (:Binzer2016 => new(binzer2016_allometry_rates()...))
     end
 end
+@blueprint Temperature "allometric rates and activation energy" depends(
+    _Temperature,
+    BodyMass,
+    MetabolicClass,
+)
+export Temperature
 
-F.buildsfrom(::MetabolismFromTemperature) = [Temperature, BodyMass, MetabolicClass]
-
-function F.check(_, bp::MetabolismFromTemperature)
-    al = bp.allometry
-    (_, template) = binzer2016_metabolism_allometry_rates()
-    check_template(al, template, "metabolism rate from temperature")
+function F.early_check(bp::Temperature)
+    (; allometry) = bp
+    check_template(
+        allometry,
+        binzer2016_allometry_rates()[2],
+        "metabolism (from temperature)",
+    )
 end
 
-function F.expand!(model, bp::MetabolismFromTemperature)
-    (; _M, T, _metabolic_classes) = model
+function F.expand!(raw, bp::Temperature)
     (; E_a) = bp
-    x = dense_nodes_allometry(bp.allometry, _M, _metabolic_classes; E_a, T)
-    model.biorates.x = x
+    T = @get raw.T
+    M = @ref raw.M
+    mc = @ref raw.metabolic_class
+    x = dense_nodes_allometry(bp.allometry, M, mc; E_a, T)
+    expand!(raw, x)
 end
 
-@component MetabolismFromTemperature requires(Foodweb)
-export MetabolismFromTemperature
-
-#-------------------------------------------------------------------------------------------
-@conflicts(MetabolismFromRawValues, MetabolismFromAllometry, MetabolismFromTemperature)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:Metabolism}) = Metabolism
+end
 
 # ==========================================================================================
+@component Metabolism{Internal} requires(Species) blueprints(Metabolism_)
+export Metabolism
+
+function (::_Metabolism)(x)
+
+    x = @tographdata x {Symbol, Scalar, Vector, Map}{Float64}
+    @check_if_symbol x (:Miele2019, :Binzer2016)
+
+    if x == :Miele2019
+        Metabolism.Allometric(x)
+    elseif x == :Binzer2016
+        Metabolism.Temperature(x)
+    elseif x isa Real
+        Metabolism.Flat(x)
+    elseif x isa Vector
+        Metabolism.Raw(x)
+    else
+        Metabolism.Map(x)
+    end
+
+end
+
 @expose_data nodes begin
     property(metabolism, x)
-    get(MetabolismRates{Float64}, "species")
-    ref(m -> m.biorates.x)
-    write!((m, rhs, i) -> (m.biorates.x[i] = rhs))
-    @species_index
     depends(Metabolism)
+    @species_index
+    ref(raw -> raw.biorates.x)
+    get(MetabolismRates{Float64}, "species")
+    write!((raw, rhs::Real, i) -> Metabolism_.check(rhs, i))
 end
 
-# ==========================================================================================
-display_short(bp::Metabolism; kwargs...) = display_short(bp, Metabolism; kwargs...)
-display_long(bp::Metabolism; kwargs...) = display_long(bp, Metabolism; kwargs...)
-F.display(model, ::Type{<:Metabolism}) =
-    "Metabolism: [$(join_elided(model._metabolism, ", "))]"
+F.shortline(io::IO, model::Model, ::_Metabolism) =
+    print(io, "Metabolism: [$(join_elided(model._metabolism, ", "))]")

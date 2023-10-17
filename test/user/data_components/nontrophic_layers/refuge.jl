@@ -1,10 +1,5 @@
-NTI = EN.NontrophicInteractions
-FR = NTI.RefugeTopologyFromRawEdges
-RD = NTI.RandomRefugeTopology
-
+# Copied and adapted from competition layer.
 @testset "Refuge layer." begin
-
-    using .NontrophicInteractions
 
     base = Model(Foodweb([:a => [:b, :c], :b => :d]))
 
@@ -12,140 +7,85 @@ RD = NTI.RandomRefugeTopology
     # Layer topology.
 
     # Query potential links.
-    @test base.potential_refuge_links == [
+    @test base.refuge.potential_links.matrix == [
         0 0 0 0
         0 0 0 0
         0 1 0 1
         0 1 1 0
     ]
-    @test base.n_potential_refuge_links == 4
+    @test base.refuge.potential_links.number == 4
 
     #---------------------------------------------------------------------------------------
     # Construct from raw edges.
 
-    cl = RefugeTopology(; A = [
+    rl = Refuge.Topology([
         0 0 0 0
         0 0 0 0
         0 1 0 1
         0 0 1 0
     ])
-    m = base + cl
-    @test m.refuge_links == [
+    m = base + rl
+    @test m.refuge.links.matrix == [
         0 0 0 0
         0 0 0 0
         0 1 0 1
         0 0 1 0
     ]
+    @test Refuge.Topology([]) == Refuge.Topology(; A = []) # Synonymous.
+    @test typeof(rl) === Refuge.Topology.Raw
 
     # Alternate adjacency input.
-    @test m.refuge_links ==
-          get_refuge_links(base + RefugeTopology(; A = [:c => [:b, :d], :d => :c]))
-    @test typeof(cl) === FR
-
-    # Can't specify outside potential links.
-    @sysfails(
-        base + RefugeTopology(; A = [
-            1 0 0 0
-            1 0 0 0
-            1 0 0 0
-            0 1 0 0
-        ]),
-        Check(FR),
-        "Non-missing value found for 'A' at edge index [1, 1] (true), \
-         but the template for 'potential refuge link' \
-         only allows values at the following indices:\n  \
-         [(3, 2), (4, 2), (4, 3), (3, 4)]"
-    )
-    @argfails(RefugeTopology(; A = [], b = 5), "Unexpected argument: b = 5.")
+    rl = Refuge.Topology([:c => [:b, :d], :d => :c])
+    @test m.refuge.links.matrix == (base + rl).refuge.links.matrix
+    @test typeof(rl) == Refuge.Topology.Adjacency
 
     #---------------------------------------------------------------------------------------
     # Draw random links instead.
     Random.seed!(12)
 
     # From a number of links.
-    cl = RefugeTopology(; L = 2, sym = false)
+    rt = Refuge.Topology(; L = 2, sym = false)
 
     # Stochastic expansion!
-    m = base + cl
-    @test m.refuge_links == [
+    m = base + rt
+    @test m.refuge.links.matrix == [
         0 0 0 0
         0 0 0 0
         0 0 0 0
         0 1 1 0
     ]
-    # So, surprisingly:                 /!\
-    @test (base + cl).refuge_links != (base + cl).refuge_links
+    # So, surprisingly:                  /!\
+    @test (base + rt).refuge.links.matrix != (base + rt).refuge.links.matrix
+    @test typeof(rt) == Refuge.Topology.Random
 
     # Or from connectance.
-    m = base + RefugeTopology(; C = 0.5)
-    @test m.refuge_links == [
+    m = base + Refuge.Topology(; C = 0.5)
+    @test m.refuge.links.matrix == [
         0 0 0 0
         0 0 0 0
         0 1 0 0
         0 0 1 0
     ]
 
-    @argfails(
-        RefugeTopology(; n_links = 3, C = 0.5),
-        "Cannot specify both connectance and number of links \
-         for drawing random refuge links. \
-         Received both 'n_links' argument (3) and 'C' argument (0.5)."
-    )
-    # Cannot cheat: the above is just a safety guard,
-    # but the true, full check happens prior to expansion.
-    cl = RefugeTopology(; conn = 3)
-    cl.L = 4
-    @sysfails(base + cl, Check(RD), "Both 'C' and 'L' specified on blueprint.")
-    cl.C = cl.L = nothing
-    @sysfails(base + cl, Check(RD), "Neither 'C' or 'L' specified on blueprint.")
-    @sysfails(
-        base + RefugeTopology(; L = 3, symmetry = true),
-        Check(RD),
-        "Cannot draw L = 3 links symmetrically: pick an even number instead."
-    )
-    @sysfails(
-        base + RefugeTopology(; L = 5),
-        Check(RD),
-        "Cannot draw L = 5 refuge links \
-         with these 2 producers and 3 preys (max: L = 4)."
-    )
-
     # ======================================================================================
     # Layer data.
 
     # Intensity.
-    ci = RefugeIntensity(5)
-    @test ci.phi == 5
-    m = base + ci
-    @test m.refuge_layer_intensity == 5
+    ri = Refuge.Intensity(5)
+    @test ri.phi == 5
+    m = base + ri
+    @test m.refuge.intensity == 5
     # Modifiable.
-    m.refuge_layer_intensity = 8
-    @test m.refuge_layer_intensity == 8
+    m.refuge.intensity = 8
+    @test m.refuge.intensity == 8
 
     # Functional form.
-    cf = RefugeFunctionalForm((x, dx) -> x - dx)
-    m = base + cf
-    @test m.refuge_layer_functional_form(4, 5) == -1
+    rf = Refuge.FunctionalForm((x, dx) -> x - dx)
+    m = base + rf
+    @test m.refuge.fn(4, 5) == -1
     # Modifiable.
-    m.refuge_layer_functional_form = (x, dx) -> x + dx
-    @test m.refuge_layer_functional_form(4, 5) == 9
-
-    f(x) = "nok"
-    @argfails(
-        m.refuge_layer_functional_form = f,
-        "Refuge layer functional form signature \
-         should be (Float64, Float64) -> Float64. \
-         Received instead: f\n\
-         with signature:   (Float64, Float64) -> Any[]"
-    )
-    @sysfails(
-        base + RefugeFunctionalForm(f),
-        Check(RefugeFunctionalForm),
-        "Refuge layer functional form signature \
-         should be (Float64, Float64) -> Float64. \
-         Received instead: f\n\
-         with signature:   (Float64, Float64) -> Any[]"
-    )
+    m.refuge.fn = (x, dx) -> x + dx
+    @test m.refuge.fn(4, 5) == 9
 
     # ======================================================================================
     # Aggregate behaviour component.
@@ -153,43 +93,172 @@ RD = NTI.RandomRefugeTopology
     # (this needs more input for some (legacy?) reason)
     base += BodyMass(1) + MetabolicClass(:all_invertebrates)
 
-    cl = RefugeLayer(; topology = [
+    rl = Refuge.Layer(; topology = [
         0 0 0 0
         0 0 0 0
         0 1 0 1
         0 1 0 0
     ], intensity = 5)
-    m = base + cl
+    @test typeof(rl) == Refuge.Layer.Pack
+    m = base + rl
 
     # All components brought at once.
-    @test m.n_refuge_links == 3
-    @test m.refuge_layer_intensity == 5
-    @test m.refuge_layer_functional_form(4, -5) == -1
+    @test m.refuge.links.number == 3
+    @test m.refuge.intensity == 5
+    @test m.refuge.fn(4, -5) == -1
 
     # From a number of links.
-    cl = RefugeLayer(; A = (L = 3, sym = false), I = 8)
+    rl = Refuge.Layer(; A = (L = 3, sym = false), I = 8)
 
     # Sub-blueprints are all here.
-    @test cl.topology.L == 3
-    @test cl.topology.symmetry == false
-    @test cl.intensity.phi == 8
-    @test cl.functional_form.fn(5, -8) == -5 / 7
+    @test rl.topology.L == 3
+    @test rl.topology.symmetry == false
+    @test rl.intensity.phi == 8
+    @test rl.functional_form.fn(5, -8) == -5 / 7
 
     # And bring them all.
-    m = base + cl
-    @test m.n_refuge_links == 3
-    @test m.refuge_layer_intensity == 8
-    @test m.refuge_layer_functional_form(4, -5) == -1
+    m = base + rl
+    @test m.refuge.links.number == 3
+    @test m.refuge.intensity == 8
+    @test m.refuge.fn(4, -5) == -1
+
+    # ======================================================================================
+    # Input guards.
+
+    # Arguments.
+    @argfails(Refuge.Topology(), "No input given to specify refuge links.")
+    @argfails(Refuge.Topology(; A = [], b = 5), "Unexpected argument: b = 5.")
+    @argfails(
+        Refuge.Topology([]; A = []),
+        "Redundant refuge topology input.\n\
+         Received both: Any[]\n\
+         and          : Any[]"
+    )
+
+    @argfails(
+        Refuge.Topology(; n_links = 3, C = 0.5),
+        "Cannot specify both connectance and number of links \
+         for drawing random refuge links. \
+         Received both 'n_links' argument (3) and 'C' argument (0.5)."
+    )
+
+    # Can't specify outside potential links.
+    @sysfails(
+        base + Refuge.Topology([
+            1 0 0 0
+            1 0 0 0
+            1 0 0 0
+            0 1 0 0
+        ]),
+        Check(
+            late,
+            [Refuge.Topology.Raw],
+            "Non-missing value found for 'A' at edge index [1, 1] (true), \
+             but the template for 'potential refuge link' \
+             only allows values at the following indices:\n  \
+             [(3, 2), (4, 2), (4, 3), (3, 4)]",
+        )
+    )
 
     @sysfails(
-        base + RefugeLayer(),
-        Check(RefugeLayer),
-        "missing a required component '$RefugeTopology': optionally brought."
+        base + Refuge.Topology([:b => :a]),
+        Check(
+            late,
+            [Refuge.Topology.Adjacency],
+            "Invalid 'consumer refuge link' edge label in 'A': [:b, :a] (true). \
+             This template allows no valid edge targets labels for source [:b].",
+        )
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Random topology.
+
+    # Runtime-check C XOR L.
+    rl = Refuge.Topology(; conn = 3)
+    @test rl.C == 3
+    rl.L = 4 # Compromise blueprint state!
+    @test rl.L == 4
+    @sysfails(
+        base + rl,
+        Check(early, [Refuge.Topology.Random], "Both 'C' and 'L' specified on blueprint.")
+    )
+    rl.C = rl.L = nothing
+    @sysfails(
+        base + rl,
+        Check(
+            early,
+            [Refuge.Topology.Random],
+            "Neither 'C' or 'L' specified on blueprint.",
+        )
+    )
+
+    # Further consistency checks.
+    @sysfails(
+        base + Refuge.Topology(; L = 3, symmetry = true),
+        Check(
+            early,
+            [Refuge.Topology.Random],
+            "Cannot draw L = 3 links symmetrically: pick an even number instead.",
+        )
+    )
+
+    @sysfails(
+        base + Refuge.Topology(; L = 5),
+        Check(
+            late,
+            [Refuge.Topology.Random],
+            "Cannot draw L = 5 refuge links \
+             with these 2 producers and 3 preys (max: L = 4).",
+        )
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Invalid functional form.
+
+    f(x) = "nok"
+    @sysfails(
+        base + Refuge.FunctionalForm(f),
+        Check(
+            early,
+            [Refuge.FunctionalForm.Raw],
+            "Refuge layer functional form signature \
+             should be (Float64, Float64) -> Float64. \
+             Received instead: f\n\
+             with signature:   (Float64, Float64) -> Any[]",
+        )
+    )
+
+    @failswith(
+        (m.refuge.fn = f),
+        WriteError(
+            "Refuge layer functional form signature \
+             should be (Float64, Float64) -> Float64. \
+             Received instead: f\n\
+             with signature:   (Float64, Float64) -> Any[]",
+            :(refuge.fn),
+            nothing,
+            f,
+        )
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Packed layer.
+
+    # Cannot not bring bundled sub-components.
+    @argfails(Refuge.Layer(), "Missing input to initialize field :topology.")
+    rl = Refuge.Layer(; topology = [])
+    rl.topology = nothing # Can't be unbrought if missing.
+    @sysfails(
+        base + rl,
+        Missing(Refuge.Topology, Refuge.Layer, [Refuge.Layer.Pack], nothing)
     )
     @sysfails(
-        base + RefugeLayer(; A = (L = 4, sym = true), F = nothing),
-        Check(RefugeLayer),
-        "missing required component '$RefugeFunctionalForm': optionally brought."
+        base + Refuge.Layer(; A = (L = 4, sym = true), F = nothing),
+        Missing(Refuge.FunctionalForm, Refuge.Layer, [Refuge.Layer.Pack], nothing)
     )
+
+    # Special-cased unimpliable topology.
+    rl.topology = Refuge.Topology
+    @sysfails(base + rl, Add(CannotImplyConstruct, Refuge.Topology, [Refuge.Layer.Pack]),)
 
 end

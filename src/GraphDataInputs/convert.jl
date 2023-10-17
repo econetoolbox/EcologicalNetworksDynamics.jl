@@ -261,6 +261,23 @@ graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = inp
 graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int64}) = input
 
 #-------------------------------------------------------------------------------------------
+# Extract binary maps/adjacency from regular ones.
+function graphdataconvert(::Type{BinMap}, input::Map{I}) where {I}
+    res = BinMap{I}()
+    for (k, _) in input
+        push!(res, k)
+    end
+    res
+end
+function graphdataconvert(::Type{BinAdjacency{<:Any}}, input::Adjacency{I}) where {I}
+    res = BinAdjacency{I}()
+    for (i, sub) in input
+        res[i] = graphdataconvert(BinMap, sub)
+    end
+    res
+end
+
+#-------------------------------------------------------------------------------------------
 # Conversion helpers.
 
 duperr(key) = argerr("Duplicated key: $(repr(key)).")
@@ -366,7 +383,7 @@ function _tographdata(vsym, var, targets)
                 argerr("Error while attempting to convert \
                         '$vsym' to $Target \
                         (details further down the stacktrace). \
-                        Received $(repr(var))::$(typeof(var)).")
+                        Received $(repr(var)) ::$(typeof(var)).")
             end
         end
     end

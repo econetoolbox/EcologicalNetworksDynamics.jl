@@ -15,7 +15,6 @@
     @test ber.h == HillExponent(2)
 
     m = base + ber
-    cons = m.consumers_indices
     @test m.h == 2
     @test m.y == [8, 8, 8, 0, 0]
     @test m.half_saturation_density == [0.5, 0.5, 0.5, 0, 0]
@@ -53,8 +52,11 @@
     # Cannot bring blueprints if corresponding components are already there.
     @sysfails(
         base + HillExponent(3) + BioenergeticResponse(; h = 2),
-        Check(BioenergeticResponse),
-        "blueprint also brings '$HillExponent', which is already in the system."
+        Add(
+            BroughtAlreadyInValue,
+            HillExponent,
+            [HillExponent.Raw, false, BioenergeticResponse.Blueprint],
+        ),
     )
 
     # In this situation, just stop bringing.

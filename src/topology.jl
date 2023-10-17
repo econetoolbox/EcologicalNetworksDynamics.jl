@@ -5,8 +5,6 @@
 # Convenience local aliases.
 const T = Topologies
 const U = Topologies.Unchecked
-const imap = Iterators.map
-const ifilter = Iterators.filter
 
 """
     get_topology(model::Model; without_species = [], without_nutrients = [])
@@ -17,20 +15,20 @@ When called on a static model, nodes can be explicitly removed during extraction
 When called on a simulation result, extinct nodes are automatically removed
 with extra arguments passed to [`extinctions`](@ref).
 """
-function get_topology(model::InnerParms; without_species = [], without_nutrients = [])
+function get_topology(raw::Internal; without_species = [], without_nutrients = [])
     @tographdata! without_species K{:bin}
     @tographdata! without_nutrients K{:bin}
-    g = deepcopy(model._topology)
+    g = deepcopy(raw._topology)
     removes = []
     if !isempty(without_species)
         check_species(g)
-        spi = model.species_index
+        spi = @ref raw.species.index
         @check_refs_if_list without_species "species" spi
         push!(removes, (:species, without_species, spi))
     end
     if !isempty(without_nutrients)
         check_nutrients(g)
-        nti = model.nutrients_index
+        nti = @ref raw.nutrients.index
         @check_refs_if_list without_nutrients "nutrients" nti
         push!(removes, (:nutrients, without_nutrients, nti))
     end
@@ -45,7 +43,7 @@ function get_topology(model::InnerParms; without_species = [], without_nutrients
     end
     g
 end
-@method get_topology depends() read_as(topology)
+@method get_topology{Internal} depends() read_as(topology)
 
 function get_topology(sol::Solution; kwargs...)
     m = get_model(sol)
@@ -96,9 +94,9 @@ See [`topology`](@ref).
 
   - ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
 """
-isolated_producers(m::InnerParms; kwargs...) =
-    isolated_producers(get_topology(m; kwargs...), m.producers_indices)
-@method isolated_producers depends(Foodweb)
+isolated_producers(raw::Internal; kwargs...) =
+    isolated_producers(get_topology(raw; kwargs...), raw.producers_indices)
+@method isolated_producers depends(Foodweb) read_as(producers.isolated)
 
 isolated_producers(sol::Solution; kwargs...) =
     isolated_producers(get_topology(sol; kwargs...), get_model(sol).producers_indices)
@@ -132,9 +130,12 @@ See [`topology`](@ref).
 
   - ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
 """
-starving_consumers(m::InnerParms; kwargs...) =
-    starving_consumers(get_topology(m; kwargs...), m.producers_indices, m.consumers_indices)
-@method starving_consumers depends(Foodweb)
+starving_consumers(raw::Internal; kwargs...) = starving_consumers(
+    get_topology(raw; kwargs...),
+    raw.producers_indices,
+    raw.consumers_indices,
+)
+@method starving_consumers depends(Foodweb) read_as(consumers.starving)
 
 function starving_consumers(sol::Solution; kwargs...)
     (; producers_indices, consumers_indices) = get_model(sol)

@@ -5,7 +5,7 @@ using SparseArrays
 using Random
 using Test
 
-Value = EcologicalNetworksDynamics.InnerParms # To make @sysfails work.
+Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
 import ..Main: @sysfails, @failswith, @argfails
 
 const EN = EcologicalNetworksDynamics
@@ -71,34 +71,7 @@ const EN = EcologicalNetworksDynamics
 
     # Symbol input to generate default data.
     cp = ConsumersPreferences("homogeneous")
-    @test cp.w == :homogeneous
-    @test cp.w isa Symbol
-    model = base + cp
-    @test model.w == [
-        0 0.5 0.5
-        0 0 1
-        0 0 0
-    ]
-    # It is okay to mutate the blueprint, but then a correct type must be used.
-    @failswith(cp.w = "homogeneous", MethodError) # (expects a symbol)
-    @failswith(cp.w = [
-        0 1 2
-        0 0 3
-        0 0 0
-    ], MethodError) # Expects sparse floats.
-    cp.w = sparse([
-        0 2.0 3.0
-        0 0 4.0
-        0 0 0
-    ])
-    model = base + cp
-    @test model.w == [
-        0 2 3
-        0 0 4
-        0 0 0
-    ]
-    # Change the blueprint again to get another model.
-    cp.w = :homogeneous
+    @test cp isa ConsumersPreferences.Homogeneous
     model = base + cp
     @test model.w == [
         0 0.5 0.5
@@ -106,33 +79,41 @@ const EN = EcologicalNetworksDynamics
         0 0 0
     ]
 
-    # Note that the blueprint may be corrupted this way.
-    cp.w = :corrupt
-    @test cp.w == :corrupt
+    # Note that a blueprint may be corrupted.
+    h = HillExponent(-1)
+    @test h.h == -1
     # But then it is rejected prior to expansion.
     @sysfails(
-        base + cp,
-        Check(EN.ConsumersPreferencesFromRawValues),
-        "Invalid symbol received for 'w': :corrupt. \
-         Expected :homogeneous instead."
+        # "Early" rejection, because of internal blueprint inconsistency.
+        base + h,
+        Check(early, [HillExponent.Raw], "Not a positive (power) value: h = -1.0.")
     )
-    cp.w = sparse([0 0; 0 1.0])
+    bm = BodyMass([1, 2])
     @sysfails(
-        base + cp,
-        Check(EN.ConsumersPreferencesFromRawValues),
-        "Invalid size for parameter 'w': expected (3, 3), got (2, 2)."
+        # "Late" rejection, because of a mismatch between blueprint and model values.
+        base + bm,
+        Check(
+            late,
+            [BodyMass.Raw],
+            "Invalid size for parameter 'M': expected (3,), got (2,).",
+        )
     )
 
     # Typical type errors.
-    @failswith(BodyMass("nope"), ArgumentError("Error while attempting to convert 'M' \
-                                                to key-value map for 'Float64' data \
-                                                (details further down the stacktrace). \
-                                                Received \"nope\"::String."))
-    @failswith(
+    @argfails(
+        BodyMass("nope"),
+        "Error while attempting to convert 'M' \
+         to key-value map for 'Float64' data \
+         (details further down the stacktrace). \
+         Received \"nope\" ::$String."
+    )
+
+    @argfails(
         ConsumersPreferences([1, 5]),
-        ArgumentError("Could not convert 'w' \
-                       to either Symbol or $SparseMatrixCSC{Float64, Int64}. \
-                       The value received is [1, 5] ::Vector{Int64}."),
+        "Error while attempting to convert 'w' \
+         to adjacency list for 'Float64' data \
+         (details further down the stacktrace). \
+         Received [1, 5] ::$Vector{$Int64}.",
     )
 
 end
@@ -161,7 +142,7 @@ end
     ])
 
     # Guard against missing information.
-    @argfails(Foodweb(:niche), "Random foodweb models requires a number of species 'S'.")
+    @argfails(Foodweb(:niche), "Random foodweb models require a number of species 'S'.")
 
     # More specific guards.
     @argfails(

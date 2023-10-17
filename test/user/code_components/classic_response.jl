@@ -6,10 +6,10 @@
 
     # Code component blueprint brings all required data components with it..
     clr = ClassicResponse()
-    @test isnothing(clr.M) # .. except for the body mass.
+    @test !does_bring(clr.M) # .. except for the body mass.
     @test clr.w == ConsumersPreferences(:homogeneous)
     @test clr.h == HillExponent(2)
-    @test clr.handling_time.h_t == :Miele2019
+    @test embedded(clr.handling_time) isa HandlingTime.Miele2019
 
     # The body mass is typically brought another way.
     bm = BodyMass(1) # (use constant mass to ease later tests)
@@ -46,7 +46,7 @@
 
     m = base + clr
     @test m.h == 2
-    @test m.M ≈ clr.M.Z .^ (get_trophic_levels(m) .- 1)
+    @test m.M ≈ clr.M.Z .^ (m.trophic.levels .- 1)
     @test m.intraspecific_interference == zeros(5)
     @test round.(m.attack_rate) ≈ [
         0 0 0 60 60
@@ -82,12 +82,15 @@
     # Cannot bring blueprints if corresponding components are already there.
     @sysfails(
         base + BodyMass(3) + ClassicResponse(; M = 4),
-        Check(ClassicResponse),
-        "blueprint also brings '$BodyMass', which is already in the system."
+        Add(
+            BroughtAlreadyInValue,
+            BodyMass,
+            [BodyMass.Flat, false, ClassicResponse.Blueprint],
+        ),
     )
 
     # In this situation, just stop bringing.
-    m = base + BodyMass(3) + ClassicResponse(; M = nothing)
+    m = base + BodyMass(3) + ClassicResponse(; M = nothing) # (which happens to be the default here)
     @test m.M == [3, 3, 3, 3, 3]
 
 end

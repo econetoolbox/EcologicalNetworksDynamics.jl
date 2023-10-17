@@ -6,6 +6,10 @@ using OrderedCollections
 using SparseArrays
 using Graphs
 
+const imap = Iterators.map
+const ifilter = Iterators.filter
+iid(it) = imap(identity, it) # Useful to not leak refs.
+
 #-------------------------------------------------------------------------------------------
 # Shared API internals.
 # Most of these should move to the dedicated components files
@@ -68,10 +72,6 @@ export niche_model, cascade_model # Or the least.
 # The System/Components framework code used for the API is there.
 # This module is needed for package component developers.
 include("./Framework/Framework.jl")
-using .Framework
-export add!, properties, blueprints, components
-
-include("./dedicate_framework_to_model.jl")
 
 #-------------------------------------------------------------------------------------------
 # "Outer" parts: develop user-facing stuff here.
@@ -85,6 +85,7 @@ include("./GraphDataInputs/GraphDataInputs.jl")
 using .GraphDataInputs
 
 # Encapsulated views into internal arrays or pseudo-arrays.
+include("./dedicate_framework_to_model.jl")
 include("./graph_views.jl")
 using .GraphViews
 

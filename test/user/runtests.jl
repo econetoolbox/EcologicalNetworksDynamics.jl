@@ -4,10 +4,12 @@ using EcologicalNetworksDynamics
 using Random
 using Test
 using ..TestFailures
-using ..TestTopologies
 
-Value = EcologicalNetworksDynamics.InnerParms # To make @sysfails work.
-import ..Main: @sysfails, @argfails
+Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
+import ..Main: @viewfails, @sysfails, @argfails, @failswith
+
+# Expose to further test submodules.
+export Value, @viewfails, @sysfails, @argfails, @failswith
 
 # Run all .jl files we can find except the current one (and without recursing).
 only = [] # Unless some files are specified here, in which case only run these.

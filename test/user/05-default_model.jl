@@ -3,7 +3,7 @@ module TestDefaultModel
 using EcologicalNetworksDynamics
 using Test
 
-Value = EcologicalNetworksDynamics.InnerParms # To make @sysfails work.
+Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
 import ..Main: @sysfails, @argfails
 
 @testset "Default model." begin
@@ -36,7 +36,7 @@ import ..Main: @sysfails, @argfails
     @test m.K ≈ [0, 0, 1, 1]
 
     # Override default allometric rates.
-    m = default_model(fw, BodyMass(1.5), GrowthRateFromAllometry(; a_p = 0.5, b_p = 0.8))
+    m = default_model(fw, BodyMass(1.5), GrowthRate.Allometric(; a_p = 0.5, b_p = 0.8))
     @test m.growth_rate ≈ [0, 0, 0.6915809336112958, 0.6915809336112958]
     @test m.K == [0, 0, 1, 1]
 
@@ -64,8 +64,7 @@ import ..Main: @sysfails, @argfails
     @test !has_component(m, ProducerGrowth)
     @sysfails(
         m.r,
-        Property(r),
-        "A component '$GrowthRate' is required to read this property."
+        Property(r, "Component <$GrowthRate> is required to read this property.")
     )
 
     # Still, add it later.
@@ -77,17 +76,17 @@ import ..Main: @sysfails, @argfails
     m = default_model(fw, Nutrients.Nodes(3))
     @test !has_component(m, LogisticGrowth)
     @test has_component(m, NutrientIntake)
-    @test m.n_nutrients == 3
-    @test m.nutrients_turnover == [1 / 4, 1 / 4, 1 / 4]
-    @test m.nutrients_concentration == 0.5 .* ones(2, 3)
+    @test m.nutrients.number == 3
+    @test m.nutrients.turnover == [1 / 4, 1 / 4, 1 / 4]
+    @test m.nutrients.concentration == 0.5 .* ones(2, 3)
     @sysfails(
         m.K,
-        Property(K),
-        "A component '$CarryingCapacity' is required to read this property."
+        Property(K, "Component <$CarryingCapacity> is required to read this property.")
     )
 
     # Explicitly pick the default producer growth.
     m = default_model(fw, LogisticGrowth())
+    @test m.M ≈ [31.622776601683793, 10.0, 1.0, 1.0] # BodyMass hook triggered.
     @test m.r == [0, 0, 1, 1]
     @test m.K == [0, 0, 1, 1]
 
@@ -95,42 +94,40 @@ import ..Main: @sysfails, @argfails
     m = default_model(fw, Nutrients.Turnover(0.8))
     @test !has_component(m, LogisticGrowth)
     @test has_component(m, NutrientIntake)
-    @test m.n_nutrients == m.n_producers == 2
-    @test m.nutrients_turnover == [0.8, 0.8]
-    @test m.nutrients_concentration == 0.5 .* ones(2, 2)
+    @test m.nutrients.number == m.producers.number == 2
+    @test m.nutrients.turnover == [0.8, 0.8]
+    @test m.nutrients.concentration == 0.5 .* ones(2, 2)
     @sysfails(
         m.K,
-        Property(K),
-        "A component '$CarryingCapacity' is required to read this property."
+        Property(K, "Component <$CarryingCapacity> is required to read this property.")
     )
 
     # Tweak directly from inside the aggregated blueprint.
     m = default_model(fw, NutrientIntake(; turnover = 0.8))
     @test !has_component(m, LogisticGrowth)
     @test has_component(m, NutrientIntake)
-    @test m.n_nutrients == m.n_producers == 2
-    @test m.nutrients_turnover == [0.8, 0.8]
-    @test m.nutrients_concentration == 0.5 .* ones(2, 2)
+    @test m.nutrients.number == m.producers.number == 2
+    @test m.nutrients.turnover == [0.8, 0.8]
+    @test m.nutrients.concentration == 0.5 .* ones(2, 2)
     @sysfails(
         m.K,
-        Property(K),
-        "A component '$CarryingCapacity' is required to read this property."
+        Property(K, "Component <$CarryingCapacity> is required to read this property.")
     )
 
     # Combine if meaningful.
     m = default_model(fw, Temperature(), NutrientIntake(; turnover = [1, 2]))
-    @test m.nutrients_supply == [4, 4]
+    @test m.nutrients.supply == [4, 4]
     @test m.attack_rate[1, 2] == 7.686741690921419e-7
 
     # Add multiplex layers.
-    m = default_model(fw, CompetitionLayer(; A = (C = 0.2, sym = true), I = 2))
+    m = default_model(fw, Competition.Layer(; A = (C = 0.2, sym = true), I = 2))
     NTI = NontrophicInteractions
     @test has_component(m, ClassicResponse) # Auto set.
-    @test has_component(m, NTI.CompetitionTopology)
-    @test has_component(m, NTI.CompetitionIntensity)
-    @test has_component(m, NTI.CompetitionFunctionalForm)
-    @test has_component(m, NTI.CompetitionLayer)
-    @test m.competition_layer_intensity == 2
+    @test has_component(m, NTI.Competition.Topology)
+    @test has_component(m, NTI.Competition.Intensity)
+    @test has_component(m, NTI.Competition.FunctionalForm)
+    @test has_component(m, NTI.Competition.Layer)
+    @test m.competition.intensity == 2
 
     # Leverage multiplex API to bring several layers at once.
     m = default_model(
@@ -141,22 +138,25 @@ import ..Main: @sysfails, @argfails
         ),
     )
     @test has_component(m, ClassicResponse)
-    @test has_component(m, RefugeLayer)
-    @test has_component(m, FacilitationLayer)
-    @test !has_component(m, CompetitionLayer)
-    @test !has_component(m, InterferenceLayer)
-    @test m.facilitation_layer_intensity == 8
-    @test m.refuge_layer_intensity == 5
-    @test sum(m.refuge_links) == 4
-    @test sum(m.facilitation_links) == 6
+    @test has_component(m, Refuge.Layer)
+    @test has_component(m, Facilitation.Layer)
+    @test !has_component(m, Competition.Layer)
+    @test !has_component(m, Interference.Layer)
+    @test m.facilitation.intensity == 8
+    @test m.refuge.intensity == 5
+    @test sum(m.refuge.links.matrix) == 4
+    @test m.facilitation.links.number == 6
 
     # Check input consistency.
     @argfails(default_model(), "No blueprint specified for a foodweb.")
-    @argfails(
+    @sysfails(
         default_model(fw, BodyMass(2), ClassicResponse(; M = 3)),
-        "Blueprint for $ClassicResponse brings $BodyMass, already given:\n  \
-           - $ClassicResponse brings: blueprint for $BodyMass(M: 3.0)\n  \
-           - already given: blueprint for $BodyMass(M: 2.0)"
+        Add(
+            InconsistentForSameComponent,
+            BodyMass,
+            [BodyMass.Flat, false, ClassicResponse.Blueprint],
+            [BodyMass.Flat],
+        ),
     )
     @argfails(
         default_model(fw, Temperature(290), BioenergeticResponse()),

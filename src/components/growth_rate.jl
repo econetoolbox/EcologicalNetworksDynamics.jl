@@ -4,178 +4,209 @@
 # or they are calculated from other components if given correct allometric rates.
 # Interestingly, allometric rates are either self-sufficient,
 # or they require that a temperature be defined within the model.
-# This leads to the definition
-# of "three different blueprints for the same component".
+
+# (reassure JuliaLS)
+(false) && (local GrowthRate, _GrowthRate)
+
+# ==========================================================================================
+# Blueprints.
+
+module GrowthRate_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Species, _Species, Foodweb, _Foodweb, BodyMass, MetabolicClass, _Temperature
+
+#-------------------------------------------------------------------------------------------
+# From raw values.
+
+mutable struct Raw <: Blueprint
+    r::SparseVector{Float64}
+    species::Brought(Species)
+    Raw(r::SparseVector{Float64}, sp = _Species) = new(r, sp)
+    Raw(r, sp = _Species) = new(@tographdata(r, SparseVector{Float64}), sp)
+end
+F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.r))
+@blueprint Raw "growth rate values"
+export Raw
+
+F.early_check(bp::Raw) = check_nodes(check, bp.r)
+check(r, ref = nothing) = check_value(>=(0), r, ref, :r, "Not a positive value")
+
+function F.late_check(raw, bp::Raw)
+    (; r) = bp
+    prods = @ref raw.producers.mask
+    @check_template r prods :producers
+end
+
+F.expand!(raw, bp::Raw) = expand!(raw, bp.r)
+function expand!(raw, r)
+    # The legacy format is a dense vector.
+    raw.biorates.r = collect(r)
+    # Keep a true sparse version in the cache.
+    raw._cache[:growth_rate] = r
+end
+
+#-------------------------------------------------------------------------------------------
+# From a scalar broadcasted to all producers.
+
+mutable struct Flat <: Blueprint
+    r::Float64
+end
+@blueprint Flat "uniform growth rate" depends(Foodweb)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.r)
+F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.r, @ref raw.producers.mask))
+
+#-------------------------------------------------------------------------------------------
+# From a species-indexed map.
+
+mutable struct Map <: Blueprint
+    r::@GraphData Map{Float64}
+    Map(r) = new(@tographdata(r, Map{Float64}))
+end
+@blueprint Map "[species => growth rate] map"
+export Map
+
+F.early_check(bp::Map) = check_nodes(check, bp.r)
+function F.late_check(raw, bp::Map)
+    (; r) = bp
+    index = @ref raw.species.index
+    prods = @ref raw.producers.mask
+    @check_list_refs r :producer index template(prods)
+end
+
+function F.expand!(raw, bp::Map)
+    index = @ref raw.species.index
+    r = to_sparse_vector(bp.r, index)
+    expand!(raw, r)
+end
+
+#-------------------------------------------------------------------------------------------
+# From allometric rates (no temperature).
+
+miele2019_allometry_rates() = Allometry(; producer = (a = 1, b = -1 / 4))
 
 # TODO: since only producers are involved,
 # does it make sense to receive and process a full allometric dict here?
 
-# ==========================================================================================
+mutable struct Allometric <: Blueprint
+    allometry::Allometry
+    Allometric(; kwargs...) = new(parse_allometry_arguments(kwargs))
+    Allometric(allometry::Allometry) = new(allometry)
+    # Default values.
+    function Allometric(default::Symbol)
+        @check_symbol default (:Miele2019,)
+        @expand_symbol default (:Miele2019 => new(miele2019_allometry_rates()))
+    end
+end
+@blueprint Allometric "allometric rates" depends(BodyMass, MetabolicClass)
+export Allometric
 
-abstract type GrowthRate <: ModelBlueprint end
-# All subtypes must require(Foodweb).
+function F.early_check(bp::Allometric)
+    (; allometry) = bp
+    check_template(allometry, miele2019_allometry_rates(), "growth rates")
+end
+
+function F.expand!(raw, bp::Allometric)
+    M = @ref raw.M
+    mc = @ref raw.metabolic_class
+    prods = @ref raw.producers.mask
+    r = sparse_nodes_allometry(bp.allometry, prods, M, mc)
+    expand!(raw, r)
+end
+
+#-------------------------------------------------------------------------------------------
+# From allometric rates and activation energy (temperature).
+
+binzer2016_allometry_rates() =
+    (E_a = -0.84, allometry = Allometry(; producer = (a = exp(-15.68), b = -0.25)))
+
+mutable struct Temperature <: Blueprint
+    E_a::Float64
+    allometry::Allometry
+    Temperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
+    Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
+    function Temperature(default::Symbol)
+        @check_symbol default (:Binzer2016,)
+        @expand_symbol default (:Binzer2016 => new(binzer2016_allometry_rates()...))
+    end
+end
+@blueprint Temperature "allometric rates and activation energy" depends(
+    _Temperature,
+    BodyMass,
+    MetabolicClass,
+)
+export Temperature
+
+function F.early_check(bp::Temperature)
+    (; allometry) = bp
+    check_template(
+        allometry,
+        binzer2016_allometry_rates()[2],
+        "growth rates (from temperature)",
+    )
+end
+
+function F.expand!(raw, bp::Temperature)
+    (; E_a) = bp
+    T = @get raw.T
+    M = @ref raw.M
+    mc = @ref raw.metabolic_class
+    prods = @ref raw.producers.mask
+    r = sparse_nodes_allometry(bp.allometry, prods, M, mc; E_a, T)
+    expand!(raw, r)
+end
+
+end
+
+# ==========================================================================================
+# Component and generic constructors.
+
+@component GrowthRate{Internal} requires(Foodweb) blueprints(GrowthRate_)
+export GrowthRate
 
 # Construct either variant based on user input,
 # but disallow direct allometric input in this constructor,
-# because `GrowthRate(a_p=1, b_p=2)` could either be written
-# by a user wanting simple allometry
-# or by a user wanting temperature allometry
-# but having forgotten to specify a value for `E_a`.
-# Better stop them with an error then than keep going wit non-temperature-dependent values.
-function GrowthRate(r)
+# because it is unclear wether `GrowthRate(:Miele2019; a_p=1)
+# is written by a user having forgotten `b_p` or wanting a default value for `b_p`.
+# TODO: offer either: default on missing values from this constructor,
+# error on missing values from direct blueprint constructor?
+function (::_GrowthRate)(r)
 
+    r = @tographdata r {Symbol, Scalar, SparseVector, Map}{Float64}
     @check_if_symbol r (:Miele2019, :Binzer2016)
 
     if r == :Miele2019
-        GrowthRateFromAllometry(r)
+        GrowthRate.Allometric(r)
     elseif r == :Binzer2016
-        GrowthRateFromTemperature(r)
+        GrowthRate.Temperature(r)
+    elseif r isa Real
+        GrowthRate.Flat(r)
+    elseif r isa AbstractVector
+        GrowthRate.Raw(r)
     else
-        GrowthRateFromRawValues(r)
+        GrowthRate.Map(r)
     end
 
 end
 
-export GrowthRate
-
-#-------------------------------------------------------------------------------------------
-# First variant: user provides raw growth rates.
-
-mutable struct GrowthRateFromRawValues <: GrowthRate
-    r::@GraphData {Scalar, SparseVector, Map}{Float64}
-    GrowthRateFromRawValues(r) = new(@tographdata r SNK{Float64})
-end
-
-function F.check(model, bp::GrowthRateFromRawValues)
-    (; _producers_mask, _producers_sparse_index) = model
-    (; r) = bp
-
-    # 'Dense' check to disallow missing producers.
-    @check_refs_if_list r :producers _producers_sparse_index dense
-    @check_template_if_sparse r _producers_mask :producers
-end
-
-function store_legacy_r!(model, r::SparseVector{Float64})
-    # The legacy format is a dense vector.
-    model.biorates.r = collect(r)
-    # Keep a true sparse version in the cache.
-    model._cache[:growth_rate] = r
-end
-
-function F.expand!(model, bp::GrowthRateFromRawValues)
-    (; _producers_mask, _species_index) = model
-    (; r) = bp
-
-    @to_sparse_vector_if_map r _species_index
-    @to_template_if_scalar Real r _producers_mask
-
-    store_legacy_r!(model, r)
-end
-
-@component GrowthRateFromRawValues requires(Foodweb)
-export GrowthRateFromRawValues
-
-#-------------------------------------------------------------------------------------------
-# Second variant: user provides allometric rates (no temperature).
-
-miele2019_growth_allometry_rates() = Allometry(; producer = (a = 1, b = -1 / 4))
-
-mutable struct GrowthRateFromAllometry <: GrowthRate
-    allometry::Allometry
-    GrowthRateFromAllometry(; kwargs...) = new(parse_allometry_arguments(kwargs))
-    GrowthRateFromAllometry(allometry::Allometry) = new(allometry)
-    # Default values.
-    function GrowthRateFromAllometry(default::Symbol)
-        @check_if_symbol default (:Miele2019,)
-        @build_from_symbol default (:Miele2019 => new(miele2019_growth_allometry_rates()))
-    end
-end
-
-F.buildsfrom(::GrowthRateFromAllometry) = [BodyMass, MetabolicClass]
-
-function F.check(_, bp::GrowthRateFromAllometry)
-    al = bp.allometry
-    check_template(al, miele2019_growth_allometry_rates(), "growth rates")
-end
-
-function F.expand!(model, bp::GrowthRateFromAllometry)
-    (; _M, _metabolic_classes, _producers_mask) = model
-    r = sparse_nodes_allometry(bp.allometry, _producers_mask, _M, _metabolic_classes)
-    store_legacy_r!(model, r)
-end
-
-@component GrowthRateFromAllometry requires(Foodweb)
-export GrowthRateFromAllometry
-
-#-------------------------------------------------------------------------------------------
-# Last variant: user provides allometric rates and activation energy (temperature).
-
-binzer2016_growth_allometry_rates() =
-    (E_a = -0.84, allometry = Allometry(; producer = (a = exp(-15.68), b = -0.25)))
-
-mutable struct GrowthRateFromTemperature <: GrowthRate
-    E_a::Float64
-    allometry::Allometry
-    GrowthRateFromTemperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
-    GrowthRateFromTemperature(E_a, allometry::Allometry) = new(E_a, allometry)
-    function GrowthRateFromTemperature(default::Symbol)
-        @check_if_symbol default (:Binzer2016,)
-        return @build_from_symbol default (
-            :Binzer2016 => new(binzer2016_growth_allometry_rates()...)
-        )
-    end
-end
-
-F.buildsfrom(::GrowthRateFromTemperature) = [Temperature, BodyMass, MetabolicClass]
-
-function F.check(_, bp::GrowthRateFromTemperature)
-    al = bp.allometry
-    (_, template) = binzer2016_growth_allometry_rates()
-    check_template(al, template, "growth rates from temperature")
-end
-
-function F.expand!(model, bp::GrowthRateFromTemperature)
-    (; _M, T, _metabolic_classes, _producers_mask) = model
-    (; E_a) = bp
-    r = sparse_nodes_allometry(
-        bp.allometry,
-        _producers_mask,
-        _M,
-        _metabolic_classes;
-        E_a,
-        T,
-    )
-    store_legacy_r!(model, r)
-end
-
-@component GrowthRateFromTemperature requires(Foodweb)
-export GrowthRateFromTemperature
-
-#-------------------------------------------------------------------------------------------
-# Don't specify simultaneously.
-@conflicts(GrowthRateFromRawValues, GrowthRateFromAllometry, GrowthRateFromTemperature)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:GrowthRate}) = GrowthRate
-
-# ==========================================================================================
-# These rates are terminal (yet): they can be both queried and modified.
-
+# Basic query.
 @expose_data nodes begin
     property(growth_rate, r)
-    get(GrowthRates{Float64}, sparse, "producer")
-    ref_cache(m -> nothing) # Cache loaded on component expansion.
-    template(m -> m._producers_mask)
-    write!((m, rhs, i) -> (m.biorates.r[i] = rhs))
-    @species_index
     depends(GrowthRate)
+    @species_index
+    ref_cached(_ -> nothing) # Cache filled on component expansion.
+    get(GrowthRates{Float64}, sparse, "producer")
+    template(raw -> @ref raw.producers.mask)
+    write!((raw, rhs::Real, i) -> begin
+        GrowthRate_.check(rhs, i)
+        rhs = Float64(rhs)
+        raw.biorates.r[i] = rhs
+        rhs
+    end)
 end
 
-# ==========================================================================================
 # Display.
-
-# Highjack display to make it like all blueprints provide the same component.
-display_short(bp::GrowthRate; kwargs...) = display_short(bp, GrowthRate; kwargs...)
-display_long(bp::GrowthRate; kwargs...) = display_long(bp, GrowthRate; kwargs...)
-
-F.display(model, ::Type{<:GrowthRate}) =
-    "GrowthRate: [$(join_elided(model._growth_rate, ", "))]"
+F.shortline(io::IO, model::Model, ::_GrowthRate) =
+    print(io, "Growth rate: [$(join_elided(model._growth_rate, ", "))]")
