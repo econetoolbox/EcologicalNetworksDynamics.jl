@@ -35,7 +35,8 @@
 
 module GraphViews
 
-import ..InnerParms
+import ..Internal
+import ..join_elided
 
 using SparseArrays
 
@@ -56,9 +57,9 @@ Base.showerror(io::IO, e::ViewError) = print(io, "View error ($(e.type)): $(e.me
 # No magic in here, so the ergonomics would be weak without helper macros.
 
 # Accepted input for symbol labels.
-ULabel = Union{Symbol,Char,AbstractString}
+Label = Union{Symbol,Char,AbstractString}
 # Abstract over either index or labels.
-UIndex = Union{Int,ULabel}
+Ref = Union{Int,Label}
 
 # All views must behave like regular arrays.
 abstract type AbstractGraphDataView{T,N} <: AbstractArray{T,N} end
@@ -82,74 +83,77 @@ export NodesWriteView
 export EdgesView
 export EdgesWriteView
 
-# Assuming the cache has already been updated,
-# update the rest of the wrapped _graph.
-write!(::InnerParms, ::Type{<:NodesWriteView}, rhs, i) = nothing
-write!(::InnerParms, ::Type{<:EdgesWriteView}, rhs, i, j) = nothing
-
 # ==========================================================================================
 # Defer base implementation to the ._ref field.
 
 Base.size(v::AbstractGraphDataView) = size(v._ref)
+SparseArrays.findnz(m::AbstractGraphDataView) = findnz(m._ref)
+Base.:(==)(a::AbstractGraphDataView, b::AbstractGraphDataView) = a._ref == b._ref
 
+# ==========================================================================================
 # Checked access.
+
 # Always valid for reading with indices (or we break AbstractArray contract).
-Base.getindex(v::AbstractGraphDataView{T,1}, i::Int) where {T} = getindex(v._ref, i)
-function Base.getindex(v::AbstractGraphDataView{T,2}, i::Int, j::Int) where {T}
-    getindex(v._ref, i, j)
+function Base.getindex(v::AbstractGraphDataView, index::Int...)
+    check_access_dim(v, index...)
+    check_dense_access(v, nothing, index) # Always do to harmonize error messages.
+    getindex(v._ref, index...)
 end
 
 # Always checked for labelled access.
-function Base.getindex(v::AbstractGraphDataView{T,1}, s::ULabel) where {T}
-    i = check_label(s, v)
-    getindex(v._ref, i)
+function Base.getindex(v::AbstractGraphDataView, access::Label...)
+    check_access_dim(v, access...)
+    index = to_checked_index(v, access...)
+    getindex(v._ref, index...)
 end
-function Base.getindex(v::AbstractGraphDataView{T,2}, s::ULabel, t::ULabel) where {T}
-    i, j = check_label(s, t, v)
-    getindex(v._ref, i, j)
+Base.getindex(v::AbstractGraphDataView) = check_access_dim(v) # (trigger correct error)
+
+# Only allow writes for writeable views.
+Base.setindex!(v::AbstractGraphDataReadWriteView, rhs, access::Ref...) =
+    setindex!(v, rhs, access)
+Base.setindex!(v::AbstractGraphDataReadOnlyView, args...) =
+    throw(ViewError(typeof(v), "This view into graph $(level_name(v))s data is read-only."))
+
+function setindex!(v::AbstractGraphDataReadWriteView, rhs, access)
+    check_access_dim(v, access...)
+    index = to_checked_index(v, access...)
+    rhs = write!(v._graph, typeof(v), rhs, index)
+    Base.setindex!(v._ref, rhs, index...)
+end
+inline_(access::Tuple) = join(repr.(access), ", ")
+inline(access::Tuple) = "[$(inline_(access))]"
+inline(access::Tuple, original) = "$(inline(access)) (=$(inline(original)))"
+inline(access::Tuple, ::Tuple{Vararg{Int}}) = inline(access)
+inline_size(access::Tuple) = "($(inline_(access)))"
+inline_size(access::Tuple{Int64}) = "$(inline_(access))"
+
+function to_checked_index(v::AbstractGraphDataView, index::Int...)
+    check_access(v, nothing, index)
+    index
 end
 
-# Only allow writes for writeable views, and ask for additional logic to the implementor.
-function Base.setindex!(v::NodesWriteView, rhs, i::Int)
-    i = check_index(i, v)
-    setindex!(v._ref, rhs, i)
-    write!(v._graph, typeof(v), rhs, i)
-end
-function Base.setindex!(v::EdgesWriteView, rhs, i::Int, j::Int)
-    i, j = check_index(i, j, v)
-    setindex!(v._ref, rhs, i, j)
-    write!(v._graph, typeof(v), rhs, i, j)
+function to_checked_index(v::AbstractGraphDataView, labels::Label...)
+    index = to_index(v, labels...)
+    check_access(v, labels, index)
+    index
 end
 
-# Same with additional label checking when required.
-function Base.setindex!(v::NodesWriteView, rhs, s::ULabel)
-    i = check_label(s, v)
-    i = check_index(i, v; label = s)
-    setindex!(v._ref, rhs, i)
-    write!(v._graph, typeof(v), rhs, i)
-end
-function Base.setindex!(v::EdgesWriteView, rhs, s::ULabel, t::ULabel)
-    i, j = check_label(s, t, v)
-    i, j = check_index(i, j, v; i_label = s, j_label = t)
-    setindex!(v._ref, rhs, i, j)
-    write!(v._graph, typeof(v), rhs, i, j)
-end
+# Extension points for implementors.
+check_access(v::AbstractGraphDataView, _...) = throw("Unimplemented for $(typeof(v)).")
+check_label(v::AbstractGraphDataView, _...) = throw("Unimplemented for $(typeof(v)).")
 
-# Stub for implementors overload.
-check_index(i, v::AbstractGraphDataView; kwargs...) =
-    throw("Unimplemented for $(typeof(v)).")
-check_index(i, j, v::AbstractGraphDataView; kwargs...) =
-    throw("Unimplemented for $(typeof(v)).")
-check_label(s, v::AbstractGraphDataView) = throw("Unimplemented for $(typeof(v)).")
-check_label(s, t, v::AbstractGraphDataView) = throw("Unimplemented for $(typeof(v)).")
+# Check the value to be written prior to underlying call to `Base.setindex!`,
+# and take this opportunity to possibly update other values within model besides ._ref.
+# Returns the actual value to be passed to `setindex!`.
+write!(::Internal, T::Type{<:NodesWriteView}, rhs, index) = rhs
 
-# Forbid writing into read-only views.
-Base.setindex!(v::NodesView, rhs, i) =
-    throw(ViewError(typeof(v), "This view into graph nodes data is read-only."))
-Base.setindex!(v::EdgesView, rhs, i, j) =
-    throw(ViewError(typeof(v), "This view into graph edges data is read-only."))
+# Name of the thing indexed, useful to improve errors.
+item_name(::Type{<:AbstractGraphDataView}) = "item"
+item_name(v::AbstractGraphDataView) = item_name(typeof(v))
 
-SparseArrays.findnz(m::AbstractEdgesView) = findnz(m._ref)
+level_name(::Type{<:AbstractNodesView}) = "node"
+level_name(::Type{<:AbstractEdgesView}) = "edge"
+level_name(v::AbstractGraphDataView) = level_name(typeof(v))
 
 # ==========================================================================================
 # All possible variants of additional index checking in implementors.
@@ -157,122 +161,115 @@ SparseArrays.findnz(m::AbstractEdgesView) = findnz(m._ref)
 #-------------------------------------------------------------------------------------------
 # Basic bound checks for dense views.
 
-function check_index_dense_nodes(
-    i::Int,
-    v::AbstractNodesView,
-    item; # Name of the thing indexed, useful to improve errors.
-    label::Option{ULabel} = nothing, # Remember original input if label.
-)
-    verr(mess) = throw(ViewError(typeof(v), mess))
-    n = length(v)
-    if !(0 < i <= n)
-        item = uppercasefirst(item)
-        label = isnothing(label) ? "" : " ($(repr(label)))"
-        verr("$item index '$i'$label is off-bounds \
-              for a view into $n nodes data.")
-    end
-    i
+function check_dense_access(v::AbstractGraphDataView, ::Any, index::Tuple{Vararg{Int}})
+    all(0 .< index .<= size(v)) && return
+    item = uppercasefirst(item_name(v))
+    level = level_name(v)
+    s = plural(length(v))
+    z = size(v)
+    throw(ViewError(
+        typeof(v),
+        "$item index $(inline(index)) is off-bounds \
+        for a view into $(inline_size(z)) $(level)$s data.",
+    ))
 end
-function check_index_dense_edges(
-    i::Int,
-    j::Int,
-    v::AbstractEdgesView,
-    item;
-    i_label::Option{ULabel} = nothing,
-    j_label::Option{ULabel} = nothing,
-)
-    verr(mess) = throw(ViewError(typeof(v), mess))
-    n, m = size(v._ref)
-    if !(0 < i <= n && 0 < j <= m)
-        item = uppercasefirst(item)
-        labels = isnothing(i_label) ? "" : " (($(repr(i_label)), $(repr(j_label))))"
-        verr("$item index ($i, $j)$labels is off-bounds \
-              for a view into ($n, $m) edges data.")
-    end
-    (i, j)
-end
+plural(n) = n > 1 ? "s" : ""
 
 #-------------------------------------------------------------------------------------------
 # For sparse views (a template is available as `._template`).
 
 # Nodes.
-function check_index_sparse_nodes(
-    i::Int,
-    v::AbstractNodesView,
-    item; # Name the thing being indexed to improve errors.
-    label::Option{ULabel} = nothing, # Set if originally parsed from a label.
+function check_sparse_access(
+    v::AbstractGraphDataView,
+    labels::Option{Tuple{Vararg{Label}}}, # Remember if given as labels.
+    index::Tuple{Vararg{Int}},
 )
-    check_index_dense_nodes(i, v, item; label)
+    check_dense_access(v, labels, index)
+    :_template in fieldnames(typeof(v)) || return # Always valid without a template.
 
-    verr(mess) = throw(ViewError(typeof(v), mess))
-    tp = v._template
-    if !tp[i]
-        valids = findnz(tp)[1]
-        if isnothing(label)
-            verr("Invalid $item index '$i' to write data. \
-                  Valid indices are:\n  $valids")
-        else
-            # Then there must be an index.
-            valids = Set(valids)
-            # Reorder labels because the index is not necessarily ordered.
-            labels = [(i, l) for (l, i) in v._index if i in valids]
-            sort!(labels)
-            labels = last.(labels)
-            verr("Invalid $item label '$label' to write data. \
-                  Valid labels are:\n  $labels")
-        end
+    template = v._template
+    template[index...] && return
+    item = item_name(v)
+    level = level_name(v)
+    n = length(index)
+    refs = if isnothing(labels)
+        "index $(inline(index))"
+    else
+        "label$(n > 1 ? "s" : "") $(inline(labels)) ($(inline(index)))"
     end
-    i
+    throw(
+        ViewError(
+            typeof(v),
+            "Invalid $item $refs to write $level data. " *
+            valid_refs_phrase(v, template, labels),
+        ),
+    )
 end
 
-# Edges.
-function check_index_sparse_edges(
-    i::Int,
-    j::Int,
-    v::AbstractEdgesView,
-    item;
-    i_label::Option{ULabel} = nothing,
-    j_label::Option{ULabel} = nothing,
-)
-    check_index_dense_edges(i, j, v, item; i_label, j_label)
-
-    verr(mess) = throw(ViewError(typeof(v), mess))
-    tp = v._template
-    if !tp[i, j]
-        labels = isnothing(i_label) ? "" : " ($(repr(i_label)), $(repr(j_label)))"
-        verr("Invalid $item index $((i, j))$labels to write data. \
-              Valid indices are:\n  $([ij for ij in zip(findnz(tp)[1:2]...)])")
+function valid_refs_phrase(v, template, labels)
+    valids = sort!(collect(valid_refs(v, template, labels)))
+    if isempty(valids)
+        "There is no valid $(vref(labels)) for this template."
+    elseif length(valids) == 1
+        "The only valid $(vref(labels)) for this template is $(first(valids))."
+    else
+        max = isnothing(labels) ? (template isa AbstractVector ? 100 : 50) : 10
+        "Valid $(vrefs(labels)) for this template \
+         are $(join_elided(valids, ", ", " and "; max))."
     end
-    (i, j)
 end
+valid_refs_phrase(_, template::AbstractMatrix, ::Any) =
+    "Valid indices must comply to the following template:\n\
+     $(repr(MIME("text/plain"), template))"
+vref(::Nothing) = "index"
+vrefs(::Nothing) = "indices"
+vref(::Any) = "label"
+vrefs(::Any) = "labels"
+valid_refs(_, template::AbstractVector, ::Nothing) = findnz(template)[1]
+valid_refs(_, template::AbstractMatrix, ::Nothing) = zip(findnz(template)[1:2]...)
+function valid_refs(v, template::AbstractVector, ::Any)
+    valids = Set(valid_refs(v, template, nothing))
+    (l for (l, i) in v._index if i in valids)
+end
+
 
 #-------------------------------------------------------------------------------------------
 # Convert labels to indexes (a mapping is available as `._index`).
 
-function check_label_nodes(s::ULabel, v::AbstractNodesView, item)
-    verr(mess) = throw(ViewError(typeof(v), mess))
+function to_index(v::AbstractNodesView, s::Label)
+    if !hasfield(typeof(v), :_index)
+        item = item_name(v)
+        throw(ViewError(typeof(v), "No index to interpret $item node label $(repr(s))."))
+    end
     map = v._index
     y = Symbol(s)
     if !haskey(map, y)
-        verr("Invalid $item node label. \
-              Expected $(either(keys(map))), got instead: $(repr(s)).")
+        item = item_name(v)
+        throw(ViewError(
+            typeof(v),
+            "Invalid $item node label. \
+             Expected $(either(keys(map))), \
+             got instead: $(repr(s)).",
+        ))
     end
     i = map[y]
-    i
+    (i,)
 end
 
-function check_label_edges(s::ULabel, t::ULabel, v::AbstractEdgesView, item)
+function to_index(v::AbstractEdgesView, s::Label, t::Label)
     verr(mess) = throw(ViewError(typeof(v), mess))
     rows, cols = (v._row_index, v._col_index)
     y = Symbol(s)
     z = Symbol(t)
     if !haskey(rows, y)
         rows = sort(collect(keys(rows)))
+        item = item_name(v)
         verr("Invalid $item edge source label: $(repr(y)). \
               Expected $(either(rows)), got instead: $(repr(s)).")
     end
     if !haskey(cols, z)
         cols = sort(collect(keys(cols)))
+        item = item_name(v)
         verr("Invalid $item edge target label: $(repr(z)). \
               Expected $(either(cols)), got instead: $(repr(t)).")
     end
@@ -283,12 +280,48 @@ end
 
 either(symbols) =
     length(symbols) == 1 ? "$(repr(first(symbols)))" :
-    "either " * join(repr.(symbols), ", ", " or ")
+    "either " * join_elided(symbols, ", ", " or ")
 
-# Error on accessing non-indexed views with labels.
-no_labels_nodes(s::ULabel, v::AbstractNodesView, item) =
-    throw(ViewError(typeof(v), "No index to interpret $item node label $(repr(s))."))
-no_labels_edges(s::ULabel, t::ULabel, v::AbstractEdgesView, item) =
-    throw(ViewError(typeof(v), "No index to interpret $item edge labels $(repr.((s, t)))."))
+# Accessing with the wrong number of dimensions.
+function dimerr(reftype, v, level, exp, labs)
+    n = length(labs)
+    throw(
+        ViewError(
+            typeof(v),
+            "$level data are $exp-dimensional: \
+             cannot access $(item_name(v)) data values with $n $(reftype(n)): \
+             $(inline(labs)).",
+        ),
+    )
+end
+laberr(args...) = dimerr(n -> n > 1 ? "labels" : "label", args...)
+inderr(args...) = dimerr(n -> n > 1 ? "indices" : "index", args...)
+check_access_dim(v::AbstractNodesView) = inderr(v, "Nodes", 1, ())
+check_access_dim(v::AbstractEdgesView) = inderr(v, "Edges", 2, ())
+check_access_dim(v::AbstractNodesView, i::Int...) = inderr(v, "Nodes", 1, i)
+check_access_dim(v::AbstractEdgesView, i::Int...) = inderr(v, "Edges", 2, i)
+check_access_dim(::AbstractNodesView, ::Int) = nothing
+check_access_dim(::AbstractEdgesView, ::Int, ::Int) = nothing
+check_access_dim(v::AbstractNodesView, labels::Label...) = laberr(v, "Nodes", 1, labels)
+check_access_dim(v::AbstractEdgesView, labels::Label...) = laberr(v, "Edges", 2, labels)
+check_access_dim(::AbstractNodesView, ::Label) = nothing
+check_access_dim(::AbstractEdgesView, ::Label, ::Label) = nothing
+# Requesting vector[1, 1, 1, 1] is actuall valid in julia.
+# Only trigger the error out of this very strict 1-situation.
+check_access_dim(v::AbstractNodesView, i::Int, index::Int...) =
+    all(==(1), index) || inderr(v, "Nodes", 1, (i, index...))
+check_access_dim(v::AbstractEdgesView, i::Int, j::Int, index::Int...) =
+    all(==(1), index) || inderr(v, "Edges", 2, (i, j, index...))
+
+# Accessing non-indexed views with labels.
+no_labels(v::AbstractNodesView, s::Label) = throw(
+    ViewError(typeof(v), "No index to interpret $(item_name(v)) node label $(repr(s))."),
+)
+no_labels(v::AbstractEdgesView, s::Label, t::Label) = throw(
+    ViewError(
+        typeof(v),
+        "No index to interpret $(item_name(v)) edge labels $(repr.((s, t))).",
+    ),
+)
 
 end

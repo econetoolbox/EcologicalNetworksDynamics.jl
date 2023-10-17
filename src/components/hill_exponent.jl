@@ -1,35 +1,53 @@
 # Set or generate hill-exponent.
 
-mutable struct HillExponent <: ModelBlueprint
+# (reassure JuliaLS)
+(false) && (local HillExponent, _HillExponent)
+
+# ==========================================================================================
+# Blueprints.
+
+module HillExponent_
+include("blueprint_modules.jl")
+
+#-------------------------------------------------------------------------------------------
+# From raw value.
+
+mutable struct Raw <: Blueprint
     h::Float64
-    HillExponent(h) = new(h)
+end
+@blueprint Raw "power value"
+export Raw
+
+F.early_check(bp::Raw) = check(bp.h)
+check(h) = check_value(>=(0), h, nothing, :h, "Not a positive (power) value")
+
+F.expand!(raw, bp::Raw) = raw._scratch[:hill_exponent] = bp.h
+
 end
 
-function F.check(_, bp::HillExponent)
-    (; h) = bp
-    h >= 0.0 || checkfails("Hill exponent needs to be positive. Received: h = $h.")
-end
+# ==========================================================================================
+# Component and generic constructors.
 
-function F.expand!(model, bp::HillExponent)
-    (; h) = bp
-    model._scratch[:hill_exponent] = h
-end
-
-@component HillExponent
+@component HillExponent{Internal} blueprints(HillExponent_)
 export HillExponent
+
+(::_HillExponent)(h) = HillExponent.Raw(h)
 
 @expose_data graph begin
     property(hill_exponent, h)
-    get(m -> m._scratch[:hill_exponent])
-    set!((m, rhs::Float64) -> begin
-        m._scratch[:hill_exponent] = rhs
+    depends(HillExponent)
+    get(raw -> raw._scratch[:hill_exponent])
+    set!((raw, rhs::Real) -> begin
+        HillExponent_.check(rhs)
+        h = Float64(rhs)
+        raw._scratch[:hill_exponent] = h
         # Legacy updates, required because scalars don't alias.
         # Should not be needed once the Internals have been refactored.
-        fr = m.functional_response
-        fr isa Internals.BioenergeticResponse && (fr.h = rhs)
-        fr isa Internals.ClassicResponse && (fr.h = rhs)
+        fr = raw.functional_response
+        fr isa Internals.BioenergeticResponse && (fr.h = h)
+        fr isa Internals.ClassicResponse && (fr.h = h)
     end)
-    depends(HillExponent)
 end
 
-F.display(model, ::Type{<:HillExponent}) = "Hill exponent: $(model.h)"
+# Display.
+F.shortline(io::IO, model::Model, ::_HillExponent) = print(io, "Hill Exponent: $(model.h)")

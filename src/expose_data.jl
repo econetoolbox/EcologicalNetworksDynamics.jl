@@ -38,16 +38,14 @@
 #
 # This macro cannot be formally tested
 # without a considerable amount of preliminary setup.
-# So have it covered with user-facing tests its features.
-
-import ..@method
+# So have it covered with user-facing tests.
 
 macro expose_data(
     level::Symbol, # (:graph, :nodes or :edges)
     input::Expr...,
     # Unordered list of optional `key(value)` pairs:
     #
-    #   get(function) or get(model -> <body>)
+    #   get(function) or get(row -> <body>)
     #     Generate exposed function to return a value to user,
     #     which is *not* an aliased reference to mutable underlying data.
     #     Required.
@@ -56,45 +54,47 @@ macro expose_data(
     #     The components required for the methods to be called.
     #     May be elided or empty.
     #
-    #   property(name) or property(names...)
+    #   property(path) or property(paths...)
     #     The first name is used for generating
     #     the ref_<prop>/get_<prop>/set_<prop>! methods.
     #     All names are used as read_as(prop), write_as(prop) properties.
     #     At least one name is required.
     #
-    #   ref(function) or ref(model -> <body>)
+    #   ref(function) or ref(raw -> <body>)
     #     Generated unexposed ref_<prop> function
     #     to get a reference alias to underlying data.
     #     Required for :nodes and :edges levels,
-    #     unless replaced by `ref_cache` (below),
+    #     unless replaced by `ref_cached` (below),
     #
-    #   ref_cache(function) or ref_cache(model -> <body>)
+    #   ref_cached(function) or ref_cached(raw -> <body>)
     #     Special form of `ref` where the calculation result
-    #     is memoized in the model `._cache`, using <prop> name as a key.
+    #     is memoized in the raw value's `._cache`, using the first <prop> path as a key.
     #     The returned reference aliases the cached value then.
     #
-    #   set!(rhs_type, function) or set!((m, rhs::<rhs_type>) -> <body>)
+    #   set!(rhs_type, function) or set!((raw, rhs::<rhs_type>) -> <body>)
     #     Generate exposed function to replace the value within the model.
     #     Forbidden if a 'View' is defined, for it's a pandora box:
     #     references leaks, other views invalidations, cache corruption etc.
     #     Type the rhs for safety guards before the actual body is run.
+    #     Fail with `setfails` in case the rhs value is found to be invalid.
     #
     # Special 'View' refinments for :nodes and :edges levels (disallowed for :graph):
     #
     #   get(View{K}, "item name") or get(View{K}, sparse, "item name")
     #     Generate a `struct View <: Abstact<level>DataView{K}`.
-    #     The `._ref` field is setup to `ref_<prop>(model)`
-    #     and the `._graph` field to `model`.
-    #     Then generate a `get_<prop>(m) = View(m)` method.
+    #     The `._ref` field is setup to `ref_<prop>(raw)`
+    #     and the `._graph` field to `raw`.
+    #     Then generate a `get_<prop>(raw) = View(raw)` method.
     #
-    #   write!(function) or write!((m, rhs, i<, j>) -> <body>)
+    #   write!(function) or write!((raw, rhs::<rhs_type>, i<, j>) -> <body>)
     #     Enable setindex! method for the generated view.
+    #     Fail with `writefails` in case the rhs value is found to be invalid.
     #
-    #   template(function) or template(m -> <body>)
+    #   template(function) or template(raw -> <body>)
     #     Generates a `._template` method for the view if sparse,
     #     initialized with the given function and useful to check the setindex! accesses.
     #
-    #   index(function) or index(m -> <body>)
+    #   index(function) or index(raw -> <body>)
     #     Generates a `._index` method for the view, initialized with this function,
     #     and enabling label-based indexing.
     #     For :edges level, if the two dimensions use different indexes,
@@ -106,7 +106,7 @@ macro expose_data(
     push_res!(xp) = xp.head == :block ? append!(res.args, xp.args) : push!(res.args, xp)
 
     # Raise *during expansion* if parsing fails.
-    errname = [:?] # Update as soon as possible to improve errors.
+    errname = Union{Symbol,Expr}[:?] # Update as soon as possible to improve errors.
     perr(mess) = throw(ExposeDataMacroError(errname[1], __source__, mess))
 
     # ======================================================================================
@@ -117,24 +117,22 @@ macro expose_data(
         input = rmlines(input[1]).args
     end
 
-    # Quick first pass through the input just to retrieve property name
+    # Quick first pass through the input just to retrieve properties paths
     # and improve further errors.
-    propname = nothing
-    aliases = []
+    proppaths = nothing
     for section in input
-        @capture(section, property(name_) | property(names__))
-        isnothing(name) && isnothing(names) && continue
-        isnothing(name) && length(names) == 0 && perr("No property names given.")
-        propname = isnothing(names) ? name : names[1]
-        aliases = isnothing(names) ? [name] : names
-        propname isa Symbol || perr("Not a property name: $(repr(propname)).")
+        (false) && (local paths) # (reassure JuliaLS)
+        @capture(section, property(paths__))
+        isnothing(paths) && isnothing(names) && continue
+        length(paths) == 0 && perr("No property path given.")
+        for path in paths
+            F.is_identifier_path(path) || perr("Not a property path: $(repr(path)).")
+        end
+        proppaths = paths
         break
     end
-    isnothing(propname) && perr("Miss required 'property' section.")
-    errname[1] = propname
-    for alias in aliases
-        alias isa Symbol || perr("Not a property alias: $(repr(alias)).")
-    end
+    isnothing(proppaths) && perr("Miss required 'property' section.")
+    errname[1] = first(proppaths)
 
     # Check level
     level in (:graph, :nodes, :edges) ||
@@ -146,8 +144,7 @@ macro expose_data(
 
     # Some inputs are either a method path or lambda expressions.
     function check_fn(name, xp, n_parms = 1)
-        err() = perr("Not a function for extracting reference: \
-                              $name = $(repr(xp)).")
+        err() = perr("Not a function for extracting reference: $name = $(repr(xp)).")
         xp isa Symbol && return xp
         xp isa Expr || err()
         xp.head == :. && return xp
@@ -173,6 +170,7 @@ macro expose_data(
             section = Core.eval(__module__, :(@macroexpand $section))
         end
 
+        (false) && (local secname, arg, args)
         @capture(section, secname_(arg_) | secname_(args__))
         isnothing(secname) && perr("Could not parse section: $(repr(section)).")
 
@@ -222,6 +220,7 @@ macro expose_data(
             if isnothing(args)
                 # Simple function given, extract rhs type from second argument.
                 fn = check_fn(:set!, arg, 2)
+                (false) && (local name, type)
                 @capture(arg.args[1].args[2], name_::type_)
                 isnothing(type) && perr("Missing RHS type to guard set! method.")
                 kwargs[:set!] = fn
@@ -229,7 +228,7 @@ macro expose_data(
             else
                 # Two arguments given. Assume the first is rhs type.
                 length(args) == 2 && perr("Two expressions required for section '$key' \
-                                               received instead: $args.")
+                                           received instead: $args.")
                 kwargs[:set!], kwargs[:set!_rhs_type] = args
             end
         end
@@ -238,7 +237,7 @@ macro expose_data(
         found = false
         for (key, n_args) in [
             (:ref, 1),
-            (:ref_cache, 1),
+            (:ref_cached, 1),
             (:set!, 2),
             (:write!, (3, 4)),
             (:template, 1),
@@ -267,11 +266,11 @@ macro expose_data(
     given(:get) || perr("Miss required 'get' section.")
 
     if level != :graph
-        (!given(:ref) && !given(:ref_cache)) &&
-            perr("Miss either 'ref' or 'ref_cache' section.")
+        (!given(:ref) && !given(:ref_cached)) &&
+            perr("Miss either 'ref' or 'ref_cached' section.")
     end
-    (given(:ref) && given(:ref_cache)) &&
-        perr("Cannot specify both 'ref' and 'ref_cache' sections.")
+    (given(:ref) && given(:ref_cached)) &&
+        perr("Cannot specify both 'ref' and 'ref_cached' sections.")
 
     (given(:index) && (given(:row_index) || given(:col_index))) &&
         perr("Don't provide both 'index' and 'col_index' or 'row_index'.")
@@ -306,7 +305,7 @@ macro expose_data(
                     fn.head == :-> &&
                     length(fn.args[1].args) != 3 &&
                     perr("The :nodes closure in section `write!` \
-                          needs to take exactly 3 arguments (model, rhs, i).")
+                          needs to take exactly 3 arguments (raw, rhs, i).")
             end
 
         elseif edges
@@ -317,7 +316,7 @@ macro expose_data(
                     fn.head == :-> &&
                     length(fn.args[1].args) != 4 &&
                     perr("The :edges closure in section `write!` \
-                          needs to take exactly 4 arguments (model, rhs, i, j).")
+                          needs to take exactly 4 arguments (raw, rhs, i, j).")
             end
 
         else
@@ -335,32 +334,42 @@ macro expose_data(
     #---------------------------------------------------------------------------------------
     # `Ref` method.
 
-    ref = given(:ref) || given(:ref_cache)
-    cached = given(:ref_cache)
-    spropname = Meta.quot(propname)
+    ref = given(:ref) || given(:ref_cached)
+    cached = given(:ref_cached)
+    # Only define one method for the first path,
+    # then bind subsequent aliases to it.
+    first_path = first(proppaths)
+    sfirst_path = Meta.quot(first_path)
 
     if ref
 
-        ref_fn = esc(cached ? take!(:ref_cache) : take!(:ref))
-        ref_prop_name = Symbol(:ref_, propname)
-        ref_prop = esc(ref_prop_name)
+        ref_fn = esc(cached ? take!(:ref_cached) : take!(:ref))
+        ref_prop_path = Symbol(:ref_, first_path)
+        ref_prop = esc(ref_prop_path)
 
         if cached
-            push_res!(
-                quote
-                    $ref_prop(model::InnerParms) = get_cached(model, $spropname, $ref_fn)
-                end,
-            )
+            push_res!(quote
+                $ref_prop(raw::Internal) = get_cached(raw, $sfirst_path, $ref_fn)
+            end)
         else
             push_res!(quote
-                $ref_prop(model::InnerParms) = $ref_fn(model)
+                $ref_prop(raw::Internal) = $ref_fn(raw)
             end)
         end
 
         # Generates:
-        #   @methods ref_prop depends(deps...) read_as(_props..)
-        props = Expr(:call, :read_as, Symbol.(:_, aliases)...)
-        invoke = Expr(:macrocall, Symbol("@method"), __source__, ref_prop_name, deps, props)
+        #   @methods ref_prop depends(deps...) read_as(_paths..)
+        underscore_paths = map(proppaths) do path
+            a, b = split_last(path)
+            if isnothing(a)
+                Symbol(:_, path)
+            else
+                :($a.$(Symbol(:_, b)))
+            end
+        end
+
+        props = Expr(:call, :read_as, underscore_paths...)
+        invoke = Expr(:macrocall, Symbol("@method"), __source__, ref_prop_path, deps, props)
         push_res!(quote
             $invoke
         end)
@@ -420,7 +429,7 @@ macro expose_data(
 
         fields = quote
             _ref::$Ref
-            _graph::InnerParms
+            _graph::Internal
         end
         add_fields!(q) = append!(fields.args, q.args)
 
@@ -455,9 +464,9 @@ macro expose_data(
 
         View = esc(View)
         constructor = quote
-            function $View(model::InnerParms)
-                ref = $ref_prop(model)
-                new(ref, model)
+            function $View(raw::Internal)
+                ref = $ref_prop(raw)
+                new(ref, raw)
             end
         end
         lines = constructor.args[2].args[2].args
@@ -473,7 +482,7 @@ macro expose_data(
 
             template_fn = esc(take!(:template))
             add_lines!(quote
-                template = $template_fn(model)
+                template = $template_fn(raw)
             end)
             add_args!(:template)
 
@@ -484,7 +493,7 @@ macro expose_data(
 
                 index_fn = esc(take!(:index))
                 add_lines!(quote
-                    index = $index_fn(model)
+                    index = $index_fn(raw)
                 end)
                 add_args!(:index)
 
@@ -494,15 +503,15 @@ macro expose_data(
                 if given(:index)
                     rows_fn = esc(take!(:index))
                     add_lines!(quote
-                        rows = $rows_fn(model)
+                        rows = $rows_fn(raw)
                         cols = rows
                     end)
                 else
                     rows_fn = esc(take!(:row_index))
                     cols_fn = esc(take!(:col_index))
                     add_lines!(quote
-                        rows = $rows_fn(model)
-                        cols = $cols_fn(model)
+                        rows = $rows_fn(raw)
+                        cols = $cols_fn(raw)
                     end)
                 end
                 add_args!(:rows, :cols)
@@ -517,69 +526,40 @@ macro expose_data(
 
         mutable = false
         str = Expr(:struct, mutable, :($View <: $Sup), fields)
+        item_name = kwargs[:item]
         push_res!(quote
             $str
+            ViewType = $View
+            GraphViews.item_name(::Type{ViewType}) = $item_name
         end)
 
         #-----------------------------------------------------------------------------------
         # Wire checked index access as required.
 
-        item = kwargs[:item]
-        if nodes
-            check = sparse ? :check_index_sparse_nodes : :check_index_dense_nodes
-            label = indexed ? :check_label_nodes : :no_labels_nodes
-        else
-            check = sparse ? :check_index_sparse_edges : :check_index_dense_edges
-            label = indexed ? :check_label_edges : :no_labels_edges
-        end
+        check = sparse ? :check_sparse_access : :check_dense_access
+        label = indexed ? :to_index : :no_labels
         (check, label) = (:(GraphViews.$check), :(GraphViews.$label))
-        if nodes
-            push_res!(
-                quote
-                    GraphViews.check_index(i, v::$View; kwargs...) =
-                        $check(i, v, $item; kwargs...)
-                    GraphViews.check_label(s, v::$View) = $label(s, v, $item)
-                    # Always dense-check to make error messages consistent.
-                    function Base.getindex(v::$View, i::Int)
-                        i = GraphViews.check_index_dense_nodes(i, v, $item)
-                        getindex(v._ref, i)
-                    end
-                end,
-            )
-        else
-            push_res!(
-                quote
-                    GraphViews.check_index(i, j, v::$View; kwargs...) =
-                        $check(i, j, v, $item; kwargs...)
-                    GraphViews.check_label(s, t, v::$View) = $label(s, t, v, $item)
-                    function Base.getindex(v::$View, i::Int, j::Int)
-                        i, j = GraphViews.check_index_dense_edges(i, j, v, $item)
-                        getindex(v._ref, i, j)
-                    end
-                end,
-            )
-        end
+        push_res!(quote
+            GraphViews.check_access(v::ViewType, args...) = $check(v, args...)
+            GraphViews.check_label(v::ViewType, args...) = $label(v, args...)
+        end)
 
         #-----------------------------------------------------------------------------------
         # Generate the write! method.
 
         if write
             w = esc(take!(:write!))
-            if nodes
-                push_res!(
-                    quote
-                        GraphViews.write!(model::InnerParms, ::Type{$View}, rhs, i) =
-                            $w(model, rhs, i)
-                    end,
-                )
-            else
-                push_res!(
-                    quote
-                        GraphViews.write!(model::InnerParms, ::Type{$View}, rhs, i, j) =
-                            $w(model, rhs, i, j)
-                    end,
-                )
-            end
+            push_res!(
+                quote
+                    w = $w
+                    GraphViews.write!(raw::Internal, ::Type{ViewType}, rhs, i) =
+                        try
+                            w(raw, rhs, i...)
+                        catch e
+                            rethrow(e, $sfirst_path, w, i, rhs)
+                        end
+                end,
+            )
         end
 
     else
@@ -590,24 +570,21 @@ macro expose_data(
     #---------------------------------------------------------------------------------------
     # `Get` method.
 
-    get_prop_name = Symbol(:get_, propname)
+    get_prop_name = Symbol(:get_, first_path)
     get_prop = esc(get_prop_name)
 
     if generate_view
         push_res!(quote
-            $get_prop(model::InnerParms) = $View(model)
+            $get_prop(raw::Internal) = ViewType(raw)
         end)
     else
         push_res!(quote
-            $get_prop(model::InnerParms) = $get_fn(model)
+            $get_prop(raw::Internal) = $get_fn(raw)
         end)
     end
-    push_res!(quote
-        export $get_prop # And not the `ref` version.
-    end)
 
     # @methods get_prop depends(deps...) read_as(props..)
-    props = Expr(:call, :read_as, aliases...)
+    props = Expr(:call, :read_as, proppaths...)
     invoke = Expr(:macrocall, Symbol("@method"), __source__, get_prop_name, deps, props)
     push_res!(quote
         $invoke
@@ -619,11 +596,12 @@ macro expose_data(
     if given(:set!)
         set!_fn = esc(take!(:set!))
         rhs_type = esc(take!(:set!_rhs_type))
-        set_prop!_name = Symbol(:set_, propname, :!)
+        set_prop!_name = Symbol(:set_, first_path, :!)
         set_prop! = esc(set_prop!_name)
         push_res!(
             quote
-                function $set_prop!(model, rhs)
+                set!_fn = $set!_fn
+                function $set_prop!(raw::Internal, rhs)
                     # Guard against invalid typed rhs if provided,
                     # because a type error triggered further down
                     # could corrupt internal state.
@@ -632,20 +610,23 @@ macro expose_data(
                         rhs = convert($rhs_type, rhs)
                     catch
                         Framework.properr(
-                            typeof(model),
-                            $spropname,
+                            System{typeof(raw)},
+                            $sfirst_path,
                             "Cannot set with a value of type $(typeof(rhs)): $(repr(rhs)).",
                         )
                     end
-                    $set!_fn(model, rhs)
+                    try
+                        set!_fn(raw, rhs)
+                    catch e
+                        rethrow(e, $sfirst_path, set!_fn, nothing, rhs)
+                    end
                 end
-                export $set_prop!
             end,
         )
 
         # Generates:
         #   @methods set_prop! depends(deps...) write_as(props..)
-        props = Expr(:call, :write_as, aliases...)
+        props = Expr(:call, :write_as, proppaths...)
         invoke =
             Expr(:macrocall, Symbol("@method"), __source__, set_prop!_name, deps, props)
         push_res!(quote
@@ -659,21 +640,22 @@ end
 export @expose_data
 
 # Cache-memoization wrapper around the 'ref' function if needed.
-function get_cached(model, key, ref)
-    cache = model._cache
+function get_cached(raw, key, ref)
+    cache = raw._cache
     # Calculate if not already done.
     if !haskey(cache, key)
-        cache[key] = ref(model)
+        cache[key] = ref(raw)
     end
     # Lend a reference to the cached value.
     cache[key]
 end
 
 # ==========================================================================================
-# Exceptions inspired from framework macro exceptions.
+# Exceptions.
 
+# Inspired from framework macro exceptions.
 struct ExposeDataMacroError <: Exception
-    name::Symbol
+    name::Union{Symbol,Expr} # (property path)
     src::LineNumberNode
     message::String
 end
@@ -681,4 +663,67 @@ function Base.showerror(io::IO, e::ExposeDataMacroError)
     print(io, "In @expose_data macro for '$(e.name)': ")
     println(io, crayon"blue", "$(e.src.file):$(e.src.line)", crayon"reset")
     println(io, e.message)
+end
+
+# Upgrade check error when received from the framework user.
+struct WriteError <: Exception
+    mess::String
+    path::Union{Expr,Symbol} # Property trying to be written to.
+    index::Option{Tuple{Vararg{Int}}} # None for `set!`, some for `write!`.
+    rhs::Any
+end
+rethrow(e::CheckError, path, _, index, rhs) =
+    Base.rethrow(WriteError(e.message, path, index, rhs))
+function Base.showerror(io::IO, e::WriteError)
+    it, reset = crayon"italics", crayon"reset"
+    (; mess, path, index, rhs) = e
+    print(
+        io,
+        "Cannot set property '.$path$(display_index(index))':\n$it  $mess$reset\n\
+         Received value: $(repr(rhs)) ::$(typeof(rhs))",
+    )
+end
+display_index(::Nothing) = ""
+display_index((i,)::Tuple) = "[$(join(repr.(i), ", "))]"
+
+# Promote when the error is a method error:
+function rethrow(e::MethodError, path, fn, index, rhs)
+    # The error is a framework bug if the function is not the one meant to be called.
+    e.f === fn || rethrow(nothing, path, fn, index, rhs)
+    # Best-effort attempt to figure the expected rhs type from the failing methods.
+    rhs_pos = 3
+    expected = Set()
+    for m in methods(fn)
+        (; sig) = m
+        while sig isa UnionAll
+            sig = sig.body
+        end
+        p = sig.parameters
+        length(p) >= rhs_pos && push!(expected, p[rhs_pos])
+    end
+    e = collect(expected)
+    sort!(e)
+    Base.rethrow(
+        WriteError("not a value of type $(join(e, ", ", " or "))", path, index, rhs),
+    )
+end
+
+# To be throw in case of unexpected exception.
+struct UnexpectedException <: Exception
+    path::Union{Expr,Symbol}
+    index::Option{Tuple{Vararg{Int}}}
+    rhs::Any
+end
+rethrow(_, path, _, index, rhs) = throw(UnexpectedException(path, index, rhs))
+function Base.showerror(io::IO, e::UnexpectedException)
+    (; path, index, rhs) = e
+    index = display_index(index)
+    red, reset = crayon"red bold", crayon"reset"
+    print(
+        io,
+        "Error while setting property '$path$index' \
+         (see error further down the stacktrace).\n\
+         $(red)This is a bug in the components library.$reset \
+         Please report if you can reproduce with a minimal example.",
+    )
 end
