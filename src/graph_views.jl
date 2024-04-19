@@ -149,6 +149,8 @@ Base.setindex!(v::NodesView, rhs, i) =
 Base.setindex!(v::EdgesView, rhs, i, j) =
     throw(ViewError(typeof(v), "This view into graph edges data is read-only."))
 
+SparseArrays.findnz(m::AbstractEdgesView) = findnz(m._ref)
+
 # ==========================================================================================
 # All possible variants of additional index checking in implementors.
 

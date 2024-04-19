@@ -17,6 +17,7 @@ sep("Test System/Blueprints/Components framework.")
 include("./framework/runtests.jl")
 
 sep("Test API utils.")
+include("./topologies.jl")
 include("./aliasing_dicts.jl")
 include("./multiplex_api.jl")
 include("./graph_data_inputs/runtests.jl")

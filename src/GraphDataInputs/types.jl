@@ -217,7 +217,7 @@ inspace((a, b), (x, y)) = inspace(a, x) && inspace(b, y)
 # Pretty display for maps and adjacency lists.
 
 display_short(map::Map) = "{$(join(("$(repr(k)): $v" for (k, v) in map), ", "))}"
-function display_long(map::Map, level = 0)
+function display_long(map::Map; level = 0)
     res = "{"
     ind(n) = "\n" * repeat("  ", level + n)
     for (k, v) in map
@@ -227,7 +227,7 @@ function display_long(map::Map, level = 0)
 end
 
 display_short(map::BinMap) = "{$(join(("$(repr(k))" for k in map), ", "))}"
-function display_long(map::BinMap, level = 0)
+function display_long(map::BinMap; level = 0)
     res = "{"
     ind(n) = "\n" * repeat("  ", level + n)
     for k in map
@@ -238,11 +238,11 @@ end
 
 display_short(adj::Union{Adjacency,BinAdjacency}) =
     "{$(join(("$(repr(k)): $(display_short(list))" for (k, list) in adj), ", "))}"
-function display_long(adj::Union{Adjacency,BinAdjacency}, level = 0)
+function display_long(adj::Union{Adjacency,BinAdjacency}; level = 0)
     res = "{"
     ind(n) = "\n" * repeat("  ", level + n)
     for (k, list) in adj
-        res *= ind(1) * "$(repr(k)) => $(display_long(list, level + 1)),"
+        res *= ind(1) * "$(repr(k)) => $(display_long(list; level = level + 1)),"
     end
     res * ind(0) * "}"
 end

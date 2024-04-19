@@ -66,6 +66,16 @@ function fields_from_multiplex_parms(int::Symbol, d::MultiplexParametersDict)
 end
 
 # ==========================================================================================
+# Expand topologies.
+
+function expand_topology!(model, nti, A)
+    model._scratch[Symbol(nti, :_links)] = A
+    g = model._topology
+    add_edge_type!(g, nti)
+    add_edges_within_node_type!(g, :species, nti, A)
+end
+
+# ==========================================================================================
 # Check/expand random topologies.
 
 # Checks common to all layers: run both on blueprint construction and checking.
@@ -139,10 +149,13 @@ end
 # ==========================================================================================
 # Check/expand full layer components.
 
+has_nontrophic_layers(model) = model.network isa Internals.MultiplexNetwork
+export has_nontrophic_layers
+
 # The application procedure differs
 # whether the NTI layer is the first to be set or not.
 function set_layer!(model, interaction, layer)
-    if model.network isa Internals.FoodWeb
+    if !has_nontrophic_layers(model)
         # First NTI component to be added.
         # Switch from plain foodweb to a multiplex network.
         S = model.richness
