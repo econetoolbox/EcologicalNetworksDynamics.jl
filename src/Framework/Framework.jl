@@ -96,6 +96,8 @@ module Framework
 #   - [ ] `depends(other_method_name)` to inherit all dependent components.
 #   - [ ] Recurring pattern: various blueprints types provide 'the same component': reify.
 #   - [ ] Namespace properties into like system.namespace.namespace.property.
+#   - [ ] Hooks need to trigger when special components combination become available.
+#         See for instance the expansion of `Nutrients.Nodes`.
 
 using Crayons
 using MacroTools

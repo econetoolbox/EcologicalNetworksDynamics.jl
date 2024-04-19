@@ -125,6 +125,31 @@ function graphdataconvert(::Type{BinMap{<:Any}}, input; expected_I = nothing)
     res
 end
 
+# The binary case *can* accept boolean masks.
+function graphdataconvert(
+    ::Type{BinMap{<:Any}},
+    input::AbstractVector{Bool};
+    expected_I = Int64,
+)
+    res = BinMap{expected_I}()
+    for (i, val) in enumerate(input)
+        val && push!(res, i)
+    end
+    res
+end
+
+function graphdataconvert(
+    ::Type{BinMap{<:Any}},
+    input::AbstractSparseVector{Bool,I};
+    expected_I = I,
+) where {I}
+    res = BinMap{expected_I}()
+    for i in findnz(input)[1]
+        push!(res, i)
+    end
+    res
+end
+
 #-------------------------------------------------------------------------------------------
 # Similar, nested logic for adjacency maps.
 
@@ -189,6 +214,38 @@ function graphdataconvert(::Type{BinAdjacency{<:Any}}, input; expected_I = nothi
         haskey(res, key) && duperr(key)
         res[key] = value
         it = iterate(input, it)
+    end
+    res
+end
+
+# The binary case *can* accept boolean matrices.
+function graphdataconvert(
+    ::Type{BinAdjacency{<:Any}},
+    input::AbstractMatrix{Bool},
+    expected_I = Int64,
+)
+    res = BinAdjacency{expected_I}()
+    for (i, row) in enumerate(eachrow(input))
+        adj_line = BinMap(j for (j, val) in enumerate(row) if val)
+        isempty(adj_line) && continue
+        res[i] = adj_line
+    end
+    res
+end
+
+function graphdataconvert(
+    ::Type{BinAdjacency{<:Any}},
+    input::AbstractSparseMatrix{Bool,I},
+    expected_I = I,
+) where {I}
+    res = BinAdjacency{expected_I}()
+    nzi, nzj, _ = findnz(input)
+    for (i, j) in zip(nzi, nzj)
+        if haskey(res, i)
+            push!(res[i], j)
+        else
+            res[i] = BinMap([j])
+        end
     end
     res
 end
@@ -273,9 +330,11 @@ end
 # Example usage:
 #   @tographdata var {Sym, Scal, SpVec}{Float64}
 #   @tographdata var YSN{Float64}
-macro tographdata(var, input)
+macro tographdata(var::Symbol, input)
     @defloc
-    var isa Symbol || argerr("Not a variable: $(repr(var)) at $loc.")
+    tographdata(loc, var, input)
+end
+function tographdata(loc, var, input)
     @capture(input, types_{Target_} | types_{})
     isnothing(types) && argerr("Invalid @tographdata target types at $loc.\n\
                                 Expected @tographdata var {aliases...}{Target}. \
@@ -317,3 +376,14 @@ function _tographdata(vsym, var, targets)
             The value received is $(repr(var)) ::$(typeof(var)).")
 end
 export @tographdata
+
+# Convenience to re-bind in local scope, avoiding the akward following pattern:
+#   long_var_name = @tographdata long_var_name <...>
+# In favour of:
+#   @tographdata! long_var_name <...>
+macro tographdata!(var::Symbol, input)
+    @defloc
+    evar = esc(var)
+    :($evar = $(tographdata(loc, var, input)))
+end
+export @tographdata!

@@ -4,6 +4,7 @@ using Crayons
 using MacroTools
 using OrderedCollections
 using SparseArrays
+using Graphs
 
 #-------------------------------------------------------------------------------------------
 # Shared API internals.
@@ -38,6 +39,11 @@ using .AliasingDicts
 
 include("./multiplex_api.jl")
 using .MultiplexApi
+
+# Types to represent the model under a pure topological perspective.
+include("./Topologies/Topologies.jl")
+using .Topologies
+# (will be part of the internals after their refactoring)
 
 #-------------------------------------------------------------------------------------------
 # "Inner" parts: legacy internals.
@@ -88,15 +94,13 @@ include("./expose_data.jl")
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
 include("./components/main.jl")
-include("./methods/main.jl")
 
 # Additional exposed utils built on top of components and methods.
 include("./default_model.jl")
 include("./nontrophic_layers.jl")
-
-#-------------------------------------------------------------------------------------------
-# Analysis tools working on the output of the simulation.
-include("output-analysis.jl")
+include("./simulate.jl")
+include("./topology.jl")
+include("./diversity.jl")
 
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true

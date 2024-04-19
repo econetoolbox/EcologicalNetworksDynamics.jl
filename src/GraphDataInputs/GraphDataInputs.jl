@@ -250,6 +250,7 @@ using OrderedCollections
 import ..SparseMatrix
 import ..argerr
 import ..checkfails
+import ..join_elided
 
 # Unhygienically define `loc` variable in macros to point to invocation line.
 # Assumes __source__ is available.

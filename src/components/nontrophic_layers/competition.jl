@@ -58,7 +58,7 @@ function F.expand!(model, bp::CompetitionTopologyFromRawEdges)
     ind = model._species_index
     (; A) = bp
     @to_sparse_matrix_if_adjacency A ind ind
-    model._scratch[:competition_links] = A
+    expand_topology!(model, :competition, A)
 end
 
 @component CompetitionTopologyFromRawEdges requires(Foodweb)
@@ -92,7 +92,7 @@ end
 
 function F.expand!(model, bp::RandomCompetitionTopology)
     A = random_links(model, bp, Internals.potential_competition_links)
-    model._scratch[:competition_links] = A
+    expand_topology!(model, :competition, A)
 end
 
 @component RandomCompetitionTopology requires(Foodweb)
