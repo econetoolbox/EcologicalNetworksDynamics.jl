@@ -1,8 +1,16 @@
 # The methods defined here depends on several components,
 # which is the reason they live after all components specifications.
 
+import SciMLBase: AbstractODESolution
+const Solution = AbstractODESolution
+
 # Major purpose of the whole model specification: simulate dynamics.
-function simulate(model::InnerParms, u0, tmax::Integer; kwargs...)
+# TODO: This actual system method is useful to check required components
+# but is is *not* the function exposed
+# because a reference to the original model needs to be forwarded down to the internals
+# to save a copy next to the results,
+# and the @method macro misses the feature of providing this reference yet.
+function _simulate(model::InnerParms, u0, tmax::Integer; kwargs...)
     # Depart from the legacy Internal defaults.
     @kwargs_helpers kwargs
 
@@ -22,8 +30,14 @@ function simulate(model::InnerParms, u0, tmax::Integer; kwargs...)
 
     Internals.simulate(model, u0; tmax, extinction_threshold, callback, verbose, kwargs...)
 end
-@method simulate depends(FunctionalResponse, ProducerGrowth, Metabolism, Mortality)
-export simulate
+@method _simulate depends(FunctionalResponse, ProducerGrowth, Metabolism, Mortality)
+
+# This exposed method does forward reference down to the internals..
+simulate(model::Model, args...; kwargs...) = _simulate(model, args...; model, kwargs...)
+# .. so that we *can* retrieve the original model from the simulation result.
+get_model(sol::Solution) = copy(sol.prob.p.model) # (owned copy to not leak aliases)
+export simulate, get_model
+
 
 # Re-expose from internals so it works with the new API.
 extinction_callback(m, thr; verbose = false) = Internals.ExtinctionCallback(thr, m, verbose)

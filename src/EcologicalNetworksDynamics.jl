@@ -21,6 +21,18 @@ argerr(mess) = throw(ArgumentError(mess))
 const Option{T} = Union{Nothing,T}
 const SparseMatrix{T} = SparseMatrixCSC{T,Int64}
 
+# Basic equivalence relation for recursive use.
+function equal_fields(a::T, b::T; ignore = Set{Symbol}()) where {T}
+    for name in fieldnames(T)
+        if name in ignore
+            continue
+        end
+        u, v = getfield.((a, b), name)
+        u == v || return false
+    end
+    true
+end
+
 include("./AliasingDicts/AliasingDicts.jl")
 using .AliasingDicts
 
@@ -56,14 +68,6 @@ export add!, properties, blueprints, components
 include("./dedicate_framework_to_model.jl")
 
 #-------------------------------------------------------------------------------------------
-# Analysis tools working on the output of the simulation.
-include("output-analysis.jl")
-export richness
-export persistence
-export shannon_diversity
-export total_biomass
-
-#-------------------------------------------------------------------------------------------
 # "Outer" parts: develop user-facing stuff here.
 
 # Factorize out common optional argument processing.
@@ -89,6 +93,14 @@ include("./methods/main.jl")
 # Additional exposed utils built on top of components and methods.
 include("./default_model.jl")
 include("./nontrophic_layers.jl")
+
+#-------------------------------------------------------------------------------------------
+# Analysis tools working on the output of the simulation.
+include("output-analysis.jl")
+export richness
+export persistence
+export shannon_diversity
+export total_biomass
 
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true
