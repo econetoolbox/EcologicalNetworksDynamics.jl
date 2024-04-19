@@ -120,8 +120,16 @@ function simulate(
         ExtinctionCallback(extinction_threshold, params, verbose),
     ),
     diff_code_data = (dudt!, params),
+    # FROM THE FUTURE - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Record original user component-based model within the solution.
+    # The design should change during refactoring of the internals.
+    model = nothing,
     kwargs...,
 )
+    isnothing(model) ||
+        model._value === params ||
+        throw("Inconsistent input to `simulate`: this is a bug in the package.")
+
     # Interpret parameters and check them for consistency.
     S = richness(params)
     all(B0 .>= 0) ||
@@ -178,7 +186,13 @@ function simulate(
         u0 = B0
     end
 
-    p = (params = data, extinct_sp = extinct_sp, original_params = params)
+    p = (
+        params = data,
+        extinct_sp = extinct_sp,
+        original_params = params,
+        # Own the copy to not allow post-simulation modifications.
+        model = isnothing(model) ? nothing : copy(model),
+    )
     timespan = (t0, tmax)
     problem = ODEProblem(fun, u0, timespan, p)
     sol = solve(

@@ -174,6 +174,20 @@ end
 export properties
 
 #-------------------------------------------------------------------------------------------
+
+# Basic recursive equivalence relation.
+function equal_fields(a::T, b::T) where {T}
+    for name in fieldnames(T)
+        u, v = getfield.((a, b), name)
+        u == v || return false
+    end
+    true
+end
+Base.:(==)(a::System{U}, b::System{V}) where {U,V} = U == V && equal_fields(a, b)
+Base.:(==)(a::Blueprint{U}, b::Blueprint{V}) where {U,V} =
+    U == V && typeof(a) == typeof(b) && equal_fields(a, b)
+
+#-------------------------------------------------------------------------------------------
 # Display.
 function Base.show(io::IO, sys::System)
     n = length(sys._blueprints)

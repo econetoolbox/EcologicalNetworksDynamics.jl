@@ -34,6 +34,8 @@ mutable struct FoodWeb <: EcologicalNetwork
         new(A, sp, M, mc, mth, Dict(Symbol(s) => i for (i, s) in enumerate(sp)))
 end
 
+Base.:(==)(a::FoodWeb, b::FoodWeb) = equal_fields(a, b)
+
 """
     FoodWeb(
         A::AbstractMatrix;

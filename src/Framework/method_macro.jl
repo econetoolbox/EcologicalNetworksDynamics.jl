@@ -293,6 +293,12 @@ macro method(input...)
                 end
                 fn(s._value, args...; kwargs...)
             end
+            # TODO: if unexistent, then
+            # defining a fallback `fn(value, args...; _system=s, kwargs...)` method here
+            # would enable that implementors of `fn` take decisions
+            # depending on the whole system value, and components currently available.
+            # In particular, it would avoid the need
+            # to define both `_simulate` and `simulate` in the exposed lib.
         end,
     )
 

@@ -46,9 +46,15 @@ mutable struct ModelParameters
     ModelParameters(args...) = new(args...)
 end
 # Required to fork the system.
-# Ok as long as the value above contains no critical self-references.
+# Self-references (very) fortunately are not a problem:
+# https://discourse.julialang.org/t/how-is-deepcopy-so-clever-regarding-aliasing-and-self-reference/113235
 Base.copy(m::ModelParameters) = deepcopy(m)
 #### end ####
+
+# Ignore cached values for equivalence relation.
+const model_equivalence_ignored_fields = Set([:_cache])
+Base.:(==)(a::ModelParameters, b::ModelParameters) =
+    equal_fields(a, b; ignore = model_equivalence_ignored_fields)
 
 #### Type display ####
 """
