@@ -88,6 +88,7 @@ function F.expand!(model, bp::Species)
     # but this will be refactored.
     fw = Internals.FoodWeb(bp.names)
     model.network = fw
+    add_nodes!(model._topology, bp.names, :species)
     # Keep reference safe in case we later switch to a multiplex network,
     # and want to add the layers one by one.
     model._foodweb = fw
@@ -120,6 +121,30 @@ end
     property(species_index)
     ref_cache(m -> OrderedDict(name => i for (i, name) in enumerate(m._species_names)))
     get(m -> deepcopy(m._species_index))
+    depends(Species)
+end
+
+# Get a closure able to convert species indices into the corresponding labels
+# defined within the model.
+@expose_data graph begin
+    property(species_label)
+    ref_cache(
+        m ->
+            (i) -> begin
+                names = m._species_names
+                n = length(names)
+                if 1 <= i <= length(names)
+                    names[i]
+                else
+                    (are, s) = n > 1 ? ("are", "s") : ("is", "")
+                    argerr("Invalid index ($(i)) when there $are $n species name$s.")
+                end
+            end,
+    )
+    # This technically leaks a reference to the inner model as `m.species_label.m`,
+    # but closure captures being accessible as fields is an implementation detail
+    # and no one should rely on it.
+    get(m -> m._species_label)
     depends(Species)
 end
 
