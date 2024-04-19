@@ -59,6 +59,7 @@ function F.expand!(model, bp::RefugeTopologyFromRawEdges)
     (; A) = bp
     @to_sparse_matrix_if_adjacency A ind ind
     model._scratch[:refuge_links] = A
+    expand_topology!(model, :refuge, A)
 end
 
 @component RefugeTopologyFromRawEdges requires(Foodweb)
@@ -94,7 +95,7 @@ end
 
 function F.expand!(model, bp::RandomRefugeTopology)
     A = random_links(model, bp, Internals.potential_refuge_links)
-    model._scratch[:refuge_links] = A
+    expand_topology!(model, :refuge, A)
 end
 
 @component RandomRefugeTopology requires(Foodweb)

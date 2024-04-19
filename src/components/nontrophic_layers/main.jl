@@ -8,6 +8,7 @@ using .EN.AliasingDicts
 using .EN.GraphDataInputs
 using .EN.KwargsHelpers
 using .EN.MultiplexApi
+using .EN.Topologies
 import .EN: Option, argerr, Internals, @species_index, ModelBlueprint, fields_from_kwargs
 const F = Framework
 using SparseArrays

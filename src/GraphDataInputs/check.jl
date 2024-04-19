@@ -267,7 +267,7 @@ function outspace((i, j), (n, m))
 end
 either(symbols) =
     length(symbols) == 1 ? "$(repr(first(symbols)))" :
-    "either " * join(repr.(sort(collect(symbols))), ", ", " or ")
+    "either " * join_elided(sort(collect(symbols)), ", ", " or "; max = 12)
 
 #-------------------------------------------------------------------------------------------
 # Assuming the above check passed, check references against a template.

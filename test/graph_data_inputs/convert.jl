@@ -155,6 +155,15 @@
     res = @tographdata input K{:bin}
     @test aliased(input, res)
 
+    # Accept boolean masks.
+    input = Bool[1, 0, 1, 1, 0]
+    res = @tographdata input K{:bin}
+    @test same_type_value(res, OrderedSet([1, 3, 4]))
+
+    input = sparse(Bool[1, 0, 1, 1, 0])
+    res = @tographdata input K{:bin}
+    @test same_type_value(res, OrderedSet([1, 3, 4]))
+
     # Still, use Bool as expected for ternary true/false/miss logic.
     input = [1 => true, 3 => false]
     res = @tographdata input K{Bool}
@@ -221,6 +230,23 @@
     res = @tographdata input A{:bin}
     @test aliased(input, res)
 
+    # Accept boolean matrices.
+    input = Bool[
+        0 1 0
+        0 0 0
+        1 0 1
+    ]
+    res = @tographdata input A{:bin}
+    @test same_type_value(res, OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])))
+
+    input = sparse(Bool[
+        0 1 0
+        0 0 0
+        1 0 1
+    ])
+    res = @tographdata input A{:bin}
+    @test same_type_value(res, OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])))
+
     # Ternary logic.
     input = [1 => [5 => true, 7 => false], (2, ([7, false], 9 => true))]
     res = @tographdata input A{Bool}
@@ -231,6 +257,13 @@
             2 => OrderedDict(7 => false, 9 => true),
         ),
     )
+
+    #---------------------------------------------------------------------------------------
+    # Convenience variable replacing.
+
+    var = 'a'
+    @tographdata! var YSV{Float64}
+    @test same_type_value(var, :a)
 
     # ======================================================================================
     # Exposed conversion failures.
@@ -361,7 +394,7 @@
     # ======================================================================================
     # Invalid uses.
 
-    @xargfails((@tographdata 4 + 5 YSV{Bool}), ["Not a variable: :(4 + 5) at"])
+    @failswith((@tographdata 4 + 5 YSV{Bool}), MethodError, expansion)
     @failswith(
         (@tographdata nope YSV{Bool}),
         UndefVarError => (:nope, TestGraphDataInputs),

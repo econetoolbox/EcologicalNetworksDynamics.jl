@@ -59,7 +59,7 @@ function F.expand!(model, bp::FacilitationTopologyFromRawEdges)
     ind = model._species_index
     (; A) = bp
     @to_sparse_matrix_if_adjacency A ind ind
-    model._scratch[:facilitation_links] = A
+    expand_topology!(model, :facilitation, A)
 end
 
 @component FacilitationTopologyFromRawEdges requires(Foodweb)
@@ -95,7 +95,7 @@ end
 
 function F.expand!(model, bp::RandomFacilitationTopology)
     A = random_links(model, bp, Internals.potential_facilitation_links)
-    model._scratch[:facilitation_links] = A
+    expand_topology!(model, :facilitation, A)
 end
 
 @component RandomFacilitationTopology requires(Foodweb)

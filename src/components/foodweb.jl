@@ -120,7 +120,7 @@ A model `m` with a `Foodweb` has the following properties.
           * the `sparse` index yields indices valid within the whole collection of species.
           * the `dense` index yields indices only valid within the restricted collection
             of species of either kind.
-  - Distinguishing betwen `preys` (species with incoming trophic links)
+  - Distinguishing between `preys` (species with incoming trophic links)
     and `tops` predators (species without incoming trophic links) works the same way.
   - `m.producers_links`: boolean matrix highlighting potential links between producers.
   - `m.herbivorous_links`: highlight only consumer-to-producer trophic links.
@@ -355,6 +355,16 @@ function F.expand!(m, bp::Foodweb)
     fw = m.network
     fw.A = A
     fw.method = "from component" # (internals legacy)
+
+    # Add trophic edges to the topology.
+    top = m._topology
+    add_edge_type!(top, :trophic)
+    add_edges_within_node_type!(top, :species, :trophic, A)
+
+    # TODO: this should happen with components-combinations-triggered-hooks
+    # (see Nutrient.Nodes expansion)
+    Topologies.has_node_type(top, :nutrients) && Nutrients.connect_producers_to_nutrients(m)
+
 end
 
 @component Foodweb implies(Species)
@@ -367,7 +377,7 @@ export TrophicLayer
 # ==========================================================================================
 # Foodweb queries.
 
-# Topology.
+# Topology as a matrix.
 @expose_data edges begin
     property(trophic_links, A)
     get(TrophicLinks{Bool}, sparse, "trophic link")

@@ -60,6 +60,9 @@ const Option{T} = Union{Nothing,T}
 using ..EcologicalNetworksDynamics
 const equal_fields = EcologicalNetworksDynamics.equal_fields
 
+# Part of future refactoring here.
+const Topology = EcologicalNetworksDynamics.Topologies.Topology
+
 include("./macros.jl")
 include("./inputs/foodwebs.jl")
 include("./inputs/nontrophic_interactions.jl")
