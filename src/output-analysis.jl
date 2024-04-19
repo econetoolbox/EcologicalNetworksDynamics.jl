@@ -1,5 +1,3 @@
-import SciMLBase: AbstractODESolution
-
 """
 richness(solution::Solution; threshold = 0)
 

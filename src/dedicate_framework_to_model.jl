@@ -93,17 +93,6 @@ Base.getproperty(v::InnerParms, p::Symbol) = Framework.unchecked_getproperty(v, 
 Base.setproperty!(v::InnerParms, p::Symbol, rhs) =
     Framework.unchecked_setproperty!(v, p, rhs)
 
-# For some reason this needs to be made explicit?
-# Compare field by field for identity.
-function Base.:(==)(a::ModelBlueprint, b::ModelBlueprint)
-    typeof(a) === typeof(b) || return false
-    for name in fieldnames(typeof(a))
-        u, v = getfield.((a, b), name)
-        u == v || return false
-    end
-    true
-end
-
 # Skip _-prefixed properties.
 function properties(s::Model)
     res = []
