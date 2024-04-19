@@ -97,10 +97,6 @@ include("./nontrophic_layers.jl")
 #-------------------------------------------------------------------------------------------
 # Analysis tools working on the output of the simulation.
 include("output-analysis.jl")
-export richness
-export persistence
-export shannon_diversity
-export total_biomass
 
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true
