@@ -1,3 +1,11 @@
+module TestDefaultModel
+
+using EcologicalNetworksDynamics
+using Test
+
+Value = EcologicalNetworksDynamics.InnerParms # To make @sysfails work.
+import ..Main: @sysfails, @argfails
+
 @testset "Default model." begin
 
     fw = Foodweb([:a => (:b, :c), :b => (:c, :d)])
@@ -155,5 +163,7 @@
         "Temperature response is not designed for BioenergeticResponse. \
          Use ClassicResponse instead, or don't specify a temperature."
     )
+
+end
 
 end

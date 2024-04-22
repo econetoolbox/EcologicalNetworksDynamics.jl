@@ -1,8 +1,10 @@
 module TestUser
 
 using EcologicalNetworksDynamics
-using ..TestFailures
+using Random
 using Test
+using ..TestFailures
+using ..TestTopologies
 
 Value = EcologicalNetworksDynamics.InnerParms # To make @sysfails work.
 import ..Main: @sysfails, @argfails
