@@ -346,12 +346,14 @@ macro expose_data(
         ref_prop = esc(ref_prop_name)
 
         if cached
-            push_res!(quote
-                $ref_prop(model) = get_cached(model, $spropname, $ref_fn)
-            end)
+            push_res!(
+                quote
+                    $ref_prop(model::InnerParms) = get_cached(model, $spropname, $ref_fn)
+                end,
+            )
         else
             push_res!(quote
-                $ref_prop(model) = $ref_fn(model)
+                $ref_prop(model::InnerParms) = $ref_fn(model)
             end)
         end
 
@@ -593,11 +595,11 @@ macro expose_data(
 
     if generate_view
         push_res!(quote
-            $get_prop(model) = $View(model)
+            $get_prop(model::InnerParms) = $View(model)
         end)
     else
         push_res!(quote
-            $get_prop(model) = $get_fn(model)
+            $get_prop(model::InnerParms) = $get_fn(model)
         end)
     end
     push_res!(quote
