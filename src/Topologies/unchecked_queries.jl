@@ -68,10 +68,10 @@ end
 is_removed(g::Topology, node::AbsRef) = g.outgoing[node_abs_index(g, node).i] isa Tombstone
 is_live(g::Topology, node::AbsRef) = !is_removed(g, node)
 
-# Iterate over only live nodes.
+# Iterate over only live nodes (absolute indices).
 live_node_indices(g::Topology, type::IRef) =
     imap(Abs, ifilter(_nodes_abs_range(g, type)) do i
-        is_live(g, i)
+        is_live(g, Abs(i))
     end)
 live_node_labels(g::Topology, type::IRef) =
     imap(live_node_indices(g, type)) do i
