@@ -76,12 +76,12 @@ Iterate over isolated producers nodes in the topology
 function isolated_producers(m::InnerParms, g::Topology)
     sp = U.node_type_index(g, :species)
     abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
-    unwrap(abs) = abs.i
+    unwrap(i) = i.abs
     imap(unwrap, ifilter(imap(abs, get_producers_indices(m))) do i_prod
-        inc = g.incoming[i_prod.i]
+        inc = g.incoming[i_prod.abs]
         inc isa T.Tombstone && return false
         any(!isempty, inc) && return false
-        out = g.outgoing[i_prod.i]
+        out = g.outgoing[i_prod.abs]
         any(!isempty, out) && return false
         true
     end)
@@ -99,9 +99,9 @@ function starving_consumers(m::InnerParms, g::Topology)
     sp = U.node_type_index(g, :species)
     tr = U.edge_type_index(g, :trophic)
     abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
-    rel(i_abs) = U.node_rel_index(g, i_abs, sp).i
+    rel(i_abs) = U.node_rel_index(g, i_abs, sp).rel
     live(i_abs) = U.is_live(g, i_abs)
-    unwrap(abs) = abs.i
+    unwrap(i) = i.abs
 
     # Collect all current (live) producers and consumers.
     producers = collect(ifilter(live, imap(abs, get_producers_indices(m))))

@@ -1,6 +1,6 @@
-# Add a bunch of node-type-internal edges from a square matrix input.
-# The matrix size must match the total number of nodes in this type,
-# including (blank) removed nodes.
+# Add a bunch of edges from a square matrix input corresponding to one node compartment.
+# The matrix size must match the total number of nodes in this compartment,
+# *including* (blank) removed nodes.
 function add_edges_within_node_type!(
     top::Topology,
     node_type::IRef,
@@ -22,6 +22,8 @@ function add_edges_within_node_type!(
     sources, targets, _ = findnz(e)
     sources .+= offset
     targets .+= offset
+
+    # Check that no edge would point to a removed node.
     for (indices, dim) in ((sources, "row"), (targets, "column"))
         for i_node in indices
             a_n = Abs(i_node)
@@ -41,6 +43,8 @@ function add_edges_within_node_type!(
             end
         end
     end
+
+    # Check that no edge already exists within the topology.
     for (i_src, i_tgt) in zip(sources, targets)
         a_s = Abs(i_src)
         a_t = Abs(i_tgt)
@@ -111,6 +115,8 @@ function add_edges_accross_node_types!(
     sources, targets, _ = findnz(e)
     sources .+= source_offset
     targets .+= target_offset
+
+    # Check that no edge would point to a removed node.
     for (indices, dim, offset, node_type) in (
         (sources, "row", source_offset, source_node_type),
         (targets, "column", target_offset, target_node_type),
@@ -133,6 +139,8 @@ function add_edges_accross_node_types!(
             end
         end
     end
+
+    # Check that no edge already exists within the topology.
     for (i_src, i_tgt) in zip(sources, targets)
         a_s = Abs(i_src)
         a_t = Abs(i_tgt)

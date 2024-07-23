@@ -1,5 +1,6 @@
 # Raise errors on invalid input, useful to check exposed queries.
 
+G = Topology
 #-------------------------------------------------------------------------------------------
 # Check indices validity.
 
@@ -11,22 +12,20 @@ function check_index(i, n, what)
     i
 end
 
-has_node_type(g::Topology, i::Int) = has_index(i, length(g.node_types_labels))
-check_node_type(g::Topology, i::Int) =
-    check_index(i, length(g.node_types_labels), "node type")
+has_node_type(g::G, i::Int) = has_index(i, length(g.node_types_labels))
+check_node_type(g::G, i::Int) = check_index(i, length(g.node_types_labels), "node type")
 
-has_edge_type(g::Topology, i::Int) = has_index(i, length(g.edge_types_labels))
-check_edge_type(g::Topology, i::Int) =
-    check_index(i, length(g.edge_types_labels), "edge type")
+has_edge_type(g::G, i::Int) = has_index(i, length(g.edge_types_labels))
+check_edge_type(g::G, i::Int) = check_index(i, length(g.edge_types_labels), "edge type")
 
-has_node_ref(g::Topology, abs::Abs) = has_index(abs.i, length(g.nodes_labels))
-check_node_ref(g::Topology, abs::Abs) = check_index(abs.i, length(g.nodes_labels), "node")
+has_node_ref(g::G, i::Abs) = has_index(i.abs, length(g.nodes_labels))
+check_node_ref(g::G, i::Abs) = check_index(i.abs, length(g.nodes_labels), "node")
 
 # Check relative indices ASSUMING the node type is valid.
-has_node_ref(g::Topology, rel::Rel, type::IRef) =
-    has_index(rel.i, U.n_nodes_including_removed(g, type))
-check_node_ref(g::Topology, rel::Rel, type::IRef) = check_index(
-    rel.i,
+has_node_ref(g::G, i::Rel, type::IRef) =
+    has_index(i.rel, U.n_nodes_including_removed(g, type))
+check_node_ref(g::G, i::Rel, type::IRef) = check_index(
+    i.rel,
     U.n_nodes_including_removed(g, type),
     () -> "$(repr(U.node_type_label(g, type))) node",
 )
@@ -48,20 +47,18 @@ function check_label(lab, set, what)
     lab
 end
 
-has_node_type(g::Topology, lab::Symbol) = has_label(lab, keys(g.node_types_index))
-check_node_type(g::Topology, lab::Symbol) =
-    check_label(lab, keys(g.node_types_index), "node type")
+has_node_type(g::G, lab::Symbol) = has_label(lab, keys(g.node_types_index))
+check_node_type(g::G, lab::Symbol) = check_label(lab, keys(g.node_types_index), "node type")
 
-has_edge_type(g::Topology, lab::Symbol) = has_label(lab, keys(g.edge_types_index))
-check_edge_type(g::Topology, lab::Symbol) =
-    check_label(lab, keys(g.edge_types_index), "edge type")
+has_edge_type(g::G, lab::Symbol) = has_label(lab, keys(g.edge_types_index))
+check_edge_type(g::G, lab::Symbol) = check_label(lab, keys(g.edge_types_index), "edge type")
 
-has_node_ref(g::Topology, lab::Symbol) = has_label(lab, keys(g.nodes_index))
-check_node_ref(g::Topology, lab::Symbol) = check_label(lab, keys(g.nodes_index), "node")
+has_node_ref(g::G, lab::Symbol) = has_label(lab, keys(g.nodes_index))
+check_node_ref(g::G, lab::Symbol) = check_label(lab, keys(g.nodes_index), "node")
 
 # Check "relative labels" ASSUMING the node type is valid.
-has_node_ref(g::Topology, lab::Symbol, type::IRef) = has_label(lab, U._node_labels(g, type))
-check_node_ref(g::Topology, lab::Symbol, type::IRef) = check_label(
+has_node_ref(g::G, lab::Symbol, type::IRef) = has_label(lab, U._node_labels(g, type))
+check_node_ref(g::G, lab::Symbol, type::IRef) = check_label(
     lab,
     U._nodes_labels(g, type),
     () -> "$(repr(U.node_type_label(g, type))) node",
@@ -69,7 +66,8 @@ check_node_ref(g::Topology, lab::Symbol, type::IRef) = check_label(
 
 #-------------------------------------------------------------------------------------------
 # Check node liveliness, assuming the reference is valid.
-function check_live_node(g::Topology, node::AbsRef, original_ref::AbsRef = node)
+
+function check_live_node(g::G, node::AbsRef, original_ref::AbsRef = node)
     # (use the original reference to trace back to actual user input
     # and improve error message)
     U.is_removed(g, node) &&
@@ -79,7 +77,8 @@ end
 
 #-------------------------------------------------------------------------------------------
 # Check node labels availability.
-function check_new_nodes_labels(g::Topology, labels::Vector{Symbol})
+
+function check_new_nodes_labels(g::G, labels::Vector{Symbol})
     for new_lab in labels
         if has_node_ref(g, new_lab)
             argerr("Label :$new_lab was already given \
@@ -89,7 +88,8 @@ function check_new_nodes_labels(g::Topology, labels::Vector{Symbol})
     end
     labels
 end
-function check_new_nodes_labels(g::Topology, labels)
+
+function check_new_nodes_labels(g::G, labels)
     try
         labels = Symbol[Symbol(l) for l in labels]
     catch

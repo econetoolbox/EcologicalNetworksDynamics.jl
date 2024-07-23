@@ -14,26 +14,32 @@ Values of this type are constructed from a model value,
 to represent its pure topology:
 
   - Nodes identity and types: species, nutrients, patches..
-  - Edges types: trophic interaction, non-trophic interactions, migrations..
+  - Edges types: trophic interaction, non-trophic interactions, migration corridors..
 
-They are supposed not to be mutated,
+Nodes and edge information can be queried using either labels or indices.
+
+Values of this type are supposed not to be mutated,
 as they carry faithful topological information reflecting the model
 at the moment it has been extracted from it.
-Nodes and edge information can be queried from it using either labels or indices.
-They *may* be removed to represent *e.g.* species extinction,
-and study topological consequences or removing them.
-But the indices and labels remain stable,
+
+However, nodes *may* be removed to represent *e.g.* species extinction,
+and study the topological consequences or removing them.
+The indices and labels remain stable after removal,
 always consistent with their indices from the model value when extracted.
-As a consequence, every node in the topology
-can be queried for having been 'removed' or not: tombstones remain.
+As a consequence: tombstones remain,
+and every node in the topology can be queried
+for having been 'removed' or not.
 No tombstone remain for edges: once removed, there is no trace left of them.
+
 Node types and edge types constitute the various "compartments" of the topology:
-equivalence classes gather all nodes/edges with the same type.
+equivalence classes gathering all nodes/edges with the same type.
+
 There are two ways of querying nodes information with indices:
 
   - Using *absolute* indices, uniquely identifying nodes within the whole topology.
   - Using *relative* indices, uniquely identifying nodes within their *compartment*.
-    Two newtypes types `Abs` and `Rel` are used in the API to protect against mixing them up.
+
+Two newtypes types `Abs` and `Rel` are used in the API to protect against mixing them up.
 """
 struct Topology
     # List/index possible types for nodes and edges.
@@ -46,7 +52,7 @@ struct Topology
     # List nodes and their associated types.
     # Nodes are *sorted by type*:
     # so that all nodes with the same type are stored contiguously in this array.
-    # Nodes can't be removed from this list, so the indexes remain stable.
+    # Nodes can't be removed from this list, so their indices remain stable.
     nodes_labels::Vector{Symbol} # [node absolute index: node label]
     nodes_index::Dict{Symbol,Int} # {node label: node absolute index}
     nodes_types::Vector{UnitRange{Int}} # [type index: (start, end) of nodes with this type]
@@ -60,7 +66,8 @@ struct Topology
     #        ^-------------------^- : One entry per edge type or a tombstone (removed node).
     #                   ^--------^- : One entry per neighbour of 'N': its absolute index.
 
-    # Cached redundant information.
+    # Cached redundant information
+    # that would otherwise be non-O(1) to calculate.
     n_edges::Vector{Int} # Per edge type.
     n_nodes::Vector{Int} # Per node type, not counting tombstones.
 
@@ -70,12 +77,12 @@ export Topology
 
 # Wrap an absolute node index.
 struct Abs
-    i::Int
+    abs::Int # Use `.abs` to avoid mistaking with `.rel`.
 end
 
 # Wrap a relative node index.
 struct Rel
-    i::Int
+    rel::Int # Use `.rel` to avoid mistaking with `.abs`.
 end
 
 # When exposing indices
@@ -89,8 +96,9 @@ absolute(lab::Symbol) = lab
 # A combination of Relative + Node type info constitutes an absolute node ref.
 const AbsRef = Union{Abs,Symbol,Tuple{RelRef,IRef}}
 
+# Move boilerplate interface to dedicated files.
 include("unchecked_queries.jl")
-const U = Unchecked # Ease refs to unchecked queries.
+const U = Unchecked # Official, stable alias to ease refs to unchecked queries.
 
 include("checks.jl")
 include("queries.jl")
@@ -178,9 +186,10 @@ function add_edge!(g::Topology, type::IRef, source::AbsRef, target::AbsRef)
     # Commit.
     _add_edge!(g, i_type, i_source, i_target)
 end
+# (this "commit" part is also used when importing edges from matrices)
 function _add_edge!(g::Topology, i_type::Int, i_source::Abs, i_target::Abs)
-    push!(g.outgoing[i_source.i][i_type], i_target.i)
-    push!(g.incoming[i_target.i][i_type], i_source.i)
+    push!(g.outgoing[i_source.abs][i_type], i_target.abs)
+    push!(g.incoming[i_target.abs][i_type], i_source.abs)
     g.n_edges[i_type] += 1
     g
 end
@@ -217,16 +226,16 @@ alreadyerr(node) = argerr("Node $(repr(node)) was already removed from this topo
 # Commit.
 function _remove_node!(g::Topology, i_node::Abs, i_type::Int)
     # Assumes the node is valid and live, and that the type does correspond.
-    g.n_edges .-= length.(g.outgoing[i_node.i])
-    g.n_edges .-= length.(g.incoming[i_node.i])
+    g.n_edges .-= length.(g.outgoing[i_node.abs])
+    g.n_edges .-= length.(g.incoming[i_node.abs])
     ts = Tombstone()
-    g.outgoing[i_node.i] = ts
-    g.incoming[i_node.i] = ts
+    g.outgoing[i_node.abs] = ts
+    g.incoming[i_node.abs] = ts
     for adjacency in (g.outgoing, g.incoming)
         for other in adjacency
             other isa Tombstone && continue
             for neighbours in other
-                pop!(neighbours, i_node.i, nothing)
+                pop!(neighbours, i_node.abs, nothing)
             end
         end
     end

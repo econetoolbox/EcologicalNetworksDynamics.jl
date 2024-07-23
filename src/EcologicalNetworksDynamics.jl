@@ -100,7 +100,6 @@ include("./default_model.jl")
 include("./nontrophic_layers.jl")
 include("./simulate.jl")
 include("./topology.jl")
-include("./disconnections.jl")
 include("./diversity.jl")
 
 # Avoid Revise interruptions when redefining methods and properties.

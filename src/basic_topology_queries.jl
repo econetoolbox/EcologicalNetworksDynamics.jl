@@ -39,6 +39,7 @@ function n_live_producers(m::InnerParms, g::Topology)
     count
 end
 @method n_live_producers depends(Foodweb)
+export n_live_producers
 
 """
     n_live_consumers(m::Model, g::Topology)
@@ -56,6 +57,7 @@ function n_live_consumers(m::InnerParms, g::Topology)
     count
 end
 @method n_live_consumers depends(Foodweb)
+export n_live_consumers
 
 # ==========================================================================================
 # Iterators.
@@ -69,7 +71,7 @@ function live_species(g::Topology)
     check_species(g)
     sp = U.node_type_index(g, :species)
     imap(U.live_node_indices(g, sp)) do abs
-        U.node_rel_index(g, abs, sp).i
+        U.node_rel_index(g, abs, sp).rel
     end
 end
 export live_species
@@ -81,9 +83,9 @@ Iterate over relative indices of live nutrients within the topology.
 """
 function live_nutrients(g::Topology)
     check_nutrients(g)
-    nt = U.node_type_index(g)
-    imap(U.live_nodes_indices(g, nt)) do abs
-        U.node_rel_index(g, abs, nt).i
+    nt = U.node_type_index(g, :nutrients)
+    imap(U.live_node_indices(g, nt)) do abs
+        U.node_rel_index(g, abs, nt).rel
     end
 end
 export live_nutrients
@@ -101,7 +103,7 @@ function live_producers(m::InnerParms, g::Topology)
     imap(ifilter(imap(abs, m.producers_indices)) do abs_prod
         U.is_live(g, abs_prod)
     end) do abs_prod
-        U.node_rel_index(g, abs_prod, sp).i
+        U.node_rel_index(g, abs_prod, sp).rel
     end
 end
 @method live_producers depends(Foodweb)
@@ -120,7 +122,7 @@ function live_consumers(m::InnerParms, g::Topology)
     imap(ifilter(imap(abs, m.consumers_indices)) do abs_cons
         U.is_live(g, abs_cons)
     end) do abs_cons
-        U.node_rel_index(g, abs_cons, sp).i
+        U.node_rel_index(g, abs_cons, sp).rel
     end
 end
 @method live_consumers depends(Foodweb)

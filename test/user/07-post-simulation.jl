@@ -28,6 +28,22 @@ Random.seed!(12)
 
 end
 
+@testset "Retrieve correct trajectory indices from simulation results" begin
+
+    m = default_model(Foodweb([:a => :b, :b => :c]), Nutrients.Nodes(2))
+    sol = simulate(m, 0.5, 500; N0 = 0.2)
+
+    # Pick correct values within the trajectory.
+    sp = species_indices(sol)
+    nt = nutrients_indices(sol)
+    @test sp == 1:3
+    @test nt == 4:5
+    @test sol.u[1][sp] == [0.5, 0.5, 0.5]
+    @test sol.u[1][nt] == [0.2, 0.2]
+
+end
+
+
 @testset "Retrieve extinct species." begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
@@ -84,4 +100,5 @@ end
         You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
     ) simulate(m, 0.5, 100)
     @test keys(get_extinctions(sol)) == Set([3, 4, 5])
+
 end

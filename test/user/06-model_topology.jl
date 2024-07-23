@@ -1,5 +1,31 @@
 # Check topology-related utils.
 
+@testset "Basic topology queries." begin
+
+    m = Model(
+        Foodweb([:a => [:b, :c], :b => :d, :c => :d, :e => [:c], :f => :g]),
+        Nutrients.Nodes(2),
+    )
+    g = m.topology
+
+    remove_species!(g, :c)
+    remove_species!(g, :f)
+
+    @test n_live_species(g) == 5
+    @test n_live_nutrients(g) == 2
+    @test n_live_producers(m, g) == 2
+    @test n_live_consumers(m, g) == 3
+
+    sp(it) = m.species_label.(collect(it))
+    nt(it) = m.nutrient_label.(collect(it))
+    labs(str) = Symbol.(collect(str))
+    @test sp(live_species(g)) == labs("abdeg")
+    @test nt(live_nutrients(g)) == [:n1, :n2]
+    @test sp(live_producers(m, g)) == labs("dg")
+    @test sp(live_consumers(m, g)) == labs("abe")
+
+end
+
 @testset "Analyze biomass foodweb topology after species removals." begin
 
     m = Model(Foodweb([:a => [:b, :c], :b => :d, :c => :d, :e => [:c, :f], :g => :h]))
