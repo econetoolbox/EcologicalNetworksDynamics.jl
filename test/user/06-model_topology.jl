@@ -44,9 +44,10 @@
     #! format: on
 
     # But no degenerated species yet.
-    check_set(fn, tops, expected) = for top in tops
-        @test Set(fn(m, top)) == Set(expected)
-    end
+    check_set(fn, tops, expected) =
+        for top in tops
+            @test Set(m.species_label.(fn(m, top))) == Set(expected)
+        end
     check_set(isolated_producers, (g, u, v), [])
     check_set(starving_consumers, (g, u, v), [])
 

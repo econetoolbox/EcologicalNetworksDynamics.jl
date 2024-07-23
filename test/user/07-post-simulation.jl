@@ -28,3 +28,61 @@ Random.seed!(12)
 
 end
 
+@testset "Retrieve extinct species." begin
+
+    m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
+    sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties = false)
+    @test keys(get_extinctions(sol)) == Set([1, 2]) # TODO: why are dates not reproducible?!
+
+end
+
+@testset "Retrieve topology from simulation result." begin
+
+    m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
+    # An information message is displayed in case the resulting topology is degenerated.
+    sol = @test_logs (
+        :info,
+        """
+        The biomass graph at the end of simulation contains degenerated species nodes:
+        Connected component with 1 species:
+          - /!\\ 1 isolated producer [:c]
+        This message is meant to attract your attention regarding the meaning of downstream analyses depending on the simulated biomasses values.
+        You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
+    ) simulate(m, 0.5, 600)
+    top = get_topology(sol)
+
+    # Only the producer remains in there.
+    @test collect(live_species(top)) == [3]
+
+    # Test on wider graph.
+    m = default_model(
+        Foodweb([:a => [:b, :c], :b => :d, :c => :d, :e => [:c, :f], :g => :h]),
+        Mortality([
+            :a => 0,
+            :b => 0,
+            # These three get extinct.
+            :c => 1,
+            :d => 10,
+            :e => 1,
+            :f => 0,
+            :g => 0,
+            :h => 0,
+        ]),
+    )
+    sol = @test_logs (
+        :info,
+        """
+        The biomass graph at the end of simulation contains 3 disconnected components:
+        Connected component with 2 species:
+          - /!\\ 2 starving consumers [:a, :b]
+        Connected component with 1 species:
+          - /!\\ 1 isolated producer [:f]
+        Connected component with 2 species:
+          - 1 producer [:h]
+          - 1 consumer [:g]
+        This message is meant to attract your attention regarding the meaning of downstream analyses depending on the simulated biomasses values.
+        You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
+    ) simulate(m, 0.5, 100)
+    @test keys(get_extinctions(sol)) == Set([3, 4, 5])
+end
+
