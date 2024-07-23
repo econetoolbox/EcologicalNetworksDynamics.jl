@@ -139,4 +139,3 @@ function trophic_adjacency(g::Topology)
     U.outgoing_edges_labels(g, :trophic, :species)
 end
 export trophic_adjacency
-

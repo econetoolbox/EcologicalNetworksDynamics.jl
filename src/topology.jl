@@ -166,5 +166,5 @@ function check_species_numbers(m::InnerParms, g::Topology, i_sp)
     a == b || argerr("Mismatch between the number of species nodes \
                       in the given model ($a) and the given topology ($b).")
 end
-check_species_numbers(m::InnerParms, g::Topology) = # (save this search when you can)
+check_species_numbers(m::InnerParms, g::Topology) = # (save the i_sp search when you can)
     check_species_numbers(m, g, U.edge_type_index(:species))

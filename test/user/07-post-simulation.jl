@@ -85,4 +85,3 @@ end
     ) simulate(m, 0.5, 100)
     @test keys(get_extinctions(sol)) == Set([3, 4, 5])
 end
-
