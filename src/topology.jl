@@ -5,8 +5,8 @@
 # Retrieve underlying model topology.
 @expose_data graph begin
     property(topology)
-    ref(m -> m.topology)
-    get(m -> deepcopy(m.topology))
+    ref(m -> m._topology)
+    get(m -> deepcopy(m._topology))
 end
 
 # Convenience local aliases.
@@ -15,69 +15,108 @@ const U = Topologies.Unchecked
 const imap = Iterators.map
 const ifilter = Iterators.filter
 
-# Re-export from Topologies.
-export disconnected_components
-
-include("./basic_topology_queries.jl")
-
 """
-    remove_species!(g::Topology, node::Symbol)
+    topology(model::InnerParms; without_species = [], without_nutrients = [])
+    topology(sol::Solution, date = nothing)
 
-Remove the given species from the topology.
-The species name will remain in-place so that integer-based-indexing remains stable,
-but it will be replaced with a tombstone
-and all incoming and outgoing links will be forgotten.
+Extract model topology to study topological consequences of extinctions.
+When called on a static model, nodes can be explicitly removed during extraction.
+When called on a simulation result, extinct nodes are automatically removed
+with extra arguments passed to [`extinctions`](@ref).
 """
-function remove_species!(g::Topology, node::T.IRef)
-    check_species(g)
-    T.remove_node!(g, T.relative(node), :species)
-end
-export remove_species!
-
-"""
-    restrict_to_live_species!(g::Topology, biomasses; threshold = 0)
-
-Remove species nodes until only species with "live" biomasses remain
-*i.e.* biomasses above the given threshold.
-"""
-function restrict_to_live_species!(g::Topology, biomasses; threshold = 0)
-    # Rely on species index memory to map biomass values to labels,
-    # even though some species may already have been removed.
-    check_species(g)
-    sp = U.node_type_index(g, :species)
-    no = U.n_nodes_including_removed(g, sp)
-    nb = length(biomasses)
-    if no != nb
-        n_live = U.n_nodes(g, sp)
-        rem = n_live == no ? "" : " ($(no - n_live) removed)"
-        argerr("The given topology indexes $no species$rem, \
-                but the given biomasses vector size is $nb.")
+function topology(model::InnerParms; without_species = [], without_nutrients = [])
+    @tographdata! without_species K{:bin}
+    @tographdata! without_nutrients K{:bin}
+    g = model.topology
+    removes = []
+    if !isempty(without_species)
+        check_species(g)
+        spi = model.species_index
+        @check_refs_if_list without_species "species" spi
+        push!(removes, (:species, without_species, spi))
     end
-    for (i_sp, bm) in zip(U.nodes_abs_indices(g, sp), biomasses)
-        rm = U.is_removed(g, i_sp)
-        if bm > threshold
-            rm && argerr("Species $(repr(U.node_label(g, i_sp))) \
-                          has been removed from this topology, \
-                          but its biomass is still above threshold: $bm > $threshold.")
-        else
-            rm || T._remove_node!(g, i_sp, sp)
+    if !isempty(without_nutrients)
+        check_nutrients(g)
+        nti = model.nutrients_index
+        @check_refs_if_list without_nutrients "nutrients" nti
+        push!(removes, (:nutrients, without_nutrients, nti))
+    end
+    for (compartment, without, index) in removes
+        i_cp = U.node_type_index(g, compartment)
+        for node in without
+            # TODO: GraphDataInputs should permit to automatically cast to indices
+            # and avoid this check.
+            i_node = T.Rel(node isa Symbol ? index[node] : node)
+            T.remove_node!(g, i_node, i_cp)
         end
     end
     g
 end
-export restrict_to_live_species!
+@method topology depends() # Okay to query with no compartments.
+
+function topology(sol::Solution, args...)
+    m = model(sol)
+    g = m.topology
+    for i in keys(extinctions(sol, args...))
+        T.remove_node!(g, T.Rel(i), :species)
+    end
+    g
+end
+export topology
+
+include("./basic_topology_queries.jl")
 
 """
-    isolated_producers(m::Model, g::Topology)
+    remove_species!(g::Topology, species)
 
-Iterate over isolated producers nodes in the topology
-*i.e.* producers without incoming or outgoing edges.
+Remove species from the given topology to study topological consequences of extinctions.
+Tombstones will remain in place so that species indices remain stable,
+but all incoming and outgoin edges will be forgotten.
 """
-function isolated_producers(m::InnerParms, g::Topology)
+# TODO: provide a checked transactional vectored version,
+# accepting Iterator<index|label> or sparse/dense boolean masks.
+function remove_species!(g::Topology, species::Integer)
+    check_species(g)
+    sp = U.node_type_index(g, :species)
+    T.check_node_ref(g, species, sp)
+    T.remove_node!(g, T.Rel(species), sp)
+end
+function remove_species!(g::Topology, species::Union{Symbol,AbstractString,Char})
+    check_species(g)
+    sp = U.node_type_index(g, :species)
+    species = Symbol(species)
+    T.check_node_ref(g, species, sp)
+    rel = U.node_rel_index(g, species, sp)
+    T.remove_node!(g, rel, sp)
+end
+export remove_species!
+
+"""
+    isolated_producers(m::Model; kwargs...)
+    isolated_producers(sol::Solution, args...)
+    isolated_producers(g::Topology, producers_indices) ⚠*
+
+Iterate over isolated producers nodes,
+*i.e.* producers without incoming or outgoing edges,
+either in the static model topology or during/after simulation.
+See [`topology`](@ref).
+
+  - ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+"""
+isolated_producers(m::InnerParms; kwargs...) =
+    isolated_producers(topology(m; kwargs...), m.producers_indices)
+@method isolated_producers depends(Foodweb)
+
+isolated_producers(sol::Solution, args...) =
+    isolated_producers(topology(sol, args...), model(sol).producers_indices)
+export isolated_producers
+
+# Unexposed underlying primitive: assumes that indices are consistent within the topology.
+function isolated_producers(g::Topology, producers_indices)
     sp = U.node_type_index(g, :species)
     abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
     unwrap(i) = i.abs
-    imap(unwrap, ifilter(imap(abs, get_producers_indices(m))) do i_prod
+    imap(unwrap, ifilter(imap(abs, producers_indices)) do i_prod
         inc = g.incoming[i_prod.abs]
         inc isa T.Tombstone && return false
         any(!isempty, inc) && return false
@@ -86,16 +125,33 @@ function isolated_producers(m::InnerParms, g::Topology)
         true
     end)
 end
-@method isolated_producers depends(Foodweb)
-export isolated_producers
 
 """
-    starving_consumers(m::Model, g::Topology)
+    starving_consumers(m::Model; kwargs...)
+    starving_consumers(sol::Solution, args...)
+    starving_consumers(g::Topology, producers_indices, consumers_indices) ⚠*
 
-Iterate over starving consumers nodes in the topology
-*i.e.* consumers with no directed trophic path to a producer.
+Iterate over starving consumers nodes,
+*i.e.* consumers with no directed trophic path to a producer,
+either in the static model topology
+or after simulation.
+See [`topology`](@ref).
+
+  - ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
 """
-function starving_consumers(m::InnerParms, g::Topology)
+starving_consumers(m::InnerParms; kwargs...) =
+    starving_consumers(topology(m; kwargs...), m.producers_indices, m.consumers_indices)
+@method starving_consumers depends(Foodweb)
+
+function starving_consumers(sol::Solution, args...)
+    (; producers_indices, consumers_indices) = model(sol)
+    starving_consumers(topology(sol, args...), producers_indices, consumers_indices)
+end
+export starving_consumers
+
+# Unexposed underlying primitive: assumes that indices are consistent within the topology.
+function starving_consumers(g::Topology, producers_indices, consumers_indices)
+    consumers_indices = Set(consumers_indices)
     sp = U.node_type_index(g, :species)
     tr = U.edge_type_index(g, :trophic)
     abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
@@ -104,8 +160,8 @@ function starving_consumers(m::InnerParms, g::Topology)
     unwrap(i) = i.abs
 
     # Collect all current (live) producers and consumers.
-    producers = Set(ifilter(live, imap(abs, get_producers_indices(m))))
-    consumers = Set(ifilter(live, imap(abs, get_consumers_indices(m))))
+    producers = Set(ifilter(live, imap(abs, producers_indices)))
+    consumers = Set(ifilter(live, imap(abs, consumers_indices)))
 
     # Visit the graph from producers up to consumers,
     # and remove all consumers founds.
@@ -113,7 +169,7 @@ function starving_consumers(m::InnerParms, g::Topology)
     found = Set{T.Abs}()
     while !isempty(to_visit)
         i = pop!(to_visit)
-        if is_consumer(m, rel(i))
+        if rel(i) in consumers_indices
             pop!(consumers, i)
         end
         push!(found, i)
@@ -126,45 +182,21 @@ function starving_consumers(m::InnerParms, g::Topology)
     # The remaining consumers are starving.
     imap(unwrap, consumers)
 end
-@method starving_consumers depends(Foodweb)
-export starving_consumers
 
-# Retrieve directly from a solution,
-# with the correct extinct species removed.
 """
-    get_topology(sol::Solution)
+    disconnected_components(m::Model; kwargs...)
+    disconnected_components(sol::Model, args...)
+    disconnected_components(g::Topology)
 
-Retrieve network topology from a trajectory solution,
-with the extinct species removed.
+Iterate over the disconnected component within the topology.
+This create a collection of topologies
+with all the same compartments and nodes indices,
+but with different nodes marked as removed to constitute the various components.
+See [`topology`](@ref).
 """
-function get_topology(sol::Solution)
-    m = get_model(sol)
-    top = m.topology
-    for i_sp in keys(get_extinctions(sol))
-        remove_species!(top, i_sp)
-    end
-    top
-end
-export get_topology
-
-# ==========================================================================================
-# Common checks.
-check_node_compartment(g::Topology, lab::Symbol) =
-    is_node_type(g, lab) ||
-    argerr("The given topology has no $(repr(lab)) node compartment.")
-check_edge_compartment(g::Topology, lab::Symbol) =
-    is_edge_type(g, lab) ||
-    argerr("The given topology has no $(repr(lab)) edge compartment.")
-
-check_species(g::Topology) = check_node_compartment(g, :species)
-check_nutrients(g::Topology) = check_node_compartment(g, :nutrients)
-check_trophic(g::Topology) = check_edge_compartment(g, :trophic)
-
-function check_species_numbers(m::InnerParms, g::Topology, i_sp)
-    a = m.n_species
-    b = U.n_nodes_including_removed(g, i_sp)
-    a == b || argerr("Mismatch between the number of species nodes \
-                      in the given model ($a) and the given topology ($b).")
-end
-check_species_numbers(m::InnerParms, g::Topology) = # (save the i_sp search when you can)
-    check_species_numbers(m, g, U.edge_type_index(:species))
+T.disconnected_components(m::Model; kwargs...) =
+    disconnected_components(topology(m; kwargs...))
+T.disconnected_components(sol::Solution, args...) =
+    disconnected_components(topology(sol, args...))
+# Direct re-export from Topologies.
+export disconnected_components

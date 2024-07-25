@@ -60,7 +60,7 @@ function Base.show(io::IO, ::MIME"text/plain", g::Topology)
         end
         print(io, "    $(repr(type)) => [$(join_elided(live, ", "; max =elision_limit))]")
         if !isempty(tomb)
-            print(io, "  <removed: [$(join_elided(tomb, ", "))]>")
+            print(io, "  <removed: [$(join_elided(tomb, ", "; max=elision_limit))]>")
         end
     end
     n_e > 0 && print(io, "\n  Edges:")

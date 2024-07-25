@@ -88,7 +88,7 @@ function F.expand!(model, bp::Species)
     # but this will be refactored.
     fw = Internals.FoodWeb(bp.names)
     model.network = fw
-    add_nodes!(model.topology, bp.names, :species)
+    add_nodes!(model._topology, bp.names, :species)
     # Keep reference safe in case we later switch to a multiplex network,
     # and want to add the layers one by one.
     model._foodweb = fw

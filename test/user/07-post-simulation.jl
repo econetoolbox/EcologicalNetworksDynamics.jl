@@ -9,7 +9,7 @@ Random.seed!(12)
     sol = simulate(m, 0.5, 500)
 
     # Retrieve model from the solution obtained.
-    msol = get_model(sol)
+    msol = model(sol)
     @test msol == m
 
     # The value we get is a fresh copy of the state at simulation time.
@@ -24,7 +24,7 @@ Random.seed!(12)
     # Cannot be corrupted afterwards from the retrieved value itself.
     msol.K[:c] = 3
     @test msol.K[:c] == 3 # Okay to work on this one: user owns it.
-    @test get_model(sol).K[:c] == 1 # Still true.
+    @test model(sol).K[:c] == 1 # Still true.
 
 end
 
@@ -48,7 +48,7 @@ end
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
     sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties = false)
-    @test keys(get_extinctions(sol)) == Set([1, 2]) # TODO: why are dates not reproducible?!
+    @test keys(extinctions(sol)) == Set([1, 2]) # TODO: why are dates not reproducible?!
 
 end
 
@@ -65,7 +65,7 @@ end
         This message is meant to attract your attention regarding the meaning of downstream analyses depending on the simulated biomasses values.
         You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
     ) simulate(m, 0.5, 600)
-    top = get_topology(sol)
+    top = topology(sol)
 
     # Only the producer remains in there.
     @test collect(live_species(top)) == [3]
@@ -99,6 +99,16 @@ end
         This message is meant to attract your attention regarding the meaning of downstream analyses depending on the simulated biomasses values.
         You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
     ) simulate(m, 0.5, 100)
-    @test keys(get_extinctions(sol)) == Set([3, 4, 5])
+    @test keys(extinctions(sol)) == Set([3, 4, 5])
+
+    # Scroll back in time.
+    @test keys(extinctions(sol, 60)) == Set([3, 4])
+    @test keys(extinctions(sol, 23)) == Set([3])
+    @test keys(extinctions(sol, 20)) == Set([])
+
+    @argfails(
+        extinctions(sol, 150),
+        "Invalid date for a simulation in t = [0.0, 100.0]: 150."
+    )
 
 end

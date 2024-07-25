@@ -6,23 +6,26 @@
         Foodweb([:a => [:b, :c], :b => :d, :c => :d, :e => [:c], :f => :g]),
         Nutrients.Nodes(2),
     )
+
     g = m.topology
-
-    remove_species!(g, :c)
-    remove_species!(g, :f)
-
-    @test n_live_species(g) == 5
+    @test n_live_species(g) == 7
     @test n_live_nutrients(g) == 2
-    @test n_live_producers(m, g) == 2
-    @test n_live_consumers(m, g) == 3
+
+    g = topology(m; without_species = [:c, :f], without_nutrients = [:n1])
+    @test n_live_species(g) == 5
+    @test n_live_nutrients(g) == 1
+
+    without = (; without_species = [:c, :f])
+    @test n_live_producers(m; without...) == 2
+    @test n_live_consumers(m; without...) == 3
 
     sp(it) = m.species_label.(collect(it))
     nt(it) = m.nutrient_label.(collect(it))
     labs(str) = Symbol.(collect(str))
     @test sp(live_species(g)) == labs("abdeg")
-    @test nt(live_nutrients(g)) == [:n1, :n2]
-    @test sp(live_producers(m, g)) == labs("dg")
-    @test sp(live_consumers(m, g)) == labs("abe")
+    @test nt(live_nutrients(g)) == [:n2]
+    @test sp(live_producers(m; without...)) == labs("dg")
+    @test sp(live_consumers(m; without...)) == labs("abe")
 
 end
 
@@ -70,16 +73,18 @@ end
     #! format: on
 
     # But no degenerated species yet.
-    check_set(fn, tops, expected) =
+    check_set(fn, tops, expected, indices...) =
         for top in tops
-            @test Set(m.species_label.(fn(m, top))) == Set(expected)
+            @test Set(m.species_label.(fn(top, indices...))) == Set(expected)
         end
-    check_set(isolated_producers, (g, u, v), [])
-    check_set(starving_consumers, (g, u, v), [])
+    prods = m.producers_indices
+    cons = m.consumers_indices
+    check_set(isolated_producers, (g, u, v), [], prods)
+    check_set(starving_consumers, (g, u, v), [], prods, cons)
 
     # Removing species changes the situation.
-    biomass = [name in "cg" ? 0 : 1 for name in "abcdefgh"]
-    restrict_to_live_species!(g, biomass)
+    mask = [name in "cg" for name in "abcdefgh"]
+    g = topology(m; without_species = mask)
 
     # Now there are three disconnected components.
     u, v, w = check_components(g, 3)
@@ -88,9 +93,9 @@ end
     @test sortadj(w) == [:h => []]
 
     # A few quirks appear regarding foreseeable equilibrium state.
-    check_set(isolated_producers, (g, w), [:h])
-    check_set(isolated_producers, (u, v), [])
-    check_set(starving_consumers, (g, u, v, w), [])
+    check_set(isolated_producers, (g, w), [:h], prods)
+    check_set(isolated_producers, (u, v), [], prods)
+    check_set(starving_consumers, (g, u, v, w), [], prods, cons)
 
     # The more extinct species the more quirks.
     remove_species!(g, :d)
@@ -98,23 +103,10 @@ end
     @test sortadj(u) == [:a => [:b], :b => []]
     @test sortadj(v) == [:e => [:f], :f => []]
     @test sortadj(w) == [:h => []]
-    check_set(isolated_producers, (g, w), [:h])
-    check_set(starving_consumers, (g, u), [:a, :b])
-    check_set(isolated_producers, (u, v), [])
-    check_set(starving_consumers, (v, v), [])
-
-    @argfails(
-        restrict_to_live_species!(g, [1]),
-        "The given topology indexes 8 species (3 removed), \
-         but the given biomasses vector size is 1."
-    )
-
-    # Cannot resurrect species.
-    @argfails(
-        restrict_to_live_species!(g, ones(8)),
-        "Species :c has been removed from this topology, \
-         but its biomass is still above threshold: 1.0 > 0."
-    )
+    check_set(isolated_producers, (g, w), [:h], prods)
+    check_set(starving_consumers, (g, u), [:a, :b], prods, cons)
+    check_set(isolated_producers, (u, v), [], prods)
+    check_set(starving_consumers, (v, v), [], prods, cons)
 
     # Producers connected by nutrients are not considered isolated anymore,
     # and the corresponding topology is not anymore disconnected.
@@ -124,19 +116,21 @@ end
 
     # Obtaining starving consumers is possible on extinction,
     # but not isolated producers.
-    biomass = [name in "bcg" ? 0 : 1 for name in "abcdefgh"]
-    restrict_to_live_species!(g, biomass)
+    for name in "bcg"
+        remove_species!(g, name)
+    end
     u, v = check_components(g, 2)
-    check_set(isolated_producers, (u, v), [])
-    check_set(starving_consumers, (u,), [:a])
-    check_set(starving_consumers, (v,), [])
+    check_set(isolated_producers, (u, v), [], prods)
+    check_set(starving_consumers, (u,), [:a], prods, cons)
+    check_set(starving_consumers, (v,), [], prods, cons)
 
     # Even if the very last producer is only connected to its nutrient source.
-    biomass = [name in "h" ? 1 : 0 for name in "abcdefgh"]
-    restrict_to_live_species!(g, biomass)
+    for name in "adef"
+        remove_species!(g, name)
+    end
     u, = check_components(g, 1)
-    check_set(isolated_producers, (u,), [])
-    check_set(starving_consumers, (u,), [])
+    check_set(isolated_producers, (u,), [], prods)
+    check_set(starving_consumers, (u,), [], prods, cons)
 
 end
 

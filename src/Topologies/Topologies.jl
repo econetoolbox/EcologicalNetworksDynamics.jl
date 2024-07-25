@@ -246,14 +246,10 @@ end
 export remove_node!
 
 #-------------------------------------------------------------------------------------------
-"""
-    disconnected_components(g::Topology)
+# Iterate over disconnected components within the topology.
+# Every component is yielded as a separate new topology,
+# with tombstones in the right places.
 
-Iterate over the disconnected component within the topology.
-This create a collection of topologies
-with all the same compartments and nodes indices,
-but with different nodes marked as removed to constitute the various components.
-"""
 function disconnected_components(g::Topology)
     # Construct a simpler graph representation
     # with all nodes and edges compartments pooled together.

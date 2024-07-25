@@ -74,41 +74,9 @@ which may then be retrieved with `get_model()`.
 simulate(model::Model, u0, tmax::Number; kwargs...) =
     _simulate(model, u0, tmax; model, kwargs...)
 # .. so that we *can* retrieve the original model from the simulation result.
-get_model(sol::Solution) = copy(sol.prob.p.model) # (owned copy to not leak aliases)
-export simulate, get_model
+export simulate
 
-"""
-    species_indices(sol::Solution)
-
-Retrieve the correct indices to extract species-related data from simulation output.
-"""
-function species_indices(sol::Solution)
-    m = get_model(sol)
-    1:(m.n_species)
-end
-export species_indices
-
-"""
-    nutrients_indices(sol::Solution)
-
-Retrieve the correct indices to extract nutrients-related data from simulation output.
-"""
-function nutrients_indices(sol::Solution)
-    m = get_model(sol)
-    N = m.n_nutrients
-    S = m.n_species
-    (S+1):(S+N)
-end
-export nutrients_indices
-
-"""
-    get_extinctions(sol::Solution)
-
-Extract list of extinct species indices and their extinction dates
-from the solution returned by `simulate()`.
-"""
-get_extinctions(sol::Solution) = deepcopy(Internals.get_extinct_species(sol))
-export get_extinctions
+include("./solution_queries.jl")
 
 # Re-expose from internals so it works with the new API.
 extinction_callback(m, thr; verbose = false) = Internals.ExtinctionCallback(thr, m, verbose)
@@ -122,8 +90,7 @@ export extinction_callback
 
 # Collect topology diagnostics after simulation and decide whether to display them or not.
 function show_degenerated_biomass_graph_properties(model::InnerParms, biomass, arg)
-    g = deepcopy(model.topology)
-    restrict_to_live_species!(g, biomass)
+    g = topology(model; without_species = biomass .<= 0.0)
     diagnostics = []
     # Consume iterator to return lengths without collecting allocated yielded values.
     function count(it)
@@ -133,12 +100,14 @@ function show_degenerated_biomass_graph_properties(model::InnerParms, biomass, a
         end
         res
     end
+    pi = model.producers_indices
+    ci = model.consumers_indices
     for comp in disconnected_components(g)
         sp = live_species(comp)
-        prods = live_producers(model, comp)
-        cons = live_consumers(model, comp)
-        ip = isolated_producers(model, comp)
-        sc = starving_consumers(model, comp)
+        prods = live_producers(comp, pi)
+        cons = live_consumers(comp, ci)
+        ip = isolated_producers(comp, pi)
+        sc = starving_consumers(comp, pi, ci)
         push!(diagnostics, collect.((sp, prods, cons, ip, sc)))
     end
     # Don't display if there is only 1 component with no degenerated nodes.

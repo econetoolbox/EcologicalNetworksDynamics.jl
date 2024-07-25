@@ -357,7 +357,7 @@ function F.expand!(m, bp::Foodweb)
     fw.method = "from component" # (internals legacy)
 
     # Add trophic edges to the topology.
-    top = m.topology
+    top = m._topology
     add_edge_type!(top, :trophic)
     add_edges_within_node_type!(top, :species, :trophic, A)
 

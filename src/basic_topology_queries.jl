@@ -2,70 +2,155 @@
 # Counts.
 
 """
+    n_live_species(m::Model; kwargs...)
+    n_live_species(sol::Solution, args...)
     n_live_species(g::Topology)
 
 Number of live species within the topology.
+See [`topology`](@ref).
 """
 function n_live_species(g::Topology)
     check_species(g)
     U.n_nodes(g, :species)
 end
+n_live_species(m::InnerParms; kwargs...) = n_live_species(topology(m; kwargs...))
+@method n_live_species depends(Species)
+n_live_species(sol::Solution, args...) = n_live_species(topology(sol, args...))
 export n_live_species
 
 """
+    n_live_nutrients(m::Model; kwargs...)
+    n_live_nutrients(sol::Model, args...)
     n_live_nutrients(g::Topology)
 
 Number of live nutrients within the topology.
+See [`topology`](@ref).
 """
 function n_live_nutrients(g::Topology)
     check_nutrients(g)
     U.n_nodes(g, :nutrients)
 end
+n_live_nutrients(m::InnerParms; kwargs...) = n_live_nutrients(topology(m; kwargs...))
+@method n_live_nutrients depends(Nutrients.Nodes)
+n_live_nutrients(sol::Solution, args...) = n_live_nutrients(topology(sol, args...))
 export n_live_nutrients
 
-"""
-    n_live_producers(m::Model, g::Topology)
+#-------------------------------------------------------------------------------------------
+# Foodweb-dependent: can't work only with a `Topology` value because static species
+# properties are needed, and these are only stored within the model,
+# not in the topology with species removed.
 
-Number of live producers within the topology.
+# TODO: the following code is DUPLICATED for producers/consumers/preys/tops: factorize.
 """
-function n_live_producers(m::InnerParms, g::Topology)
+    n_live_producers(m::Model; kwargs...)
+    n_live_producers(sol::Solution, args...)
+    n_live_producers(g::Topology, producers_indices) ⚠*
+
+Number of live producers within the topology after simulation.
+See [`topology`](@ref).
+* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+"""
+n_live_producers(m::InnerParms; kwargs...) =
+    n_live_producers(topology(m; kwargs...), m.producers_indices)
+@method n_live_producers depends(Foodweb)
+n_live_producers(sol::Solution, args...) =
+    n_live_producers(topology(sol, args...), model(sol).producers_indices)
+function n_live_producers(g::Topology, producers_indices)
     check_species(g)
     sp = U.node_type_index(g, :species)
-    check_species_numbers(m, g, sp)
     count = 0
-    for i_prod in m.producers_indices
+    for i_prod in producers_indices
         count += U.is_live(g, (T.Rel(i_prod), sp))
     end
     count
 end
-@method n_live_producers depends(Foodweb)
 export n_live_producers
 
 """
-    n_live_consumers(m::Model, g::Topology)
+    n_live_consumers(m::Model; kwargs...)
+    n_live_consumers(sol::Solution, args...)
+    n_live_consumers(g::Topology, consumers_indices) ⚠*
 
-Number of live consumers within the topology.
+Number of live consumers within the topology after simulation.
+See [`topology`](@ref).
+* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
 """
-function n_live_consumers(m::InnerParms, g::Topology)
+n_live_consumers(m::InnerParms; kwargs...) =
+    n_live_consumers(topology(m; kwargs...), m.consumers_indices)
+@method n_live_consumers depends(Foodweb)
+n_live_consumers(sol::Solution, args...) =
+    n_live_consumers(topology(sol, args...), model(sol).consumers_indices)
+function n_live_consumers(g::Topology, consumers_indices)
     check_species(g)
     sp = U.node_type_index(g, :species)
-    check_species_numbers(m, g, sp)
     count = 0
-    for i_prod in m.consumers_indices
+    for i_prod in consumers_indices
         count += U.is_live(g, (T.Rel(i_prod), sp))
     end
     count
 end
-@method n_live_consumers depends(Foodweb)
 export n_live_consumers
+
+"""
+    n_live_preys(m::Model; kwargs...)
+    n_live_preys(sol::Solution, args...)
+    n_live_preys(g::Topology, preys_indices) ⚠*
+
+Number of live preys within the topology after simulation.
+See [`topology`](@ref).
+* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+"""
+n_live_preys(m::InnerParms; kwargs...) =
+    n_live_preys(topology(m; kwargs...), m.preys_indices)
+@method n_live_preys depends(Foodweb)
+n_live_preys(sol::Solution, args...) =
+    n_live_preys(topology(sol, args...), model(sol).preys_indices)
+function n_live_preys(g::Topology, preys_indices)
+    check_species(g)
+    sp = U.node_type_index(g, :species)
+    count = 0
+    for i_prod in preys_indices
+        count += U.is_live(g, (T.Rel(i_prod), sp))
+    end
+    count
+end
+export n_live_preys
+
+"""
+    n_live_tops(m::Model; kwargs...)
+    n_live_tops(sol::Solution, args...)
+    n_live_tops(g::Topology, tops_indices) ⚠*
+
+Number of live tops within the topology after simulation.
+See [`topology`](@ref).
+* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+"""
+n_live_tops(m::InnerParms; kwargs...) =
+    n_live_tops(topology(m; kwargs...), m.tops_indices)
+@method n_live_tops depends(Foodweb)
+n_live_tops(sol::Solution, args...) =
+    n_live_tops(topology(sol, args...), model(sol).tops_indices)
+function n_live_tops(g::Topology, tops_indices)
+    check_species(g)
+    sp = U.node_type_index(g, :species)
+    count = 0
+    for i_prod in tops_indices
+        count += U.is_live(g, (T.Rel(i_prod), sp))
+    end
+    count
+end
+export n_live_tops
 
 # ==========================================================================================
 # Iterators.
 
 """
+    live_species(m::Model; kwargs...)
+    live_species(sol::Solution, args...)
     live_species(g::Topology)
 
 Iterate over relative indices of live species within the topology.
+See [`topology`](@ref).
 """
 function live_species(g::Topology)
     check_species(g)
@@ -74,70 +159,169 @@ function live_species(g::Topology)
         U.node_rel_index(g, abs, sp).rel
     end
 end
+live_species(m::InnerParms; kwargs...) = live_species(topology(m; kwargs...))
+@method live_species depends(Species)
+live_species(sol::Solution, args...) = live_species(topology(sol, args...))
 export live_species
 
 """
+    live_nutrients(m::Model; kwargs...)
+    live_nutrients(sol::Solution, args...)
     live_nutrients(g::Topology)
 
 Iterate over relative indices of live nutrients within the topology.
+See [`topology`](@ref).
 """
 function live_nutrients(g::Topology)
     check_nutrients(g)
-    nt = U.node_type_index(g, :nutrients)
-    imap(U.live_node_indices(g, nt)) do abs
-        U.node_rel_index(g, abs, nt).rel
+    sp = U.node_type_index(g, :nutrients)
+    imap(U.live_node_indices(g, sp)) do abs
+        U.node_rel_index(g, abs, sp).rel
     end
 end
+live_nutrients(m::InnerParms; kwargs...) = live_nutrients(topology(m; kwargs...))
+@method live_nutrients depends(Nutrients.Nodes)
+live_nutrients(sol::Solution, args...) = live_nutrients(topology(sol, args...))
 export live_nutrients
 
-"""
-    live_producers(g::Topology)
-
-Iterate over relative indices of live producer species within the topology.
-"""
-function live_producers(m::InnerParms, g::Topology)
-    check_species(g)
-    sp = U.node_type_index(g, :species)
-    check_species_numbers(m, g, sp)
-    abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
-    imap(ifilter(imap(abs, m.producers_indices)) do abs_prod
-        U.is_live(g, abs_prod)
-    end) do abs_prod
-        U.node_rel_index(g, abs_prod, sp).rel
-    end
-end
-@method live_producers depends(Foodweb)
-export live_producers
+#-------------------------------------------------------------------------------------------
+# Foodweb-dependent (see `Foodweb-dependent` above).
 
 """
-    live_consumers(g::Topology)
-
-Iterate over relative indices of live producer species within the topology.
-"""
-function live_consumers(m::InnerParms, g::Topology)
-    check_species(g)
-    sp = U.node_type_index(g, :species)
-    check_species_numbers(m, g, sp)
-    abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
-    imap(ifilter(imap(abs, m.consumers_indices)) do abs_cons
-        U.is_live(g, abs_cons)
-    end) do abs_cons
-        U.node_rel_index(g, abs_cons, sp).rel
-    end
-end
-@method live_consumers depends(Foodweb)
-export live_consumers
-
-"""
+    trophic_adjacency(m::Model; kwargs...)
+    trophic_adjacency(sol::Solution; args...)
     trophic_adjacency(g::Topology)
 
 Produce a two-level iterators yielding predators on first level
 and all its preys on the second level.
 This only includes :species nodes (and not *eg.* :nutrients).
+See [`topology`](@ref).
 """
 function trophic_adjacency(g::Topology)
     check_species(g)
     check_trophic(g)
     U.outgoing_edges_labels(g, :trophic, :species)
 end
+trophic_adjacency(m::InnerParms; kwargs...) = trophic_adjacency(topology(m; kwargs...))
+@method trophic_adjacency depends(Foodweb)
+trophic_adjacency(sol::Solution, args...) = trophic_adjacency(topology(sol, args...))
 export trophic_adjacency
+
+# TODO: the following code is DUPLICATED for producers/consumers/preys/tops: factorize.
+"""
+    live_producers(m::Model; kwargs...)
+    live_producers(s::Solution, args...)
+    live_producers(g::Topology, producers_indices) ⚠*
+
+Iterate over relative indices of live producer species after simulation.
+See [`topology`](@ref).
+* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+"""
+live_producers(m::InnerParms; kwargs...) =
+    live_producers(topology(m; kwargs...), m.producers_indices)
+@method live_producers depends(Foodweb)
+live_producers(sol::Solution, args...) =
+    live_producers(topology(sol, args...), model(sol).producers_indices)
+function live_producers(g::Topology, producers_indices)
+    check_species(g)
+    sp = U.node_type_index(g, :species)
+    abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
+    imap(ifilter(imap(abs, producers_indices)) do abs_prod
+        U.is_live(g, abs_prod)
+    end) do abs_prod
+        U.node_rel_index(g, abs_prod, sp).rel
+    end
+end
+export live_producers
+
+"""
+    live_consumers(m::Model; kwargs...)
+    live_consumers(s::Solution, args...)
+    live_consumers(g::Topology, consumers_indices) ⚠*
+
+Iterate over relative indices of live consumer species after simulation.
+See [`topology`](@ref).
+* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+"""
+live_consumers(m::InnerParms; kwargs...) =
+    live_consumers(topology(m; kwargs...), m.consumers_indices)
+@method live_consumers depends(Foodweb)
+live_consumers(sol::Solution, args...) =
+    live_consumers(topology(sol, args...), model(sol).consumers_indices)
+function live_consumers(g::Topology, consumers_indices)
+    check_species(g)
+    sp = U.node_type_index(g, :species)
+    abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
+    imap(ifilter(imap(abs, consumers_indices)) do abs_prod
+        U.is_live(g, abs_prod)
+    end) do abs_prod
+        U.node_rel_index(g, abs_prod, sp).rel
+    end
+end
+export live_consumers
+
+"""
+    live_preys(m::Model; kwargs...)
+    live_preys(s::Solution, args...)
+    live_preys(g::Topology, preys_indices) ⚠*
+
+Iterate over relative indices of live prey species after simulation.
+See [`topology`](@ref).
+* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+"""
+live_preys(m::InnerParms; kwargs...) =
+    live_preys(topology(m; kwargs...), m.preys_indices)
+@method live_preys depends(Foodweb)
+live_preys(sol::Solution, args...) =
+    live_preys(topology(sol, args...), model(sol).preys_indices)
+function live_preys(g::Topology, preys_indices)
+    check_species(g)
+    sp = U.node_type_index(g, :species)
+    abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
+    imap(ifilter(imap(abs, preys_indices)) do abs_prod
+        U.is_live(g, abs_prod)
+    end) do abs_prod
+        U.node_rel_index(g, abs_prod, sp).rel
+    end
+end
+export live_preys
+
+"""
+    live_tops(m::Model; kwargs...)
+    live_tops(s::Solution, args...)
+    live_tops(g::Topology, tops_indices) ⚠*
+
+Iterate over relative indices of live top species after simulation.
+See [`topology`](@ref).
+* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+"""
+live_tops(m::InnerParms; kwargs...) =
+    live_tops(topology(m; kwargs...), m.tops_indices)
+@method live_tops depends(Foodweb)
+live_tops(sol::Solution, args...) =
+    live_tops(topology(sol, args...), model(sol).tops_indices)
+function live_tops(g::Topology, tops_indices)
+    check_species(g)
+    sp = U.node_type_index(g, :species)
+    abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
+    imap(ifilter(imap(abs, tops_indices)) do abs_prod
+        U.is_live(g, abs_prod)
+    end) do abs_prod
+        U.node_rel_index(g, abs_prod, sp).rel
+    end
+end
+export live_tops
+
+# ==========================================================================================
+# Common checks to raise useful error messages.
+
+check_node_compartment(g::Topology, lab::Symbol) =
+    is_node_type(g, lab) ||
+    argerr("The given topology has no $(repr(lab)) node compartment.")
+check_edge_compartment(g::Topology, lab::Symbol) =
+    is_edge_type(g, lab) ||
+    argerr("The given topology has no $(repr(lab)) edge compartment.")
+
+check_species(g::Topology) = check_node_compartment(g, :species)
+check_nutrients(g::Topology) = check_node_compartment(g, :nutrients)
+check_trophic(g::Topology) = check_edge_compartment(g, :trophic)

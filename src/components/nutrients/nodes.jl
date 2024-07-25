@@ -39,7 +39,7 @@ function add_nutrients!(m, names)
     m._scratch[:nutrients_index] = OrderedDict(n => i for (i, n) in enumerate(names))
 
     # Update topology.
-    top = m.topology
+    top = m._topology
     add_nodes!(top, names, :nutrients)
 
     # For now, consider that the only presence of nutrients
@@ -66,7 +66,7 @@ end
 # Either called when adding Nutrients.Nodes to a model with a Foodweb, or the opposite.
 function connect_producers_to_nutrients(m)
     edges = repeat(m._producers_mask, 1, m.n_nutrients)
-    add_edges_accross_node_types!(m.topology, :species, :nutrients, :trophic, edges)
+    add_edges_accross_node_types!(m._topology, :species, :nutrients, :trophic, edges)
 end
 
 F.expand!(model, bp::Nodes) = add_nutrients!(model, bp.names)
