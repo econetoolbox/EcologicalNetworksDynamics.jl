@@ -160,7 +160,7 @@ raw"Topology for 2 node types and 3 edge types with 5 nodes and 7 edges:
     :trophic
       :a => [:c, :d]
       :c => [:a]
-      :d => [:u, :c]
+      :d => [:c, :u]
     :mutualism
       :a => [:d]
     :interference

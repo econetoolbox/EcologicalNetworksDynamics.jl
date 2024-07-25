@@ -139,3 +139,42 @@ end
     check_set(starving_consumers, (u,), [])
 
 end
+
+import ..TestTopologies: check_display
+@testset "Elided display." begin
+
+    Random.seed!(12)
+    foodweb = Foodweb(:niche; S = 50, C = 0.2)
+    m = default_model(foodweb, Nutrients.Nodes(5))
+#! format: off
+    check_display(
+      m.topology,
+      "Topology(2 node types, 1 edge type, 55 nodes, 516 edges)",
+   raw"Topology for 2 node types and 1 edge type with 55 nodes and 516 edges:
+  Nodes:
+    :species => [:s1, :s2, :s3, :s4, :s5, :s6, :s7, :s8, :s9, :s10, :s11, :s12, :s13, :s14, :s15, ..., :s50]
+    :nutrients => [:n1, :n2, :n3, :n4, :n5]
+  Edges:
+    :trophic
+      :s1 => [:s25, :s26, :s27, :s28, :s29, :s30, :s31, :s32, :s33, :s34, :s35, :s36, :s37, :s38, :s39, :s40]
+      :s2 => [:s1, :s10, :s11, :s12, :s13, :s14, :s15, :s16, :s17, :s18, :s19, :s2, :s20, :s21, :s22, ..., :s9]
+      :s3 => [:s1, :s10, :s11, :s12, :s13, :s14, :s15, :s16, :s17, :s18, :s19, :s2, :s20, :s21, :s22, ..., :s9]
+      :s4 => [:s21, :s22, :s23, :s24, :s25, :s26, :s27, :s28, :s29, :s30, :s31, :s32]
+      :s5 => [:s38, :s39, :s40, :s41, :s42]
+      :s6 => [:s1, :s10, :s11, :s12, :s13, :s14, :s15, :s16, :s17, :s18, :s19, :s2, :s20, :s21, :s22, ..., :s9]
+      :s7 => [:s37, :s38, :s39, :s40, :s41]
+      :s8 => [:s10, :s11, :s12, :s13, :s14, :s15, :s16, :s17, :s3, :s4, :s5, :s6, :s7, :s8, :s9]
+      :s9 => [:s23, :s24, :s25, :s26, :s27, :s28, :s29, :s30]
+      :s10 => [:s12, :s13, :s14, :s15, :s16, :s17, :s18, :s19, :s20]
+      :s11 => [:s28, :s29, :s30, :s31, :s32, :s33, :s34, :s35, :s36, :s37, :s38]
+      :s12 => [:s18, :s19, :s20]
+      :s13 => [:s13, :s14, :s15, :s16, :s17, :s18, :s19, :s20, :s21, :s22, :s23, :s24, :s25, :s26, :s27, ..., :s29]
+      :s14 => [:s18, :s19, :s20, :s21, :s22, :s23, :s24, :s25, :s26, :s27, :s28, :s29, :s30, :s31]
+      :s15 => [:s10, :s11, :s12, :s13, :s14, :s15, :s16, :s17, :s18, :s19, :s20, :s21, :s22, :s23, :s24, ..., :s9]
+      :s16 => [:s23, :s24, :s25, :s26, :s27]
+      ...
+      :s50 => [:n1, :n2, :n3, :n4, :n5]",
+    )
+#! format: on
+
+end

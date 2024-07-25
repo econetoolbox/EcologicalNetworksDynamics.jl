@@ -1,3 +1,5 @@
+import ..Display: join_elided
+
 s(n) = n > 1 ? "s" : ""
 are(n) = n > 1 ? "are" : "is"
 function _th(n)
@@ -27,6 +29,7 @@ function Base.show(io::IO, g::Topology)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", g::Topology)
+    elision_limit = 16
     n_nt = n_node_types(g)
     n_et = n_edge_types(g)
     n_n = sum((U.n_nodes(g, i) for i in 1:n_nt); init = 0)
@@ -45,44 +48,49 @@ function Base.show(io::IO, ::MIME"text/plain", g::Topology)
     println(io, "\n  Nodes:")
     for (i_type, type) in enumerate(_node_types(g))
         i_type > 1 && println(io)
+        live = Symbol[]
         tomb = Symbol[] # Collect removed nodes to display at the end.
-        print(io, "    $(repr(type)) => [")
-        empty = true
         for i_node in U.nodes_abs_indices(g, i_type)
             node = U.node_label(g, i_node)
             if U.is_removed(g, i_node)
                 push!(tomb, node)
                 continue
             end
-            empty || print(io, ", ")
-            print(io, repr(node))
-            empty = false
+            push!(live, node)
         end
-        print(io, "]")
+        print(io, "    $(repr(type)) => [$(join_elided(live, ", "; max =elision_limit))]")
         if !isempty(tomb)
-            print(io, "  <removed: $tomb>")
+            print(io, "  <removed: [$(join_elided(tomb, ", "))]>")
         end
     end
     n_e > 0 && print(io, "\n  Edges:")
     for (i_type, type) in enumerate(_edge_types(g))
         print(io, "\n    $(repr(type))")
-        empty = true
+        display_line(src, targets) = print(
+            io,
+            "\n      $(repr(src)) => [$(join_elided(targets, ", "; max=elision_limit))]",
+        )
+        last = nothing # Save last in case we use vertical elision.
+        i = 0
         for (i_source, _neighbours) in U._outgoing_edges_indices(g, i_type)
+            i += 1
             isempty(_neighbours) && continue
             source = U.node_label(g, Abs(i_source))
-            print(io, "\n      $(repr(source)) => [")
-            first = true
-            for i_target in _neighbours
-                target = U.node_label(g, Abs(i_target))
-                first || print(io, ", ")
-                print(io, repr(target))
-                first = false
+            targets = sort(collect(imap(i -> U.node_label(g, Abs(i)), _neighbours)))
+            if i <= elision_limit
+                display_line(source, targets)
             end
-            print(io, ']')
-            empty = false
+            last = (source, targets)
         end
-        if empty
+        if isnothing(last)
             print(io, " <none>")
+        end
+        if i > elision_limit
+            print(io, "\n      ...")
+        end
+        if i >= elision_limit
+            (source, targets) = last
+            display_line(source, targets)
         end
     end
 end
