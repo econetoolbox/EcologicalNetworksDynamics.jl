@@ -104,7 +104,7 @@ function starving_consumers(m::InnerParms, g::Topology)
     unwrap(i) = i.abs
 
     # Collect all current (live) producers and consumers.
-    producers = collect(ifilter(live, imap(abs, get_producers_indices(m))))
+    producers = Set(ifilter(live, imap(abs, get_producers_indices(m))))
     consumers = Set(ifilter(live, imap(abs, get_consumers_indices(m))))
 
     # Visit the graph from producers up to consumers,
