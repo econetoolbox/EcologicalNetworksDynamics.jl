@@ -93,7 +93,7 @@ export isolated_producers
     starving_consumers(m::Model, g::Topology)
 
 Iterate over starving consumers nodes in the topology
-*i.e.* consumers with no directed trophic path to a consumer.
+*i.e.* consumers with no directed trophic path to a producer.
 """
 function starving_consumers(m::InnerParms, g::Topology)
     sp = U.node_type_index(g, :species)
