@@ -1,4 +1,9 @@
-# Check topology-related utils.
+module TestModelTopology
+
+using EcologicalNetworksDynamics
+import ..TestTopologies: check_display
+using Test
+using Random
 
 @testset "Basic topology queries." begin
 
@@ -134,7 +139,6 @@ end
 
 end
 
-import ..TestTopologies: check_display
 @testset "Elided display." begin
 
     Random.seed!(12)
@@ -170,5 +174,7 @@ import ..TestTopologies: check_display
       :s50 => [:n1, :n2, :n3, :n4, :n5]",
     )
 #! format: on
+
+end
 
 end

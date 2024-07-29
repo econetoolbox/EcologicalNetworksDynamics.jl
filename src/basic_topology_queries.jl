@@ -48,7 +48,7 @@ export n_live_nutrients
 
 Number of live producers within the topology after simulation.
 See [`topology`](@ref).
-* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+⚠*: Assumes consistent indices from the same model: will be removed in a future version.
 """
 n_live_producers(m::InnerParms; kwargs...) =
     n_live_producers(topology(m; kwargs...), m.producers_indices)
@@ -73,7 +73,7 @@ export n_live_producers
 
 Number of live consumers within the topology after simulation.
 See [`topology`](@ref).
-* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+⚠*: Assumes consistent indices from the same model: will be removed in a future version.
 """
 n_live_consumers(m::InnerParms; kwargs...) =
     n_live_consumers(topology(m; kwargs...), m.consumers_indices)
@@ -98,7 +98,7 @@ export n_live_consumers
 
 Number of live preys within the topology after simulation.
 See [`topology`](@ref).
-* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+⚠*: Assumes consistent indices from the same model: will be removed in a future version.
 """
 n_live_preys(m::InnerParms; kwargs...) =
     n_live_preys(topology(m; kwargs...), m.preys_indices)
@@ -123,10 +123,9 @@ export n_live_preys
 
 Number of live tops within the topology after simulation.
 See [`topology`](@ref).
-* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+⚠*: Assumes consistent indices from the same model: will be removed in a future version.
 """
-n_live_tops(m::InnerParms; kwargs...) =
-    n_live_tops(topology(m; kwargs...), m.tops_indices)
+n_live_tops(m::InnerParms; kwargs...) = n_live_tops(topology(m; kwargs...), m.tops_indices)
 @method n_live_tops depends(Foodweb)
 n_live_tops(sol::Solution, args...) =
     n_live_tops(topology(sol, args...), model(sol).tops_indices)
@@ -215,7 +214,7 @@ export trophic_adjacency
 
 Iterate over relative indices of live producer species after simulation.
 See [`topology`](@ref).
-* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+⚠*: Assumes consistent indices from the same model: will be removed in a future version.
 """
 live_producers(m::InnerParms; kwargs...) =
     live_producers(topology(m; kwargs...), m.producers_indices)
@@ -241,7 +240,7 @@ export live_producers
 
 Iterate over relative indices of live consumer species after simulation.
 See [`topology`](@ref).
-* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+⚠*: Assumes consistent indices from the same model: will be removed in a future version.
 """
 live_consumers(m::InnerParms; kwargs...) =
     live_consumers(topology(m; kwargs...), m.consumers_indices)
@@ -267,10 +266,9 @@ export live_consumers
 
 Iterate over relative indices of live prey species after simulation.
 See [`topology`](@ref).
-* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+⚠*: Assumes consistent indices from the same model: will be removed in a future version.
 """
-live_preys(m::InnerParms; kwargs...) =
-    live_preys(topology(m; kwargs...), m.preys_indices)
+live_preys(m::InnerParms; kwargs...) = live_preys(topology(m; kwargs...), m.preys_indices)
 @method live_preys depends(Foodweb)
 live_preys(sol::Solution, args...) =
     live_preys(topology(sol, args...), model(sol).preys_indices)
@@ -293,10 +291,9 @@ export live_preys
 
 Iterate over relative indices of live top species after simulation.
 See [`topology`](@ref).
-* ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
+⚠*: Assumes consistent indices from the same model: will be removed in a future version.
 """
-live_tops(m::InnerParms; kwargs...) =
-    live_tops(topology(m; kwargs...), m.tops_indices)
+live_tops(m::InnerParms; kwargs...) = live_tops(topology(m; kwargs...), m.tops_indices)
 @method live_tops depends(Foodweb)
 live_tops(sol::Solution, args...) =
     live_tops(topology(sol, args...), model(sol).tops_indices)

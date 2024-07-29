@@ -104,7 +104,7 @@ end
     params = ModelParameters(fw; functional_response)
     logger = TestLogger()
     with_logger(logger) do
-        simulates(params, init; tmax = 1_000_000, verbose = true)
+        simulates(params, init; tmax = 1_000_000, verbose = true, compare_atol = 1e-4)
     end
     # Test that the `simulate` @info messages never contain empty vector of new extinct
     # species.

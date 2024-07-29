@@ -1,6 +1,10 @@
-# Check post-simulation utils.
+module TestPostSimulation
 
+using EcologicalNetworksDynamics
+using Test
 using Random
+import ..Main: @argfails
+
 Random.seed!(12)
 
 @testset "Retrieve model from simulation result." begin
@@ -48,7 +52,7 @@ end
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
     sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties = false)
-    @test keys(extinctions(sol)) == Set([1, 2]) # TODO: why are dates not reproducible?!
+    @test extinctions(sol) == Dict([1 => 256.8040524344076, 2 => 484.0702074171516])
 
 end
 
@@ -99,16 +103,19 @@ end
         This message is meant to attract your attention regarding the meaning of downstream analyses depending on the simulated biomasses values.
         You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
     ) simulate(m, 0.5, 100)
-    @test keys(extinctions(sol)) == Set([3, 4, 5])
+    @test extinctions(sol) ==
+          Dict([3 => 22.565016968038158, 4 => 23.16730328349786, 5 => 61.763749935102005])
 
     # Scroll back in time.
-    @test keys(extinctions(sol, 60)) == Set([3, 4])
-    @test keys(extinctions(sol, 23)) == Set([3])
-    @test keys(extinctions(sol, 20)) == Set([])
+    @test extinctions(sol, 60) == Dict([3 => 22.565016968038158, 4 => 23.16730328349786])
+    @test extinctions(sol, 23) == Dict([3 => 22.565016968038158])
+    @test extinctions(sol, 20) == Dict([])
 
     @argfails(
         extinctions(sol, 150),
         "Invalid date for a simulation in t = [0.0, 100.0]: 150."
     )
+
+end
 
 end
