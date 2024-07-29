@@ -70,19 +70,19 @@ function failswith(src, mod, xp, exception_pattern, expect_expansion_failure)
                Was expecting: $exception_pattern.")
     end
     # Test actual generated code.
-    # TODO: `e` is unhygienic in there and did clash once with 'e'fficiency: fix!
+    @gensym e
     esc(quote
         try
             $code
-        catch e
+        catch $e
             try
                 # Evaluate the exception pattern
                 # in the invocation context, at execution time.
-                $_check_exception($exception_pattern, e)
+                $_check_exception($exception_pattern, $e)
                 $Test.@test true # Count as one for the surrounding @testset.
-            catch e
+            catch $e
                 @error $"The tested code did not fail as expected: $loc"
-                rethrow(e)
+                rethrow($e)
             end
         else
             $error($"Unexpected success at $loc\nWas expecting: $exception_pattern")
