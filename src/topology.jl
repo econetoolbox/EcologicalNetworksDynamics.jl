@@ -2,13 +2,6 @@
 # that are dedicated to topologies extracted from the ecological model,
 # ie. with :species / :trophic compartments *etc.*
 
-# Retrieve underlying model topology.
-@expose_data graph begin
-    property(topology)
-    ref(m -> m._topology)
-    get(m -> deepcopy(m._topology))
-end
-
 # Convenience local aliases.
 const T = Topologies
 const U = Topologies.Unchecked
@@ -16,18 +9,18 @@ const imap = Iterators.map
 const ifilter = Iterators.filter
 
 """
-    topology(model::InnerParms; without_species = [], without_nutrients = [])
-    topology(sol::Solution, date = nothing)
+    get_topology(model::Model; without_species = [], without_nutrients = [])
+    get_topology(sol::Solution, date = nothing)
 
 Extract model topology to study topological consequences of extinctions.
 When called on a static model, nodes can be explicitly removed during extraction.
 When called on a simulation result, extinct nodes are automatically removed
 with extra arguments passed to [`extinctions`](@ref).
 """
-function topology(model::InnerParms; without_species = [], without_nutrients = [])
+function get_topology(model::InnerParms; without_species = [], without_nutrients = [])
     @tographdata! without_species K{:bin}
     @tographdata! without_nutrients K{:bin}
-    g = model.topology
+    g = deepcopy(model._topology)
     removes = []
     if !isempty(without_species)
         check_species(g)
@@ -52,17 +45,17 @@ function topology(model::InnerParms; without_species = [], without_nutrients = [
     end
     g
 end
-@method topology depends() # Okay to query with no compartments.
+@method get_topology depends() read_as(topology)
 
-function topology(sol::Solution, args...)
-    m = model(sol)
+function get_topology(sol::Solution, args...)
+    m = get_model(sol)
     g = m.topology
-    for i in keys(extinctions(sol, args...))
+    for i in keys(get_extinctions(sol, args...))
         T.remove_node!(g, T.Rel(i), :species)
     end
     g
 end
-export topology
+export get_topology
 
 include("./basic_topology_queries.jl")
 
@@ -104,11 +97,11 @@ See [`topology`](@ref).
   - ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
 """
 isolated_producers(m::InnerParms; kwargs...) =
-    isolated_producers(topology(m; kwargs...), m.producers_indices)
+    isolated_producers(get_topology(m; kwargs...), m.producers_indices)
 @method isolated_producers depends(Foodweb)
 
 isolated_producers(sol::Solution, args...) =
-    isolated_producers(topology(sol, args...), model(sol).producers_indices)
+    isolated_producers(get_topology(sol, args...), get_model(sol).producers_indices)
 export isolated_producers
 
 # Unexposed underlying primitive: assumes that indices are consistent within the topology.
@@ -140,12 +133,12 @@ See [`topology`](@ref).
   - ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
 """
 starving_consumers(m::InnerParms; kwargs...) =
-    starving_consumers(topology(m; kwargs...), m.producers_indices, m.consumers_indices)
+    starving_consumers(get_topology(m; kwargs...), m.producers_indices, m.consumers_indices)
 @method starving_consumers depends(Foodweb)
 
 function starving_consumers(sol::Solution, args...)
-    (; producers_indices, consumers_indices) = model(sol)
-    starving_consumers(topology(sol, args...), producers_indices, consumers_indices)
+    (; producers_indices, consumers_indices) = get_model(sol)
+    starving_consumers(get_topology(sol, args...), producers_indices, consumers_indices)
 end
 export starving_consumers
 
@@ -195,8 +188,8 @@ but with different nodes marked as removed to constitute the various components.
 See [`topology`](@ref).
 """
 T.disconnected_components(m::Model; kwargs...) =
-    disconnected_components(topology(m; kwargs...))
+    disconnected_components(get_topology(m; kwargs...))
 T.disconnected_components(sol::Solution, args...) =
-    disconnected_components(topology(sol, args...))
+    disconnected_components(get_topology(sol, args...))
 # Direct re-export from Topologies.
 export disconnected_components

@@ -13,7 +13,7 @@ Random.seed!(12)
     sol = simulate(m, 0.5, 500)
 
     # Retrieve model from the solution obtained.
-    msol = model(sol)
+    msol = get_model(sol)
     @test msol == m
 
     # The value we get is a fresh copy of the state at simulation time.
@@ -28,18 +28,18 @@ Random.seed!(12)
     # Cannot be corrupted afterwards from the retrieved value itself.
     msol.K[:c] = 3
     @test msol.K[:c] == 3 # Okay to work on this one: user owns it.
-    @test model(sol).K[:c] == 1 # Still true.
+    @test get_model(sol).K[:c] == 1 # Still true.
 
 end
 
 @testset "Retrieve correct trajectory indices from simulation results" begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Nutrients.Nodes(2))
-    sol = simulate(m, 0.5, 500; N0 = 0.2)
+    sol = simulate(m, 0.5, 500; N0=0.2)
 
     # Pick correct values within the trajectory.
-    sp = species_indices(sol)
-    nt = nutrients_indices(sol)
+    sp = get_species_indices(sol)
+    nt = get_nutrients_indices(sol)
     @test sp == 1:3
     @test nt == 4:5
     @test sol.u[1][sp] == [0.5, 0.5, 0.5]
@@ -51,8 +51,8 @@ end
 @testset "Retrieve extinct species." begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
-    sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties = false)
-    @test extinctions(sol) == Dict([1 => 256.8040524344076, 2 => 484.0702074171516])
+    sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties=false)
+    @test get_extinctions(sol) == Dict([1 => 256.8040524344076, 2 => 484.0702074171516])
 
 end
 
@@ -66,10 +66,12 @@ end
         The biomass graph at the end of simulation contains degenerated species nodes:
         Connected component with 1 species:
           - /!\\ 1 isolated producer [:c]
-        This message is meant to attract your attention regarding the meaning of downstream analyses depending on the simulated biomasses values.
+        This message is meant to attract your attention \
+        regarding the meaning of downstream analyses \
+        depending on the simulated biomasses values.
         You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
     ) simulate(m, 0.5, 600)
-    top = topology(sol)
+    top = get_topology(sol)
 
     # Only the producer remains in there.
     @test collect(live_species(top)) == [3]
@@ -100,19 +102,22 @@ end
         Connected component with 2 species:
           - 1 producer [:h]
           - 1 consumer [:g]
-        This message is meant to attract your attention regarding the meaning of downstream analyses depending on the simulated biomasses values.
+        This message is meant to attract your attention \
+        regarding the meaning of downstream analyses \
+        depending on the simulated biomasses values.
         You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
     ) simulate(m, 0.5, 100)
-    @test extinctions(sol) ==
+    @test get_extinctions(sol) ==
           Dict([3 => 22.565016968038158, 4 => 23.16730328349786, 5 => 61.763749935102005])
 
     # Scroll back in time.
-    @test extinctions(sol, 60) == Dict([3 => 22.565016968038158, 4 => 23.16730328349786])
-    @test extinctions(sol, 23) == Dict([3 => 22.565016968038158])
-    @test extinctions(sol, 20) == Dict([])
+    @test get_extinctions(sol, 60) ==
+          Dict([3 => 22.565016968038158, 4 => 23.16730328349786])
+    @test get_extinctions(sol, 23) == Dict([3 => 22.565016968038158])
+    @test get_extinctions(sol, 20) == Dict([])
 
     @argfails(
-        extinctions(sol, 150),
+        get_extinctions(sol, 150),
         "Invalid date for a simulation in t = [0.0, 100.0]: 150."
     )
 

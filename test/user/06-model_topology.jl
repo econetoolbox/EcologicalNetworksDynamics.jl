@@ -16,7 +16,7 @@ using Random
     @test n_live_species(g) == 7
     @test n_live_nutrients(g) == 2
 
-    g = topology(m; without_species = [:c, :f], without_nutrients = [:n1])
+    g = get_topology(m; without_species = [:c, :f], without_nutrients = [:n1])
     @test n_live_species(g) == 5
     @test n_live_nutrients(g) == 1
 
@@ -89,7 +89,7 @@ end
 
     # Removing species changes the situation.
     mask = [name in "cg" for name in "abcdefgh"]
-    g = topology(m; without_species = mask)
+    g = get_topology(m; without_species = mask)
 
     # Now there are three disconnected components.
     u, v, w = check_components(g, 3)

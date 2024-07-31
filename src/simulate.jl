@@ -43,7 +43,7 @@ function _simulate(model::InnerParms, u0, tmax::Number; kwargs...)
 
     deg_top && show_degenerated_biomass_graph_properties(
         model,
-        out.u[end][species_indices(out)],
+        out.u[end][get_species_indices(out)],
         deg_top_arg,
     )
 
@@ -90,7 +90,7 @@ export extinction_callback
 
 # Collect topology diagnostics after simulation and decide whether to display them or not.
 function show_degenerated_biomass_graph_properties(model::InnerParms, biomass, arg)
-    g = topology(model; without_species = biomass .<= 0.0)
+    g = get_topology(model; without_species = biomass .<= 0.0)
     diagnostics = []
     # Consume iterator to return lengths without collecting allocated yielded values.
     function count(it)
