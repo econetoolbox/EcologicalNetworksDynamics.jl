@@ -47,10 +47,10 @@ function get_topology(model::InnerParms; without_species = [], without_nutrients
 end
 @method get_topology depends() read_as(topology)
 
-function get_topology(sol::Solution, args...)
+function get_topology(sol::Solution; kwargs...)
     m = get_model(sol)
     g = m.topology
-    for i in keys(get_extinctions(sol, args...))
+    for i in keys(get_extinctions(sol; kwargs...))
         T.remove_node!(g, T.Rel(i), :species)
     end
     g
@@ -86,7 +86,7 @@ export remove_species!
 
 """
     isolated_producers(m::Model; kwargs...)
-    isolated_producers(sol::Solution, args...)
+    isolated_producers(sol::Solution; kwargs...)
     isolated_producers(g::Topology, producers_indices) ⚠*
 
 Iterate over isolated producers nodes,
@@ -100,8 +100,8 @@ isolated_producers(m::InnerParms; kwargs...) =
     isolated_producers(get_topology(m; kwargs...), m.producers_indices)
 @method isolated_producers depends(Foodweb)
 
-isolated_producers(sol::Solution, args...) =
-    isolated_producers(get_topology(sol, args...), get_model(sol).producers_indices)
+isolated_producers(sol::Solution; kwargs...) =
+    isolated_producers(get_topology(sol; kwargs...), get_model(sol).producers_indices)
 export isolated_producers
 
 # Unexposed underlying primitive: assumes that indices are consistent within the topology.
@@ -121,7 +121,7 @@ end
 
 """
     starving_consumers(m::Model; kwargs...)
-    starving_consumers(sol::Solution, args...)
+    starving_consumers(sol::Solution; kwargs...)
     starving_consumers(g::Topology, producers_indices, consumers_indices) ⚠*
 
 Iterate over starving consumers nodes,
@@ -136,9 +136,9 @@ starving_consumers(m::InnerParms; kwargs...) =
     starving_consumers(get_topology(m; kwargs...), m.producers_indices, m.consumers_indices)
 @method starving_consumers depends(Foodweb)
 
-function starving_consumers(sol::Solution, args...)
+function starving_consumers(sol::Solution; kwargs...)
     (; producers_indices, consumers_indices) = get_model(sol)
-    starving_consumers(get_topology(sol, args...), producers_indices, consumers_indices)
+    starving_consumers(get_topology(sol; kwargs...), producers_indices, consumers_indices)
 end
 export starving_consumers
 
@@ -178,7 +178,7 @@ end
 
 """
     disconnected_components(m::Model; kwargs...)
-    disconnected_components(sol::Model, args...)
+    disconnected_components(sol::Model; kwargs...)
     disconnected_components(g::Topology)
 
 Iterate over the disconnected component within the topology.
@@ -189,7 +189,7 @@ See [`topology`](@ref).
 """
 T.disconnected_components(m::Model; kwargs...) =
     disconnected_components(get_topology(m; kwargs...))
-T.disconnected_components(sol::Solution, args...) =
-    disconnected_components(get_topology(sol, args...))
+T.disconnected_components(sol::Solution; kwargs...) =
+    disconnected_components(get_topology(sol; kwargs...))
 # Direct re-export from Topologies.
 export disconnected_components

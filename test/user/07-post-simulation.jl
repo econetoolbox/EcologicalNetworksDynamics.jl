@@ -35,7 +35,7 @@ end
 @testset "Retrieve correct trajectory indices from simulation results" begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Nutrients.Nodes(2))
-    sol = simulate(m, 0.5, 500; N0=0.2)
+    sol = simulate(m, 0.5, 500; N0 = 0.2)
 
     # Pick correct values within the trajectory.
     sp = get_species_indices(sol)
@@ -51,7 +51,7 @@ end
 @testset "Retrieve extinct species." begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
-    sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties=false)
+    sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties = false)
     @test get_extinctions(sol) == Dict([1 => 256.8040524344076, 2 => 484.0702074171516])
 
 end
@@ -111,13 +111,13 @@ end
           Dict([3 => 22.565016968038158, 4 => 23.16730328349786, 5 => 61.763749935102005])
 
     # Scroll back in time.
-    @test get_extinctions(sol, 60) ==
+    @test get_extinctions(sol; date = 60) ==
           Dict([3 => 22.565016968038158, 4 => 23.16730328349786])
-    @test get_extinctions(sol, 23) == Dict([3 => 22.565016968038158])
-    @test get_extinctions(sol, 20) == Dict([])
+    @test get_extinctions(sol; date = 23) == Dict([3 => 22.565016968038158])
+    @test get_extinctions(sol; date = 20) == Dict([])
 
     @argfails(
-        get_extinctions(sol, 150),
+        get_extinctions(sol; date = 150),
         "Invalid date for a simulation in t = [0.0, 100.0]: 150."
     )
 

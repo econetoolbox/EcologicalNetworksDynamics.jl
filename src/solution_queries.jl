@@ -41,14 +41,14 @@ export get_nutrients_indices
 # Extinctions and their effects on topology.
 
 """
-    get_extinctions(sol::Solution, date = nothing)
+    get_extinctions(sol::Solution; date = nothing)
 
 Extract list of extinct species indices and their extinction dates
 from the solution returned by `simulate()`.
 If a simulation date is provided,
 restrict to the list of species extinct in the simulation at this date.
 """
-function get_extinctions(sol::Solution, date::Option{Number} = nothing)
+function get_extinctions(sol::Solution; date::Option{Number} = nothing)
     if isnothing(date)
         date = Inf
     else
