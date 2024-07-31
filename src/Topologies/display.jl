@@ -72,7 +72,7 @@ function Base.show(io::IO, ::MIME"text/plain", g::Topology)
         )
         last = nothing # Save last in case we use vertical elision.
         i = 0
-        for (i_source, _neighbours) in U._outgoing_edges_indices(g, i_type)
+        for (i_source, _neighbours) in U._outgoing_adjacency(g, i_type)
             i += 1
             isempty(_neighbours) && continue
             source = U.node_label(g, Abs(i_source))

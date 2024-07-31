@@ -246,6 +246,114 @@ end
 export remove_node!
 
 #-------------------------------------------------------------------------------------------
+"""
+    adjacency_matrix(
+        g::Topology,
+        source::Symbol,
+        edge::Symbol,
+        target::Symbol,
+        transpose = false,
+        prune = false,
+    )
+
+Construct a sparse binary matrix representing a restriction of the topology
+to the given source/target nodes compartment and the given edge compartment.
+The result entry `[i, j]` is true if edge i → j exist (outgoing matrix).
+If `transpose` is set, the entry is true if edge `j → i` exists instead (incoming matrix).
+Entries are false if either `i` or `j` has been removed from the topology.
+If `prune` is set, remove line/columns corresponding removed nodes.
+"""
+function adjacency_matrix(
+    g::Topology,
+    source::Symbol,
+    edge::Symbol,
+    target::Symbol;
+    transpose = false,
+    prune = true,
+)
+    check_node_type(g, source)
+    check_node_type(g, target)
+    check_edge_type(g, edge)
+    si = U.node_type_index(g, source)
+    ti = U.node_type_index(g, target)
+    ei = U.edge_type_index(g, edge)
+    if prune
+        pruned_adjacency_matrix(g, si, ei, ti, transpose)
+    else
+        full_adjacency_matrix(g, si, ei, ti, transpose)
+    end
+end
+export adjacency_matrix
+
+function full_adjacency_matrix(g::Topology, s::Int, e::Int, t::Int, transpose::Bool)
+    # Query result dimensions.
+    n_source = U.n_nodes_including_removed(g, s)
+    n_target = U.n_nodes_including_removed(g, t)
+    # Permute on transposition.
+    (line, col) = transpose ? (t, s) : (s, t)
+    n, m = transpose ? (n_target, n_source) : (n_source, n_target)
+    it = transpose ? U.incoming_adjacency(g, s, e, t) : U.outgoing_adjacency(g, s, e, t)
+    # Construct matrix.
+    res = spzeros(Bool, n, m)
+    for (iabs, neighbours) in it
+        i = U.node_rel_index(g, iabs, line).rel
+        for jabs in neighbours
+            j = U.node_rel_index(g, jabs, col).rel
+            res[i, j] = true
+        end
+    end
+    res
+end
+
+function pruned_adjacency_matrix(g::Topology, s::Int, e::Int, t::Int, transpose::Bool)
+    # Watch the mapping from "pre-indices" (before pruning) / "post-indices" (after pruning).
+    pre_n_source = U.n_nodes_including_removed(g, s)
+    pre_n_target = U.n_nodes_including_removed(g, t)
+    post_n_source = U.n_nodes(g, s) # (only live nodes)
+    post_n_target = U.n_nodes(g, t)
+
+    if (pre_n_source, pre_n_target) == (post_n_source, post_n_target)
+        return full_adjacency_matrix(g, s, e, t, transpose) # (simpler algorithm)
+    end
+
+    # Permute on transposition.
+    (line, col) = transpose ? (t, s) : (s, t)
+    prn, prm = transpose ? (pre_n_target, pre_n_source) : (pre_n_source, pre_n_target)
+    n, m = transpose ? (post_n_target, post_n_source) : (post_n_source, post_n_target)
+
+    # One pass nodes to prepare a pre -> index mapping.
+    (i_map, j_map) = map([(prn, line), (prm, col)]) do (prn, type)
+        map = []
+        skips = 0
+        for i_pre in 1:prn
+            abs = U.node_abs_index(g, Rel(i_pre), type)
+            i_post = if U.is_removed(g, abs)
+                skips += 1
+                0
+            else
+                i_pre - skips
+            end
+            push!(map, i_post)
+        end
+        map
+    end
+
+    # One pass over the edges to fill up the result.
+    res = spzeros(Bool, n, m)
+    it = transpose ? U.incoming_adjacency(g, s, e, t) : U.outgoing_adjacency(g, s, e, t)
+    for (iabs, neighbours) in it
+        pre_i = U.node_rel_index(g, iabs, line).rel
+        i = i_map[pre_i]
+        for jabs in neighbours
+            pre_j = U.node_rel_index(g, jabs, col).rel
+            j = j_map[pre_j]
+            res[i, j] = true
+        end
+    end
+    res
+end
+
+#-------------------------------------------------------------------------------------------
 # Iterate over disconnected components within the topology.
 # Every component is yielded as a separate new topology,
 # with tombstones in the right places.

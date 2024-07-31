@@ -200,7 +200,7 @@ See [`topology`](@ref).
 function trophic_adjacency(g::Topology)
     check_species(g)
     check_trophic(g)
-    U.outgoing_edges_labels(g, :trophic, :species)
+    U.outgoing_adjacency_labels(g, :species, :trophic, :species)
 end
 trophic_adjacency(m::InnerParms; kwargs...) = trophic_adjacency(get_topology(m; kwargs...))
 @method trophic_adjacency depends(Foodweb)

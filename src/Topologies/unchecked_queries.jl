@@ -133,7 +133,7 @@ incoming_labels(g::G, node::AbsRef) =
 
 # Filter adjacency iterators given one particular edge type.
 # Also return twolevel iterators: focal node, then its neighbours.
-function _outgoing_edges_indices(g::G, edge_type::IRef)
+function _outgoing_adjacency(g::G, edge_type::IRef)
     i_type = edge_type_index(g, edge_type)
     imap(ifilter(enumerate(g.outgoing)) do (_, node)
         !(node isa Tombstone)
@@ -141,7 +141,7 @@ function _outgoing_edges_indices(g::G, edge_type::IRef)
         (i, _neighbours[i_type])
     end
 end
-function _incoming_edges_indices(g::G, edge_type::IRef)
+function _incoming_adjacency(g::G, edge_type::IRef)
     i_type = edge_type_index(g, edge_type)
     imap(ifilter(enumerate(g.incoming)) do (_, node)
         !(node isa Tombstone)
@@ -149,48 +149,54 @@ function _incoming_edges_indices(g::G, edge_type::IRef)
         (i, _neighbours[i_type])
     end
 end
-outgoing_edges_indices(g::G, edge_type::IRef) =
-    imap(_outgoing_edges_indices(g, edge_type)) do (i_node, _neighbours)
+outgoing_adjacency(g::G, edge_type::IRef) =
+    imap(_outgoing_adjacency(g, edge_type)) do (i_node, _neighbours)
         (Abs(i_node), imap(Abs, _neighbours))
     end
-incoming_edges_indices(g::G, edge_type::IRef) =
-    imap(_incoming_edges_indices(g, edge_type)) do (i_node, _neighbours)
+incoming_adjacency(g::G, edge_type::IRef) =
+    imap(_incoming_adjacency(g, edge_type)) do (i_node, _neighbours)
         (Abs(i_node), imap(Abs, _neighbours))
     end
-outgoing_edges_labels(g::G, edge_type::IRef) =
-    imap(_outgoing_edges_indices(g, edge_type)) do (i_node, _neighbours)
+outgoing_adjacency_labels(g::G, edge_type::IRef) =
+    imap(_outgoing_adjacency(g, edge_type)) do (i_node, _neighbours)
         (node_label(g, i_node), imap(i -> node_label(g, i), _neighbours))
     end
 incoming_edges_labels(g::G, edge_type::IRef) =
-    imap(_incoming_edges_indices(g, edge_type)) do (i_node, _neighbours)
+    imap(_incoming_adjacency(g, edge_type)) do (i_node, _neighbours)
         (node_label(g, i_node), imap(i -> node_label(g, i), _neighbours))
     end
 
-# Same, but filters for one particular node type.
-function outgoing_edges_indices(g::G, edge_type::IRef, node_type::IRef)
+# Same, but query particular end nodes types.
+function outgoing_adjacency(g::G, source_type::IRef, edge_type::IRef, target_type::IRef)
     i_et = edge_type_index(g, edge_type)
-    range = _nodes_abs_range(g, node_type)
-    imap(ifilter(zip(range, g.outgoing[range])) do (_, node)
-        !(node isa Tombstone)
-    end) do (i_node, _neighbours)
-        (Abs(i_node), imap(Abs, ifilter(in(range), _neighbours[i_et])))
+    src_range = _nodes_abs_range(g, source_type)
+    tgt_range = _nodes_abs_range(g, target_type)
+    imap(
+        ifilter(zip(src_range, g.outgoing[src_range])) do (_, node)
+            !(node isa Tombstone)
+        end,
+    ) do (i_node, _neighbours)
+        (Abs(i_node), imap(Abs, ifilter(in(tgt_range), _neighbours[i_et])))
     end
 end
-function incoming_edges_indices(g::G, edge_type::IRef, node_type::IRef)
+function incoming_adjacency(g::G, source_type::IRef, edge_type::IRef, target_type::IRef)
     i_et = edge_type_index(g, edge_type)
-    range = _nodes_abs_range(g, node_type)
-    imap(ifilter(zip(range, g.incoming[range])) do (_, node)
-        !(node isa Tombstone)
-    end) do (i_node, _neighbours)
-        (Abs(i_node), imap(Abs, ifilter(in(range), _neighbours[i_et])))
+    src_range = _nodes_abs_range(g, source_type)
+    tgt_range = _nodes_abs_range(g, target_type)
+    imap(
+        ifilter(zip(tgt_range, g.incoming[tgt_range])) do (_, node)
+            !(node isa Tombstone)
+        end,
+    ) do (i_node, _neighbours)
+        (Abs(i_node), imap(Abs, ifilter(in(src_range), _neighbours[i_et])))
     end
 end
-outgoing_edges_labels(g::G, edge_type::IRef, node_type::IRef) =
-    imap(outgoing_edges_indices(g, edge_type, node_type)) do (i_node, neighbours)
+outgoing_adjacency_labels(g::G, source_type::IRef, edge_type::IRef, target_type::IRef) =
+    imap(outgoing_adjacency(g, source_type, edge_type, target_type)) do (i_node, neighbours)
         (node_label(g, i_node), imap(i -> node_label(g, i), neighbours))
     end
-incoming_edges_labels(g::G, edge_type::IRef, node_type::IRef) =
-    imap(incoming_edges_indices(g, edge_type, node_type)) do (i_node, neighbours)
+incoming_adjacency_labels(g::G, source_type::IRef, edge_type::IRef, target_type::IRef) =
+    imap(incoming_adjacency(g, source_type, edge_type, target_type)) do (i_node, neighbours)
         (node_label(g, i_node), imap(i -> node_label(g, i), neighbours))
     end
 

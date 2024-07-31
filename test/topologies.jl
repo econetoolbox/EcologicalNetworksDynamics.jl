@@ -12,7 +12,7 @@ function check_display(top, short, long)
     @test String(take!(io)) == long
 end
 
-@testset "Topology construction/edition primitives" begin
+@testset "Topology primitives" begin
 
     top = Topology()
     add_nodes!(top, Symbol.(collect("abcd")), :species)
@@ -21,6 +21,7 @@ end
     add_edge_type!(top, :mutualism)
     add_edge_type!(top, :interference)
     add_edge!(top, :trophic, :a, :b)
+    add_edge!(top, :trophic, :a, :c)
     add_edge!(top, :trophic, :c, :b)
     add_edge!(top, :trophic, :b, :d)
     add_edge!(top, :trophic, :d, :u)
@@ -30,14 +31,14 @@ end
 
     #! format: off
     check_display(top,
-       "Topology(2 node types, 3 edge types, 6 nodes, 7 edges)",
-    raw"Topology for 2 node types and 3 edge types with 6 nodes and 7 edges:
+       "Topology(2 node types, 3 edge types, 6 nodes, 8 edges)",
+    raw"Topology for 2 node types and 3 edge types with 6 nodes and 8 edges:
   Nodes:
     :species => [:a, :b, :c, :d]
     :nutrients => [:u, :v]
   Edges:
     :trophic
-      :a => [:b]
+      :a => [:b, :c]
       :b => [:d, :v]
       :c => [:b]
       :d => [:u]
@@ -48,18 +49,68 @@ end
     )
     #! format: on
 
-    u = deepcopy(top)
-    remove_node!(u, :b)
+    # Extract binary matrices:
+    @test adjacency_matrix(top, :species, :trophic, :species) == Bool[
+        0 1 1 0
+        0 0 0 1
+        0 1 0 0
+        0 0 0 0
+    ]
+    @test adjacency_matrix(top, :species, :mutualism, :species) == Bool[
+        0 0 0 1
+        0 0 0 0
+        0 0 0 0
+        0 0 0 0
+    ]
+    @test adjacency_matrix(top, :species, :trophic, :nutrients) == Bool[
+        0 0
+        0 1
+        0 0
+        1 0
+    ]
+    @test adjacency_matrix(top, :nutrients, :trophic, :species) == Bool[
+        0 0 0 0
+        0 0 0 0
+    ]
+
+    # Transposed version.
+    transpose = true
+    @test adjacency_matrix(top, :species, :trophic, :species; transpose) == Bool[
+        0 0 0 0
+        1 0 1 0
+        1 0 0 0
+        0 1 0 0
+    ]
+    @test adjacency_matrix(top, :species, :mutualism, :species; transpose) == Bool[
+        0 0 0 0
+        0 0 0 0
+        0 0 0 0
+        1 0 0 0
+    ]
+    @test adjacency_matrix(top, :species, :trophic, :nutrients; transpose) == Bool[
+        0 0 0 1
+        0 1 0 0
+    ]
+    @test adjacency_matrix(top, :nutrients, :trophic, :species; transpose) == Bool[
+        0 0
+        0 0
+        0 0
+        0 0
+    ]
+
+    g = deepcopy(top)
+    remove_node!(g, :b)
 
     #! format: off
-    check_display(u,
-       "Topology(2 node types, 3 edge types, 5 nodes, 3 edges)",
-    raw"Topology for 2 node types and 3 edge types with 5 nodes and 3 edges:
+    check_display(g,
+       "Topology(2 node types, 3 edge types, 5 nodes, 4 edges)",
+    raw"Topology for 2 node types and 3 edge types with 5 nodes and 4 edges:
   Nodes:
     :species => [:a, :c, :d]  <removed: [:b]>
     :nutrients => [:u, :v]
   Edges:
     :trophic
+      :a => [:c]
       :d => [:u]
     :mutualism
       :a => [:d]
@@ -68,10 +119,107 @@ end
     )
     #! format: on
 
+    # Pruned adjacency matrices.
+    @test adjacency_matrix(g, :species, :trophic, :species) == Bool[
+        0 1 0
+        0 0 0
+        0 0 0
+    ]
+    @test adjacency_matrix(g, :species, :mutualism, :species) == Bool[
+        0 0 1
+        0 0 0
+        0 0 0
+    ]
+    @test adjacency_matrix(g, :species, :trophic, :nutrients) == Bool[
+        0 0
+        0 0
+        1 0
+    ]
+    @test adjacency_matrix(g, :nutrients, :trophic, :species) == Bool[
+        0 0 0
+        0 0 0
+    ]
+
+    # Transposed + pruned.
+    transpose = true
+    @test adjacency_matrix(g, :species, :trophic, :species; transpose) == Bool[
+        0 0 0
+        1 0 0
+        0 0 0
+    ]
+    @test adjacency_matrix(g, :species, :mutualism, :species; transpose) == Bool[
+        0 0 0
+        0 0 0
+        1 0 0
+    ]
+    @test adjacency_matrix(g, :species, :trophic, :nutrients; transpose) == Bool[
+        0 0 1
+        0 0 0
+    ]
+    @test adjacency_matrix(g, :nutrients, :trophic, :species; transpose) == Bool[
+        0 0
+        0 0
+        0 0
+    ]
+
+    # Request full matrix anyway.
+    @test adjacency_matrix(g, :species, :trophic, :species; prune = false) == Bool[
+        0 0 1 0
+        0 0 0 0
+        0 0 0 0
+        0 0 0 0
+    ]
+    @test adjacency_matrix(g, :species, :mutualism, :species; prune = false) == Bool[
+        0 0 0 1
+        0 0 0 0
+        0 0 0 0
+        0 0 0 0
+    ]
+    @test adjacency_matrix(g, :species, :trophic, :nutrients; prune = false) == Bool[
+        0 0
+        0 0
+        0 0
+        1 0
+    ]
+    @test adjacency_matrix(g, :nutrients, :trophic, :species; prune = false) == Bool[
+        0 0 0 0
+        0 0 0 0
+    ]
+
+    # Transposed version.
+    transpose = true
+    @test adjacency_matrix(g, :species, :trophic, :species; prune = false, transpose) ==
+          Bool[
+        0 0 0 0
+        0 0 0 0
+        1 0 0 0
+        0 0 0 0
+    ]
+    @test adjacency_matrix(g, :species, :mutualism, :species; prune = false, transpose) ==
+          Bool[
+        0 0 0 0
+        0 0 0 0
+        0 0 0 0
+        1 0 0 0
+    ]
+    @test adjacency_matrix(g, :species, :trophic, :nutrients; prune = false, transpose) ==
+          Bool[
+        0 0 0 1
+        0 0 0 0
+    ]
+    @test adjacency_matrix(g, :nutrients, :trophic, :species; prune = false, transpose) ==
+          Bool[
+        0 0
+        0 0
+        0 0
+        0 0
+    ]
+
+
     # Optionally provide node type so it's not searched.
-    v = deepcopy(top)
-    remove_node!(v, :b, :species)
-    @test u == v
+    h = deepcopy(top)
+    remove_node!(h, :b, :species)
+    @test g == h
 
     # Input guards.
     @argfails(
@@ -109,7 +257,7 @@ end
          Valid labels are :a, :b, :c, :d, :u and :v."
     )
     @argfails(
-        add_edge!(u, :trophic, :a, :b),
+        add_edge!(g, :trophic, :a, :b),
         "Node :b has been removed \
          from this topology."
     )
@@ -118,18 +266,18 @@ end
         "There is already an edge of type :trophic between nodes :a and :b."
     )
     @argfails(
-        remove_node!(u, :x),
+        remove_node!(g, :x),
         "Invalid node label: :x. \
          Valid labels are :a, :b, :c, :d, :u and :v.",
     )
     @argfails(
-        remove_node!(u, :a, :x),
+        remove_node!(g, :a, :x),
         "Invalid node type label: :x. \
          Valid labels are :nutrients and :species.",
     )
-    @argfails(remove_node!(u, :b), "Node :b was already removed from this topology.")
+    @argfails(remove_node!(g, :b), "Node :b was already removed from this topology.")
     @argfails(
-        remove_node!(u, :b, :species),
+        remove_node!(g, :b, :species),
         "Node :b was already removed \
          from this topology."
     )
@@ -145,19 +293,19 @@ end
     #---------------------------------------------------------------------------------------
     # Within a node compartment.
 
-    w = add_edges_within_node_type!(
-        deepcopy(u),
+    f = add_edges_within_node_type!(
+        deepcopy(g),
         :species,
         :trophic,
         Bool[
-            0 0 1 1
+            0 0 0 1
             0 0 0 0
             1 0 0 0
             0 0 1 0
         ],
     )
     #! format: off
-    check_display(w,
+    check_display(f,
        "Topology(2 node types, 3 edge types, 5 nodes, 7 edges)",
     raw"Topology for 2 node types and 3 edge types with 5 nodes and 7 edges:
   Nodes:
@@ -176,8 +324,8 @@ end
     #! format: on
 
     # Node indices are correctly offset based on their types.
-    w = add_edges_within_node_type!(
-        deepcopy(u),
+    f = add_edges_within_node_type!(
+        deepcopy(g),
         :nutrients,
         :mutualism, # (say)
         Bool[
@@ -186,14 +334,15 @@ end
         ],
     )
     #! format: off
-    check_display(w,
-       "Topology(2 node types, 3 edge types, 5 nodes, 4 edges)",
-    raw"Topology for 2 node types and 3 edge types with 5 nodes and 4 edges:
+    check_display(f,
+       "Topology(2 node types, 3 edge types, 5 nodes, 5 edges)",
+    raw"Topology for 2 node types and 3 edge types with 5 nodes and 5 edges:
   Nodes:
     :species => [:a, :c, :d]  <removed: [:b]>
     :nutrients => [:u, :v]
   Edges:
     :trophic
+      :a => [:c]
       :d => [:u]
     :mutualism
       :a => [:d]
@@ -205,18 +354,18 @@ end
     #! format: on
 
     @argfails(
-        add_edges_within_node_type!(deepcopy(u), :x, :trophic, e),
+        add_edges_within_node_type!(deepcopy(g), :x, :trophic, e),
         "Invalid node type label: :x. Valid labels are :nutrients and :species."
     )
 
     @argfails(
-        add_edges_within_node_type!(deepcopy(u), :species, :x, e),
+        add_edges_within_node_type!(deepcopy(g), :species, :x, e),
         "Invalid edge type label: :x. \
          Valid labels are :interference, :mutualism and :trophic."
     )
 
     @argfails(
-        add_edges_within_node_type!(deepcopy(u), :species, :trophic, e),
+        add_edges_within_node_type!(deepcopy(g), :species, :trophic, e),
         "The given edges matrix should be of size (4, 4) \
          because there are 4 nodes of type :species. \
          Received instead: (0, 0)."
@@ -224,7 +373,7 @@ end
 
     @argfails(
         add_edges_within_node_type!(
-            deepcopy(u),
+            deepcopy(g),
             :species,
             :trophic,
             Bool[
@@ -239,10 +388,10 @@ end
     )
 
     # Watch offset.
-    w = remove_node!(deepcopy(u), :u, :nutrients)
+    f = remove_node!(deepcopy(g), :u, :nutrients)
     @argfails(
         add_edges_within_node_type!(
-            w,
+            f,
             :nutrients,
             :trophic,
             Bool[
@@ -257,7 +406,7 @@ end
 
     @argfails(
         add_edges_within_node_type!(
-            deepcopy(u),
+            deepcopy(g),
             :species,
             :mutualism,
             Bool[
@@ -273,10 +422,10 @@ end
     )
 
     # Watch offset.
-    w = add_edge!(deepcopy(u), :mutualism, :u, :v)
+    f = add_edge!(deepcopy(g), :mutualism, :u, :v)
     @argfails(
         add_edges_within_node_type!(
-            w,
+            f,
             :nutrients,
             :mutualism,
             Bool[
@@ -292,8 +441,8 @@ end
     #---------------------------------------------------------------------------------------
     # Accross node compartments.
 
-    w = add_edges_accross_node_types!(
-        deepcopy(u),
+    f = add_edges_accross_node_types!(
+        deepcopy(g),
         :species,
         :nutrients,
         :trophic,
@@ -305,15 +454,15 @@ end
         ],
     )
     #! format: off
-    check_display(w,
-       "Topology(2 node types, 3 edge types, 5 nodes, 5 edges)",
-    raw"Topology for 2 node types and 3 edge types with 5 nodes and 5 edges:
+    check_display(f,
+       "Topology(2 node types, 3 edge types, 5 nodes, 6 edges)",
+    raw"Topology for 2 node types and 3 edge types with 5 nodes and 6 edges:
   Nodes:
     :species => [:a, :c, :d]  <removed: [:b]>
     :nutrients => [:u, :v]
   Edges:
     :trophic
-      :a => [:v]
+      :a => [:c, :v]
       :c => [:u]
       :d => [:u]
     :mutualism
@@ -325,29 +474,29 @@ end
     #! format: on
 
     @argfails(
-        add_edges_accross_node_types!(deepcopy(u), :x, :nutrients, :trophic, e),
+        add_edges_accross_node_types!(deepcopy(g), :x, :nutrients, :trophic, e),
         "Invalid node type label: :x. Valid labels are :nutrients and :species."
     )
 
     @argfails(
-        add_edges_accross_node_types!(deepcopy(u), :species, :x, :trophic, e),
+        add_edges_accross_node_types!(deepcopy(g), :species, :x, :trophic, e),
         "Invalid node type label: :x. Valid labels are :nutrients and :species."
     )
 
     @argfails(
-        add_edges_accross_node_types!(deepcopy(u), :species, :nutrients, :x, e),
+        add_edges_accross_node_types!(deepcopy(g), :species, :nutrients, :x, e),
         "Invalid edge type label: :x. \
          Valid labels are :interference, :mutualism and :trophic."
     )
 
     @argfails(
-        add_edges_accross_node_types!(deepcopy(u), :species, :species, :trophic, e),
+        add_edges_accross_node_types!(deepcopy(g), :species, :species, :trophic, e),
         "Source node types and target node types are the same (:species). \
          Use $add_edges_within_node_type! method instead."
     )
 
     @argfails(
-        add_edges_accross_node_types!(deepcopy(u), :species, :nutrients, :trophic, e),
+        add_edges_accross_node_types!(deepcopy(g), :species, :nutrients, :trophic, e),
         "The given edges matrix should be of size (4, 2) \
          because there are 4 nodes of type :species \
          and 2 nodes of type :nutrients. Received instead: (0, 0)."
@@ -356,7 +505,7 @@ end
     # Missing source node.
     @argfails(
         add_edges_accross_node_types!(
-            deepcopy(u),
+            deepcopy(g),
             :species,
             :nutrients,
             :trophic,
@@ -372,10 +521,10 @@ end
     )
 
     # Missing target node.
-    w = remove_node!(deepcopy(u), :u, :nutrients)
+    f = remove_node!(deepcopy(g), :u, :nutrients)
     @argfails(
         add_edges_accross_node_types!(
-            w,
+            f,
             :species,
             :nutrients,
             :trophic,
@@ -393,7 +542,7 @@ end
 
     @argfails(
         add_edges_accross_node_types!(
-            deepcopy(u),
+            deepcopy(g),
             :species,
             :nutrients,
             :trophic,
@@ -457,6 +606,114 @@ end
       :c => [:v]",
     )
     #! format: on
+
+    # Check adjacency matrices on separate components. - - - - - - - - - - - - - - - - - - -
+    @test adjacency_matrix(top, :species, :trophic, :species) == Bool[
+        0 1 0 0
+        0 0 0 0
+        0 0 0 1
+        0 0 0 0
+    ]
+    @test adjacency_matrix(top, :species, :trophic, :nutrients) == Bool[
+        0 0
+        1 0
+        0 0
+        0 1
+    ]
+    @test adjacency_matrix(x, :species, :trophic, :species) == Bool[
+        0 1
+        0 0
+    ]
+    @test adjacency_matrix(y, :species, :trophic, :species) == Bool[
+        0 1
+        0 0
+    ]
+    #! format: off
+    @test adjacency_matrix(x, :species, :trophic, :nutrients) == Bool[
+        0
+        1;;
+    ]
+    @test adjacency_matrix(y, :species, :trophic, :nutrients) == Bool[
+        0
+        1;;
+    ]
+    #! format: on
+
+    transpose = true # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    @test adjacency_matrix(top, :species, :trophic, :species; transpose) == Bool[
+        0 0 0 0
+        1 0 0 0
+        0 0 0 0
+        0 0 1 0
+    ]
+    @test adjacency_matrix(top, :species, :trophic, :nutrients; transpose) == Bool[
+        0 1 0 0
+        0 0 0 1
+    ]
+    @test adjacency_matrix(x, :species, :trophic, :species; transpose) == Bool[
+        0 0
+        1 0
+    ]
+    @test adjacency_matrix(y, :species, :trophic, :species; transpose) == Bool[
+        0 0
+        1 0
+    ]
+    @test adjacency_matrix(x, :species, :trophic, :nutrients; transpose) == Bool[0 1]
+    @test adjacency_matrix(y, :species, :trophic, :nutrients; transpose) == Bool[0 1]
+
+    # Without pruning. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    @test adjacency_matrix(x, :species, :trophic, :species; prune = false) == Bool[
+        0 1 0 0
+        0 0 0 0
+        0 0 0 0
+        0 0 0 0
+    ]
+    @test adjacency_matrix(y, :species, :trophic, :species; prune = false) == Bool[
+        0 0 0 0
+        0 0 0 0
+        0 0 0 1
+        0 0 0 0
+    ]
+    @test adjacency_matrix(x, :species, :trophic, :nutrients; prune = false) == Bool[
+        0 0
+        1 0
+        0 0
+        0 0
+    ]
+    @test adjacency_matrix(y, :species, :trophic, :nutrients; prune = false) == Bool[
+        0 0
+        0 0
+        0 0
+        0 1
+    ]
+
+    transpose = true # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    @test adjacency_matrix(x, :species, :trophic, :species; transpose, prune = false) ==
+          Bool[
+        0 0 0 0
+        1 0 0 0
+        0 0 0 0
+        0 0 0 0
+    ]
+    @test adjacency_matrix(y, :species, :trophic, :species; transpose, prune = false) ==
+          Bool[
+        0 0 0 0
+        0 0 0 0
+        0 0 0 0
+        0 0 1 0
+    ]
+    @test adjacency_matrix(x, :species, :trophic, :nutrients; transpose, prune = false) ==
+          Bool[
+        0 1 0 0
+        0 0 0 0
+    ]
+    @test adjacency_matrix(y, :species, :trophic, :nutrients; transpose, prune = false) ==
+          Bool[
+        0 0 0 0
+        0 0 0 1
+    ]
+
+
 end
 
 end
