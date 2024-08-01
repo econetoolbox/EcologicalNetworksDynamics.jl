@@ -313,6 +313,52 @@ end
 export live_tops
 
 # ==========================================================================================
+# Adjacency matrices.
+
+"""
+    adjacency_matrix(g::Topology, source, edge, target; transpose = false; prune = true)
+
+Produce a boolean sparse matrix representing the connections of the given edge type,
+from the given source node compartment (lines) \
+to the given target node compartment (colums).
+Flip dimensions if `transpose` is set.
+Lower `prune` to keep lines and columns for the nodes marked as removed.
+See [`topology`](@ref).
+"""
+function adjacency_matrix(
+    g::Topology,
+    source::Symbol,
+    edge::Symbol,
+    target::Symbol;
+    transpose = false,
+    prune = true,
+)
+    # Same, but with stricter input signature.
+    Topologies.adjacency_matrix(g, source, edge, target; transpose, prune)
+end
+export adjacency_matrix
+
+"""
+    species_adjacency_matrix(g::Topology, edge::Symbol; kwargs...)
+
+Restriction of [`adjacency_matrix`](@ref) to only `:species` compartments.
+"""
+function species_adjacency_matrix(g::Topology, edge::Symbol; kwargs...)
+    adjacency_matrix(g, :species, edge, :species; kwargs...)
+end
+export species_adjacency_matrix
+
+"""
+    foodweb_matrix(g::Topology; kwargs...)
+
+Restriction of [`species_adjacency_matrix`](@ref)
+to only `:species` compartment and `:trophic` links.
+"""
+foodweb_matrix(g::Topology; kwargs...) = species_adjacency_matrix(g, :trophic; kwargs...)
+export foodweb_matrix
+
+
+# ==========================================================================================
 # Common checks to raise useful error messages.
 
 check_node_compartment(g::Topology, lab::Symbol) =
