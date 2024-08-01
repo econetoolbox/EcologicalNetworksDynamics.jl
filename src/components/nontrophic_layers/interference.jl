@@ -60,7 +60,7 @@ function F.expand!(model, bp::InterferenceTopologyFromRawEdges)
     ind = model._species_index
     (; A) = bp
     @to_sparse_matrix_if_adjacency A ind ind
-    model._scratch[:interference_links] = A
+    expand_topology!(model, :interference, A)
 end
 
 @component InterferenceTopologyFromRawEdges requires(Foodweb)
@@ -96,7 +96,7 @@ end
 
 function F.expand!(model, bp::RandomInterferenceTopology)
     A = random_links(model, bp, Internals.potential_interference_links)
-    model._scratch[:interference_links] = A
+    expand_topology!(model, :interference, A)
 end
 
 @component RandomInterferenceTopology requires(Foodweb)

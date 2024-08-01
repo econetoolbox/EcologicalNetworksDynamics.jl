@@ -66,6 +66,16 @@ function fields_from_multiplex_parms(int::Symbol, d::MultiplexParametersDict)
 end
 
 # ==========================================================================================
+# Expand topologies.
+
+function expand_topology!(model, nti, A)
+    model._scratch[Symbol(nti, :_links)] = A
+    g = model._topology
+    add_edge_type!(g, nti)
+    add_edges_within_node_type!(g, :species, nti, A)
+end
+
+# ==========================================================================================
 # Check/expand random topologies.
 
 # Checks common to all layers: run both on blueprint construction and checking.
