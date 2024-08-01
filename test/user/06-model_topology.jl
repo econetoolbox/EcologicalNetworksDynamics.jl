@@ -11,6 +11,7 @@ using Random
         Foodweb([:a => [:b, :c], :b => :d, :c => :d, :e => [:c], :f => :g]),
         Nutrients.Nodes(2),
     )
+    m += NontrophicInteractions.RefugeTopology(; A = [:g => :c, :d => :g])
 
     g = m.topology
     @test n_live_species(g) == 7
@@ -31,6 +32,50 @@ using Random
     @test nt(live_nutrients(g)) == [:n2]
     @test sp(live_producers(m; without...)) == labs("dg")
     @test sp(live_consumers(m; without...)) == labs("abe")
+
+    #! format: off
+    @test adjacency_matrix(g, :species, :trophic, :nutrients) == Bool[
+        0
+        0
+        1
+        0
+        1;;
+    ]
+    #! format: on
+
+    @test species_adjacency_matrix(g, :refuge) == Bool[
+        0 0 0 0 0 # :a
+        0 0 0 0 0 # :b (c pruned)
+        0 0 0 0 1 # :d
+        0 0 0 0 0 # :e (f pruned)
+        0 0 0 0 0 # :g
+    ]
+
+    @test foodweb_matrix(g) == Bool[
+        0 1 0 0 0
+        0 0 1 0 0
+        0 0 0 0 0
+        0 0 0 0 0
+        0 0 0 0 0
+    ]
+
+    @test foodweb_matrix(g; transpose = true) == Bool[
+        0 0 0 0 0
+        1 0 0 0 0
+        0 1 0 0 0
+        0 0 0 0 0
+        0 0 0 0 0
+    ]
+
+    @test foodweb_matrix(g; prune = false) == Bool[
+        0 1 0 0 0 0 0
+        0 0 0 1 0 0 0
+        0 0 0 0 0 0 0 # :c included
+        0 0 0 0 0 0 0
+        0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 # :f included
+        0 0 0 0 0 0 0
+    ]
 
 end
 
