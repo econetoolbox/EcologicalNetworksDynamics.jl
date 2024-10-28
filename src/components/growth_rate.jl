@@ -17,7 +17,7 @@
 module GrowthRate_
 include("blueprint_modules.jl")
 include("blueprint_modules_identifiers.jl")
-import .EN: Species, _Species, BodyMass, MetabolicClass, _Temperature
+import .EN: Species, _Species, Foodweb, _Foodweb, BodyMass, MetabolicClass, _Temperature
 
 #-------------------------------------------------------------------------------------------
 # From raw values.
@@ -55,7 +55,7 @@ end
 mutable struct Flat <: Blueprint
     r::Float64
 end
-@blueprint Flat "homogeneous growth rate" depends(Species)
+@blueprint Flat "homogeneous growth rate" depends(Foodweb)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.r)
