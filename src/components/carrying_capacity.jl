@@ -133,14 +133,14 @@ export CarryingCapacity
 
 function (::_CarryingCapacity)(K)
 
-    K = @tographdata K {Symbol, Scalar, Vector, Map}{Float64}
+    K = @tographdata K {Symbol, Scalar, SparseVector, Map}{Float64}
     @check_if_symbol K (:Binzer2016,)
 
     if K == :Binzer2016
         CarryingCapacity.Temperature(K)
     elseif K isa Real
         CarryingCapacity.Flat(K)
-    elseif K isa Vector
+    elseif K isa AbstractVector
         CarryingCapacity.Raw(K)
     else
         CarryingCapacity.Map(K)

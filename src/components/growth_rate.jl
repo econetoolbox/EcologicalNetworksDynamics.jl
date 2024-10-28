@@ -170,14 +170,13 @@ export GrowthRate
 
 # Construct either variant based on user input,
 # but disallow direct allometric input in this constructor,
-# because `GrowthRate(a_p=1, b_p=2)` could either be written
-# by a user wanting simple allometry
-# or by a user wanting temperature allometry
-# and having forgotten to specify a value for `E_a`.
-# Better stop them with an error then than keep going wit non-temperature-dependent values.
+# because it is unclear wether `GrowthRate(:Miele2019; a_p=1)
+# is written by a user having forgotten `b_p` or wanting a default value for `b_p`.
+# TODO: offer either: default on missing values from this constructor,
+# error on missing values from direct blueprint constructor?
 function (::_GrowthRate)(r)
 
-    r = @tographdata r {Symbol, Scalar, Vector, Map}{Float64}
+    r = @tographdata r {Symbol, Scalar, SparseVector, Map}{Float64}
     @check_if_symbol r (:Miele2019, :Binzer2016)
 
     if r == :Miele2019
@@ -186,7 +185,7 @@ function (::_GrowthRate)(r)
         GrowthRate.Temperature(r)
     elseif r isa Real
         GrowthRate.Flat(r)
-    elseif r isa Vector
+    elseif r isa AbstractVector
         GrowthRate.Raw(r)
     else
         GrowthRate.Map(r)

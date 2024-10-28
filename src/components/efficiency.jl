@@ -88,13 +88,17 @@ end
 
 #-------------------------------------------------------------------------------------------
 # From herbivorous/carnivourous rates.
+
+miele2019_efficiency_rates() = (; e_herbivorous = 0.45, e_carnivorous = 0.85)
+
 mutable struct Miele2019 <: Blueprint
     e_herbivorous::Float64
     e_carnivorous::Float64
     function Miele2019(; kwargs...)
         @kwargs_helpers kwargs
-        eh = take_or!(:e_herbivorous, 0.45)
-        ec = take_or!(:e_carnivorous, 0.85)
+        populate!(; miele2019_efficiency_rates()...)
+        eh = take!(:e_herbivorous)
+        ec = take!(:e_carnivorous)
         no_unused_arguments()
         new(eh, ec)
     end
