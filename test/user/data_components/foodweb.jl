@@ -141,11 +141,22 @@
     )
 
     @sysfails(
-        Model(Species(2), Foodweb(:a => :b)), # HERE: was that and/or [:a, :b] => :c not allowed?
+        Model(Species(2), Foodweb([:a => :b])),
         Check(
             late,
-            [Foodweb.Matrix],
-            "Invalid size for parameter 'A': expected (2, 2), got (3, 3).",
+            [Foodweb.Adjacency],
+            "Invalid 'species' edge label in 'A'. \
+             Expected either :s1 or :s2, got instead: :a.",
+        )
+    )
+
+    @sysfails(
+        Model(Species(2), Foodweb([1 => 3])),
+        Check(
+            late,
+            [Foodweb.Adjacency],
+            "Invalid 'species' edge index in 'A'. \
+             Index '3' does not fall within the valid range 1:2.",
         )
     )
 

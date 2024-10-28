@@ -14,7 +14,7 @@ import .EN: WriteError
     # Get a graphview type.
     fw = Foodweb([:a => :b, :b => :c])
     m = Model(fw, BodyMass([1, 2, 3]))
-    bm = m.body_masses
+    bm = m.body_mass
 
     # Use as a vector.
     @test bm[1] == 1
@@ -79,13 +79,10 @@ import .EN: WriteError
     @viewfails(bm[:a, :b] = 1, BM, m)
 
     # Guard rhs.
-    @failswith(
-        (bm[1] = 'a'),
-        WriteError("not a value of type Real", :body_masses, (1,), 'a')
-    )
+    @failswith((bm[1] = 'a'), WriteError("not a value of type Real", :body_mass, (1,), 'a'))
     @failswith(
         (bm[2:3] *= -10),
-        WriteError("Not a positive value: M[2] = -50.0.", :body_masses, (2,), -50)
+        WriteError("Not a positive value: M[2] = -50.0.", :body_mass, (2,), -50)
     )
 
 end

@@ -29,7 +29,7 @@
 
     @sysfails(
         Model(Species([:a, :b, :a])),
-        Check(late, [Species.Names], "Species 1 and 3 are both named :a."),
+        Check(early, [Species.Names], "Species 1 and 3 are both named :a."),
     )
 
     @argfails(

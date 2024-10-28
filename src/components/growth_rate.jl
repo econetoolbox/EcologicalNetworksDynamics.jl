@@ -112,7 +112,7 @@ end
 
 function F.expand!(raw, bp::Allometric)
     M = @ref raw.M
-    mc = @ref raw.metabolic_classes
+    mc = @ref raw.metabolic_class
     prods = @ref raw.producers.mask
     r = sparse_nodes_allometry(bp.allometry, prods, M, mc)
     expand!(raw, r)
@@ -154,7 +154,7 @@ function F.expand!(raw, bp::Temperature)
     (; E_a) = bp
     T = @get raw.T
     M = @ref raw.M
-    mc = @ref raw.metabolic_classes
+    mc = @ref raw.metabolic_class
     prods = @ref raw.producers.mask
     r = sparse_nodes_allometry(bp.allometry, prods, M, mc; E_a, T)
     expand!(raw, r)
@@ -203,7 +203,7 @@ end
     get(GrowthRates{Float64}, sparse, "producer")
     template(raw -> @ref raw.producers.mask)
     write!((raw, rhs::Real, i) -> begin
-        GrowthRate_.check(rhs)
+        GrowthRate_.check(rhs, i)
         rhs = Float64(rhs)
         raw.biorates.r[i] = rhs
         rhs

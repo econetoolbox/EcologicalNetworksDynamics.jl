@@ -119,7 +119,7 @@ end
 
 # Basic query.
 @expose_data nodes begin
-    property(body_masses, M)
+    property(body_mass, M)
     depends(BodyMass)
     @species_index
     ref(raw -> raw._foodweb.M)

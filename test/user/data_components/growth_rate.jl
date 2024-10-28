@@ -142,4 +142,19 @@
         )
     )
 
+    # ======================================================================================
+    # Edit guards.
+
+    @viewfails(
+        (m.growth_rate[1] = 2),
+        EN.GrowthRates,
+        "Invalid producer index 1 to write node data. \
+         The only valid index for this template is 3.",
+    )
+
+    @failswith(
+        (m.growth_rate[3] = -2),
+        WriteError("Not a positive value: r[3] = -2.", :growth_rate, (3,), -2),
+    )
+
 end

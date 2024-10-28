@@ -287,7 +287,7 @@
         (@tographdata input YSV{Bool}),
         "Error while attempting to convert 'input' to Vector{Bool} \
          (details further down the stacktrace). \
-         Received [0, 1, 2]::Vector{Int64}.",
+         Received [0, 1, 2] ::Vector{Int64}.",
     )
     # And down the stacktrace:
     @failswith(
@@ -690,6 +690,7 @@ end
     check_nodes(e, [])
     check_nodes(oe, [])
     # With actual values.
+    #! format: off
     check_edges(OrderedDict([
        :a => Dict([:b => 5, :c => 8]),
        :b => Dict([:a => 2]),
@@ -739,5 +740,19 @@ end
          ((:b,), e),
          ((:c,), 0),
     ])
+    #! format: on
+
+    #---------------------------------------------------------------------------------------
+    # Drop values info to produce binary maps/adjacency lists.
+
+    input = [:a => 5, :c => 8]
+    input = @tographdata input Map{Float64}
+    result = @tographdata input Map{:bin}
+    @test result == OrderedSet([:a, :c])
+
+    input = [:a => [:b => 5, :d => 9], :c => [:a => 8]]
+    input = @tographdata input Adjacency{Float64}
+    result = @tographdata input Adjacency{:bin}
+    @test result == OrderedDict([:a => OrderedSet([:b, :d]), :c => OrderedSet([:a])])
 
 end

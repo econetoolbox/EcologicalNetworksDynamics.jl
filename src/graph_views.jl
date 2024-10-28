@@ -189,30 +189,45 @@ function check_sparse_index(
     item = item_name(v)
     level = level_name(v)
     n = length(index)
-    valids = valid_refs(v, template, labels)
-    refs, vrefs = if isnothing(labels)
-        ("index $index", "indices")
+    refs = if isnothing(labels)
+        "index $(inline(index))"
     else
-        ("label$(n > 1 : "s" : "") $labels ($index)", "labels")
+        "label$(n > 1 : "s" : "") $labels ($index)"
     end
     throw(
         ViewError(
             typeof(v),
-            "Invalid $item $refs to write $level data. Valid $vrefs $valids",
+            "Invalid $item $refs to write $level data. " *
+            valid_refs_phrase(v, template, labels),
         ),
     )
 end
-valid_refs(_, template::Vector, ::Nothing) =
-    "are " * join_elided(findnz(template)[1], ", ", " and "; max = 100)
-valid_refs(_, template::Matrix, ::Nothing) =
-    "are " *
-    join_elided((ij for ij in zip(findnz(template)[1:2]...)), ", ", " and "; max = 50)
-function valid_refs(v, template::Vector, ::Any)
-    valids = valid_refs(v, template, nothing)
-    "are " * join_elided((l for (l, i) in v._index if i in valids), ", ", " and "; max = 10)
+
+function valid_refs_phrase(v, template, labels)
+    valids = collect(valid_refs(v, template, labels))
+    if isempty(valids)
+        "There is no valid $(vref(labels)) for this template."
+    elseif length(valids) == 1
+        "The only valid $(vref(labels)) for this template is $(first(valids))."
+    else
+        max = isnothing(labels) ? (template isa AbstractVector ? 100 : 50) : 10
+        "Valid $(vrefs(labels)) for this template \
+         are $(join_elided(valids, ", ", " and "; max))"
+    end
 end
-valid_refs(_, template::Matrix, ::Any) =
-    " must comply to the following template:\n$(repr(MIME("text/plain"), template))"
+valid_refs_phrase(_, template::AbstractMatrix, ::Nothing) =
+    "Valid indices must comply to the following template:\n\
+     $(repr(MIME("text/plain"), template))"
+vref(::Nothing) = "index"
+vrefs(::Nothing) = "indices"
+vref(::Any) = "label"
+vrefs(::Any) = "labels"
+valid_refs(_, template::AbstractVector, ::Nothing) = findnz(template)[1]
+valid_refs(_, template::AbstractMatrix, ::Nothing) = zip(findnz(template)[1:2]...)
+function valid_refs(v, template::AbstractVector, ::Any)
+    valids = Set(valid_refs(v, template, nothing))
+    (l for (l, i) in v._index if i in valids)
+end
 
 
 #-------------------------------------------------------------------------------------------

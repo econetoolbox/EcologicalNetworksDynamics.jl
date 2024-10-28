@@ -4,6 +4,7 @@ if (false)
     #! format: off
     (
     local
+        A,
         E,
         Scalar,
         V,

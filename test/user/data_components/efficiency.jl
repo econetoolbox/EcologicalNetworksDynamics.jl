@@ -5,6 +5,7 @@
     #---------------------------------------------------------------------------------------
     # Construct from raw values.
 
+    # Matrix.
     ef = Efficiency([
         0 1 2
         0 0 3
@@ -18,7 +19,7 @@
     ] / 10
     @test typeof(ef) === Efficiency.Raw
 
-    # Adjacency list input.
+    # Adjacency list.
     m = base + Efficiency([:a => [:b => 0.1], :b => [:c => 0.3]])
     @test m.efficiency == m.e == [
         0 1 0
@@ -27,10 +28,76 @@
     ] / 10
     @test typeof(ef) == Efficiency.Raw
 
-    # Single value.
-    m = base + Efficiency(0.1)
+    # Scalar.
+    ef = Efficiency(0.1)
+    m = base + ef
+    @test m.efficiency == m.e == [
+        0 1 1
+        0 0 1
+        0 0 0
+    ] / 10
+    @test typeof(ef) == Efficiency.Flat
 
-    # Only trophic links indices allowed.
+    #---------------------------------------------------------------------------------------
+    # Construct from the foodweb.
+
+    ef = Efficiency(:Miele2019; e_herbivorous = 0.2, e_carnivorous = 0.4)
+    m = base + ef
+    @test m.efficiency == m.e == [
+        0 4 2
+        0 0 2
+        0 0 0
+    ] / 10
+    @test typeof(ef) == Efficiency.Miele2019
+
+    #---------------------------------------------------------------------------------------
+    # Imply foodweb.
+
+    e = [
+        1 2 0
+        0 0 3
+        0 0 0
+    ] / 10
+    m = Model(Efficiency(e))
+    @test has_component(m, Foodweb)
+    @test m.species.names == [:s1, :s2, :s3]
+    @test m.A == [
+        1 1 0
+        0 0 1
+        0 0 0
+    ]
+    @test Model(Species([:a, :b, :c]), Efficiency(e)).species.names == [:a, :b, :c]
+    # Imply species names via foodweb implication.
+    @test Model(
+        Efficiency([:a => [:a => 0.1, :b => 0.2], :b => [:c => 0.3]]),
+    ).species.names == [:a, :b, :c]
+
+    # ======================================================================================
+    # Input guards.
+
+    # Forbid unused arguments.
+    @argfails(Efficiency(:Miele2019; e_other = 5), "Unexpected argument: e_other = 5.")
+    @argfails(Efficiency(0.2; a = 5), "Unexpected argument: a = 5.")
+
+    # Invalid values.
+    @sysfails(
+        base + Efficiency([
+            0 1 2
+            3 0 4
+            0 0 0
+        ]),
+        Check(early, [Efficiency.Raw], "Not a value within [0, 1]: e[2, 1] = 3.0.")
+    )
+    @sysfails(
+        base + Efficiency([:b => [:c => 5]]),
+        Check(early, [Efficiency.Adjacency], "Not a value within [0, 1]: e[:b, :c] = 5.0.")
+    )
+    @sysfails(
+        base + Efficiency(5),
+        Check(early, [Efficiency.Flat], "Not a value within [0, 1]: e = 5.0.")
+    )
+
+    # Respect template.
     @sysfails(
         base + Efficiency([
             0 1 2
@@ -40,13 +107,14 @@
         Check(
             late,
             [Efficiency.Raw],
-            "Non-missing value found for 'e' at edge index [2, 1] (3.0), \
-             but the template for 'trophic link' only allows values \
+            "Non-missing value found for 'e' at edge index [2, 1] (0.3), \
+             but the template for 'trophic links' only allows values \
              at the following indices:\n  [(1, 2), (1, 3), (2, 3)]",
         )
     )
+
     @sysfails(
-        base + Efficiency([:b => [:a => 5]]),
+        base + Efficiency([:b => [:a => 0.5]]),
         Check(
             late,
             [Efficiency.Adjacency],
@@ -55,21 +123,4 @@
         )
     )
 
-    #---------------------------------------------------------------------------------------
-    # Construct from the foodweb.
-
-    ef = Efficiency(:Miele2019; e_herbivorous = 2, e_carnivorous = 4)
-    @test typeof(ef) == FM
-    m = base + ef
-    @test m.efficiency == [
-        0 4 2
-        0 0 2
-        0 0 0
-    ]
-
-    # Forbid unused arguments.
-    @argfails(Efficiency(:Miele2019; e_other = 5), "Unexpected argument: e_other = 5.")
-
-    # TODO: test imply foodweb.
-    @test false
 end

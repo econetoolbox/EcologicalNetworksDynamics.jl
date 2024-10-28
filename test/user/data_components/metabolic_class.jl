@@ -2,34 +2,38 @@
 
     base = Model(Foodweb([:a => :b, :b => :c]))
 
-    # From aliased values.
+    #---------------------------------------------------------------------------------------
+    # Construct from aliased values.
+
     mc = MetabolicClass([:i, :e, :p])
     m = base + mc
-    @test m.metabolic_classes == [:invertebrate, :ectotherm, :producer]
+    @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]
     @test typeof(mc) == MetabolicClass.Raw
 
     # With an explicit map.
     mc = MetabolicClass([:a => :inv, :b => :ect, :c => :prod])
     m = base + mc
-    @test m.metabolic_classes == [:invertebrate, :ectotherm, :producer]
+    @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]
     @test typeof(mc) == MetabolicClass.Map
 
     # Default to homogeneous classes.
     mc = MetabolicClass(:all_ectotherms)
     m = base + mc
-    @test m.metabolic_classes == [:ectotherm, :ectotherm, :producer]
+    @test m.metabolic_class == [:ectotherm, :ectotherm, :producer]
     mc = MetabolicClass(:all_invertebrates)
     m = base + mc
-    @test m.metabolic_classes == [:invertebrate, :invertebrate, :producer]
+    @test m.metabolic_class == [:invertebrate, :invertebrate, :producer]
     @test typeof(mc) == MetabolicClass.Favor
 
     # Editable property.
-    m.metabolic_classes[2] = "e" # Conversion on.
-    @test m.metabolic_classes == [:invertebrate, :ectotherm, :producer]
-    m.metabolic_classes[1:2] .= :inv
-    @test m.metabolic_classes == [:invertebrate, :invertebrate, :producer]
+    m.metabolic_class[2] = "e" # Conversion on.
+    @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]
+    m.metabolic_class[1:2] .= :inv
+    @test m.metabolic_class == [:invertebrate, :invertebrate, :producer]
 
-    # Consistency checks.
+    #---------------------------------------------------------------------------------------
+    # Input guards.
+
     @sysfails(
         base + MetabolicClass([:i, :x]),
         Check(
@@ -87,21 +91,36 @@
         Missing(Foodweb, MetabolicClass, [MetabolicClass.Raw], nothing),
     )
 
+    #---------------------------------------------------------------------------------------
     # Edition guards.
+
     @failswith(
-        (m.metabolic_classes[2] = :p),
+        (m.metabolic_class[2] = 4),
+        WriteError(
+            "Metabolic class input 2: \
+             In aliasing system for \"metabolic class\": \
+             Invalid reference: '4'.",
+            :metabolic_class,
+            (2,),
+            4,
+        ),
+    )
+
+    @failswith(
+        (m.metabolic_class[2] = :p),
         WriteError(
             "Metabolic class for species 2 cannot be 'producer' since it is a consumer.",
-            :metabolic_classes,
+            :metabolic_class,
             (2,),
             :p,
         ),
     )
+
     @failswith(
-        (m.metabolic_classes[:c] = :i),
+        (m.metabolic_class[:c] = :i),
         WriteError(
             "Metabolic class for species 3 cannot be 'invertebrate' since it is a producer.",
-            :metabolic_classes,
+            :metabolic_class,
             (3,),
             :i,
         ),

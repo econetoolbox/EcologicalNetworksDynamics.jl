@@ -27,14 +27,14 @@ F.implied_blueprint_for(bp::Raw, ::_Foodweb) = Foodweb(bp.e .!= 0)
 @blueprint Raw "matrix"
 export Raw
 
-F.early_check(bp::Raw) = check_edges(bp.e, check)
+F.early_check(bp::Raw) = check_edges(check, bp.e)
 check(e, ref = nothing) =
     check_value(e -> 0 <= e <= 1, e, ref, :e, "Not a value within [0, 1]")
 
 function F.late_check(raw, bp::Raw)
     (; e) = bp
     A = @ref raw.trophic.matrix
-    @check_template e A :trophic_links
+    @check_template e A "trophic links"
 end
 
 F.expand!(raw, bp::Raw) = expand!(raw, bp.e)
@@ -65,16 +65,19 @@ mutable struct Adjacency <: Blueprint
     foodweb::Brought(Foodweb)
     Adjacency(e, foodweb = _Foodweb) = new(@tographdata(e, Adjacency{Float64}), foodweb)
 end
-F.implied_blueprint_for(bp::Adjacency, ::_Foodweb) = Foodweb(refs(bp.e))
+function F.implied_blueprint_for(bp::Adjacency, ::_Foodweb)
+    (; e) = bp
+    Foodweb(@tographdata e Adjacency{:bin})
+end
 @blueprint Adjacency "[predactor => [prey => efficiency]] adjacency list"
 export Adjacency
 
-F.early_check(bp::Adjacency) = check_edges(bp.e, check)
+F.early_check(bp::Adjacency) = check_edges(check, bp.e)
 function F.late_check(raw, bp::Adjacency)
     (; e) = bp
     index = @ref raw.species.index
     A = @ref raw.trophic.matrix
-    @check_list_refs e :trophic_link index template(A)
+    @check_list_refs e "trophic link" index template(A)
 end
 
 function F.expand!(raw, bp::Adjacency)
@@ -124,12 +127,17 @@ export Efficiency
 
 function (::_Efficiency)(e; kwargs...)
 
-    e = @tographdata e {Symbol, SparseMatrix, Adjacency}{Float64}
+    e = @tographdata e {Symbol, Scalar, SparseMatrix, Adjacency}{Float64}
     @check_if_symbol e (:Miele2019,)
+    @kwargs_helpers kwargs
 
     if e == :Miele2019
-        Efficiency.Miele2019(; kwargs...)
-    elseif e isa SparseMatrix
+        return Efficiency.Miele2019(; kwargs...)
+    end
+
+    no_unused_arguments()
+
+    if e isa SparseMatrix
         Efficiency.Raw(e)
     elseif e isa Real
         Efficiency.Flat(e)

@@ -154,7 +154,7 @@ end
 
 # Basic query.
 @expose_data nodes begin
-    property(metabolic_classes)
+    property(metabolic_class)
     depends(MetabolicClass)
     @species_index
     ref_cached(raw -> Symbol.(raw._foodweb.metabolic_class)) # Legacy reverse conversion.
@@ -170,5 +170,5 @@ end
 
 # Display.
 function F.shortline(io::IO, model::Model, ::_MetabolicClass)
-    print(io, "Metabolic classes: [$(join_elided(model.metabolic_classes, ", "))]")
+    print(io, "Metabolic classes: [$(join_elided(model.metabolic_class, ", "))]")
 end

@@ -185,6 +185,16 @@ function F.display_blueprint_field_short(
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")
 end
+function F.display_blueprint_field_short(
+    io::IO,
+    map::@GraphData(Adjacency{T}),
+    bp::Blueprint,
+) where {T}
+    it = imap(map) do (k, v)
+        "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
+    end
+    print(io, "{$(join_elided(it, ", "; repr = false))}")
+end
 
 F.display_blueprint_field_long(io::IO, v, bp::Blueprint) =
     F.display_blueprint_field_short(io, v, bp)

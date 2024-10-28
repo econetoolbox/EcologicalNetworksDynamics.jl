@@ -339,7 +339,7 @@ macro to_sparse_matrix_if_adjacency(var::Symbol, i_index, j_index)
     var, i_index, j_index = esc.((var, i_index, j_index))
     quote
         $var isa
-        Union{AbstractDict{<:Any,<:AbstrsactDict},AbstractDict{<:Any,<:AbstractSet}} &&
+        Union{AbstractDict{<:Any,<:AbstractDict},AbstractDict{<:Any,<:AbstractSet}} &&
             ($var = to_sparse_matrix($var, $i_index, $j_index))
     end
 end

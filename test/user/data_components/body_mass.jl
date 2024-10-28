@@ -11,7 +11,7 @@
     # Implies species compartment.
     @test m.richness == 3
     @test m.species.names == [:s1, :s2, :s3]
-    @test m.body_masses == [1, 2, 3] == m.M
+    @test m.body_mass == [1, 2, 3] == m.M
     @test typeof(bm) == BodyMass.Raw
 
     # Mapped input.
@@ -19,18 +19,18 @@
     m = base + bm
     @test m.richness == 3
     @test m.species.names == [:a, :b, :c]
-    @test m.body_masses == [1, 2, 3] == m.M
+    @test m.body_mass == [1, 2, 3] == m.M
     @test typeof(bm) == BodyMass.Map
 
     # Editable property.
-    m.body_masses[1] = 2
-    m.body_masses[2:3] *= 10
-    @test m.body_masses == [2, 20, 30] == m.M
+    m.body_mass[1] = 2
+    m.body_mass[2:3] *= 10
+    @test m.body_mass == [2, 20, 30] == m.M
 
     # Scalar (requires species to expand).
     bm = BodyMass(2)
     m = base + Species(3) + bm
-    @test m.body_masses == [2, 2, 2] == m.M
+    @test m.body_mass == [2, 2, 2] == m.M
     @test typeof(bm) == BodyMass.Flat
     @sysfails(Model(BodyMass(5)), Missing(Species, BodyMass, [BodyMass.Flat], nothing))
 
@@ -53,7 +53,7 @@
 
     m = base + fw + bm
     @test m.trophic.levels == [2.5, 2, 1]
-    @test m.body_masses == [2.8^1.5, 2.8, 1]
+    @test m.body_mass == [2.8^1.5, 2.8, 1]
 
     @sysfails(Model(Species(2)) + bm, Missing(Foodweb, nothing, [BodyMass.Z], nothing))
     @sysfails(
@@ -67,21 +67,48 @@
     )
 
     #---------------------------------------------------------------------------------------
-    # Check input.
+    # Input guards.
 
     @argfails(BodyMass(), "Either 'M' or 'Z' must be provided to define body masses.")
+
     @failswith(BodyMass([1, 2], Z = 3.4), MethodError)
+
     @sysfails(
         Model(BodyMass([1, -2])),
         Check(early, [BodyMass.Raw], "Not a positive value: M[2] = -2.0.")
     )
+
+    # Common ref checks from GraphDataInputs (not tested for every similar component).
+    @sysfails(
+        Model(Species(2)) + BodyMass([1 => 0.1, 3 => 0.2]),
+        Check(
+            late,
+            [BodyMass.Map],
+            "Invalid 'species' node index in 'M'. \
+             Index '3' does not fall within the valid range 1:2.",
+        )
+    )
+
+    @sysfails(
+        Model(Species(2)) + BodyMass([:a => 0.1, :b => 0.2]),
+        Check(
+            late,
+            [BodyMass.Map],
+            "Invalid 'species' node label in 'M'. \
+             Expected either :s1 or :s2, got instead: :a.",
+        )
+    )
+
     @failswith(
         (m.M[1] = 'a'),
-        WriteError("not a value of type Real", :body_masses, (1,), 'a')
+        WriteError("not a value of type Real", :body_mass, (1,), 'a')
     )
+
     @failswith(
         (m.M[2:3] *= -10),
-        WriteError("Not a positive value: M[2] = -28.0.", :body_masses, (2,), -28.0)
+        WriteError("Not a positive value: M[2] = -28.0.", :body_mass, (2,), -28.0)
     )
+
+    # Graphview-related tests live in "../02-graphviews.jl".
 
 end

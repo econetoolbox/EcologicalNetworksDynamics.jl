@@ -9,7 +9,7 @@
   to transfer input to correct blueprint constructors
 - Blueprints typically have different types based on their inputs.
 
-  ```julia
+  ```julia-repl
   julia> Species
   Species (component for <internals>, expandable from:
     Names: raw species names,
@@ -32,7 +32,7 @@
 - Equivalent `get_*` and `set_*!` methods may still exist
   but they are no longer exposed or recommended:
   use direct property accesses instead.
-  ```julia
+  ```julia-repl
   julia> m = Model(Species(3))
   julia> m.species.number # (no more `.n_species` or `get_n_species(m)`)
   3
@@ -48,6 +48,9 @@
     The alias `model.A` is still available.
   - Likewise,
     `model.herbivorous_links` becomes `model.trophic.herbivory_matrix` *etc.*
+  - Akward plurals like `model.body_masses` and `model.metabolic_classes`
+    become `model.body_mass` and `model.metabolic_class`.
+
 
 ## New features
 
@@ -55,7 +58,7 @@
 
 - Every blueprint *brought* by another is available as a brought field
   to be either *embedded*, *implied* or *unbrought*:
-  ```julia
+  ```julia-repl
   julia> fw = Foodweb.Matrix([0 0; 1 0]) # Implied (brought if missing).
   blueprint for <Foodweb>: Matrix {
     A: 1 trophic link,
@@ -80,7 +83,7 @@
 - Every "leaf" "geometrical" model property *i.e.* a property whose futher
   model topology does not depend on or is not planned to depend on
   is now writeable.
-  ```julia
+  ```julia-repl
   julia> m = Model(fw, BodyMass(2));
          m.M[1] *= 10;
          m.M == [20, 2]
@@ -88,18 +91,25 @@
   ```
 
 - Values are checked prior to expansion:
-  ```julia
+  ```julia-repl
   julia> m = Model(fw, Efficiency(1.5))
-  TODO
+  ERROR: Blueprint value cannot be expanded:
+    Not a value within [0, 1]: e = 1.5.
   ```
 
 - Efficiency from a matrix implies a Foodweb.
-  ```julia
+  ```julia-repl
   julia> e = 0.5;
-         m = Model(fw, Efficiency([
+         m = Model(Efficiency([
             0 e e
             0 0 e
             e 0 0
-         ]))
-  TODO
+         ]));
+         has_component(m, Foodweb)
+  true
+  julia> m.A
+  3×3 EcologicalNetworksDynamics.TrophicMatrix:
+   0  1  1
+   0  0  1
+   1  0  0
   ```
