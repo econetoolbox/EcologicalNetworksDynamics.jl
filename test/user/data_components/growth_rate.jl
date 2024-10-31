@@ -123,6 +123,16 @@
 
     # Forbid unnecessary allometric parameters.
     @sysfails(
+        base + GrowthRate.Allometric(; p = (a = 1, b = 0.25), i = (a = 1, b = 0.25)),
+        Check(
+            early,
+            [GrowthRate.Allometric],
+            "Allometric rates for 'invertebrate' are meaningless in the context \
+             of calculating growth rates: (a: 1.0, b: 0.25).",
+        )
+    )
+
+    @sysfails(
         base + GrowthRate.Allometric(; p = (a = 1, b = 0.25, c = 8)),
         Check(
             early,

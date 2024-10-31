@@ -29,6 +29,7 @@ only = [
     "./data_components/carrying_capacity.jl"
     "./data_components/mortality.jl"
     "./data_components/metabolism.jl"
+    "./data_components/maximum_consumption.jl"
 ] # Only run these if specified.
 if isempty(only)
     for subfolder in ["./data_components", "./code_components"]

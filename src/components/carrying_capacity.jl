@@ -2,9 +2,6 @@
 
 # Mostly duplicated from GrowthRate.
 
-# TODO: since only producers are involved,
-# does it make sense to receive and process a full allometric dict here?
-
 # (reassure JuliaLS)
 (false) && (local CarryingCapacity, _CarryingCapacity)
 
@@ -86,6 +83,9 @@ end
 #-------------------------------------------------------------------------------------------
 binzer2016_allometry_rates() =
     (E_a = 0.71, allometry = Allometry(; producer = (a = 3, b = 0.28)))
+
+# TODO: since only producers are involved,
+# does it make sense to receive and process a full allometric dict here?
 
 mutable struct Temperature <: Blueprint
     E_a::Float64

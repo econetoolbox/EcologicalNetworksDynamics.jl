@@ -5,9 +5,6 @@
 # Interestingly, allometric rates are either self-sufficient,
 # or they require that a temperature be defined within the model.
 
-# TODO: since only producers are involved,
-# does it make sense to receive and process a full allometric dict here?
-
 # (reassure JuliaLS)
 (false) && (local GrowthRate, _GrowthRate)
 
@@ -91,6 +88,9 @@ end
 # From allometric rates (no temperature).
 
 miele2019_allometry_rates() = Allometry(; producer = (a = 1, b = -1 / 4))
+
+# TODO: since only producers are involved,
+# does it make sense to receive and process a full allometric dict here?
 
 mutable struct Allometric <: Blueprint
     allometry::Allometry

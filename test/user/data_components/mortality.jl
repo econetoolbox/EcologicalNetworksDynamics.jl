@@ -47,10 +47,7 @@
     #---------------------------------------------------------------------------------------
     # Raw values.
 
-    @sysfails(
-        Model(Mortality(1)),
-        Missing(Species, Mortality, [Mortality.Flat], nothing)
-    )
+    @sysfails(Model(Mortality(1)), Missing(Species, Mortality, [Mortality.Flat], nothing))
 
     @sysfails(
         base + Mortality([1, 2]),

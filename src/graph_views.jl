@@ -212,7 +212,7 @@ function valid_refs_phrase(v, template, labels)
     else
         max = isnothing(labels) ? (template isa AbstractVector ? 100 : 50) : 10
         "Valid $(vrefs(labels)) for this template \
-         are $(join_elided(valids, ", ", " and "; max))"
+         are $(join_elided(valids, ", ", " and "; max))."
     end
 end
 valid_refs_phrase(_, template::AbstractMatrix, ::Nothing) =

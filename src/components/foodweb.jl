@@ -224,12 +224,6 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
 
 end
 
-# Display.
-function F.shortline(io::IO, model::Model, ::_Foodweb)
-    n = model.trophic.n_links
-    print(io, "Foodweb: $n link$(n > 1 ? "s" : "")")
-end
-
 # ==========================================================================================
 # Foodweb queries.
 
@@ -328,6 +322,24 @@ end
     ref_cached(calculate_carnivory_matrix)
     @species_index
     depends(Foodweb)
+end
+
+# ==========================================================================================
+
+# Display.
+function F.shortline(io::IO, model::Model, ::_Foodweb)
+    l = model.trophic.n_links
+    p = model.producers.number
+    c = model.consumers.number
+    r = model.preys.number
+    t = model.tops.number
+    n(n) = n > 0 ? "$n" : "no"
+    s(n) = n > 1 ? "s" : ""
+    print(io, "Foodweb: $(n(l)) link$(s(l)), \
+               $(n(p)) producer$(s(p)), \
+               $(n(c)) consumer$(s(c)), \
+               $(n(r)) prey$(s(r)), \
+               $(n(t)) top$(s(t)).")
 end
 
 # ==========================================================================================

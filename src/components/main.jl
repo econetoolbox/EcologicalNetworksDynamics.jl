@@ -15,34 +15,10 @@
 #       so it's a blueprint expansion requirement,
 #       but behaviour requires data to be *ran*, so it's a true component requirement?
 
-#-------------------------------------------------------------------------------------------
-# About component typing.
-
-# Input to components constructors is desired to be flexible,
-# so it needs to be thoroughly checked.
-# However, it cannot be fully checked
-# until the model value becomes available within the `check` function.
-# In addition, early checking with guards on component constructors
-# could be defeated by the user later mutating the component.
-
-# The consequence is that component field types reflect this flexibility:
-# they cannot be concrete because eg. biorates can either be specified
-# with one single float value or a full-fledge vector.
-# They could be `Any` but this would allow `biorates.value = "invalid type"`,
-# which is easily disallowed by specifying
-# sophisticated union types on component fields instead of just `Any`.
-
-# The module GraphDataInputs is useful in this respect.
-#-------------------------------------------------------------------------------------------
-
 # To best understand subsequent code,
 # and until proper documentation is written,
 # I would advise that the following files be skimmed in order
 # as later comments build upon earlier ones.
-
-# Inspire from future refactoring into nodes "compartments".
-# These are not reified yet into the internals,
-# but the following components emulate them.
 
 # TODO there is heavy replication going on in components specification,
 # and boilerplate that could be greatly reduced
@@ -120,7 +96,7 @@ include("./efficiency.jl") # <- First, good example of 'edges' component. Read f
 include("./carrying_capacity.jl")
 include("./mortality.jl")
 include("./metabolism.jl")
-#  include("./maximum_consumption.jl")
+include("./maximum_consumption.jl")
 #  include("./producers_competition.jl")
 #  include("./consumers_preferences.jl")
 #  include("./handling_time.jl")

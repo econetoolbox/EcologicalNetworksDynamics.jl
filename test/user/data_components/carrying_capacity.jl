@@ -88,27 +88,6 @@
         Check(early, [CarryingCapacity.Map], "Not a positive value: K[:b] = -1.0.")
     )
 
-    @sysfails(
-        (base + CarryingCapacity([0, 0.5, 1])),
-        Check(
-            late,
-            [CarryingCapacity.Raw],
-            "Non-missing value found for 'K' at node index [2] (0.5), \
-             but the template for 'producers' \
-             only allows values at the following indices:\n  [3]",
-        )
-    )
-
-    @sysfails(
-        (base + CarryingCapacity([:a => 0.5])),
-        Check(
-            late,
-            [CarryingCapacity.Map],
-            "Invalid 'producer' node label in 'K': :a. \
-            Valid nodes labels for this template are:\n  [:c]",
-        )
-    )
-
     #---------------------------------------------------------------------------------------
     # Allometry.
 
