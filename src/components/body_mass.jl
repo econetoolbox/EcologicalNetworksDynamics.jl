@@ -41,7 +41,7 @@ expand!(raw, M) = raw._foodweb.M = M
 mutable struct Flat <: Blueprint
     M::Float64
 end
-@blueprint Flat "homogeneous mass value" depends(Species)
+@blueprint Flat "uniform mass value" depends(Species)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.M)

@@ -36,7 +36,7 @@ expand!(raw, alpha) = raw._scratch[:producers_competition] = alpha
 mutable struct Flat <: Blueprint
     alpha::Float64
 end
-@blueprint Flat "homogeneous value" depends(Foodweb)
+@blueprint Flat "uniform value" depends(Foodweb)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.alpha)

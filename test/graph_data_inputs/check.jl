@@ -226,22 +226,22 @@
     neg = sparse([0, 1, 0, 1, 0])
 
     # With indices.
-    for v in [
-        gc((@GraphData K{Float64}), [1 => 5, 5 => 8]),
-        gc((@GraphData K{:bin}), [1, 5]), #
+    for (v, (v1, v2)) in [
+        (gc((@GraphData K{Float64}), [1 => 5, 5 => 8]), (5.0, 8.0)),
+        (gc((@GraphData K{:bin}), [1, 5]), (true, true)), #
     ]
         # Check index space.
         @test @check_list_refs v :item 5
         @failswith(
             (@check_list_refs v :item 3),
             CheckError("Invalid 'item' node index in 'v'. \
-                        Index '5' does not fall within the valid range 1:3.")
+                        Index does not fall within the valid range 1:3: [5] ($v2).")
         )
         # Check against a template.
         @test @check_list_refs v :item template(partial)
         @failswith(
             (@check_list_refs v :item 5 template(neg)),
-            CheckError("Invalid 'item' node index in 'v': 1. \
+            CheckError("Invalid 'item' node index in 'v': [1] ($v1). \
                         Valid nodes indices for this template are:\n  [2, 4]")
         )
     end
@@ -252,7 +252,7 @@
     @failswith(
         (@check_list_refs v :item template(partial) dense),
         CheckError("Missing 'item' node index in 'v': \
-                    no value specified for 3.")
+                    no value specified for [3].")
     )
 
     # Check densely against bare reference space.
@@ -261,35 +261,35 @@
     @failswith(
         (@check_list_refs v :item 5 dense),
         CheckError("Missing 'item' node index in 'v': \
-                    no value specified for 3.")
+                    no value specified for [3].")
     )
 
     # Empty space.
     @failswith(
         (@check_list_refs v :item 0),
-        CheckError("No possible valid node index in 'v' like 1: \
+        CheckError("No possible valid node index in 'v' like [1]: \
                     the reference space for 'item' is empty.")
     )
 
     # With labels.
     full_index = Dict(Symbol(s) => i for (i, s) in enumerate("abcde"))
     part_index = Dict(Symbol(s) => i for (i, s) in enumerate("abc"))
-    for v in [
-        gc((@GraphData K{Float64}), [:a => 5, :e => 8]),
-        gc((@GraphData K{:bin}), [:a, :e]), #
+    for (v, (v1, v2)) in [
+        (gc((@GraphData K{Float64}), [:a => 5, :e => 8]), (5.0, 8.0)),
+        (gc((@GraphData K{:bin}), [:a, :e]), (true, true)), #
     ]
         # Check labels space.
         @test @check_list_refs v :item full_index
         @failswith(
             (@check_list_refs v :item part_index),
             CheckError("Invalid 'item' node label in 'v'. \
-                        Expected either :a, :b or :c, got instead: :e.")
+                       Expected either :a, :b or :c, got instead: [:e] ($v2).")
         )
         # Check against a template.
         @test @check_list_refs v :item full_index template(partial)
         @failswith(
             (@check_list_refs v :item full_index template(neg)),
-            CheckError("Invalid 'item' node label in 'v': :a. \
+            CheckError("Invalid 'item' node label in 'v': [:a] ($v1). \
                         Valid nodes labels for this template are:\n  [:b, :d]")
         )
     end
@@ -300,7 +300,7 @@
     @failswith(
         (@check_list_refs v :item full_index template(partial) dense),
         CheckError("Missing 'item' node label in 'v': \
-                    no value specified for :c.")
+                    no value specified for [:c].")
     )
 
     # Check densely against bare reference space.
@@ -309,13 +309,13 @@
     @failswith(
         (@check_list_refs v :item full_index dense),
         CheckError("Missing 'item' node label in 'v': \
-                    no value specified for :d.")
+                    no value specified for [:d].")
     )
 
     # Empty space.
     @failswith(
         (@check_list_refs v :item Dict{Symbol,Int64}()),
-        CheckError("No possible valid node label in 'v' like :a: \
+        CheckError("No possible valid node label in 'v' like [:a]: \
                     the reference space for 'item' is empty.")
     )
 
@@ -343,24 +343,24 @@
     ])
 
     # With indices.
-    for v in [
-        gc((@GraphData A{Float64}), [1 => [5 => 100], 3 => [1 => 200]]),
-        gc((@GraphData A{:bin}), [1 => [5], 3 => [1]]),
+    for (v, (v1, v2)) in [
+        (gc((@GraphData A{Float64}), [1 => [5 => 100], 3 => [1 => 200]]), (200.0, 100.0)),
+        (gc((@GraphData A{:bin}), [1 => [5], 3 => [1]]), (true, true)),
     ]
         # Check index space.
         @test @check_list_refs v :item (3, 5)
         @failswith(
             (@check_list_refs v :item (2, 5)),
             CheckError("Invalid 'item' edge index in 'v'. \
-                        Index '3' does not fall within the valid range 1:2.")
+                       Index does not fall within the valid range 1:2: [3] ($v1).")
         )
         # Check against a template.
         @test @check_list_refs v :item template(partial)
         @failswith(
             (@check_list_refs v :item template(neg)),
-            CheckError("Invalid 'item' edge index in 'v': (1, 5). \
+            CheckError("Invalid 'item' edge index in 'v': [1, 5] ($v2). \
                         Valid edges target indices \
-                        for source 1 in this template are:\n  [3, 4]")
+                        for source [1] in this template are:\n  [3, 4]")
         )
     end
 
@@ -368,9 +368,9 @@
     v = gc((@GraphData A{Float64}), [3 => [5 => 100]])
     @failswith(
         (@check_list_refs v :item template(neg)),
-        CheckError("Invalid 'item' edge index in 'v': (3, 5). \
+        CheckError("Invalid 'item' edge index in 'v': [3, 5] (100.0). \
                     This template allows no valid edge targets indices \
-                    for source 3.")
+                    for source [3].")
     )
 
     # Cannot check densely against a 2D template.
@@ -382,21 +382,21 @@
     # Empty space.
     @failswith(
         (@check_list_refs v :item 0),
-        CheckError("No possible valid edge index in 'v' like (3, 5): \
+        CheckError("No possible valid edge index in 'v' like [3, 5]: \
                     the reference space for 'item' is empty.")
     )
 
     # With labels.
-    for v in [
-        gc((@GraphData A{Float64}), [:a => [:e => 100], :c => [:a => 200]]),
-        gc((@GraphData A{:bin}), [:a => [:e], :c => [:a]]),
+    for (v, (v1,)) in [
+        (gc((@GraphData A{Float64}), [:a => [:e => 100], :c => [:a => 200]]), (100.0,)),
+        (gc((@GraphData A{:bin}), [:a => [:e], :c => [:a]]), (true,)),
     ]
         # Check labels space.
         @test @check_list_refs v :item (part_index, full_index)
         @failswith(
             (@check_list_refs v :item (full_index, part_index)),
             CheckError("Invalid 'item' edge label in 'v'. \
-                        Expected either :a, :b or :c, got instead: :e.")
+                        Expected either :a, :b or :c, got instead: [:e] ($v1).")
         )
         # Check against a template.
         @test @check_list_refs v :item (part_index, full_index) template(partial)
@@ -404,8 +404,8 @@
         @test @check_list_refs v :item full_index template(partial)
         @failswith(
             (@check_list_refs v :item full_index template(neg)),
-            CheckError("Invalid 'item' edge label in 'v': (:a, :e). \
-                        Valid edges target labels for source :a \
+            CheckError("Invalid 'item' edge label in 'v': [:a, :e] ($v1). \
+                        Valid edges target labels for source [:a] \
                         in this template are:\n  [:c, :d]")
         )
     end
@@ -414,9 +414,9 @@
     v = gc((@GraphData A{Float64}), [:c => [:e => 100]])
     @failswith(
         (@check_list_refs v :item full_index template(neg)),
-        CheckError("Invalid 'item' edge label in 'v': (:c, :e). \
+        CheckError("Invalid 'item' edge label in 'v': [:c, :e] (100.0). \
                     This template allows no valid edge targets labels \
-                    for source :c.")
+                    for source [:c].")
     )
 
     # Cannot check densely against a 2D template.
@@ -428,7 +428,7 @@
     # Empty space.
     @failswith(
         (@check_list_refs v :item Dict{Symbol,Int64}()),
-        CheckError("No possible valid edge label in 'v' like (:c, :e): \
+        CheckError("No possible valid edge label in 'v' like [:c, :e]: \
                     the reference space for 'item' is empty.")
     )
 

@@ -57,7 +57,7 @@
         Check(
             late,
             [CarryingCapacity.Map],
-            "Invalid 'producer' node label in 'K': :a. \
+            "Invalid 'producer' node label in 'K': [:a] (1.0). \
              Valid nodes labels for this template are:\n  [:c]",
         )
     )
@@ -122,7 +122,7 @@
     @viewfails(
         (m.carrying_capacity[1] = 2),
         EN.CarryingCapacities,
-        "Invalid producer index 1 to write node data. \
+        "Invalid producer index [1] to write node data. \
          The only valid index for this template is 3.",
     )
 

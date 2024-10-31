@@ -48,7 +48,7 @@
         Check(
             late,
             [MaximumConsumption.Map],
-            "Invalid 'consumer' node label in 'y': :c. \
+            "Invalid 'consumer' node label in 'y': [:c] (1.0). \
              Valid nodes labels for this template are:\n  [:a, :b]",
         )
     )
@@ -119,7 +119,7 @@
     @viewfails(
         (m.maximum_consumption[3] = 2),
         EN.MaximumConsumptionRates,
-        "Invalid consumer index 3 to write node data. \
+        "Invalid consumer index [3] to write node data. \
          Valid indices for this template are 1 and 2.",
     )
 

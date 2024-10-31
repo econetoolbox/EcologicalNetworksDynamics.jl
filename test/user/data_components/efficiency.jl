@@ -20,13 +20,14 @@
     @test typeof(ef) === Efficiency.Raw
 
     # Adjacency list.
-    m = base + Efficiency([:a => [:b => 0.1], :b => [:c => 0.3]])
+    ef = Efficiency([:a => [:b => 0.1], :b => [:c => 0.3]])
+    m = base + ef
     @test m.efficiency == m.e == [
         0 1 0
         0 0 3
         0 0 0
     ] / 10
-    @test typeof(ef) == Efficiency.Raw
+    @test typeof(ef) == Efficiency.Adjacency
 
     # Scalar.
     ef = Efficiency(0.1)
@@ -121,8 +122,8 @@
         Check(
             late,
             [Efficiency.Adjacency],
-            "Invalid 'trophic link' edge label in 'e': (:b, :a). \
-             Valid edges target labels for source :b in this template are:\n  [:c]",
+            "Invalid 'trophic link' edge label in 'e': [:b, :a] (0.5). \
+             Valid edges target labels for source [:b] in this template are:\n  [:c]",
         )
     )
 

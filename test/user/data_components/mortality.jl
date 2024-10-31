@@ -63,7 +63,7 @@
         Check(
             late,
             [Mortality.Map],
-            "Missing 'species' node label in 'd': no value specified for :c.",
+            "Missing 'species' node label in 'd': no value specified for [:c].",
         )
     )
 
@@ -73,7 +73,7 @@
             late,
             [Mortality.Map],
             "Invalid 'species' node label in 'd'. \
-             Expected either :a, :b or :c, got instead: :d.",
+             Expected either :a, :b or :c, got instead: [:d] (4.0).",
         )
     )
 

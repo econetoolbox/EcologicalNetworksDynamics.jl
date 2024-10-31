@@ -46,7 +46,7 @@ expand!(raw, e) = raw.biorates.e = e
 mutable struct Flat <: Blueprint
     e::Float64
 end
-@blueprint Flat "homogeneous efficiency" depends(Foodweb)
+@blueprint Flat "uniform efficiency" depends(Foodweb)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.e)

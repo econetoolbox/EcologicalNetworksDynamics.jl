@@ -66,7 +66,7 @@
         Check(
             late,
             [GrowthRate.Map],
-            "Invalid 'producer' node label in 'r': :a. \
+            "Invalid 'producer' node label in 'r': [:a] (1.0). \
              Valid nodes labels for this template are:\n  [:c]",
         )
     )
@@ -113,8 +113,8 @@
         Check(
             late,
             [GrowthRate.Map],
-            "Invalid 'producer' node label in 'r': :a. \
-            Valid nodes labels for this template are:\n  [:c]",
+            "Invalid 'producer' node label in 'r': [:a] (0.5). \
+             Valid nodes labels for this template are:\n  [:c]",
         )
     )
 
@@ -158,7 +158,7 @@
     @viewfails(
         (m.growth_rate[1] = 2),
         EN.GrowthRates,
-        "Invalid producer index 1 to write node data. \
+        "Invalid producer index [1] to write node data. \
          The only valid index for this template is 3.",
     )
 

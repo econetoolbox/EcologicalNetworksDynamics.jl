@@ -44,7 +44,7 @@ end
 mutable struct Flat <: Blueprint
     y::Float64
 end
-@blueprint Flat "homogeneous maximum consumption rate" depends(Foodweb)
+@blueprint Flat "uniform maximum consumption rate" depends(Foodweb)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.y)

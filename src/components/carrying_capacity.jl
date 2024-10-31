@@ -50,7 +50,7 @@ end
 mutable struct Flat <: Blueprint
     K::Float64
 end
-@blueprint Flat "homogeneous carrying capacity" depends(Foodweb)
+@blueprint Flat "uniform carrying capacity" depends(Foodweb)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.K)

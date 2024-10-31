@@ -40,7 +40,7 @@ expand!(raw, d) = raw.biorates.d = d
 mutable struct Flat <: Blueprint
     d::Float64
 end
-@blueprint Flat "homogeneous mortality" depends(Species)
+@blueprint Flat "uniform mortality" depends(Species)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.d)

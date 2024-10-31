@@ -40,7 +40,7 @@ import .EN: WriteError
         @viewfails(
             bm[i],
             BM,
-            "Species index $i is off-bounds for a view into 3 nodes data."
+            "Species index [$i] is off-bounds for a view into 3 nodes data."
         )
     end
 

@@ -536,11 +536,11 @@ macro expose_data(
         #-----------------------------------------------------------------------------------
         # Wire checked index access as required.
 
-        check = sparse ? :check_sparse_index : :check_dense_index
+        check = sparse ? :check_sparse_access : :check_dense_access
         label = indexed ? :to_index : :no_labels
         (check, label) = (:(GraphViews.$check), :(GraphViews.$label))
         push_res!(quote
-            GraphViews.check_index(v::ViewType, args...) = $check(v, args...)
+            GraphViews.check_access(v::ViewType, args...) = $check(v, args...)
             GraphViews.check_label(v::ViewType, args...) = $label(v, args...)
         end)
 

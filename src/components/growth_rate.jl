@@ -52,7 +52,7 @@ end
 mutable struct Flat <: Blueprint
     r::Float64
 end
-@blueprint Flat "homogeneous growth rate" depends(Foodweb)
+@blueprint Flat "uniform growth rate" depends(Foodweb)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.r)

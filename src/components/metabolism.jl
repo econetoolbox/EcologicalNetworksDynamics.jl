@@ -40,7 +40,7 @@ expand!(raw, x) = raw.biorates.x = x
 mutable struct Flat <: Blueprint
     x::Float64
 end
-@blueprint Flat "homogeneous metabolism" depends(Species)
+@blueprint Flat "uniform metabolism" depends(Species)
 export Flat
 
 F.early_check(bp::Flat) = check(bp.x)

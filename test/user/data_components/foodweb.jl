@@ -146,7 +146,7 @@
             late,
             [Foodweb.Adjacency],
             "Invalid 'species' edge label in 'A'. \
-             Expected either :s1 or :s2, got instead: :a.",
+             Expected either :s1 or :s2, got instead: [:a] (true).",
         )
     )
 
@@ -156,7 +156,7 @@
             late,
             [Foodweb.Adjacency],
             "Invalid 'species' edge index in 'A'. \
-             Index '3' does not fall within the valid range 1:2.",
+             Index does not fall within the valid range 1:2: [3] (true).",
         )
     )
 

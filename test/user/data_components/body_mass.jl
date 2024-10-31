@@ -85,7 +85,7 @@
             late,
             [BodyMass.Map],
             "Invalid 'species' node index in 'M'. \
-             Index '3' does not fall within the valid range 1:2.",
+             Index does not fall within the valid range 1:2: [3] (0.2).",
         )
     )
 
@@ -95,7 +95,7 @@
             late,
             [BodyMass.Map],
             "Invalid 'species' node label in 'M'. \
-             Expected either :s1 or :s2, got instead: :a.",
+             Expected either :s1 or :s2, got instead: [:a] (0.1).",
         )
     )
 

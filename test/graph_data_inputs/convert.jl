@@ -423,7 +423,7 @@ end
     @test refspace(l) == 0
     @test collect(accesses(l)) == []
     @test empty_space(0)
-    @test !inspace(0, 0) && !inspace(1, 0)
+    @test !inspace((0,), 0) && !inspace((1,), 0)
 
     # Map indices.
     bin = [1, 3, 5]
@@ -435,10 +435,10 @@ end
         @test collect(refs(l)) == [1, 3, 5]
         @test nrefspace(l) == 5
         @test refspace(l) == 5
-        @test collect(accesses(l)) == [1, 3, 5]
+        @test collect(accesses(l)) == [(1,), (3,), (5,)]
     end
-    @test all(inspace(i, 5) for i in 1:5)
-    @test !inspace(0, 5) && !inspace(6, 5)
+    @test all(inspace((i,), 5) for i in 1:5)
+    @test !inspace((0,), 5) && !inspace((6,), 5)
 
     # Map symbols.
     bin = [:a, :c, :e]
@@ -451,10 +451,10 @@ end
         @test collect(refs(l)) == [:a, :c, :e]
         @test nrefspace(l) == 3
         @test refspace(l) == OrderedDict(:a => 1, :c => 2, :e => 3)
-        @test collect(accesses(l)) == [:a, :c, :e]
+        @test collect(accesses(l)) == [(:a,), (:c,), (:e,)]
         space = refspace(l)
-        @test all(inspace(s, space) for s in symbols("ace"))
-        @test !inspace(:x, space) && !inspace(:y, space)
+        @test all(inspace((s,), space) for s in symbols("ace"))
+        @test !inspace((:x,), space) && !inspace((:y,), space)
     end
 
     # Adjacency list indices.
@@ -496,9 +496,9 @@ end
         @test nrefs_outer(l) == 3
         @test nrefs_inner(l) == 5
 
-        @test collect(refs(l)) == Symbol.(collect("abcdefg"))
-        @test collect(refs_outer(l)) == Symbol.(collect("ace"))
-        @test collect(refs_inner(l)) == Symbol.(collect("bdefg"))
+        @test collect(refs(l)) == symbols("abcdefg")
+        @test collect(refs_outer(l)) == symbols("ace")
+        @test collect(refs_inner(l)) == symbols("bdefg")
 
         @test nrefspace(l) == 7
         @test nrefspace_outer(l) == 3

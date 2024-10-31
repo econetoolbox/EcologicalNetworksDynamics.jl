@@ -154,8 +154,8 @@
         Check(
             late,
             [ProducersCompetition.Adjacency],
-            "Invalid 'producers link' edge label in 'alpha': (:b, :a). \
-             Valid edges target labels for source :b in this template are:\n  [:b, :c]",
+            "Invalid 'producers link' edge label in 'alpha': [:b, :a] (5.0). \
+             Valid edges target labels for source [:b] in this template are:\n  [:b, :c]",
         )
     )
 

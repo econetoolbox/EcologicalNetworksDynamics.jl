@@ -242,16 +242,17 @@ function check_list_refs(
         lv = level(list)
         rt = reftype(list)
         checkfails("No possible valid $lv $rt in '$name' \
-                   like $(repr(first(accesses(list)))): \
+                   like $(disp_access(first(accesses(list)))): \
                    the reference space for '$item' is empty.")
     end
 
     # Check references against their space.
-    for ref in accesses(list)
-        inspace(ref, space) && continue
+    for acc in accesses(list)
+        inspace(acc, space) && continue
         lv = level(list)
         rt = reftype(list)
-        checkfails("Invalid '$item' $lv $rt in '$name'. $(outspace(ref, space))")
+        checkfails("Invalid '$item' $lv $rt in '$name'. \
+                    $(outspace(acc, space, get_value(list, acc)))")
     end
 
     # Check against their template if any.
@@ -270,11 +271,13 @@ reftype(::UList{Int64}) = "index"
 reftype(::UList{Symbol}) = "label"
 reftypes(::UList{Int64}) = "indices"
 reftypes(::UList{Symbol}) = "labels"
-outspace(ref, n::Int64) = "Index '$ref' does not fall within the valid range 1:$n."
-outspace(ref, x::Index) = "Expected $(either(keys(x))), got instead: $(repr(ref))."
-function outspace((i, j), (n, m))
-    ref, space = inspace(i, n) ? (j, m) : (i, n)
-    outspace(ref, space)
+outspace(acc, n::Int64, val) =
+    "Index does not fall within the valid range 1:$n: $(disp_access(acc)) ($(repr(val)))."
+outspace(acc, x::Index, val) =
+    "Expected $(either(keys(x))), got instead: $(disp_access(acc)) ($(repr(val)))."
+function outspace((i, j), (n, m), val)
+    ref, space = inspace((i,), n) ? (j, m) : (i, n)
+    outspace((ref,), space, val)
 end
 either(symbols) =
     length(symbols) == 1 ? "$(repr(first(symbols)))" :
@@ -283,10 +286,10 @@ either(symbols) =
 #-------------------------------------------------------------------------------------------
 # Assuming the above check passed, check references against a template.
 
-# Cast any ref to an integer given its space.
-to_index(i::Int64, ::Int64) = i
-to_index(s::Symbol, x::Index) = x[s]
-to_index((a, b), (x, y)) = (to_index(a, x), to_index(b, y))
+# Cast any access to an integer given its space.
+to_index((i,), ::Int64) = i
+to_index((s,), x::Index) = x[s]
+to_index((a, b), (x, y)) = (to_index((a,), x), to_index((b,), y))
 
 # Extract an index reference checker from a template.
 function index_checker(template::AbstractSparseVector)
@@ -300,13 +303,15 @@ end
 
 function check_templated_refs(list, space, template, name, item)
     complies_to_template = index_checker(template)
-    for ref in accesses(list)
-        index = to_index(ref, space)
+    for acc in accesses(list)
+        index = to_index(acc, space)
         complies_to_template(index) && continue
         lv = level(list)
         rt = reftype(list)
-        checkfails("Invalid '$item' $lv $rt in '$name': $(repr(ref)). \
-                    $(valids(index, ref, space, template, reftypes(list)))")
+        val = get_value(list, acc)
+        checkfails("Invalid '$item' $lv $rt in '$name': \
+                    $(disp_access(acc)) ($(repr(val))). \
+                    $(valids(index, acc, space, template, reftypes(list)))")
     end
 end
 
@@ -323,10 +328,11 @@ function valids(_, __, space, template::SparseVector, rts)
 end
 function valids((i, j), (a, b), (x, y), template::SparseMatrix, rts)
     vals = valids(y, template[i, :])
+    src = disp_access((a,))
     if isempty(vals)
-        "This template allows no valid edge targets $rts for source $(repr(a))."
+        "This template allows no valid edge targets $rts for source $src."
     else
-        "Valid edges target $rts for source $(repr(a)) in this template are:\n  $vals"
+        "Valid edges target $rts for source $src in this template are:\n  $vals"
     end
 end
 
@@ -340,25 +346,25 @@ function miss_refs(map::UMap, _, template::AbstractSparseVector)
     length(map) < length(nz)
 end
 
-needles(n::Int64, ::Nothing) = 1:n
-needles(x::Index, ::Nothing) = keys(x)
-needles(::Int64, template::AbstractSparseVector) = findnz(template)[1]
+needles(n::Int64, ::Nothing) = ((i,) for i in 1:n)
+needles(x::Index, ::Nothing) = ((k,) for k in keys(x))
+needles(::Int64, template::AbstractSparseVector) = ((i,) for i in findnz(template)[1])
 function needles(x::Index, template::AbstractSparseVector)
     revmap = Dict(i => n for (n, i) in x)
-    sort!(collect(revmap[i] for i in findnz(template)[1]))
+    sort!(collect((revmap[i],) for i in findnz(template)[1]))
 end
 
 check_missing_refs(list, space, template, name, item) =
     if miss_refs(list, space, template)
         # Dummy linear searches to include one missing ref in error messages.
         # Assume there must be one because `miss_refs` returned true.
-        haystack = accesses(list)
+        haystack = Set(accesses(list))
         for needle in needles(space, template)
             needle in haystack && continue
             lv = level(list)
             rt = reftype(list)
             checkfails("Missing '$item' $lv $rt in '$name': \
-                        no value specified for $(repr(needle)).")
+                        no value specified for $(disp_access(needle)).")
         end
     end
 

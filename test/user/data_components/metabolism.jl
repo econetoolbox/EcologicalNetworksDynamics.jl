@@ -78,17 +78,17 @@
         Check(
             late,
             [Metabolism.Map],
-            "Missing 'species' node label in 'x': no value specified for :c.",
+            "Missing 'species' node label in 'x': no value specified for [:c].",
         )
     )
 
     @sysfails(
-        base + Metabolism([:a => 1, :b => 2, :c => 3, :x => 4]),
+        base + Metabolism([:a => 1, :b => 2, :c => 3, :w => 4]),
         Check(
             late,
             [Metabolism.Map],
             "Invalid 'species' node label in 'x'. \
-             Expected either :a, :b or :c, got instead: :x.",
+             Expected either :a, :b or :c, got instead: [:w] (4.0).",
         )
     )
 

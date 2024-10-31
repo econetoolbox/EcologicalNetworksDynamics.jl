@@ -95,47 +95,49 @@ Base.:(==)(a::AbstractGraphDataView, b::AbstractGraphDataView) = a._ref == b._re
 
 # Always valid for reading with indices (or we break AbstractArray contract).
 function Base.getindex(v::AbstractGraphDataView, index::Int...)
-    check_index_dim(v, index...)
-    check_dense_index(v, nothing, index) # Always do to harmonize error messages.
+    check_access_dim(v, index...)
+    check_dense_access(v, nothing, index) # Always do to harmonize error messages.
     getindex(v._ref, index...)
 end
 
 # Always checked for labelled access.
-function Base.getindex(v::AbstractGraphDataView, labels::Label...)
-    check_index_dim(v, labels...)
-    index = to_checked_index(v, labels...)
+function Base.getindex(v::AbstractGraphDataView, access::Label...)
+    check_access_dim(v, access...)
+    index = to_checked_index(v, access...)
     getindex(v._ref, index...)
 end
-Base.getindex(v::AbstractGraphDataView) = check_index_dim(v) # (trigger correct error)
+Base.getindex(v::AbstractGraphDataView) = check_access_dim(v) # (trigger correct error)
 
 # Only allow writes for writeable views.
-Base.setindex!(v::AbstractGraphDataReadWriteView, rhs, refs::Ref...) =
-    setindex!(v, rhs, refs)
+Base.setindex!(v::AbstractGraphDataReadWriteView, rhs, access::Ref...) =
+    setindex!(v, rhs, access)
 Base.setindex!(v::AbstractGraphDataReadOnlyView, args...) =
     throw(ViewError(typeof(v), "This view into graph edges data is read-only."))
 
-function setindex!(v::AbstractGraphDataReadWriteView, rhs, refs)
-    check_index_dim(v, refs...)
-    index = to_checked_index(v, refs...)
+function setindex!(v::AbstractGraphDataReadWriteView, rhs, access)
+    check_access_dim(v, access...)
+    index = to_checked_index(v, access...)
     rhs = write!(v._graph, typeof(v), rhs, index)
     Base.setindex!(v._ref, rhs, index...)
 end
-inline(index, ::Tuple{Vararg{Int}}) = "$index"
-inline(index, input) = "$index ($input)"
+inline_(access::Tuple) = join(repr.(access), ", ")
+inline(access::Tuple) = "[$(inline_(access))]"
+inline(access::Tuple, original) = "$(inline(access)) (=$(inline(original)))"
+inline(access::Tuple, ::Tuple{Vararg{Int}}) = inline(access)
 
 function to_checked_index(v::AbstractGraphDataView, index::Int...)
-    check_index(v, nothing, index)
+    check_access(v, nothing, index)
     index
 end
 
 function to_checked_index(v::AbstractGraphDataView, labels::Label...)
     index = to_index(v, labels...)
-    check_index(v, labels, index)
+    check_access(v, labels, index)
     index
 end
 
 # Extension points for implementors.
-check_index(v::AbstractGraphDataView, _...) = throw("Unimplemented for $(typeof(v)).")
+check_access(v::AbstractGraphDataView, _...) = throw("Unimplemented for $(typeof(v)).")
 check_label(v::AbstractGraphDataView, _...) = throw("Unimplemented for $(typeof(v)).")
 
 # Check the value to be written prior to underlying call to `Base.setindex!`,
@@ -157,7 +159,7 @@ level_name(v::AbstractGraphDataView) = level_name(typeof(v))
 #-------------------------------------------------------------------------------------------
 # Basic bound checks for dense views.
 
-function check_dense_index(v::AbstractGraphDataView, ::Any, index::Tuple{Vararg{Int}})
+function check_dense_access(v::AbstractGraphDataView, ::Any, index::Tuple{Vararg{Int}})
     all(0 .< index .<= length(v)) && return
     item = uppercasefirst(item_name(v))
     level = level_name(v)
@@ -165,23 +167,21 @@ function check_dense_index(v::AbstractGraphDataView, ::Any, index::Tuple{Vararg{
     throw(ViewError(
         typeof(v),
         "$item index $(inline(index)) is off-bounds \
-        for a view into $(inline(size(v))) $(level)$s data.",
+        for a view into $(inline_(size(v))) $(level)$s data.",
     ))
 end
-inline(i) = "$i"
-inline((i,)::Tuple{Int}) = "$i"
 plural(n) = n > 1 ? "s" : ""
 
 #-------------------------------------------------------------------------------------------
 # For sparse views (a template is available as `._template`).
 
 # Nodes.
-function check_sparse_index(
+function check_sparse_access(
     v::AbstractGraphDataView,
     labels::Option{Tuple{Vararg{Label}}}, # Remember if given as labels.
     index::Tuple{Vararg{Int}},
 )
-    check_dense_index(v, labels, index)
+    check_dense_access(v, labels, index)
     :_template in fieldnames(typeof(v)) || return # Always valid without a template.
 
     template = v._template
@@ -287,19 +287,19 @@ function dimerr(reftype, v, level, exp, labs)
 end
 laberr(args...) = dimerr(n -> n > 1 ? "labels" : "label", args...)
 inderr(args...) = dimerr(n -> n > 1 ? "indices" : "index", args...)
-check_index_dim(v::AbstractNodesView) = inderr(v, "Nodes", 1, ())
-check_index_dim(v::AbstractEdgesView) = inderr(v, "Edges", 2, ())
-check_index_dim(::AbstractNodesView, _::Int) = nothing
-check_index_dim(::AbstractEdgesView, _::Int, _::Int) = nothing
-check_index_dim(::AbstractNodesView, _::Label) = nothing
-check_index_dim(::AbstractEdgesView, _::Label, _::Label) = nothing
-check_index_dim(v::AbstractNodesView, labels::Label...) = laberr(v, "Nodes", 1, labels)
-check_index_dim(v::AbstractEdgesView, labels::Label...) = laberr(v, "Edges", 2, labels)
+check_access_dim(v::AbstractNodesView) = inderr(v, "Nodes", 1, ())
+check_access_dim(v::AbstractEdgesView) = inderr(v, "Edges", 2, ())
+check_access_dim(::AbstractNodesView, _::Int) = nothing
+check_access_dim(::AbstractEdgesView, _::Int, _::Int) = nothing
+check_access_dim(::AbstractNodesView, _::Label) = nothing
+check_access_dim(::AbstractEdgesView, _::Label, _::Label) = nothing
+check_access_dim(v::AbstractNodesView, labels::Label...) = laberr(v, "Nodes", 1, labels)
+check_access_dim(v::AbstractEdgesView, labels::Label...) = laberr(v, "Edges", 2, labels)
 # Requesting vector[1, 1, 1, 1] is actuall valid in julia.
 # Only trigger the error out of this very strict 1-situation.
-check_index_dim(v::AbstractNodesView, i::Int, index::Int...) =
+check_access_dim(v::AbstractNodesView, i::Int, index::Int...) =
     all(==(1), index) || inderr(v, "Nodes", 1, (i, index...))
-check_index_dim(v::AbstractEdgesView, i::Int, j::Int, index::Int...) =
+check_access_dim(v::AbstractEdgesView, i::Int, j::Int, index::Int...) =
     all(==(1), index) || inderr(v, "Edges", 2, (i, j, index...))
 
 # Accessing non-indexed views with labels.
