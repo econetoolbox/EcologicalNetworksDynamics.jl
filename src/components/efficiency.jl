@@ -24,7 +24,7 @@ mutable struct Raw <: Blueprint
     Raw(e, foodweb = _Foodweb) = new(@tographdata(e, SparseMatrix{Float64}), foodweb)
 end
 F.implied_blueprint_for(bp::Raw, ::_Foodweb) = Foodweb(bp.e .!= 0)
-@blueprint Raw "matrix"
+@blueprint Raw "sparse matrix"
 export Raw
 
 F.early_check(bp::Raw) = check_edges(check, bp.e)

@@ -169,7 +169,7 @@ export @kwargs_helpers
 # Declare here just to satisfy static code analysis.
 unerr() = throw("Unimplemented kwarg helper. \
                  Has @kwargs_helpers macro been called in this scope?")
-alias(first, args...) = unerr()
+alias!(first, args...) = unerr()
 given(arg) = unerr()
 miss(arg) = unerr()
 left(arg) = unerr()
@@ -179,7 +179,7 @@ take!(arg, type = nothing) = unerr()
 take_or!(arg, default, type = nothing) = unerr()
 populate!(; defs...) = unerr()
 no_unused_arguments() = unerr()
-export alias
+export alias!
 export given
 export miss
 export left

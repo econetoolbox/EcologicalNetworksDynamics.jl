@@ -171,10 +171,44 @@ Base.show(io::IO, ::MIME"text/plain", ::Type{Model}) =
 Base.show(io::IO, p::F.PropertySpace{name,P,Internal}) where {name,P} =
     F.display_long(io, p, non_underscore)
 
+#-------------------------------------------------------------------------------------------
 # Default display for blueprint fields.
-function F.display_blueprint_field_short(io::IO, v::Vector, ::Blueprint)
+
+function F.display_blueprint_field_short(io::IO, v::AbstractVector, ::Blueprint)
     print(io, "[$(join_elided(v, ", "))]")
 end
+
+function F.display_blueprint_field_short(io::IO, m::AbstractMatrix, ::Blueprint)
+    (p, q) = size(m)
+    print(io, "$p×$q matrix (")
+    min, max = extrema(m)
+    if min == max
+        print(io, "$min")
+    else
+        print(io, "$min to $max")
+    end
+    print(io, ")")
+end
+
+function F.display_blueprint_field_short(io::IO, m::SparseMatrix, ::Blueprint)
+    (p, q) = size(m)
+    print(io, "$p×$q ")
+    _, _, values = findnz(m)
+    n = length(values)
+    if n == 0
+        print(io, "empty sparse matrix")
+    else
+        print(io, "sparse matrix with $n values (")
+        min, max = extrema(values)
+        if min == max
+            print(io, "$min")
+        else
+            print(io, "$min to $max")
+        end
+        print(io, ")")
+    end
+end
+
 function F.display_blueprint_field_short(
     io::IO,
     map::@GraphData(Map{T}),
@@ -185,6 +219,7 @@ function F.display_blueprint_field_short(
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")
 end
+
 function F.display_blueprint_field_short(
     io::IO,
     map::@GraphData(Adjacency{T}),

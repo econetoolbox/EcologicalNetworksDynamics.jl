@@ -77,6 +77,7 @@
 
     # Forbid unused arguments.
     @argfails(Efficiency(:Miele2019; e_other = 5), "Unexpected argument: e_other = 5.")
+
     @argfails(Efficiency(0.2; a = 5), "Unexpected argument: a = 5.")
 
     # Invalid values.
@@ -88,10 +89,12 @@
         ]),
         Check(early, [Efficiency.Raw], "Not a value within [0, 1]: e[2, 1] = 3.0.")
     )
+
     @sysfails(
         base + Efficiency([:b => [:c => 5]]),
         Check(early, [Efficiency.Adjacency], "Not a value within [0, 1]: e[:b, :c] = 5.0.")
     )
+
     @sysfails(
         base + Efficiency(5),
         Check(early, [Efficiency.Flat], "Not a value within [0, 1]: e = 5.0.")
