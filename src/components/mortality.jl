@@ -70,10 +70,10 @@ function F.expand!(raw, bp::Map)
 end
 
 #-------------------------------------------------------------------------------------------
-miele2019_mortality_allometry_rates() = Allometry(;
+miele2019_allometry_rates() = Allometry(;
     producer = (a = 0.0138, b = -1 / 4),
-    ectotherm = (a = 0.0314, b = -1 / 4),
     invertebrate = (a = 0.0314, b = -1 / 4),
+    ectotherm = (a = 0.0314, b = -1 / 4),
 )
 
 mutable struct Allometric <: Blueprint
@@ -83,7 +83,7 @@ mutable struct Allometric <: Blueprint
     # Default values.
     function Allometric(default::Symbol)
         @check_symbol default (:Miele2019,)
-        @expand_symbol default (:Miele2019 => new(miele2019_mortality_allometry_rates()))
+        @expand_symbol default (:Miele2019 => new(miele2019_allometry_rates()))
     end
 end
 @blueprint Allometric "allometric rates" depends(BodyMass, MetabolicClass)
@@ -91,7 +91,7 @@ export Allometric
 
 function F.early_check(bp::Allometric)
     (; allometry) = bp
-    check_template(allometry, miele2019_mortality_allometry_rates(), "mortality rates")
+    check_template(allometry, miele2019_allometry_rates(), "mortality rates")
 end
 
 function F.expand!(raw, bp::Allometric)

@@ -119,7 +119,7 @@ include("./growth_rate.jl") # <- First, good example of 'node' component. Read f
 include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
 include("./carrying_capacity.jl")
 include("./mortality.jl")
-#  include("./metabolism.jl")
+include("./metabolism.jl")
 #  include("./maximum_consumption.jl")
 #  include("./producers_competition.jl")
 #  include("./consumers_preferences.jl")

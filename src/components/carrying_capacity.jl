@@ -84,7 +84,7 @@ function F.expand!(raw, bp::Map)
 end
 
 #-------------------------------------------------------------------------------------------
-binzer2016_carrying_capacity_allometry_rates() =
+binzer2016_allometry_rates() =
     (E_a = 0.71, allometry = Allometry(; producer = (a = 3, b = 0.28)))
 
 mutable struct Temperature <: Blueprint
@@ -94,9 +94,7 @@ mutable struct Temperature <: Blueprint
     Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
     function Temperature(default::Symbol)
         @check_symbol default (:Binzer2016,)
-        @expand_symbol default (
-            :Binzer2016 => new(binzer2016_carrying_capacity_allometry_rates()...)
-        )
+        @expand_symbol default (:Binzer2016 => new(binzer2016_allometry_rates()...))
     end
 end
 @blueprint Temperature "allometric rates and activation energy" depends(
@@ -110,7 +108,7 @@ function F.early_check(bp::Temperature)
     (; allometry) = bp
     check_template(
         allometry,
-        binzer2016_carrying_capacity_allometry_rates()[2],
+        binzer2016_allometry_rates()[2],
         "carrying capacity (from temperature)",
     )
 end

@@ -90,7 +90,7 @@ end
 #-------------------------------------------------------------------------------------------
 # From allometric rates (no temperature).
 
-miele2019_growth_allometry_rates() = Allometry(; producer = (a = 1, b = -1 / 4))
+miele2019_allometry_rates() = Allometry(; producer = (a = 1, b = -1 / 4))
 
 mutable struct Allometric <: Blueprint
     allometry::Allometry
@@ -99,7 +99,7 @@ mutable struct Allometric <: Blueprint
     # Default values.
     function Allometric(default::Symbol)
         @check_symbol default (:Miele2019,)
-        @expand_symbol default (:Miele2019 => new(miele2019_growth_allometry_rates()))
+        @expand_symbol default (:Miele2019 => new(miele2019_allometry_rates()))
     end
 end
 @blueprint Allometric "allometric rates" depends(BodyMass, MetabolicClass)
@@ -107,7 +107,7 @@ export Allometric
 
 function F.early_check(bp::Allometric)
     (; allometry) = bp
-    check_template(allometry, miele2019_growth_allometry_rates(), "growth rates")
+    check_template(allometry, miele2019_allometry_rates(), "growth rates")
 end
 
 function F.expand!(raw, bp::Allometric)
@@ -121,7 +121,7 @@ end
 #-------------------------------------------------------------------------------------------
 # From allometric rates and activation energy (temperature).
 
-binzer2016_growth_allometry_rates() =
+binzer2016_allometry_rates() =
     (E_a = -0.84, allometry = Allometry(; producer = (a = exp(-15.68), b = -0.25)))
 
 mutable struct Temperature <: Blueprint
@@ -131,7 +131,7 @@ mutable struct Temperature <: Blueprint
     Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
     function Temperature(default::Symbol)
         @check_symbol default (:Binzer2016,)
-        @expand_symbol default (:Binzer2016 => new(binzer2016_growth_allometry_rates()...))
+        @expand_symbol default (:Binzer2016 => new(binzer2016_allometry_rates()...))
     end
 end
 @blueprint Temperature "allometric rates and activation energy" depends(
@@ -145,7 +145,7 @@ function F.early_check(bp::Temperature)
     (; allometry) = bp
     check_template(
         allometry,
-        binzer2016_growth_allometry_rates()[2],
+        binzer2016_allometry_rates()[2],
         "growth rates (from temperature)",
     )
 end

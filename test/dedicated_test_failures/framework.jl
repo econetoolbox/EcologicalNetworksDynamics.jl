@@ -271,7 +271,7 @@ function TestFailures.check_exception(e::AddError, expected_type, fields)
     la, le = length.((actual, expected))
     s(n) = n > 1 ? "s" : ""
     were(n) = n > 1 ? "were" : "was"
-    la == le || error("Exception '$nE' contains $la field$(s(la)), \
+    la == le || error("Exception '$nE' contains $la field$(s(la)) $names, \
                        but $le field$(s(le)) $(were(le)) expected.")
     for (name, a, e) in zip(names, actual, expected)
         if a isa F.Node

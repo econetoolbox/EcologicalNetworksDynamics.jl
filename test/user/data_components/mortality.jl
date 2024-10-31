@@ -25,6 +25,10 @@
     @test m.mortality == [1, 2, 3] == m.d
     @test typeof(mr) == Mortality.Map
 
+    # Imply species component.
+    @test Model(Mortality([1, 2, 3])).species.names == [:s1, :s2, :s3]
+    @test Model(Mortality([:a => 1, :b => 2, :c => 3])).species.names == [:a, :b, :c]
+
     #---------------------------------------------------------------------------------------
     # From allometric rates.
 
@@ -42,6 +46,11 @@
 
     #---------------------------------------------------------------------------------------
     # Raw values.
+
+    @sysfails(
+        Model(Mortality(1)),
+        Missing(Species, Mortality, [Mortality.Flat], nothing)
+    )
 
     @sysfails(
         base + Mortality([1, 2]),
