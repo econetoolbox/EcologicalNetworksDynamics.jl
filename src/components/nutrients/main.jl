@@ -29,6 +29,10 @@ if (false)
     include("../../Topologies/Topologies.jl")
     using .Topologies
 end
+if (false)
+    include("../../GraphDataInputs/GraphDataInputs.jl")
+    using .GraphDataInputs
+end
 
 # Dedicated property namespace.
 @propspace nutrients
@@ -36,10 +40,8 @@ end
 # The compartment defining nutrients nodes, akin to `Species`.
 include("./nodes.jl")
 
-# All other nutrient-related data depend on nutrient 'nodes'
-# but blueprints can typically infer/'imply' them,
-# just like the foodweb can infer the 'species' compartment.
-#  include("./turnover.jl")
+# Further node/edges components regarding this compartment.
+include("./turnover.jl")
 #  include("./supply.jl")
 #  include("./concentration.jl")
 #  include("./half_saturation.jl")
