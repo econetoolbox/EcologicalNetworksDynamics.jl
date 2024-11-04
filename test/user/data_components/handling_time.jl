@@ -1,6 +1,6 @@
 @testset "'Handling time' component." begin
 
-    # Mostly duplicated from.handling_time.
+    # Mostly duplicated from Efficiency.
 
     base = Model(Foodweb([:a => [:b, :c], :b => :c]))
 

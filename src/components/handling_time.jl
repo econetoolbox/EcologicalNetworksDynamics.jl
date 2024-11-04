@@ -6,8 +6,6 @@
 (false) && (local HandlingTime, _HandlingTime)
 
 # ==========================================================================================
-# Blueprints.
-
 module HandlingTime_
 include("blueprint_modules.jl")
 include("blueprint_modules_identifiers.jl")
@@ -141,9 +139,6 @@ end
 @component HandlingTime{Internal} requires(Foodweb) blueprints(HandlingTime_)
 export HandlingTime
 
-# Construct either variant based on user input,
-# but disallow direct allometric input in this constructor,
-# for consistence with other allometry-compliant biorates.
 function (::_HandlingTime)(h_t)
 
     h_t = @tographdata h_t {Symbol, Scalar, SparseMatrix, Adjacency}{Float64}
@@ -175,7 +170,6 @@ end
     write!((raw, rhs::Real, i, j) -> HandlingTime_.check(rhs, (i, j)))
 end
 
-# Just display range.
 function F.shortline(io::IO, model::Model, ::_HandlingTime)
     print(io, "Handling time: ")
     showrange(io, model._handling_time)

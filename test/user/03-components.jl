@@ -33,6 +33,7 @@ only = [
     "./data_components/producers_competition.jl"
     "./data_components/consumers_preferences.jl"
     "./data_components/handling_time.jl"
+    "./data_components/attack_rate.jl"
 ] # Only run these if specified.
 if isempty(only)
     for subfolder in ["./data_components", "./code_components"]
