@@ -55,11 +55,6 @@ function expand_from_matrix!(raw, A)
     Topologies.add_edge_type!(top, :trophic)
     Topologies.add_edges_within_node_type!(top, :species, :trophic, A)
 
-    # TODO: this should happen with components-combinations-triggered-hooks
-    # (see Nutrient.Nodes expansion)
-    #  Topologies.has_node_type(top, :nutrients) && Nutrients.connect_producers_to_nutrients(m)
-    # HERE: restore once Nutrients have been rewritten.
-
 end
 
 

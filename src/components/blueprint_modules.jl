@@ -24,3 +24,5 @@ using .EN.AliasingDicts
 using .EN.AllometryApi
 using .EN.GraphDataInputs
 using .EN.KwargsHelpers
+using .EN.Topologies
+using OrderedCollections

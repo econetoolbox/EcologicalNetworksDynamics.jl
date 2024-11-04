@@ -17,6 +17,11 @@ end
 end
 
 @static if (false)
+    include("../Topologies/Topologies.jl")
+    using .Topologies
+end
+
+@static if (false)
     include("../kwargs_helpers.jl")
     using .KwargsHelpers
 end
