@@ -11,7 +11,7 @@
 module HalfSaturationDensity_
 include("blueprint_modules.jl")
 include("blueprint_modules_identifiers.jl")
-import .EN: Species, _Species, Foodweb, _Foodweb, BodyMass, MetabolicClass
+import .EN: Species, _Species, Foodweb, _Foodweb
 
 #-------------------------------------------------------------------------------------------
 mutable struct Raw <: Blueprint

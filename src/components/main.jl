@@ -103,7 +103,7 @@ include("./consumers_preferences.jl")
 include("./handling_time.jl")
 include("./attack_rate.jl")
 include("./half_saturation_density.jl")
-#  include("./intraspecific_interference.jl")
+include("./intraspecific_interference.jl")
 #  include("./consumption_rate.jl")
 
 #  # Namespace nutrients data.
