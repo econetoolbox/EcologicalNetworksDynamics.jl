@@ -42,7 +42,7 @@ include("./nodes.jl")
 
 # Further node/edges components regarding this compartment.
 include("./turnover.jl")
-#  include("./supply.jl")
+include("./supply.jl")
 #  include("./concentration.jl")
 #  include("./half_saturation.jl")
 
