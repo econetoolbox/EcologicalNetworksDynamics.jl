@@ -126,11 +126,6 @@ end
 
 # Just display range.
 function F.shortline(io::IO, model::Model, ::_ConsumersPreferences)
-    nz = findnz(model.consumers._preferences)[3]
-    print(io, "Consumer preferences: " * if isempty(nz)
-        "·"
-    else
-        min, max = extrema(nz)
-        min == max ? "$min" : "$min to $max"
-    end)
+    print(io, "Consumer preferences: ")
+    showrange(io, model.consumers._preferences)
 end

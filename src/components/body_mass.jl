@@ -124,10 +124,7 @@ end
     @species_index
     ref(raw -> raw._foodweb.M)
     get(BodyMasses{Float64}, "species")
-    write!((raw, rhs::Real, i) -> begin
-        BodyMass_.check(rhs, i)
-        rhs
-    end)
+    write!((raw, rhs::Real, i) -> BodyMass_.check(rhs, i))
 end
 
 # Display.

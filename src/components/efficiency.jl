@@ -1,8 +1,4 @@
 # Set or generate efficiency rates for every trophic link in the model.
-#
-# Efficiency rates are either given as-is by user
-# or they are calculated from trophic links,
-# and then they need their own parameters.
 
 # (reassure JuliaLS)
 (false) && (local Efficiency, _Efficiency)
@@ -159,19 +155,11 @@ end
     ref(raw -> raw.biorates.e)
     get(EfficiencyRates{Float64}, sparse, "trophic link")
     template(raw -> @ref raw.trophic.matrix)
-    write!((raw, rhs::Real, i, j) -> begin
-        Efficiency_.check(rhs, (i, j))
-        Float64(rhs)
-    end)
+    write!((raw, rhs::Real, i, j) -> Efficiency_.check(rhs, (i, j)))
 end
 
 # Just display range.
 function F.shortline(io::IO, model::Model, ::_Efficiency)
-    nz = findnz(model._e)[3]
-    print(io, "Efficiency: " * if isempty(nz)
-        "·"
-    else
-        min, max = extrema(nz)
-        min == max ? "$min" : "$min to $max"
-    end)
+    print(io, "Efficiency: ")
+    showrange(model._e)
 end

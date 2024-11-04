@@ -15,6 +15,7 @@ import .EN:
     check_value,
     dense_nodes_allometry,
     imap,
+    sparse_edges_allometry,
     sparse_nodes_allometry,
     @get,
     @ref

@@ -131,9 +131,7 @@ end
     @species_index
     ref(raw -> raw.biorates.d)
     get(MortalityRates{Float64}, "species")
-    write!((raw, rhs::Real, i) -> begin
-        Mortality_.check(rhs, i)
-    end)
+    write!((raw, rhs::Real, i) -> Mortality_.check(rhs, i))
 end
 
 F.shortline(io::IO, model::Model, ::_Mortality) =

@@ -66,6 +66,7 @@
 include("./macros_keywords.jl")
 include("./allometry.jl")
 include("./values_check.jl")
+include("./display.jl")
 # Behaviour blueprints typically "optionally bring" other blueprints.
 # This utils factorizes how args/kwargs are passed from its inner constructor
 # to each of its fields.
@@ -99,7 +100,7 @@ include("./metabolism.jl")
 include("./maximum_consumption.jl")
 include("./producers_competition.jl")
 include("./consumers_preferences.jl")
-#  include("./handling_time.jl")
+include("./handling_time.jl")
 #  include("./attack_rate.jl")
 #  include("./half_saturation_density.jl")
 #  include("./intraspecific_interference.jl")

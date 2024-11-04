@@ -145,17 +145,10 @@ end
     ref(raw -> raw._scratch[:producers_competition])
     get(ProducersCompetitionRates{Float64}, sparse, "producers link")
     template(raw -> @ref raw.producers.matrix)
-    write!((raw, rhs::Real, i, j) -> begin
-        ProducersCompetition_.check(rhs, (i, j))
-    end)
+    write!((raw, rhs::Real, i, j) -> ProducersCompetition_.check(rhs, (i, j)))
 end
 
 function F.shortline(io::IO, model::Model, ::_ProducersCompetition)
-    nz = findnz(model.producers._competition)[3]
-    print(io, "Producers competition: " * if isempty(nz)
-        "·"
-    else
-        min, max = extrema(nz)
-        min == max ? "$min" : "$min to $max"
-    end)
+    print(io, "Producers competition: ")
+    showrange(io, model.producers._competition)
 end

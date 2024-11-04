@@ -177,9 +177,7 @@ end
     @species_index
     ref(raw -> raw.biorates.x)
     get(MetabolismRates{Float64}, "species")
-    write!((raw, rhs::Real, i) -> begin
-        Metabolism_.check(rhs, i)
-    end)
+    write!((raw, rhs::Real, i) -> Metabolism_.check(rhs, i))
 end
 
 F.shortline(io::IO, model::Model, ::_Metabolism) =
