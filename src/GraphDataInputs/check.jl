@@ -226,7 +226,6 @@ function check_list_refs(
     # If edges space for source and target are the same, allow elision.
     if list isa UAdjacency
         (space isa Int64 || space isa Index) && (space = (space, space))
-        allow_missing || argerr("Dense adjacency lists checking is unimplemented yet.")
     end
 
     # Possibly infer the (integer) space from a template if none is given.
@@ -339,6 +338,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Checking missing refs, either against a template or against the whole space if none.
 
+# (ASSUMING all refs are valid)
 miss_refs(map::UMap, n::Int64, ::Nothing) = length(map) < n
 miss_refs(map::UMap, x::Index, ::Nothing) = length(map) < length(x)
 function miss_refs(map::UMap, _, template::AbstractSparseVector)
@@ -346,12 +346,38 @@ function miss_refs(map::UMap, _, template::AbstractSparseVector)
     length(map) < length(nz)
 end
 
+function miss_refs(adj::UAdjacency, (m, n)::Tuple{Int64,Int64}, ::Nothing)
+    length(adj) < m && return true
+    for (_, sub) in adj
+        length(sub) < n && return true
+    end
+    false
+end
+function miss_refs(adj::UAdjacency, (x, y)::Tuple{Index,Index}, ::Nothing)
+    (m, n) = length.((x, y))
+    miss_refs(adj, (m, n), nothing)
+end
+function miss_refs(adj::UAdjacency, _, template::AbstractSparseMatrix)
+    nz, _ = findnz(template)
+    sum(length(sub) for (_, sub) in adj) < length(nz)
+end
+
 needles(n::Int64, ::Nothing) = ((i,) for i in 1:n)
 needles(x::Index, ::Nothing) = ((k,) for k in keys(x))
+needles((m, n)::Tuple{Int64,Int64}, ::Nothing) = ((i, j) for i in 1:m, j in 1:n)
+needles((x, y)::Tuple{Index,Index}, ::Nothing) = ((p, q) for p in keys(x), q in keys(y))
 needles(::Int64, template::AbstractSparseVector) = ((i,) for i in findnz(template)[1])
+needles(::Tuple{Int64,Int64}, template::AbstractSparseMatrix) =
+    (access for access in zip(findnz(template)[1:2]...))
 function needles(x::Index, template::AbstractSparseVector)
     revmap = Dict(i => n for (n, i) in x)
     sort!(collect((revmap[i],) for i in findnz(template)[1]))
+end
+function needles((x, y)::Tuple{Index,Index}, template::AbstractSparseMatrix)
+    xrev = Dict(i => m for (m, i) in x)
+    yrev = Dict(j => n for (n, j) in y)
+    res = collect((xrev[i], yrev[j]) for (i, j) in zip(findnz(template)[1:2]...))
+    sort!(res)
 end
 
 check_missing_refs(list, space, template, name, item) =

@@ -373,17 +373,18 @@
                     for source [3].")
     )
 
-    # Cannot check densely against a 2D template.
-    @argfails(
-        (@check_list_refs v :item template(full) dense),
-        "Dense adjacency lists checking is unimplemented yet."
-    )
-
     # Empty space.
     @failswith(
         (@check_list_refs v :item 0),
         CheckError("No possible valid edge index in 'v' like [3, 5]: \
                     the reference space for 'item' is empty.")
+    )
+
+    # Missing dense ref.
+    v = gc((@GraphData A{Float64}), [1 => [5 => 100]])
+    @failswith(
+        (@check_list_refs v :item template(full) dense),
+        CheckError("Missing 'item' edge index in 'v': no value specified for [3, 1].")
     )
 
     # With labels.
@@ -419,17 +420,18 @@
                     for source [:c].")
     )
 
-    # Cannot check densely against a 2D template.
-    @argfails(
-        (@check_list_refs v :item full_index template(full) dense),
-        "Dense adjacency lists checking is unimplemented yet."
-    )
-
     # Empty space.
     @failswith(
         (@check_list_refs v :item Dict{Symbol,Int64}()),
         CheckError("No possible valid edge label in 'v' like [:c, :e]: \
                     the reference space for 'item' is empty.")
+    )
+
+    # Missing dense refs.
+    v = gc((@GraphData A{Float64}), [:a => [:e => 100]])
+    @failswith(
+        (@check_list_refs v :item full_index template(full) dense),
+        CheckError("Missing 'item' edge label in 'v': no value specified for [:c, :a].")
     )
 
     # Indices space automatically inferred from labels index.

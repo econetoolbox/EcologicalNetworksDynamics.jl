@@ -147,6 +147,7 @@ function to_dense_vector(map::AbstractMap{Int64,T}) where {T}
     end
     res
 end
+
 function to_dense_vector(map::AbstractMap{Symbol,T}, index) where {T}
     res = Vector{T}(undef, length(map))
     for (key, value) in map
@@ -155,6 +156,7 @@ function to_dense_vector(map::AbstractMap{Symbol,T}, index) where {T}
     end
     res
 end
+
 export to_dense_vector
 
 # Assuming all indices are valid.
@@ -165,6 +167,7 @@ function to_sparse_vector(map::AbstractMap{Int64,T}, n::Int64) where {T}
     end
     res
 end
+
 function to_sparse_vector(map::AbstractMap{Symbol,T}, index) where {T}
     res = spzeros(T, length(index))
     for (key, value) in map
@@ -173,6 +176,7 @@ function to_sparse_vector(map::AbstractMap{Symbol,T}, index) where {T}
     end
     res
 end
+
 function to_sparse_vector(map::AbstractBinMap{Int64}, n::Int64)
     res = spzeros(Bool, n)
     for i in map
@@ -180,6 +184,7 @@ function to_sparse_vector(map::AbstractBinMap{Int64}, n::Int64)
     end
     res
 end
+
 function to_sparse_vector(map::AbstractBinMap{Symbol}, index)
     res = spzeros(Bool, length(index))
     for key in map
@@ -188,6 +193,7 @@ function to_sparse_vector(map::AbstractBinMap{Symbol}, index)
     end
     res
 end
+
 export to_sparse_vector
 
 # Accommodate slight signature variations in case an index is always used.
@@ -202,8 +208,33 @@ to_sparse_vector(map::AbstractBinMap{Int64}, index) = to_sparse_vector(map, leng
 
 #-------------------------------------------------------------------------------------------
 # Assuming the input is a correctly checked adjacency list,
-# expand to a sparse matrix.
+# expand to a dense or sparse matrix.
 # This may require a label-to-indices mapping referred to as "index" (yup, confusing).
+
+# Assuming all indices have been given.
+function to_dense_matrix(adj::AbstractAdjacency{Int64,T}) where {T}
+    res = Matrix{T}(undef, (length(adj), length(last(first(adj)))))
+    for (i, list) in adj
+        for (j, value) in list
+            res[i, j] = value
+        end
+    end
+    res
+end
+
+function to_dense_matrix(adj::AbstractAdjacency{Symbol,T}, i_index, j_index) where {T}
+    res = Matrix{T}(undef, (length(adj), length(last(first(adj)))))
+    for (ikey, list) in adj
+        for (jkey, value) in list
+            i = i_index[ikey]
+            j = j_index[jkey]
+            res[i, j] = value
+        end
+    end
+    res
+end
+
+export to_dense_matrix
 
 function to_sparse_matrix(adj::AbstractAdjacency{Int64,T}, n::Int64, m::Int64) where {T}
     res = spzeros(T, (n, m))
@@ -214,6 +245,7 @@ function to_sparse_matrix(adj::AbstractAdjacency{Int64,T}, n::Int64, m::Int64) w
     end
     res
 end
+
 function to_sparse_matrix(adj::AbstractAdjacency{Symbol,T}, i_index, j_index) where {T}
     res = spzeros(T, (length(i_index), length(j_index)))
     for (ikey, list) in adj
@@ -225,6 +257,7 @@ function to_sparse_matrix(adj::AbstractAdjacency{Symbol,T}, i_index, j_index) wh
     end
     res
 end
+
 function to_sparse_matrix(adj::AbstractBinAdjacency{Int64}, n::Int64, m::Int64)
     res = spzeros(Bool, (n, m))
     for (i, list) in adj
@@ -234,6 +267,7 @@ function to_sparse_matrix(adj::AbstractBinAdjacency{Int64}, n::Int64, m::Int64)
     end
     res
 end
+
 function to_sparse_matrix(adj::AbstractBinAdjacency{Symbol}, i_index, j_index)
     res = spzeros(Bool, (length(i_index), length(j_index)))
     for (ikey, list) in adj
@@ -245,9 +279,21 @@ function to_sparse_matrix(adj::AbstractBinAdjacency{Symbol}, i_index, j_index)
     end
     res
 end
+
 export to_sparse_matrix
 
 # Accommodate slight signature variations in case an index is always used.
+function to_dense_matrix(adj::AbstractAdjacency{Int64,T}, i_index, j_index) where {T}
+    m, i = length.((adj, i_index))
+    n, j = length.((last(first(adj)), j_index))
+    m == i || argerr(
+        "Cannot produce a dense matrix with $m outer values and $i outer references.",
+    )
+    n == j || argerr(
+        "Cannot produce a dense matrix with $n inner values and $j inner references.",
+    )
+    to_dense_matrix(adj)
+end
 to_sparse_matrix(map::AbstractAdjacency{Int64,T}, i_index, j_index) where {T} =
     to_sparse_matrix(map, length(i_index), length(j_index))
 to_sparse_matrix(map::AbstractBinAdjacency{Int64}, i_index, j_index) =
@@ -334,6 +380,16 @@ macro to_sparse_vector_if_map(var::Symbol, index)
     end
 end
 export @to_sparse_vector_if_map
+
+macro to_dense_matrix_if_adjacency(var::Symbol, i_index, j_index)
+    var, i_index, j_index = esc.((var, i_index, j_index))
+    quote
+        $var isa
+        Union{AbstractDict{<:Any,<:AbstractDict},AbstractDict{<:Any,<:AbstractSet}} &&
+            ($var = to_dense_matrix($var, $i_index, $j_index))
+    end
+end
+export @to_dense_matrix_if_adjacency
 
 macro to_sparse_matrix_if_adjacency(var::Symbol, i_index, j_index)
     var, i_index, j_index = esc.((var, i_index, j_index))

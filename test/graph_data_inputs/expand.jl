@@ -187,6 +187,29 @@
     #---------------------------------------------------------------------------------------
     # Matrices from adjacency lists.
 
+    # To dense data (watch not to miss data).
+    small, large =
+        (Dict(Symbol(c) => i for (i, c) in enumerate(letters)) for letters in ("ab", "ABC"))
+
+    input = gc(
+        (@GraphData A{Float64}),
+        [1 => [3 => 5, 1 => 8, 2 => 4], 2 => [2 => 9, 3 => 7, 1 => 3]],
+    )
+    @test to_dense_matrix(input) == [
+        8 4 5
+        3 9 7
+    ]
+
+    input = gc(
+        (@GraphData A{Float64}),
+        [:a => [:C => 5, :A => 8, :B => 4], :b => [:B => 9, :C => 7, :A => 3]],
+    )
+    @test to_dense_matrix(input, small, large) == [
+        8 4 5
+        3 9 7
+    ]
+
+    # To sparse data.
     small, large = (
         Dict(Symbol(c) => i for (i, c) in enumerate(letters)) for
         letters in ("abc", "ABCDE")
@@ -332,6 +355,24 @@
 
     input = "not a map"
     @to_sparse_matrix_if_adjacency input small large
+    @test input == "not a map"
+
+    # Dense matrix.
+    small, large =
+        (Dict(Symbol(c) => i for (i, c) in enumerate(letters)) for letters in ("ab", "ABC"))
+
+    input = gc(
+        (@GraphData A{Float64}),
+        [1 => [1 => 8, 2 => 5, 3 => 4], 2 => [2 => 7, 1 => 9, 3 => 2]],
+    )
+    @to_dense_matrix_if_adjacency input small large
+    @test input == [
+        8 5 4
+        9 7 2
+    ]
+
+    input = "not a map"
+    @to_dense_matrix_if_adjacency input small large
     @test input == "not a map"
 
 end
