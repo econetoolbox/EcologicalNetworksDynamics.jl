@@ -115,7 +115,7 @@ end
     depends(Concentration)
     @nutrients_index
     ref(raw -> raw._scratch[:nutrients_concentration])
-    get(Concentations{Float64}, "nutrient")
+    get(Concentations{Float64}, "producer-to-nutrient link")
     write!((raw, rhs::Real, i, j) -> Concentration_.check(rhs, (i, j)))
 end
 

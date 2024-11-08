@@ -45,6 +45,6 @@ include("./nodes.jl")
 include("./turnover.jl")
 include("./supply.jl")
 include("./concentration.jl")
-#  include("./half_saturation.jl")
+include("./half_saturation.jl")
 
 end
