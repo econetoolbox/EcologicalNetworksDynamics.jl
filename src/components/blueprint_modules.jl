@@ -9,6 +9,7 @@ import .EN:
     AliasingDicts,
     Blueprint,
     Internals,
+    Option,
     SparseMatrix,
     Topologies,
     check_template,

@@ -3,7 +3,6 @@ module Nutrients
 using ..EcologicalNetworksDynamics
 const EN = EcologicalNetworksDynamics
 using .EN.GraphDataInputs
-using .EN.Framework
 using .EN.Topologies
 import .EN:
     Blueprint,
@@ -25,13 +24,11 @@ using SparseArrays
 
 # (reassure JuliaLS)
 include("../macros_keywords.jl")
-(false) && (local nutrients)
 if (false)
+    local nutrients
     include("../../Topologies/Topologies.jl")
-    using .Topologies
-end
-if (false)
     include("../../GraphDataInputs/GraphDataInputs.jl")
+    using .Topologies
     using .GraphDataInputs
 end
 

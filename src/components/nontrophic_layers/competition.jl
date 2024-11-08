@@ -1,133 +1,37 @@
-abstract type CompetitionTopology <: ModelBlueprint end
+module Competition
+include("./nti_modules.jl")
 
 # Competition layer builds upon internal potential competition links,
 # directly calculated from the raw foodweb.
+
+@propspace competition
+@propspace competition.links
+@propspace competition.potential_links
+
 @expose_data edges begin
-    property(potential_competition_links)
+    property(competition.potential_links.matrix)
+    depends(Foodweb)
     get(PotentialCompetitionTopology{Bool}, sparse, "potential competition link")
-    ref_cache(m -> Internals.A_competition_full(m._foodweb) .> 0)
     @species_index
-    depends(Foodweb)
+    ref_cached(raw -> Internals.A_competition_full(raw._foodweb) .> 0)
 end
 
 @expose_data graph begin
-    property(n_potential_competition_links)
-    ref_cache(m -> sum(m._potential_competition_links))
-    get(m -> m._n_potential_competition_links)
+    property(competition.potential_links.number)
     depends(Foodweb)
+    ref_cached(raw -> sum(@ref raw.competition.potential_links.matrix))
+    get(raw -> @ref raw.competition.potential_links.number)
 end
 
-# ==========================================================================================
-# Layer topology.
-
-function CompetitionTopology(A = nothing; kwargs...)
-    (isnothing(A) && isempty(kwargs)) &&
-        argerr("No input given to specify competition links.")
-
-    @kwargs_helpers kwargs
-
-    (!isnothing(A) && given(:A)) && argerr("Redundant competition topology input.\n\
-                                            Received both: $A\n\
-                                            And          : $(take!(:A)).")
-
-    if !isnothing(A) || given(:A)
-        A = given(:A) ? take!(:A) : A
-        no_unused_arguments()
-        CompetitionTopologyFromRawEdges(A)
-    else
-        RandomCompetitionTopology(; kwargs...)
-    end
+include("./competition/topology.jl")
+# HERE: same for intensity and functional form.
+# Leave the integrated 'layer' here
 
 end
-export CompetitionTopology
 
-mutable struct CompetitionTopologyFromRawEdges <: CompetitionTopology
-    A::@GraphData {SparseMatrix, Adjacency}{:bin}
-    CompetitionTopologyFromRawEdges(A) = new(@tographdata A EA{:bin})
-end
-
-function F.check(model, bp::CompetitionTopologyFromRawEdges)
-    P = model._potential_competition_links
-    ind = model._species_index
-    (; A) = bp
-    @check_template_if_sparse A P "potential competition link"
-    @check_refs_if_list A "potential competition link" ind template(P)
-end
-
-function F.expand!(model, bp::CompetitionTopologyFromRawEdges)
-    ind = model._species_index
-    (; A) = bp
-    @to_sparse_matrix_if_adjacency A ind ind
-    expand_topology!(model, :competition, A)
-end
-
-@component CompetitionTopologyFromRawEdges requires(Foodweb)
-export CompetitionTopologyFromRawEdges
-
-#-------------------------------------------------------------------------------------------
-mutable struct RandomCompetitionTopology <: CompetitionTopology
-    L::Option{Int64}
-    C::Option{Float64}
-    symmetry::Bool
-    RandomCompetitionTopology(args...) = new(args...)
-    function RandomCompetitionTopology(; kwargs...)
-        L, C, symmetry = parse_random_links_arguments(:competition, kwargs)
-        new(L, C, symmetry)
-    end
-end
-
-function F.check(model, bp::RandomCompetitionTopology)
-    common_random_nti_check(bp)
-
-    np = model.n_producers
-    maxL = model.n_potential_competition_links
-    (; L) = bp
-
-    if !isnothing(L)
-        s(n) = n > 1 ? "s" : ""
-        L > maxL && checkfails("Cannot draw L = $L competition link$(s(L)) \
-                                with only $np producer$(s(np)) (max: L = $maxL).")
-    end
-end
-
-function F.expand!(model, bp::RandomCompetitionTopology)
-    A = random_links(model, bp, Internals.potential_competition_links)
-    expand_topology!(model, :competition, A)
-end
-
-@component RandomCompetitionTopology requires(Foodweb)
-export RandomCompetitionTopology
-
-#-------------------------------------------------------------------------------------------
-@conflicts(CompetitionTopologyFromRawEdges, RandomCompetitionTopology)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:CompetitionTopology}) = CompetitionTopology
-
-#-------------------------------------------------------------------------------------------
-@expose_data edges begin
-    property(competition_links)
-    get(CompetitionLinks{Bool}, sparse, "competition link")
-    ref(m -> m._scratch[:competition_links])
-    @species_index
-    depends(CompetitionTopology)
-end
-
-@expose_data graph begin
-    property(n_competition_links)
-    ref_cache(m -> sum(m._competition_links))
-    get(m -> m._n_competition_links)
-    depends(CompetitionTopology)
-end
-
-#-------------------------------------------------------------------------------------------
-display_short(bp::CompetitionTopology; kwargs...) =
-    display_short(bp, CompetitionTopology; kwargs...)
-display_long(bp::CompetitionTopology; kwargs...) =
-    display_long(bp, CompetitionTopology; kwargs...)
-function F.display(model, ::Type{<:CompetitionTopology})
-    n = model.n_competition_links
-    "Competition topology: $n link$(n > 1 ? "s" : "")"
-end
+#|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+#|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+#|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 # ==========================================================================================
 # Layer intensity (constant for now due to limitations of the Internals).

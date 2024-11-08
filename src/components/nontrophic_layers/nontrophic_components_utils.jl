@@ -79,7 +79,7 @@ end
 # Check/expand random topologies.
 
 # Checks common to all layers: run both on blueprint construction and checking.
-function common_random_nti_check(blueprint)
+function random_nti_early_check(blueprint)
     (; L, C, symmetry) = blueprint
     (isnothing(C) && isnothing(L)) &&
         checkfails("Neither 'C' or 'L' specified on blueprint.")
