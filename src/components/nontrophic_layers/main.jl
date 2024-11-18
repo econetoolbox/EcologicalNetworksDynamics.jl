@@ -1,8 +1,4 @@
 module NontrophicInteractions
-
-# Every non-trophic layer lives within its own module.
-include("./nti_modules.jl")
-
 # For each of them,
 # one 'Topology' component is defined to specify the associated links between species.
 #
@@ -21,6 +17,15 @@ include("./nti_modules.jl")
 # Eventually, one 'Layer' components, considered as bringing 'code'
 # glues all the above together into one functional unit,
 # and constructs the underlying internal 'Layer'.
+
+using EcologicalNetworksDynamics
+const EN = EcologicalNetworksDynamics
+using .EN.MultiplexApi
+
+# (reassure JuliaLS)
+if (false)
+    using .MultiplexApi: MultiplexParametersDict, InteractionDict, interactions_names
+end
 
 # NTI layers specifications are maybe the most heavily duplicated code
 # within the components specifications.
@@ -59,7 +64,7 @@ multiplex_defaults = MultiplexParametersDict(;
     ),
 )
 
-#  include("./competition.jl")
+include("./competition.jl")
 #  include("./facilitation.jl")
 #  include("./interference.jl")
 #  include("./refuge.jl")

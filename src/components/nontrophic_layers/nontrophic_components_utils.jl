@@ -68,9 +68,9 @@ end
 # ==========================================================================================
 # Expand topologies.
 
-function expand_topology!(model, nti, A)
-    model._scratch[Symbol(nti, :_links)] = A
-    g = model._topology
+function expand_topology!(raw, nti, A)
+    raw._scratch[Symbol(nti, :_links)] = A
+    g = raw._topology
     add_edge_type!(g, nti)
     add_edges_within_node_type!(g, :species, nti, A)
 end
@@ -95,8 +95,8 @@ end
 
 # Assuming the component provides C xor L and symmetry,
 # use it to draw random links.
-function random_links(model, component, potential_links)
-    (; _foodweb) = model
+function random_links(raw, component, potential_links)
+    (; _foodweb) = raw
     (; C, L, symmetry) = component
     if isnothing(L)
         Internals.nontrophic_adjacency_matrix(
@@ -135,9 +135,9 @@ end
 # cannot be aliased to the ._scratch space,
 # so we need to check whether further update needs to be set.
 # This should be not required anymore after internals refactoring.
-function set_layer_scalar_data!(model, interaction, scratchname, fieldname, rhs)
-    model._scratch[scratchname] = rhs
-    net = model.network
+function set_layer_scalar_data!(raw, interaction, scratchname, fieldname, rhs)
+    raw._scratch[scratchname] = rhs
+    net = raw.network
     if net isa Internals.MultiplexNetwork # True if at least one *Layer component is added.
         layer = net.layers[interaction]
         if !isnothing(layer.intensity) # True if component for *this* interaction is added.
@@ -149,17 +149,17 @@ end
 # ==========================================================================================
 # Check/expand full layer components.
 
-has_nontrophic_layers(model) = model.network isa Internals.MultiplexNetwork
+has_nontrophic_layers(raw) = raw.network isa Internals.MultiplexNetwork
 export has_nontrophic_layers
 
 # The application procedure differs
 # whether the NTI layer is the first to be set or not.
-function set_layer!(model, interaction, layer)
-    if !has_nontrophic_layers(model)
+function set_layer!(raw, interaction, layer)
+    if !has_nontrophic_layers(raw)
         # First NTI component to be added.
         # Switch from plain foodweb to a multiplex network.
-        S = model.richness
-        fw = model._foodweb
+        S = @get raw.richness
+        fw = @ref raw.foodweb
         trophic_layer = Internals.Layer(fw.A, nothing, nothing)
         layers = InteractionDict{Internals.Layer}()
         layers[:trophic] = trophic_layer
@@ -175,11 +175,11 @@ function set_layer!(model, interaction, layer)
                 layers[i] = zerolayer
             end
         end
-        model.network =
+        raw.network =
             Internals.MultiplexNetwork(layers, fw.M, fw.species, fw.metabolic_class)
     else
         # Another NTI component has already been added.
         # Just un-zero the relevant underlying layer.
-        model.network.layers[interaction] = layer
+        raw.network.layers[interaction] = layer
     end
 end

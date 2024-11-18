@@ -24,74 +24,16 @@ end
 end
 
 include("./competition/topology.jl")
-# HERE: same for intensity and functional form.
-# Leave the integrated 'layer' here
+include("./competition/intensity.jl")
+include("./competition/functional_form.jl")
+
+# HERE: to the integrated layer now.
 
 end
 
 #|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 #|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 #|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
-# ==========================================================================================
-# Layer intensity (constant for now due to limitations of the Internals).
-
-mutable struct CompetitionIntensity <: ModelBlueprint
-    gamma::Float64
-end
-F.expand!(model, bp::CompetitionIntensity) =
-    model._scratch[:competition_intensity] = bp.gamma
-@component CompetitionIntensity
-export CompetitionIntensity
-
-@expose_data graph begin
-    property(competition_layer_intensity)
-    get(m -> m._scratch[:competition_intensity])
-    set!(
-        (m, rhs::Float64) -> set_layer_scalar_data!(
-            m,
-            :competition,
-            :competition_intensity,
-            :intensity,
-            rhs,
-        ),
-    )
-    depends(CompetitionIntensity)
-end
-function F.display(model, ::Type{<:CompetitionIntensity})
-    "Competition intensity: $(model.competition_layer_intensity)"
-end
-
-# ==========================================================================================
-# Layer functional form.
-
-mutable struct CompetitionFunctionalForm <: ModelBlueprint
-    fn::Function
-end
-
-function F.check(_, bp::CompetitionFunctionalForm)
-    check_functional_form(bp.fn, :competition, checkfails)
-end
-
-F.expand!(model, bp::CompetitionFunctionalForm) =
-    model._scratch[:competition_functional_form] = bp.fn
-
-@component CompetitionFunctionalForm
-export CompetitionFunctionalForm
-
-# TODO: how to encapsulate in a way that user can't add methods to it?
-#       Fortunately, overriding the required signature yields a warning. But still.
-@expose_data graph begin
-    property(competition_layer_functional_form)
-    get(m -> m._scratch[:competition_functional_form])
-    set!(
-        (m, rhs::Function) -> begin
-            check_functional_form(rhs, :competition, argerr)
-            set_layer_scalar_data!(m, :competition, :competition_functional_form, :f, rhs)
-        end,
-    )
-    depends(CompetitionFunctionalForm)
-end
 
 # ==========================================================================================
 # The layer component brings this all together.
