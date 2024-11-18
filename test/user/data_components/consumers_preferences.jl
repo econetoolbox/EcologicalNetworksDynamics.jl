@@ -22,14 +22,21 @@
     @test typeof(cp) === ConsumersPreferences.Raw
 
     # Adjacency list.
-    cp = ConsumersPreferences([:a => [:b => 1], :b => [:c => 3]])
-    m = base + cp
-    @test m.consumers.preferences == m.w == [
-        0 1 0
-        0 0 3
-        0 0 0
-    ]
-    @test typeof(cp) == ConsumersPreferences.Adjacency
+    for adj in (
+        #! format: off
+        [:a => [:b => 1], :b => [:c => 3]],
+        [1 => [2 => 1], 2 => [3 => 3]],
+        #! format: on
+    )
+        cp = ConsumersPreferences(adj)
+        m = base + cp
+        @test m.consumers.preferences == m.w == [
+            0 1 0
+            0 0 3
+            0 0 0
+        ]
+        @test typeof(cp) == ConsumersPreferences.Adjacency
+    end
 
     # Scalar.
     cp = ConsumersPreferences(1)
@@ -75,6 +82,9 @@
     @test Model(
         ConsumersPreferences([:a => [:a => 0.1, :b => 0.2], :b => [:c => 0.3]]),
     ).species.names == [:a, :b, :c]
+    @test Model(
+        ConsumersPreferences([2 => [3 => 0.3], 1 => [1 => 0.1, 2 => 0.2]]),
+    ).species.names == [:s1, :s2, :s3]
 
     # ======================================================================================
     # Input guards.

@@ -8,10 +8,12 @@
     # From raw values.
 
     # Map selected species.
-    cr = ConsumptionRate([:a => 1, :b => 2])
-    m = base + cr
-    @test m.consumption_rate == [1, 2, 0]
-    @test typeof(cr) == ConsumptionRate.Map
+    for map in ([:a => 1, :b => 2], [1 => 1, 2 => 2])
+        cr = ConsumptionRate(map)
+        m = base + cr
+        @test m.consumption_rate == [1, 2, 0]
+        @test typeof(cr) == ConsumptionRate.Map
+    end
 
     # From a sparse vector.
     cr = ConsumptionRate([2, 4, 0])

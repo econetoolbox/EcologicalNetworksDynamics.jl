@@ -48,13 +48,23 @@
     @test has_component(m, Nutrients.Nodes)
     @test m.nutrients.concentration == c
     @test m.nutrients.names == [:n1, :n2, :n3]
-    @test Model(
+    ms = Model(
         fw,
         Nutrients.Concentration([
             :b => [:x => 1, :y => 2, :z => 3],
             :c => [:z => 5, :x => 6, :y => 4],
         ]),
-    ).nutrients.names == [:x, :y, :z]
+    )
+    mi = Model(
+        fw,
+        Nutrients.Concentration([
+            1 => [1 => 1, 2 => 2, 3 => 3],
+            2 => [3 => 5, 1 => 6, 2 => 4],
+        ]),
+    )
+    @test ms.nutrients.names == [:x, :y, :z]
+    @test mi.nutrients.names == [:n1, :n2, :n3]
+    @test ms.nutrients.concentration == mi.nutrients.concentration
 
     # ======================================================================================
     # Input guards.

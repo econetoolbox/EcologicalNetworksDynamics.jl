@@ -12,6 +12,7 @@
 # Name + '_'-suffix is the module defining blueprints for this component.
 module Species_
 include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
 
 #-------------------------------------------------------------------------------------------
 # Construct from a given set of names.
@@ -22,6 +23,12 @@ mutable struct Names <: Blueprint
     # Convert anything to symbols.
     Names(names) = new(Symbol.(names))
     Names(names...) = new(Symbol.(collect(names)))
+
+    # From an index (useful when implied).
+    function Names(index::AbstractDict{Symbol,Int})
+        check_index(index)
+        new(to_dense_refs(index))
+    end
 
     # Don't own data if useful to user.
     Names(names::Vector{Symbol}) = new(names)

@@ -52,7 +52,7 @@ mutable struct Map <: Blueprint
     species::Brought(Species)
     Map(x, sp = _Species) = new(@tographdata(x, Map{Float64}), sp)
 end
-F.implied_blueprint_for(bp::Map, ::_Species) = Species(refs(bp.x))
+F.implied_blueprint_for(bp::Map, ::_Species) = Species(refspace(bp.x))
 @blueprint Map "[species => metabolism] map"
 export Map
 

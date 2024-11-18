@@ -159,6 +159,16 @@ end
 
 export to_dense_vector
 
+# Assuming input is a dense index.
+function to_dense_refs(index::AbstractDict{Symbol,Int})
+    refs = Vector{Symbol}(undef, length(index))
+    for (ref, i) in index
+        refs[i] = ref
+    end
+    refs
+end
+export to_dense_refs
+
 # Assuming all indices are valid.
 function to_sparse_vector(map::AbstractMap{Int64,T}, n::Int64) where {T}
     res = spzeros(T, n)

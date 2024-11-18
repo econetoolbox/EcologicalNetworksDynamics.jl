@@ -1,8 +1,8 @@
 @testset "Metabolism component." begin
 
-    # Mostly duplicated from Metabolism.
+    # Mostly duplicated from Mortality.
 
-    base = Model(Foodweb([:a => [:b, :c], :b => :c]))
+    base = Model()
 
     #---------------------------------------------------------------------------------------
     # From raw values.
@@ -15,14 +15,23 @@
 
     # From a single value.
     mb = Metabolism(2)
-    m = base + mb
+    m = base + Species(3) + mb
     @test m.metabolism == [2, 2, 2] == m.x
     @test typeof(mb) == Metabolism.Flat
 
     # Map selected species.
-    mb = Metabolism([:c => 3, :b => 2, :a => 1])
+    ## Integer keys.
+    mb = Metabolism([2 => 3, 3 => 2, 1 => 1])
+    m = base + mb
+    @test m.metabolism == [1, 3, 2] == m.x
+    @test m.species.names == [:s1, :s2, :s3]
+    @test typeof(mb) == Metabolism.Map
+
+    ## Symbol keys.
+    mb = Metabolism([:a => 1, :b => 2, :c => 3])
     m = base + mb
     @test m.metabolism == [1, 2, 3] == m.x
+    @test m.species.names == [:a, :b, :c]
     @test typeof(mb) == Metabolism.Map
 
     # Imply species component.
@@ -32,7 +41,11 @@
     #---------------------------------------------------------------------------------------
     # From allometric rates.
 
-    base += BodyMass(1.5) + MetabolicClass(:all_invertebrates)
+    base = Model(
+        Foodweb([:a => [:b, :c], :b => :c]),
+        BodyMass(1.5),
+        MetabolicClass(:all_invertebrates),
+    )
 
     mb = Metabolism(:Miele2019)
     @test mb.allometry[:i][:a] == 0.314

@@ -24,8 +24,29 @@
     @test m.species.names == [:s1, :s2, :s3]
     @test typeof(sp) == Species.Number
 
+    # From an index.
+    sp = Species(Dict([:a => 1, :b => 2, :c => 3]))
+    m = base + sp
+    @test m.species.names == [:a, :b, :c]
+    @test typeof(sp) == Species.Names
+
     #---------------------------------------------------------------------------------------
     # Guards.
+
+    @argfails(
+        Species(Dict([:a => 1, :c => 3])),
+        "Invalid index: received 2 references but one of them is [3] (:c)."
+    )
+
+    @argfails(
+        Species(Dict([:a => 1, :c => 1])),
+        "Invalid index: no reference given for index [2]."
+    )
+
+    @argfails(
+        Species(Dict([:a => 5, :b => 2, :c => 3])),
+        "Invalid index: received 3 references but one of them is [5] (:a)."
+    )
 
     @sysfails(
         Model(Species([:a, :b, :a])),

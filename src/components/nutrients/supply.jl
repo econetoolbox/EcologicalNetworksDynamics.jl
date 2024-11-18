@@ -49,7 +49,7 @@ mutable struct Map <: Blueprint
     nutrients::Brought(Nutrients.Nodes)
     Map(s, nt = Nutrients._Nodes) = new(@tographdata(s, Map{Float64}), nt)
 end
-F.implied_blueprint_for(bp::Map, ::Nutrients._Nodes) = Nutrients.Nodes(refs(bp.s))
+F.implied_blueprint_for(bp::Map, ::Nutrients._Nodes) = Nutrients.Nodes(refspace(bp.s))
 @blueprint Map "[nutrient => supply] map"
 export Map
 

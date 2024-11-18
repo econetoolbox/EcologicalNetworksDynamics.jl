@@ -52,7 +52,7 @@ mutable struct Map <: Blueprint
     species::Brought(Species)
     Map(d, sp = _Species) = new(@tographdata(d, Map{Float64}), sp)
 end
-F.implied_blueprint_for(bp::Map, ::_Species) = Species(refs(bp.d))
+F.implied_blueprint_for(bp::Map, ::_Species) = Species(refspace(bp.d))
 @blueprint Map "[species => mortality] map"
 export Map
 

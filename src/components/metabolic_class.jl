@@ -88,7 +88,7 @@ mutable struct Map <: Blueprint
     species::Brought(Species)
     Map(M, sp = _Species) = new(@tographdata(M, Map{Symbol}), sp)
 end
-F.implied_blueprint_for(bp::Map, ::_Species) = Species(refs(bp.classes))
+F.implied_blueprint_for(bp::Map, ::_Species) = Species(refspace(bp.classes))
 @blueprint Map "[species => class] map" depends(Foodweb)
 export Map
 

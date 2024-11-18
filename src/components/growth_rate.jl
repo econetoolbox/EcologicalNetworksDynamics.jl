@@ -63,10 +63,8 @@ F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.r, @ref raw.producers.mas
 
 mutable struct Map <: Blueprint
     r::@GraphData Map{Float64}
-    species::Brought(Species)
-    Map(r, sp = _Species) = new(@tographdata(r, Map{Float64}), sp)
+    Map(r) = new(@tographdata(r, Map{Float64}))
 end
-F.implied_blueprint_for(bp::Map, ::_Species) = Species(refs(bp.r))
 @blueprint Map "[species => growth rate] map"
 export Map
 

@@ -78,18 +78,7 @@ mutable struct Adjacency <: Blueprint
 end
 
 # Infer number or names of species from the lists.
-function F.implied_blueprint_for(bp::Adjacency, ::_Species)
-    (; A) = bp
-    if A isa BinAdjacency{Int64}
-        S = refspace(A)
-        Species(S)
-    elseif A isa BinAdjacency{Symbol}
-        names = refs(A)
-        Species(names)
-    else
-        throw("unreachable: invalid adjacency list type")
-    end
-end
+F.implied_blueprint_for(bp::Adjacency, ::_Species) = Species(refspace(bp.A))
 
 @blueprint Adjacency "adjacency list of trophic links"
 export Adjacency
@@ -330,11 +319,14 @@ function F.shortline(io::IO, model::Model, ::_Foodweb)
     t = model.tops.number
     n(n) = n > 0 ? "$n" : "no"
     s(n) = n > 1 ? "s" : ""
-    print(io, "Foodweb: $(n(l)) link$(s(l)), \
-               $(n(p)) producer$(s(p)), \
-               $(n(c)) consumer$(s(c)), \
-               $(n(r)) prey$(s(r)), \
-               $(n(t)) top$(s(t)).")
+    print(
+        io,
+        "Foodweb: $(n(l)) link$(s(l)), \
+         $(n(p)) producer$(s(p)), \
+         $(n(c)) consumer$(s(c)), \
+         $(n(r)) prey$(s(r)), \
+         $(n(t)) top$(s(t)).",
+    )
 end
 
 # ==========================================================================================

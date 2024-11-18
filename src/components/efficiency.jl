@@ -161,5 +161,5 @@ end
 # Just display range.
 function F.shortline(io::IO, model::Model, ::_Efficiency)
     print(io, "Efficiency: ")
-    showrange(model._e)
+    showrange(io, model._e)
 end

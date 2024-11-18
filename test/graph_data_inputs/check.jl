@@ -323,6 +323,18 @@
     v = gc((@GraphData K{Float64}), [1 => 5, 2 => 8])
     @test @check_list_refs v :item part_index
 
+    # Check index.
+    check_index(Dict([:a => 1, :b => 2, :c => 3]))
+    @argfails(
+        check_index(Dict([:a => 1, :c => 3])),
+        "Invalid index: received 2 references but one of them is [3] (:c)."
+    )
+    @argfails(
+        check_index(Dict([:a => 1, :c => 1])),
+        "Invalid index: no reference given for index [2]."
+    )
+
+
     #---------------------------------------------------------------------------------------
     # Adjacency lists.
 

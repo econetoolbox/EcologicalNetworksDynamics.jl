@@ -40,6 +40,6 @@ if (false)
     using .KwargsHelpers
     using .MultiplexApi: MultiplexParametersDict, InteractionDict, interactions_names
     using .AliasingDicts: expand
-    local (competition,)
+    local ( competition, )
 end
 

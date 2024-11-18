@@ -6,10 +6,12 @@
     # From raw values.
 
     # Map selected species.
-    gr = GrowthRate([:c => 3])
-    m = base + gr
-    @test m.growth_rate == [0, 0, 3] == m.r
-    @test typeof(gr) == GrowthRate.Map
+    for map in ([:c => 3], [3 => 3])
+        gr = GrowthRate(map)
+        m = base + gr
+        @test m.growth_rate == [0, 0, 3] == m.r
+        @test typeof(gr) == GrowthRate.Map
+    end
 
     # From a sparse vector.
     gr = GrowthRate([0, 0, 4])

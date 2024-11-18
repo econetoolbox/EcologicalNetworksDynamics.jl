@@ -20,6 +20,14 @@
     #---------------------------------------------------------------------------------------
     # From an adjacency list.
 
+    # Integer keys.
+    fw = Foodweb([2 => 3, 1 => [3, 2]])
+    m = base + fw
+    @test m.S == 3
+    @test m.species.names == [:s1, :s2, :s3]
+    @test typeof(fw) == Foodweb.Adjacency
+
+    # Symbol keys.
     fw = Foodweb([:a => [:b, :c], :b => :c])
     m = base + fw
     @test m.S == 3

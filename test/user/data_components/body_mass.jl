@@ -15,6 +15,14 @@
     @test typeof(bm) == BodyMass.Raw
 
     # Mapped input.
+    ## Integer keys.
+    bm = BodyMass([2 => 1, 3 => 2, 1 => 3])
+    m = base + bm
+    @test m.richness == 3
+    @test m.species.names == [:s1, :s2, :s3]
+    @test m.body_mass == [3, 1, 2] == m.M
+    @test typeof(bm) == BodyMass.Map
+    ## Symbol keys.
     bm = BodyMass([:a => 1, :b => 2, :c => 3])
     m = base + bm
     @test m.richness == 3

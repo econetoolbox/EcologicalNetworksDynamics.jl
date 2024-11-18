@@ -54,15 +54,8 @@ mutable struct Adjacency <: Blueprint
     nutrients::Brought(Nutrients.Nodes)
     Adjacency(h, nt = Nutrients._Nodes) = new(@tographdata(h, Adjacency{Float64}), nt)
 end
-function F.implied_blueprint_for(bp::Adjacency, ::Nutrients._Nodes)
-    # HERE: this should've been done for every such adjacency implication, right?
-    space = refspace_inner(bp.h)
-    if space isa Integer
-        Nutrients.Nodes(space)
-    else
-        Nutrients.Nodes(keys(space))
-    end
-end
+F.implied_blueprint_for(bp::Adjacency, ::Nutrients._Nodes) =
+    Nutrients.Nodes(refspace_inner(bp.h))
 @blueprint Adjacency "[producer => [nutrient => half-saturation]] map"
 export Adjacency
 

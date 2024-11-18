@@ -53,10 +53,8 @@ F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.y, @ref raw.consumers.mas
 #-------------------------------------------------------------------------------------------
 mutable struct Map <: Blueprint
     y::@GraphData Map{Float64}
-    species::Brought(Species)
-    Map(y, sp = _Species) = new(@tographdata(y, Map{Float64}), sp)
+    Map(y) = new(@tographdata(y, Map{Float64}))
 end
-F.implied_blueprint_for(bp::Map, ::_Species) = Species(refs(bp.y))
 @blueprint Map "[species => maximum consumption] map"
 export Map
 

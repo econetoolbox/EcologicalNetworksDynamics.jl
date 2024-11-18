@@ -1,6 +1,6 @@
 @testset "Intra-specific interference component." begin
 
-    # Mostly duplicated from IntraspecificInterference.
+    # Mostly duplicated from HalfSaturationDensity.
 
     base = Model(Foodweb([:a => :b, :b => :c]))
 
@@ -8,10 +8,12 @@
     # From raw values.
 
     # Map selected species.
-    ii = IntraspecificInterference([:a => 1, :b => 2])
-    m = base + ii
-    @test m.intraspecific_interference == [1, 2, 0]
-    @test typeof(ii) == IntraspecificInterference.Map
+    for map in ([:a => 1, :b => 2], [1 => 1, 2 => 2])
+        ii = IntraspecificInterference(map)
+        m = base + ii
+        @test m.intraspecific_interference == [1, 2, 0]
+        @test typeof(ii) == IntraspecificInterference.Map
+    end
 
     # From a sparse vector.
     ii = IntraspecificInterference([2, 4, 0])

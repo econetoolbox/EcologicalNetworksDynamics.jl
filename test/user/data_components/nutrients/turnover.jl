@@ -17,6 +17,14 @@
     @test typeof(tr) == Nutrients.Turnover.Raw
 
     # Mapped input.
+    ## Integer keys.
+    tr = Nutrients.Turnover([2 => 1, 3 => 2, 1 => 3])
+    m = base + tr
+    @test m.nutrients.richness == 3
+    @test m.nutrients.names == [:n1, :n2, :n3]
+    @test m.nutrients.turnover == [3, 1, 2]
+    @test typeof(tr) == Nutrients.Turnover.Map
+    ## Symbol keys.
     tr = Nutrients.Turnover([:a => 1, :b => 2, :c => 3])
     m = base + tr
     @test m.nutrients.richness == 3

@@ -2,7 +2,7 @@
 
     # Mostly duplicated from Growth.
 
-    base = Model(Foodweb([:a => [:b, :c], :b => :c]))
+    base = Model()
 
     #---------------------------------------------------------------------------------------
     # From raw values.
@@ -11,18 +11,28 @@
     mr = Mortality([1, 2, 3])
     m = base + mr
     @test m.mortality == [1, 2, 3] == m.d
+    @test m.species.names == [:s1, :s2, :s3] # Implied.
     @test typeof(mr) == Mortality.Raw
 
     # From a single value.
     mr = Mortality(2)
-    m = base + mr
+    m = base + Species(3) + mr
     @test m.mortality == [2, 2, 2] == m.d
     @test typeof(mr) == Mortality.Flat
 
     # Map selected species.
-    mr = Mortality([:c => 3, :b => 2, :a => 1])
+    ## Integer keys.
+    mr = Mortality([2 => 3, 3 => 2, 1 => 1])
+    m = base + mr
+    @test m.mortality == [1, 3, 2] == m.d
+    @test m.species.names == [:s1, :s2, :s3]
+    @test typeof(mr) == Mortality.Map
+
+    ## Symbol keys.
+    mr = Mortality([:a => 1, :b => 2, :c => 3])
     m = base + mr
     @test m.mortality == [1, 2, 3] == m.d
+    @test m.species.names == [:a, :b, :c]
     @test typeof(mr) == Mortality.Map
 
     # Imply species component.
@@ -32,7 +42,11 @@
     #---------------------------------------------------------------------------------------
     # From allometric rates.
 
-    base += BodyMass(1.5) + MetabolicClass(:all_invertebrates)
+    base = Model(
+        Foodweb([:a => [:b, :c], :b => :c]),
+        BodyMass(1.5),
+        MetabolicClass(:all_invertebrates),
+    )
 
     mr = Mortality(:Miele2019)
     @test mr.allometry[:p][:a] == 0.0138

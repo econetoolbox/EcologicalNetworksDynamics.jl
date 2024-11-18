@@ -19,6 +19,12 @@ mutable struct Names <: Blueprint
     Names(names) = new(Symbol.(names))
     Names(names...) = new(Symbol.(collect(names)))
 
+    # From an index (useful when implied).
+    function Names(index::AbstractDict{Symbol,Int})
+        check_index(index)
+        new(to_dense_refs(index))
+    end
+
     # Don't own data if useful to user.
     Names(names::Vector{Symbol}) = new(names)
 end

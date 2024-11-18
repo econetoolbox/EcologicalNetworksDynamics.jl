@@ -53,10 +53,8 @@ F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.c, @ref raw.consumers.mas
 #-------------------------------------------------------------------------------------------
 mutable struct Map <: Blueprint
     c::@GraphData Map{Float64}
-    species::Brought(Species)
-    Map(c, sp = _Species) = new(@tographdata(c, Map{Float64}), sp)
+    Map(c) = new(@tographdata(c, Map{Float64}))
 end
-F.implied_blueprint_for(bp::Map, ::_Species) = Species(refs(bp.c))
 @blueprint Map "[species => intra-specific interference] map"
 export Map
 

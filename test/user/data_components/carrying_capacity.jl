@@ -8,10 +8,12 @@
     # From raw values.
 
     # Map selected species.
-    cc = CarryingCapacity([:c => 3])
-    m = base + cc
-    @test m.carrying_capacity == [0, 0, 3] == m.K
-    @test typeof(cc) == CarryingCapacity.Map
+    for map in ([:c => 3], [3 => 3])
+        cc = CarryingCapacity(map)
+        m = base + cc
+        @test m.carrying_capacity == [0, 0, 3] == m.K
+        @test typeof(cc) == CarryingCapacity.Map
+    end
 
     # From a sparse vector.
     cc = CarryingCapacity([0, 0, 4])

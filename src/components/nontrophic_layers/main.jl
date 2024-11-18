@@ -59,7 +59,7 @@ multiplex_defaults = MultiplexParametersDict(;
     ),
 )
 
-include("./competition.jl")
+#  include("./competition.jl")
 #  include("./facilitation.jl")
 #  include("./interference.jl")
 #  include("./refuge.jl")

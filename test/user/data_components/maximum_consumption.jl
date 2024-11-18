@@ -8,10 +8,12 @@
     # From raw values.
 
     # Map selected species.
-    mc = MaximumConsumption([:a => 1, :b => 2])
-    m = base + mc
-    @test m.maximum_consumption == [1, 2, 0] == m.y
-    @test typeof(mc) == MaximumConsumption.Map
+    for map in ([:a => 1, :b => 2], [1 => 1, 2 => 2])
+        mc = MaximumConsumption(map)
+        m = base + mc
+        @test m.maximum_consumption == [1, 2, 0] == m.y
+        @test typeof(mc) == MaximumConsumption.Map
+    end
 
     # From a sparse vector.
     mc = MaximumConsumption([2, 4, 0])

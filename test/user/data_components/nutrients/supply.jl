@@ -17,6 +17,14 @@
     @test typeof(sp) == Nutrients.Supply.Raw
 
     # Mapped input.
+    ## Integer keys.
+    sp = Nutrients.Supply([2 => 1, 3 => 2, 1 => 3])
+    m = base + sp
+    @test m.nutrients.richness == 3
+    @test m.nutrients.names == [:n1, :n2, :n3]
+    @test m.nutrients.supply == [3, 1, 2]
+    @test typeof(sp) == Nutrients.Supply.Map
+    ## Symbol keys.
     sp = Nutrients.Supply([:a => 1, :b => 2, :c => 3])
     m = base + sp
     @test m.nutrients.richness == 3

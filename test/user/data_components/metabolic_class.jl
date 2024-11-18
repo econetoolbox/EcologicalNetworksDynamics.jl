@@ -11,6 +11,13 @@
     @test typeof(mc) == MetabolicClass.Raw
 
     # With an explicit map.
+    ## Integer keys.
+    mc = MetabolicClass([2 => :inv, 3 => :ect, 1 => :prod])
+    m = base + mc
+    @test m.metabolic_class == [:producer, :invertebrate, :ectotherm]
+    @test typeof(mc) == MetabolicClass.Map
+
+    ## Symbol keys.
     mc = MetabolicClass([:a => :inv, :b => :ect, :c => :prod])
     m = base + mc
     @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]

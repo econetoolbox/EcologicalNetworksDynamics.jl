@@ -22,14 +22,21 @@
     @test typeof(ar) === AttackRate.Raw
 
     # Adjacency list.
-    ar = AttackRate([:a => [:b => 1], :b => [:c => 3]])
-    m = base + ar
-    @test m.attack_rate == [
-        0 1 0
-        0 0 3
-        0 0 0
-    ]
-    @test typeof(ar) == AttackRate.Adjacency
+    for adj in (
+        #! format: off
+        [:a => [:b => 1], :b => [:c => 3]],
+        [1 => [2 => 1], 2 => [3 => 3]],
+        #! format: on
+    )
+        ar = AttackRate(adj)
+        m = base + ar
+        @test m.attack_rate == [
+            0 1 0
+            0 0 3
+            0 0 0
+        ]
+        @test typeof(ar) == AttackRate.Adjacency
+    end
 
     # Scalar.
     ar = AttackRate(2)
@@ -99,6 +106,8 @@
     # Imply species names via foodweb implication.
     @test Model(AttackRate([:a => [:a => 1, :b => 2], :b => [:c => 3]])).species.names ==
           [:a, :b, :c]
+    @test Model(AttackRate([2 => [3 => 0.3], 1 => [1 => 0.1, 2 => 0.2]])).species.names ==
+          [:s1, :s2, :s3]
 
     # ======================================================================================
     # Input guards.

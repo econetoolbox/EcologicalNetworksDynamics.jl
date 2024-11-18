@@ -8,10 +8,12 @@
     # From raw values.
 
     # Map selected species.
-    hd = HalfSaturationDensity([:a => 1, :b => 2])
-    m = base + hd
-    @test m.half_saturation_density == [1, 2, 0]
-    @test typeof(hd) == HalfSaturationDensity.Map
+    for map in ([:a => 1, :b => 2], [1 => 1, 2 => 2])
+        hd = HalfSaturationDensity(map)
+        m = base + hd
+        @test m.half_saturation_density == [1, 2, 0]
+        @test typeof(hd) == HalfSaturationDensity.Map
+    end
 
     # From a sparse vector.
     hd = HalfSaturationDensity([2, 4, 0])

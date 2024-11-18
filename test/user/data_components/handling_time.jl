@@ -22,14 +22,21 @@
     @test typeof(ht) === HandlingTime.Raw
 
     # Adjacency list.
-    ht = HandlingTime([:a => [:b => 1], :b => [:c => 3]])
-    m = base + ht
-    @test m.handling_time == [
-        0 1 0
-        0 0 3
-        0 0 0
-    ]
-    @test typeof(ht) == HandlingTime.Adjacency
+    for adj in (
+        #! format: off
+        [:a => [:b => 1], :b => [:c => 3]],
+        [1 => [2 => 1], 2 => [3 => 3]],
+        #! format: on
+    )
+        ht = HandlingTime(adj)
+        m = base + ht
+        @test m.handling_time == [
+            0 1 0
+            0 0 3
+            0 0 0
+        ]
+        @test typeof(ht) == HandlingTime.Adjacency
+    end
 
     # Scalar.
     ht = HandlingTime(2)
@@ -99,6 +106,8 @@
     # Imply species names via foodweb implication.
     @test Model(HandlingTime([:a => [:a => 1, :b => 2], :b => [:c => 3]])).species.names ==
           [:a, :b, :c]
+    @test Model(HandlingTime([2 => [3 => 0.3], 1 => [1 => 0.1, 2 => 0.2]])).species.names ==
+          [:s1, :s2, :s3]
 
     # ======================================================================================
     # Input guards.

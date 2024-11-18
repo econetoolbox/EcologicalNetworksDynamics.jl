@@ -185,6 +185,24 @@ export @check_template
 #          So the space is *also* an index to convert labels to integers.
 
 #-------------------------------------------------------------------------------------------
+# Check that the given value is a valid (dense) {ref -> indice} index.
+function check_index(index::AbstractDict{Symbol,Int})
+    n = length(index)
+    notfound = OrderedSet(1:n)
+    for (ref, i) in index
+        1 <= i <= n || argerr("Invalid index: received $n reference$(n > 1 ? "s" : "") \
+                               but one of them is [$i] ($(repr(ref))).")
+        if i in notfound
+            pop!(notfound, i)
+        end
+    end
+    for i in notfound
+        argerr("Invalid index: no reference given for index [$i].")
+    end
+end
+export check_index
+
+#-------------------------------------------------------------------------------------------
 # Check references against a general reference space.
 
 # The most abstract entry point into checking refs, with subcalls to other checking utils.
@@ -218,8 +236,8 @@ function check_list_refs(
         end
         if !(isnothing(template) || isnothing(space))
             a, b = size(template), space
-            (a == b || a == (b,)) ||
-                argerr("Inconsistent template size ($a) vs. references space ($b).")
+            (a == b || a == (b,) || a == (b, b)) ||
+                argerr("Inconsistent template size vs. references space: $a vs. $b.")
         end
     end
 

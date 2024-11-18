@@ -20,7 +20,7 @@ sep("Test API utils.")
 #  include("./topologies.jl")
 #  include("./aliasing_dicts.jl")
 #  include("./multiplex_api.jl")
-#  include("./graph_data_inputs/runtests.jl")
+include("./graph_data_inputs/runtests.jl")
 
 sep("Test user-facing behaviour.")
 include("./user/runtests.jl")

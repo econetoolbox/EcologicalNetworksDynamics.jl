@@ -53,10 +53,8 @@ F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.B0, @ref raw.consumers.ma
 #-------------------------------------------------------------------------------------------
 mutable struct Map <: Blueprint
     B0::@GraphData Map{Float64}
-    species::Brought(Species)
-    Map(B0, sp = _Species) = new(@tographdata(B0, Map{Float64}), sp)
+    Map(B0) = new(@tographdata(B0, Map{Float64}))
 end
-F.implied_blueprint_for(bp::Map, ::_Species) = Species(refs(bp.B0))
 @blueprint Map "[species => half-saturation density] map"
 export Map
 

@@ -184,6 +184,9 @@
     input = gc((@GraphData K{Float64}), [:c => 8, :a => 7, :b => 9])
     @test to_dense_vector(input, index) == [7.0, 9.0, 8.0]
 
+    input = Dict(:c => 3, :a => 1, :b => 2)
+    @test to_dense_refs(input) == [:a, :b, :c]
+
     #---------------------------------------------------------------------------------------
     # Matrices from adjacency lists.
 

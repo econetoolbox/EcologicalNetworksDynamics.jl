@@ -36,6 +36,16 @@
     #---------------------------------------------------------------------------------------
     # Guards.
 
+    @argfails(
+        Species(Dict([:a => 1, :c => 3])),
+        "Invalid index: received 2 references but one of them is [3] (:c)."
+    )
+
+    @argfails(
+        Species(Dict([:a => 1, :c => 1])),
+        "Invalid index: no reference given for index [2]."
+    )
+
     @sysfails(
         Model(Nutrients.Nodes([:a, :b, :a])),
         Check(early, [Nutrients.Nodes.Names], "Nutrients 1 and 3 are both named :a."),

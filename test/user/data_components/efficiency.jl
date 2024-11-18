@@ -20,14 +20,20 @@
     @test typeof(ef) === Efficiency.Raw
 
     # Adjacency list.
-    ef = Efficiency([:a => [:b => 0.1], :b => [:c => 0.3]])
-    m = base + ef
-    @test m.efficiency == m.e == [
-        0 1 0
-        0 0 3
-        0 0 0
-    ] / 10
-    @test typeof(ef) == Efficiency.Adjacency
+    for adj in
+        #! format: off
+        ([:a => [:b => 0.1], :b => [:c => 0.3]],
+         [1 => [2 => 0.1], 2 => [3 => 0.3]])
+        #! format: on
+        ef = Efficiency(adj)
+        m = base + ef
+        @test m.efficiency == m.e == [
+            0 1 0
+            0 0 3
+            0 0 0
+        ] / 10
+        @test typeof(ef) == Efficiency.Adjacency
+    end
 
     # Scalar.
     ef = Efficiency(0.1)
@@ -72,6 +78,8 @@
     @test Model(
         Efficiency([:a => [:a => 0.1, :b => 0.2], :b => [:c => 0.3]]),
     ).species.names == [:a, :b, :c]
+    @test Model(Efficiency([2 => [3 => 0.3], 1 => [1 => 0.1, 2 => 0.2]])).species.names ==
+          [:s1, :s2, :s3]
 
     # ======================================================================================
     # Input guards.
