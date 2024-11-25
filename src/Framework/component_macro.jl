@@ -298,10 +298,8 @@ function component_macro(__module__, __source__, input...)
     # Helpful display resuming base blueprint types for this component.
     push_res!(quote
         function Base.show(io::IO, ::MIME"text/plain", C::$ety)
-            black = crayon"black"
             it = crayon"italics"
-            reset = crayon"reset"
-            print(io, "$C $black(component for $ValueType")
+            print(io, "$component_color$C$reset $grayed(component for $ValueType")
             names = fieldnames(typeof(C))
             if isempty(names)
                 print(io, " with no base blueprint")
@@ -309,9 +307,9 @@ function component_macro(__module__, __source__, input...)
                 println(io, ", expandable from:")
                 for name in fieldnames(typeof(C))
                     B = getfield(C, name)
-                    print(io, "  $name: $it")
+                    print(io, "  $blueprint_color$name$reset$grayed: $it")
                     shortline(io, B)
-                    println(io, "$reset$black,")
+                    println(io, "$reset$grayed,")
                 end
             end
             print(io, ")$reset")

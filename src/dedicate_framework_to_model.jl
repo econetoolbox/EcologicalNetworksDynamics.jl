@@ -14,6 +14,9 @@ import .F:
     checkfails,
     checkrefails,
     components,
+    does_bring,
+    does_embed,
+    does_imply,
     has_component
 
 # Direct re-exports from the framework module.
@@ -160,6 +163,8 @@ end
 # ==========================================================================================
 # Display.
 
+F.mod_roots = [EcologicalNetworksDynamics]
+
 Base.show(io::IO, ::Type{Internal}) = print(io, "<internals>") # Shorten and opacify.
 Base.show(io::IO, ::Type{Model}) = print(io, "Model")
 
@@ -174,10 +179,12 @@ Base.show(io::IO, p::F.PropertySpace{name,P,Internal}) where {name,P} =
 #-------------------------------------------------------------------------------------------
 # Default display for blueprint fields.
 
+# Vector.
 function F.display_blueprint_field_short(io::IO, v::AbstractVector, ::Blueprint)
     print(io, "[$(join_elided(v, ", "))]")
 end
 
+# Matrix.
 function F.display_blueprint_field_short(io::IO, m::AbstractMatrix, ::Blueprint)
     (p, q) = size(m)
     print(io, "$p×$q matrix (")
@@ -190,6 +197,7 @@ function F.display_blueprint_field_short(io::IO, m::AbstractMatrix, ::Blueprint)
     print(io, ")")
 end
 
+# Sparse matrix.
 function F.display_blueprint_field_short(io::IO, m::SparseMatrix, ::Blueprint)
     (p, q) = size(m)
     print(io, "$p×$q ")
@@ -209,6 +217,7 @@ function F.display_blueprint_field_short(io::IO, m::SparseMatrix, ::Blueprint)
     end
 end
 
+# Map.
 function F.display_blueprint_field_short(
     io::IO,
     map::@GraphData(Map{T}),
@@ -220,17 +229,36 @@ function F.display_blueprint_field_short(
     print(io, "{$(join_elided(it, ", "; repr = false))}")
 end
 
+# Adjacency list.
 function F.display_blueprint_field_short(
     io::IO,
-    map::@GraphData(Adjacency{T}),
+    adj::@GraphData(Adjacency{T}),
     bp::Blueprint,
 ) where {T}
-    it = imap(map) do (k, v)
+    it = imap(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")
 end
 
+# Binary map.
+function F.display_blueprint_field_short(io::IO, set::@GraphData(Map{:bin}), ::Blueprint)
+    print(io, "{$(join_elided(set, ", "; repr = false))}")
+end
+
+# Binary adjacency list.
+function F.display_blueprint_field_short(
+    io::IO,
+    adj::@GraphData(Adjacency{:bin}),
+    bp::Blueprint,
+)
+    it = imap(adj) do (k, v)
+        "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
+    end
+    print(io, "{$(join_elided(it, ", "; repr = false))}")
+end
+
+# Defer long to short by default.
 F.display_blueprint_field_long(io::IO, v, bp::Blueprint) =
     F.display_blueprint_field_short(io, v, bp)
 

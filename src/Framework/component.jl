@@ -202,16 +202,23 @@ export add_trigger! # Expose directly..
 # and don't display blueprint details within component values.
 # NOTE: this enhances ergonomics
 # but it makes unexpected framework errors rather confusing.
-# Deactivate when debugging.
-strip_compname(C::CompType) = lstrip(String(nameof(C)), '_')
-strip_compname(::Type{V}, C::Type{Component{V}}) where {V} = "$(strip_compname(C)){$V}"
-Base.show(io::IO, C::CompType) = print(io, "<$(strip_compname(C))>")
-Base.show(io::IO, c::Component) = print(io, strip_compname(typeof(c)))
+# Comment out when debugging.
+
+strip_compname(name::Symbol) = Symbol(lstrip(String(name), '_'))
+function fmt_compname(name; col = false)
+    c, r = col ? (component_color, reset) : ("", "")
+    "$c<$name>$r"
+end
+
+comp_path(C::CompType) = stripped_path(C)
+comp_path(::Type{V}, C::Type{Component{V}}) where {V} = "$(comp_path(C)){$V}"
+Base.show(io::IO, C::CompType) = print(io, fmt_compname(comp_path(C)))
+Base.show(io::IO, c::Component) = print(io, comp_path(typeof(c)))
 
 # More explicit terminal display.
 function Base.show(io::IO, ::MIME"text/plain", C::CompType)
     abs = isabstracttype(C) ? "abstract " : ""
-    print(io, "$C $(crayon"black")($(abs)component type ")
+    print(io, "$component_color$C$reset $grayed($(abs)component type ")
     @invoke show(io::IO, C::DataType)
-    print(io, ")$(crayon"reset")")
+    print(io, ")$reset")
 end

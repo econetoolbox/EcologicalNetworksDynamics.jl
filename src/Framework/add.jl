@@ -354,7 +354,7 @@ function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
             end
             raise(ErrorException("\n$(crayon"red")\
                    ⚠ ⚠ ⚠ $title ⚠ ⚠ ⚠\
-                   $(crayon"reset")\n\
+                   $reset\n\
                    $subtitle\n\
                    This system state consistency \
                    is no longer guaranteed by the program. \
@@ -470,15 +470,14 @@ end
 # Render errors into proper error messages.
 
 function render_path(path::BpPath)
-    gray = crayon"black"
-    blue = crayon"blue"
-    reset = crayon"reset"
-    res = "$(gray)in$reset $blue$(path[1])$reset\n"
+    p1 = stripped_path(path[1])
+    res = "$(grayed)in$reset $blueprint_color$p1$reset\n"
     i = 2
     while i <= length(path)
         broughtby = path[i] ? "     implied by:" : "embedded within:"
         parent = path[i+1]
-        res *= "$gray$broughtby$reset $blue$parent$reset\n"
+        parent = stripped_path(parent)
+        res *= "$grayed$broughtby$reset $blueprint_color$parent$reset\n"
         i += 2
     end
     res
@@ -490,7 +489,7 @@ function Base.showerror(io::IO, e::BroughtAlreadyInValue)
     path = render_path(node)
     print(
         io,
-        "Blueprint expands into component '$comp', \
+        "Blueprint would expand into component $(cc(comp)), \
          which is already in the system.\n$path",
     )
 end
@@ -499,17 +498,16 @@ function Base.showerror(io::IO, e::MissingRequiredComponent)
     (; miss, comp, node, reason) = e
     path = render_path(node)
     if isnothing(comp)
-        header = "Blueprint cannot expand without component $miss"
+        header = "Blueprint cannot expand without component $(cc(miss))"
     else
-        header = "Component $comp requires $miss, neither found in the system \
+        header = "Component $(cc(comp)) requires $(cc(miss)), neither found in the system \
                   nor brought by the blueprints"
     end
     if isnothing(reason)
         body = "."
     else
         it = crayon"italics"
-        rs = crayon"reset"
-        body = ":\n  $it$reason$rs"
+        body = ":\n  $it$reason$reset"
     end
     print(io, "$header$body\n$path")
 end
@@ -530,8 +528,7 @@ function Base.showerror(io::IO, e::HookCheckFailure)
         footer = path
     end
     it = crayon"italics"
-    rs = crayon"reset"
-    print(io, "$header:\n  $it$message$rs\n$footer")
+    print(io, "$header:\n  $it$message$reset\n$footer")
 end
 
 function Base.showerror(io::IO, e::UnexpectedHookFailure)
@@ -556,9 +553,9 @@ end
 function Base.showerror(io::IO, e::ConflictWithSystemComponent)
     (; comp, comp_abstract, node, other, other_abstract, reason) = e
     path = render_path(node)
-    comp_as = isnothing(comp_abstract) ? "" : " (as a $comp_abstract)"
-    other_as = isnothing(other_abstract) ? "" : " (as a $other_abstract)"
-    header = "Blueprint would expand into $comp, \
+    comp_as = isnothing(comp_abstract) ? "" : " (as a $(cc(comp_abstract)))"
+    other_as = isnothing(other_abstract) ? "" : " (as a $(cc(other_abstract)))"
+    header = "Blueprint would expand into $(cc(comp)), \
               which$comp_as conflicts with $other$other_as already in the system"
     if isnothing(reason)
         body = "."
@@ -572,9 +569,9 @@ function Base.showerror(io::IO, e::ConflictWithBroughtComponent)
     (; comp, comp_abstract, node, other, other_abstract, other_node, reason) = e
     path = render_path(node)
     other_path = render_path(other_node)
-    comp_as = isnothing(comp_abstract) ? "" : " (as a $comp_abstract)"
-    other_as = isnothing(other_abstract) ? "" : " (as a $other_abstract)"
-    header = "Blueprint would expand into $comp, \
+    comp_as = isnothing(comp_abstract) ? "" : " (as a $(cc(comp_abstract)))"
+    other_as = isnothing(other_abstract) ? "" : " (as a $(cc(other_abstract)))"
+    header = "Blueprint would expand into $(cc(comp)), \
               which$comp_as would conflict with $other$other_as \
               already brought by the same blueprint"
     if isnothing(reason)

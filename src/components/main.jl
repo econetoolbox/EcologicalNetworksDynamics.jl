@@ -71,6 +71,8 @@ include("./display.jl")
 # This utils factorizes how args/kwargs are passed from its inner constructor
 # to each of its fields.
 include("./args_to_fields.jl")
+function ()
+end
 
 # Central in the model nodes.
 include("./species.jl")
@@ -81,8 +83,8 @@ include("./foodweb.jl")
 
 #  # Biorates and other values parametrizing the ODE.
 #  # (typical example 'nodes' data)
-#  include("./body_mass.jl")
-#  include("./metabolic_class.jl")
+include("./body_mass.jl")
+include("./metabolic_class.jl")
 
 #  # Useful global values to calculate other biorates.
 #  # (typical example 'graph' data)
@@ -111,12 +113,13 @@ include("./foodweb.jl")
 export Nutrients
 
 include("./nontrophic_layers/main.jl")
-#  using .NontrophicInteractions
-#  export NontrophicInteractions
-#  export CompetitionLayer
-#  export FacilitationLayer
-#  export RefugeLayer
-#  export InterferenceLayer
+using .NontrophicInteractions
+const Nti = NontrophicInteractions
+export NontrophicInteractions, Nti
+export Competition
+export Facilitation
+export Refuge
+export interference
 
 #  # The above components mostly setup *data* within the model.
 #  # In the nex they mostly specify the *code* needed to simulate it.

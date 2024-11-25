@@ -21,6 +21,8 @@ module NontrophicInteractions
 using EcologicalNetworksDynamics
 const EN = EcologicalNetworksDynamics
 using .EN.MultiplexApi
+import .EN: Component, @get, @ref, Topologies as G, Internals, argerr, expand, checkfails
+using SparseArrays
 
 # (reassure JuliaLS)
 if (false)
@@ -64,9 +66,16 @@ multiplex_defaults = MultiplexParametersDict(;
     ),
 )
 
+abstract type NtiLayer <: Component end
+
 include("./competition.jl")
 #  include("./facilitation.jl")
 #  include("./interference.jl")
 #  include("./refuge.jl")
+
+export Competition
+export Facilitation
+export Interference
+export Refuge
 
 end

@@ -16,14 +16,16 @@ end
 @blueprint Raw "callable"
 export Raw
 
-F.early_check(bp::Raw) = check_functional_form(bp.fn)
+F.early_check(bp::Raw) = check_functional_form(bp.fn, :competition, checkfails)
+
+F.expand!(raw, bp::Raw) = raw._scratch[:competition_functional_form] = bp.fn
 
 end
 
 # ==========================================================================================
 # Component.
 
-@component FunctionalForm blueprints(FunctionalForm_)
+@component FunctionalForm{Internal} blueprints(FunctionalForm_)
 export FunctionalForm
 
 (::_FunctionalForm)(fn) = FunctionalForm.Raw(fn)
@@ -35,9 +37,19 @@ export FunctionalForm
     get(m -> m._scratch[:competition_functional_form])
     set!(
         (m, rhs::Function) -> begin
-            check_functional_form(rhs, :competition, argerr)
+            check_functional_form(rhs, :competition, checkfails)
             set_layer_scalar_data!(m, :competition, :competition_functional_form, :f, rhs)
         end,
     )
     depends(FunctionalForm)
+end
+
+function F.shortline(io::IO, model::Model, ::_FunctionalForm)
+    fn = model.competition.fn
+    print(io, "Competition functional form: ")
+    if fn === default.functional_form
+        print(io, "<default>")
+    else
+        print(io, "$fn")
+    end
 end

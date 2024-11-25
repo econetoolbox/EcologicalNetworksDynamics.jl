@@ -177,12 +177,11 @@ expand!(v, b::Blueprint, _) = expand!(v, b)
 # ==========================================================================================
 # Explicit terminal display.
 function Base.show(io::IO, ::MIME"text/plain", B::Type{<:Blueprint{V}}) where {V}
+    B = stripped_path(B)
     print(
         io,
-        "$B \
-         $(crayon"black")\
-         (blueprint type for $(nameof(System)){$V})\
-         $(crayon"reset")",
+        "$blueprint_color$B$reset \
+         $grayed(blueprint type for $(nameof(System)){$V})$reset",
     )
 end
 

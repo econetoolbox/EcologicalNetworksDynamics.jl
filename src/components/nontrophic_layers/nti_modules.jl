@@ -8,18 +8,21 @@ using .EN.AliasingDicts
 using .EN.GraphDataInputs
 using .EN.KwargsHelpers
 using .EN.MultiplexApi
-using .EN.Topologies
 import .EN:
     Blueprint,
+    BodyMass,
+    Brought,
     Foodweb,
     Internal,
     Internals,
+    MetabolicClass,
     Model,
     Option,
     SparseMatrix,
     argerr,
     checkfails,
     fields_from_kwargs,
+    @blueprint,
     @component,
     @get,
     @propspace,
@@ -29,11 +32,15 @@ const F = Framework
 using SparseArrays
 
 import .EN.NontrophicInteractions:
+    NtiLayer,
     check_functional_form,
     expand_topology!,
+    fields_from_multiplex_parms,
+    multiplex_defaults,
     parse_random_links_arguments,
     random_links,
     random_nti_early_check,
+    set_layer!,
     set_layer_scalar_data!
 
 # (reassure JuliaLS)

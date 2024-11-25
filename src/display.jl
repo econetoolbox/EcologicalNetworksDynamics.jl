@@ -16,7 +16,7 @@ end
 export join_elided
 
 # Special-case sparse vectors so it special-displays missing values.
-dot_display(vec, use_repr = true) = use_repr ? repr.(vec) : map(e -> "$e", vec)
+dot_display(vec, use_repr = true) = use_repr ? repr.(vec) : ["$e" for e in vec]
 function dot_display(vec::AbstractSparseVector, use_repr = true)
     res = repeat(["·"], length(vec))
     nzi, nzv = findnz(vec)

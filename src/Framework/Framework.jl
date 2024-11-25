@@ -126,6 +126,33 @@ checkrefails(args...) = checkfails(args...; throw = Base.rethrow)
 export checkfails, checkrefails
 
 # ==========================================================================================
+# Display constants.
+component_color = crayon"yellow"
+blueprint_color = crayon"blue"
+field_color = crayon"cyan"
+grayed = crayon"black"
+reset = crayon"reset"
+cc(C) = "$component_color$C$reset"
+bc(B) = "$blueprint_color$B$reset"
+fc(C) = "$field_color$C$reset"
+
+
+# Strip paths to identifiers up to some user-defined root(s).
+mod_roots = [] # <- Framework-level config.
+function stripped_path(C::Type)
+    name = C.name
+    mod = name.module
+    path = [strip_compname(nameof(C))]
+    while !(mod in mod_roots)
+        push!(path, nameof(mod))
+        parent = parentmodule(mod)
+        parent === mod && break # Reached toplevel.
+        mod = parent
+    end
+    join(reverse(path), '.')
+end
+
+# ==========================================================================================
 
 # Base structure.
 include("./system.jl") #  <- Defines the 'System' type used in the next files..

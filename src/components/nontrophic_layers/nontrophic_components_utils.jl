@@ -71,8 +71,8 @@ end
 function expand_topology!(raw, nti, A)
     raw._scratch[Symbol(nti, :_links)] = A
     g = raw._topology
-    add_edge_type!(g, nti)
-    add_edges_within_node_type!(g, :species, nti, A)
+    G.add_edge_type!(g, nti)
+    G.add_edges_within_node_type!(g, :species, nti, A)
 end
 
 # ==========================================================================================
@@ -159,7 +159,7 @@ function set_layer!(raw, interaction, layer)
         # First NTI component to be added.
         # Switch from plain foodweb to a multiplex network.
         S = @get raw.richness
-        fw = @ref raw.foodweb
+        fw = raw._foodweb
         trophic_layer = Internals.Layer(fw.A, nothing, nothing)
         layers = InteractionDict{Internals.Layer}()
         layers[:trophic] = trophic_layer

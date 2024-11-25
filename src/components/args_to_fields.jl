@@ -11,11 +11,19 @@ function pass_args_kwargs(f, input)
     args, kwargs = to_args_kwargs(input)
     f(args...; kwargs...)
 end
+# Special-case BroughtField because it would otherwise
+# fall back attempt to convert to its 'Union' field, which is not a constructor.
+pass_args_kwargs(BF::Type{<:F.BroughtField}, ::Nothing) = BF(nothing)
+pass_args_kwargs(BF::Type{<:F.BroughtField}, C::F.CompType) = BF(C)
+function pass_args_kwargs(BF::Type{<:F.BroughtField}, input)
+    ak = to_args_kwargs(input)
+    convert(BF, ak)
+end
 
 # If the 'given function' is a type,
 # pass it to the type as constructor arguments,
 # unless the input is already of the right type
-# and there is no need to construct more.
+# and then there is no need to construct more.
 function pass_args_kwargs_to_type(type, input)
     input isa type ? input : pass_args_kwargs(type, input)
 end
@@ -87,7 +95,7 @@ function fields_from_kwargs(T::DataType, kwargs; default = (;), override = (;))
         argerr("Unexpected input: $k = $(repr(v)). \
                 Expected $(either(field_names)).")
     end
-    # Read to froward no `new`.
+    # Ready for forwarding to `new`.
     values
 end
 

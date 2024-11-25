@@ -50,7 +50,16 @@ end
 Brought(C::CompType{V}) where {V} = BroughtField{C,V}
 Brought(c::Component) = Brought(typeof(c))
 componentof(::Type{BroughtField{C,V}}) where {C,V} = C
-export Brought
+# Defer accesses to inner value.
+refvalue(bf::BroughtField) = getfield(bf, :value)
+Base.getproperty(bf::BroughtField, name::Symbol) = getproperty(refvalue(bf), name)
+Base.setproperty!(bf::BroughtField, name::Symbol, rhs) =
+    setproperty!(refvalue(bf), name, rhs)
+# Basic query.
+does_bring(bp::BroughtField) = !isnothing(refvalue(bp))
+does_imply(bp::BroughtField) = does_bring(bp) && refvalue(bp) isa Type
+does_embed(bp::BroughtField) = does_bring(bp) && refvalue(bp) isa Blueprint
+export Brought, does_bring, does_imply, does_embed
 
 # The code checking macro invocation consistency requires
 # that pre-requisites (methods implementations) be specified *prior* to invocation.
@@ -264,7 +273,10 @@ function blueprint_macro(__module__, __source__, input...)
             ifilter = Iterators.filter
             Framework.brought(b::NewBlueprint) =
                 imap(
-                    ifilter(!isnothing, imap(f -> getfield(b, f).value, keys(broughts))),
+                    ifilter(
+                        !isnothing,
+                        imap(f -> refvalue(getfield(b, f)), keys(broughts)),
+                    ),
                 ) do f
                     f isa Component ? typeof(f) : f
                 end
@@ -275,7 +287,7 @@ function blueprint_macro(__module__, __source__, input...)
     push_res!(
         quote
             function Base.setproperty!(b::NewBlueprint, prop::Symbol, rhs)
-                prop in keys(broughts) || setfield!(b, prop, rhs)
+                prop in keys(broughts) || return setfield!(b, prop, rhs)
                 C = broughts[prop]
                 # Defer all checking to conversion methods.
                 bf = try
@@ -297,7 +309,7 @@ function blueprint_macro(__module__, __source__, input...)
             Base.show(io::IO, ::MIME"text/plain", b::NewBlueprint) = display_long(io, b, 0)
 
             function Framework.display_short(io::IO, bp::NewBlueprint)
-                comps = provided_comps_display(bp)
+                comps = provided_comps_display(bp, 0, false)
                 print(io, "$comps:$(nameof(NewBlueprint))(")
                 for (i, name) in enumerate(fieldnames(NewBlueprint))
                     i > 1 && print(io, ", ")
@@ -311,14 +323,19 @@ function blueprint_macro(__module__, __source__, input...)
             end
 
             function Framework.display_long(io::IO, bp::NewBlueprint, level)
-                comps = provided_comps_display(bp)
-                print(io, "blueprint for $comps: $(nameof(NewBlueprint)) {")
+                comps = provided_comps_display(bp, level, true)
+                g = level == 0 ? "" : grayed
+                print(
+                    io,
+                    "$(g)blueprint for$reset $comps: \
+                     $blueprint_color$(nameof(NewBlueprint))$reset {",
+                )
                 preindent = repeat("  ", level)
                 level += 1
                 indent = repeat("  ", level)
                 names = fieldnames(NewBlueprint)
                 for name in names
-                    print(io, "\n$indent$name: ")
+                    print(io, "\n$indent$field_color$name:$reset ")
                     value = getfield(bp, name)
                     display_blueprint_field_long(io, value, bp, Val(name), level)
                     print(io, ",")
@@ -360,16 +377,6 @@ specified_as_blueprint(B::Type{<:Blueprint}) = false
 # Stubs for display methods.
 function display_short end
 function display_long end
-
-# Special-case the single-provided-component case.
-function provided_comps_display(bp::Blueprint)
-    comps = componentsof(bp)
-    if length(comps) == 1
-        "$(first(comps))"
-    else
-        "{$(join(comps, ", "))}"
-    end
-end
 
 # ==========================================================================================
 # Protect against constructing invalid brought fields.
@@ -473,7 +480,7 @@ function implicit_constructor_for(
     # It is a bug in the component library (introduced by framework users)
     # if the implicit constructor yields a wrong value.
     function bug(m)
-        red, res = (crayon"bold red", crayon"reset")
+        red, res = (crayon"bold red", reset)
         err("Implicit blueprint constructor $m\n\
              $(red)This is a bug in the components library.$res")
     end
@@ -518,7 +525,7 @@ function Base.showerror(io::IO, e::BroughtConvertFailure)
     print(
         io,
         "Failed to convert input \
-         to a brought blueprint for $BroughtComponent:\n$message\n\
+         to a brought blueprint for $(cc(BroughtComponent)):\n$message\n\
          Input was: $(repr(rhs)) ::$(typeof(rhs))",
     )
 end
@@ -528,27 +535,45 @@ function Base.showerror(io::IO, e::BroughtAssignFailure)
     (; BroughtComponent, message, rhs) = fail
     print(
         io,
-        "Failed to assign to field :$fieldname of '$HostBlueprint' \
-         supposed to bring component $BroughtComponent:\n$message\n\
+        "Failed to assign to field $(fc(fieldname)) of $(bc(HostBlueprint)) \
+         supposed to bring component $(cc(BroughtComponent)):\n$message\n\
          RHS was: $(repr(rhs)) ::$(typeof(rhs))",
     )
 end
 
 function Base.showerror(io::IO, e::UnimplementedImpliedMethod{V}) where {V}
     red = crayon"red"
-    res = crayon"reset"
     (; HostBlueprint, BroughtSuperType, ImpliedSubType) = e
     print(
         io,
-        "A method has been specified to implicitly bring component $BroughtSuperType \
-         from '$HostBlueprint' blueprints, \
-         but no method is specialized to implicitly bring its subtype $ImpliedSubType.\n\
-         $(red)This is a bug in the components library.$res",
+        "A method has been specified to implicitly bring component $(cc(BroughtSuperType)) \
+         from $(bc(HostBlueprint)) blueprints, \
+         but no method is specialized \
+         to implicitly bring its subtype $(cc(ImpliedSubType)).\n\
+         $(red)This is a bug in the components library.$reset",
     )
 end
 
 # ==========================================================================================
 #  Display.
+
+# Only display full relative path to component name in this context.
+comp_name_or_path(C::CompType, level, col) =
+    if level == 0
+        fmt_compname(comp_path(C); col)
+    else
+        fmt_compname(strip_compname(nameof(C)); col)
+    end
+
+# Special-case the single-provided-component case.
+function provided_comps_display(bp::Blueprint, level, col)
+    comps = map(C -> comp_name_or_path(C, level, col), componentsof(bp))
+    if length(comps) == 1
+        "$(first(comps))"
+    else
+        "{$(join(comps, ", "))}"
+    end
+end
 
 # Hooks to specialize in case blueprint field values need special display.
 display_blueprint_field_short(io::IO, value, bp::Blueprint, ::Val) =
@@ -573,9 +598,7 @@ display_blueprint_field_long(io::IO, value, ::Blueprint) = print(io, value)
 
 # Special-casing brought fields.
 function Base.show(io::IO, ::Type{<:BroughtField{C,V}}) where {C,V}
-    grey = crayon"black"
-    reset = crayon"reset"
-    print(io, "$grey<brought field type for $reset$C$grey>$reset")
+    print(io, "$grayed<brought field type for $reset$component_color$C$reset$grayed>$reset")
 end
 Base.show(io::IO, bf::BroughtField) = display_blueprint_field_short(io, bf)
 Base.show(io::IO, ::MIME"text/plain", bf::BroughtField) =
@@ -586,11 +609,9 @@ display_blueprint_field_short(io::IO, bf::BroughtField, ::Blueprint, ::Val) =
     display_blueprint_field_short(io::IO, bf::BroughtField)
 
 function display_blueprint_field_short(io::IO, bf::BroughtField)
-    grey = crayon"black"
-    reset = crayon"reset"
-    (; value) = bf
+    value = refvalue(bf)
     if isnothing(value)
-        print(io, "$grey<$nothing>$reset")
+        print(io, "$grayed<$nothing>$reset")
     elseif value isa CompType
         print(io, value)
     elseif value isa Blueprint
@@ -605,17 +626,17 @@ display_blueprint_field_long(io::IO, bf::BroughtField, ::Blueprint, ::Val, level
     display_blueprint_field_long(io, bf, level)
 
 function display_blueprint_field_long(io::IO, bf::BroughtField, level)
-    grey = crayon"black"
-    reset = crayon"reset"
-    (; value) = bf
+    value = refvalue(bf)
     if isnothing(value)
-        print(io, "$grey<no blueprint brought>$reset")
+        print(io, "$grayed<no blueprint brought>$reset")
     elseif value isa CompType
-        print(io, "$grey<implied blueprint for $reset$value$grey>$reset")
+        print(io, "$grayed<implied blueprint for $reset")
+        print(io, comp_name_or_path(value, level, true))
+        print(io, "$grayed>$reset")
     elseif value isa Blueprint
-        print(io, "$grey<embedded $reset")
+        print(io, "$grayed<embedded $reset")
         display_long(io, value, level)
-        print(io, "$grey>$reset")
+        print(io, "$grayed>$reset")
     else
         throw("unreachable: invalid brought blueprint field value: \
                $(repr(value)) ::$(typeof(value))")

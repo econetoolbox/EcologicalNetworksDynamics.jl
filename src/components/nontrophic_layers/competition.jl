@@ -23,52 +23,61 @@ end
     get(raw -> @ref raw.competition.potential_links.number)
 end
 
+const default = (;
+    intensity = multiplex_defaults[:I][:competition],
+    functional_form = multiplex_defaults[:F][:competition],
+)
+
 include("./competition/topology.jl")
 include("./competition/intensity.jl")
 include("./competition/functional_form.jl")
 
-# HERE: to the integrated layer now.
-
-end
-
-#|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-#|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-#|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
 # ==========================================================================================
 # The layer component brings this all together.
-mutable struct CompetitionLayer <: NtiLayer
-    topology::Option{CompetitionTopology}
-    intensity::Option{CompetitionIntensity}
-    functional_form::Option{CompetitionFunctionalForm}
-    # For direct use by human caller.
-    CompetitionLayer(; kwargs...) = new(
-        fields_from_kwargs(
-            CompetitionLayer,
-            MultiplexParametersDict(kwargs...);
-            default = (
-                intensity = multiplex_defaults[:I][:competition],
-                functional_form = multiplex_defaults[:F][:competition],
-            ),
-        )...,
-    )
-    # For use by higher-level nontrophic layers utils.
-    CompetitionLayer(d::MultiplexParametersDict) =
-        new(fields_from_multiplex_parms(:competition, d)...)
-end
 
-function F.expand!(model, ::CompetitionLayer)
-    # Draw all required components from the scratch
+#-------------------------------------------------------------------------------------------
+# Aggregated blueprint.
+
+mutable struct Pack <: Blueprint
+    topology::Brought(Topology)
+    intensity::Brought(Intensity)
+    functional_form::Brought(FunctionalForm)
+    # For direct use by human caller.
+    Pack(; kwargs...) =
+        new(fields_from_kwargs(Pack, MultiplexParametersDict(kwargs...); default)...)
+    # For use by higher-level nontrophic layers utils.
+    Pack(d::MultiplexParametersDict) = new(fields_from_multiplex_parms(:competition, d)...)
+end
+F.implied_blueprint_for(::Pack, ::_Topology) = throw("unreachable")
+F.implied_blueprint_for(::Pack, ::_Intensity) = Intensity.Flat(default.intensity)
+F.implied_blueprint_for(::Pack, ::_FunctionalForm) = FunctionalForm(default.functional_form)
+@blueprint Pack "bundled layer components" depends(Topology, Intensity, FunctionalForm)
+
+function F.expand!(raw, ::Pack)
+    # Draw all required data from the scratch
     # to construct Internals layer.
-    s = model._scratch
+    s = raw._scratch
     layer = Internals.Layer(
         s[:competition_links],
         s[:competition_intensity],
         s[:competition_functional_form],
     )
-    set_layer!(model, :competition, layer)
+    set_layer!(raw, :competition, layer)
 end
 
+#-------------------------------------------------------------------------------------------
+# Component.
+
+(false) && (local Layer, _Layer) # (reassure JuliaLS)
 # For some (legacy?) reason, the foodweb topology is not the only requirement.
-@component CompetitionLayer requires(BodyMass, MetabolicClass)
-export CompetitionLayer
+@component Layer <: NtiLayer requires(BodyMass, MetabolicClass) blueprints(Pack::Pack)
+export Layer
+
+# Calling the component is like calling the (single) corresponding blueprint constructor.
+(::_Layer)(args...; kwargs...) = Pack(args...; kwargs...)
+
+function F.shortline(io::IO, ::Model, ::_Layer)
+    print(io, "Competition Layer.")
+end
+
+end

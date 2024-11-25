@@ -13,8 +13,8 @@ using .EN: Foodweb, _Foodweb
 # From matrix.
 
 mutable struct Raw <: Blueprint
-    A::SparseMatrix{Bool}
-    Raw(A) = new(@tographdata(A, SparseMatrix{Float64}))
+    A::@GraphData SparseMatrix{Bool}
+    Raw(A) = new(@tographdata(A, SparseMatrix{:bin}))
 end
 @blueprint Raw "sparse matrix"
 export Raw
@@ -38,7 +38,7 @@ expand!(raw, A) = expand_topology!(raw, :competition, A)
 
 mutable struct Adjacency <: Blueprint
     A::@GraphData Adjacency{:bin}
-    Adjacency(A) = new(@tographdata(A, Adjacency{Float64}))
+    Adjacency(A) = new(@tographdata(A, Adjacency{:bin}))
 end
 @blueprint Adjacency "[consumer => consumers] adjacency list"
 export Adjacency
@@ -47,7 +47,7 @@ function F.late_check(raw, bp::Adjacency)
     (; A) = bp
     index = @ref raw.species.index
     P = @ref raw.competition.potential_links.matrix
-    @check_list_refs A "trophic link" index template(P)
+    @check_list_refs A "consumer competition link" index template(P)
 end
 
 function F.expand!(raw, bp::Adjacency)
@@ -103,7 +103,7 @@ function (::_Topology)(A = nothing; kwargs...)
     @kwargs_helpers kwargs
     (!isnothing(A) && given(:A)) && argerr("Redundant competition topology input.\n\
                                             Received both: $A\n\
-                                            And          : $(take!(:A)).")
+                                            and          : $(take!(:A))")
 
     if !isnothing(A) || given(:A)
         A = given(:A) ? take!(:A) : A
@@ -113,11 +113,11 @@ function (::_Topology)(A = nothing; kwargs...)
         if A isa AbstractMatrix
             Topology.Raw(A)
         else
-            Topology.Raw(A)
+            Topology.Adjacency(A)
         end
 
     else
-        Competition.Random(; kwargs...)
+        Topology.Random(; kwargs...)
     end
 
 end
@@ -132,13 +132,13 @@ end
 
 @expose_data graph begin
     property(competition.links.number)
-    ref_cached(raw -> sum(raw._competition_links))
+    ref_cached(raw -> sum(@ref raw.competition.links.matrix))
     get(raw -> @ref raw.competition.links.number)
     depends(Topology)
 end
 
 function F.shortline(io::IO, model::Model, ::_Topology)
-    n = @get model.competition.links.number
+    n = model.competition.links.number
     s(n) = n > 1 ? "s" : ""
     print(io, "Competition topology: $n link$(s(n))")
 end
