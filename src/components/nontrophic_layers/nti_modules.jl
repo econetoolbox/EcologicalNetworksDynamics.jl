@@ -59,4 +59,3 @@ if (false)
     using .AliasingDicts: expand
     local ( competition, )
 end
-

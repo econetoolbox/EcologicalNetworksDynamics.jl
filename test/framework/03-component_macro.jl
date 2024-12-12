@@ -367,7 +367,7 @@ end
         "Required component: expression does not evaluate \
          to a component for '$Value', but for '$Int':\n\
          Expression: :Wdj\n\
-         Result: $Wdj ::<Wdj>"
+         Result: $Wdj ::<$Wdj>"
     )
 
     # Guard against redundancies.
@@ -378,19 +378,19 @@ end
     @xcompfails(
         (@component Mpz{Value} requires(Crq, Crq)),
         :Mpz,
-        "Requirement <Crq> is specified twice."
+        "Requirement <$Crq> is specified twice."
     )
 
     @xcompfails(
         (@component Mpz{Value} requires(Lpx, Rhr)),
         :Mpz,
-        "Requirement <Rhr> is also specified as <Lpx>."
+        "Requirement <$Rhr> is also specified as $Lpx."
     )
 
     @xcompfails(
         (@component Mpz{Value} requires(Rhr, Lpx)),
         :Mpz,
-        "Requirement <Rhr> is also specified as <Lpx>."
+        "Requirement <$Rhr> is also specified as $Lpx."
     )
 
 end

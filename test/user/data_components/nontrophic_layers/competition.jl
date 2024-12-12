@@ -266,6 +266,9 @@
 
     # Special-cased unimpliable topology.
     cl.topology = Competition.Topology
-    @sysfails(base + cl, CannotImply(Competition.Topology, [Competition.Layer.Pack]))
+    @sysfails(
+        base + cl,
+        Add(CannotImplyConstruct, Competition.Topology, [Competition.Layer.Pack]),
+    )
 
 end

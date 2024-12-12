@@ -156,7 +156,8 @@ function sysfails(__source__, __module__, xp, input)
         Add(AddName_, fields__) |
         Check(late_check_, fields__) |
         Property(PropertyPath_, message_) |
-        Alias_(fields__) |
+        ErrName_(name_, message_) |
+        AddAlias_(fields__) |
         CatchAll_
     )
     #! format: on
@@ -189,22 +190,32 @@ function sysfails(__source__, __module__, xp, input)
 
         yield(:HookCheckFailure, fields)
 
-    elseif !isnothing(Alias)
+    elseif !isnothing(AddAlias)
         # Sugar for e.g. @sysfails(xp, Add(MissingRequiredComponent, ...))
         # Use instead:   @sysfails(xp, Missing(...))
 
-        errname = if Alias == :Missing
+        errname = if AddAlias == :Missing
             :MissingRequiredComponent
-        elseif Alias == :CannotImply
-            :CannotImplyConstruct
         else
-            throw("Unknown AddError alias: $(repr(Alias)).")
+            throw("Unknown AddError alias: $(repr(AddAlias)).")
         end
         yield(errname, fields)
 
     elseif !isnothing(PropertyPath)
 
         (PropertyError, :($__module__, $(Meta.quot(PropertyPath)), $message))
+
+    elseif !isnothing(ErrName)
+        assert_symbol(ErrName)
+        isnothing(name) || assert_symbol(name)
+        errparms = [:Value]
+        name = Meta.quot(name)
+        # Prepare for evaluation within this testing context.
+        ErrName = Symbol(ErrName, :Error)
+        ErrName = :($F.$ErrName)
+        E = SystemException
+        args = :($__module__, $ErrName, $errparms, $name, $message)
+        (E, args)
 
     else
         throw("Unimplemented system error-checking:\n  @sysfails(xp, $input)")

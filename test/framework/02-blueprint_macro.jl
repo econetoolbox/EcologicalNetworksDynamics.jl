@@ -299,8 +299,8 @@ end
     @xbluefails(
         (@blueprint Ihb_b),
         Ihb_b,
-        "Method implied_blueprint_for($Ihb_b, <Xhu>) unspecified \
-         to implicitly bring <Xhu> from $Ihb_b blueprints."
+        "Method implied_blueprint_for($Ihb_b, <$Xhu>) unspecified \
+         to implicitly bring <$Xhu> from $Ihb_b blueprints."
     )
 
     # Define one, but not the other.
@@ -308,8 +308,8 @@ end
     @xbluefails(
         (@blueprint Ihb_b),
         Ihb_b,
-        "Method implied_blueprint_for($Ihb_b, <Ejp>) unspecified \
-         to implicitly bring <Ejp> from $Ihb_b blueprints."
+        "Method implied_blueprint_for($Ihb_b, <$Ejp>) unspecified \
+         to implicitly bring <$Ejp> from $Ihb_b blueprints."
     )
     F.implied_blueprint_for(::Ihb_b, ::_Ejp) = Ejp.b(5, 8) # Convenience method signature.
 
@@ -326,8 +326,8 @@ end
         (@blueprint Ntz_b),
         Ntz_b,
         "Ambiguity: the two following methods have been defined:\n  \
-           $(F.implied_blueprint_for)(::$Ntz_b, ::<Xhu>)\n  \
-           $(F.implied_blueprint_for)(::$Ntz_b, ::Type{<Xhu>})\n\
+           $(F.implied_blueprint_for)(::$Ntz_b, ::<$Xhu>)\n  \
+           $(F.implied_blueprint_for)(::$Ntz_b, ::Type{<$Xhu>})\n\
          Consider removing either one."
     )
 
@@ -341,7 +341,7 @@ end
     @xbluefails(
         (@blueprint Qev_b),
         Qev_b,
-        "Both fields 'data' and 'other' potentially bring <Ejp>.",
+        "Both fields 'data' and 'other' potentially bring <$Ejp>.",
     )
 
     # Redundancy is guarded through abstract component hierarchy.
@@ -360,8 +360,8 @@ end
         (@blueprint Jzd_b),
         Jzd_b,
         "Fields 'sub' and 'sup': \
-         brought blueprint <BottomComp> \
-         is also specified as <TopComp>."
+         brought blueprint <$BottomComp> \
+         is also specified as $TopComp."
     )
 
     #---------------------------------------------------------------------------------------
@@ -427,7 +427,7 @@ end
     @blueprint Dpt_b
     @component Dpt{Value} blueprints(b::Dpt_b)
     constructed = Dpt_b()
-    erm = "Implicit blueprint constructor yielded instead a blueprint for: <Dpt>.$bug"
+    erm = "Implicit blueprint constructor yielded instead a blueprint for: <$Dpt>.$bug"
     @failswith(Twt_b(()), bcf())
     @failswith((twt.opv = ()), baf())
 
@@ -521,7 +521,7 @@ comps(s) = sort(collect(components(s)); by = repr)
 
     # Not a blueprint.
     input = 5
-    erm = "No method matching <A>(5). (See further down the stacktrace.)"
+    erm = "No method matching $A(5). (See further down the stacktrace.)"
     @failswith(Pmi.b(input), bcf())
     @failswith((pmi.a = input), baf())
 
@@ -551,10 +551,10 @@ comps(s) = sort(collect(components(s)); by = repr)
     @blueprint Mjv_b
     @component Mjv{Value} blueprints(b::Mjv_b)
     input = Mjv.b()
-    erm = "Blueprint would instead expand into <Mjv>."
+    erm = "Blueprint would instead expand into <$Mjv>."
     @failswith(Pmi.b(input), bcf())
     @failswith((pmi.a = input), baf())
-    erm = "Implicit blueprint constructor yielded instead a blueprint for: <Mjv>.$bug"
+    erm = "Implicit blueprint constructor yielded instead a blueprint for: <$Mjv>.$bug"
     err = F.BroughtConvertFailure(A, erm, ())
     @failswith(Pmi.b(()), err)
     @failswith((pmi.a = ()), F.BroughtAssignFailure(Pmi_b, :a, err))
@@ -572,7 +572,7 @@ comps(s) = sort(collect(components(s)); by = repr)
     # Not an implied component subtyping A.
     @component Cif{Value}
     input = Cif
-    erm = "The input would instead imply <Cif>."
+    erm = "The input would instead imply <$Cif>."
     @failswith(Pmi.b(input), bcf())
     @failswith((pmi.a = input), baf())
     input = _Cif

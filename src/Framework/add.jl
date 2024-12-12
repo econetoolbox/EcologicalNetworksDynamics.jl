@@ -87,7 +87,7 @@ function Node(
             implied_C = br
             has_component(system, implied_C) && continue
             implied_bp = try
-                 checked_implied_blueprint_for(blueprint, implied_C)
+                checked_implied_blueprint_for(blueprint, implied_C)
             catch e
                 e isa _CannotImplyConstruct && throw(CannotImplyConstruct(implied_C, node))
                 rethrow(e)

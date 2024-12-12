@@ -296,25 +296,27 @@ function component_macro(__module__, __source__, input...)
     )
 
     # Helpful display resuming base blueprint types for this component.
-    push_res!(quote
-        function Base.show(io::IO, ::MIME"text/plain", C::$ety)
-            it = crayon"italics"
-            print(io, "$component_color$C$reset $grayed(component for $ValueType")
-            names = fieldnames(typeof(C))
-            if isempty(names)
-                print(io, " with no base blueprint")
-            else
-                println(io, ", expandable from:")
-                for name in fieldnames(typeof(C))
-                    B = getfield(C, name)
-                    print(io, "  $blueprint_color$name$reset$grayed: $it")
-                    shortline(io, B)
-                    println(io, "$reset$grayed,")
+    push_res!(
+        quote
+            function Base.show(io::IO, ::MIME"text/plain", C::$ety)
+                it = crayon"italics"
+                print(io, "$component_color$C$reset $grayed(component for $ValueType")
+                names = fieldnames(typeof(C))
+                if isempty(names)
+                    print(io, " with no base blueprint")
+                else
+                    println(io, ", expandable from:")
+                    for name in fieldnames(typeof(C))
+                        B = getfield(C, name)
+                        print(io, "  $blueprint_color$name$reset$grayed: $it")
+                        shortline(io, B)
+                        println(io, "$reset$grayed,")
+                    end
                 end
+                print(io, ")$reset")
             end
-            print(io, ")$reset")
-        end
-    end)
+        end,
+    )
 
     # Avoid confusing/leaky return type from macro invocation.
     push_res!(quote

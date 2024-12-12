@@ -232,7 +232,7 @@ export Value
         "Depends section: expression does not evaluate \
          to a component for '$Value', but for '$Int':\n\
          Expression: :Rle\n\
-         Result: Rle ::<Rle>",
+         Result: $Rle ::<$Rle>",
     )
 
     @xmethfails(
@@ -282,7 +282,7 @@ export Value
     # Disambiguate.
     @method txc{Value} depends(luu)
     @test txc(s) == 8 + 1
-    @sysfails(txc(e), Method(txc, "Requires component <Unf>.")) # Correctly inherited.
+    @sysfails(txc(e), Method(txc, "Requires component <$Unf>.")) # Correctly inherited.
 
     #---------------------------------------------------------------------------------------
     # Properties.
