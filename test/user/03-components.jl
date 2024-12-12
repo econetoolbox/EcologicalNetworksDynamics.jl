@@ -19,6 +19,7 @@ import .EN: WriteError
 # Many small similar components tests files, although they easily diverge.
 only = [
     "./code_components/logistic_growth.jl",
+    "./code_components/nutrient_intake.jl",
 ] # Only run these if specified.
 if isempty(only)
     for subfolder in ["./data_components", "./code_components"]

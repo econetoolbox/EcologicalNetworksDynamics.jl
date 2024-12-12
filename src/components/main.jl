@@ -122,7 +122,7 @@ export Refuge
 # The above components mostly setup *data* within the model.
 # In the next they mostly specify the *code* needed to simulate it.
 include("./producer_growth.jl")
-#  include("./functional_responses.jl")
+include("./functional_responses.jl")
 #  # Metabolism and Mortality are also code components,
 #  # but they are not reified yet and only reduce
 #  # to the single data component they each bring.

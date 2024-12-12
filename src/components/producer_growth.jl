@@ -13,8 +13,6 @@ F.implied_blueprint_for(::ProducerGrowthBlueprint, ::Component) = F.cannot_imply
 #-------------------------------------------------------------------------------------------
 # Simple logistic growth.
 
-(false) && (local LogisticGrowth, _LogisticGrowth) # (reassure JuliaLS)
-
 # Only 1 blueprint for now: same name as component, suffixed with '_'.
 mutable struct LogisticGrowth_ <: ProducerGrowthBlueprint
     r::Brought(GrowthRate)
@@ -43,9 +41,10 @@ function F.expand!(raw, ::LogisticGrowth_)
     raw.producer_growth = lg
 end
 
+(false) && (local LogisticGrowth, _LogisticGrowth) # (reassure JuliaLS)
 @component begin
     LogisticGrowth <: ProducerGrowth
-    #  requires(GrowthRate, CarryingCapacity, ProducersCompetition) #  HERE: is that implied by brought fields?
+    requires(GrowthRate, CarryingCapacity, ProducersCompetition)
     blueprints(Blueprint::LogisticGrowth_)
 end
 export LogisticGrowth
@@ -54,8 +53,6 @@ export LogisticGrowth
 
 #-------------------------------------------------------------------------------------------
 # Nutrient intake.
-
-(false) && (local NutrientIntake, _NutrientIntake) # (reassure JuliaLS)
 
 mutable struct NutrientIntake_ <: ProducerGrowthBlueprint
     r::Brought(GrowthRate)
@@ -74,12 +71,12 @@ mutable struct NutrientIntake_ <: ProducerGrowthBlueprint
                         and once as keyword argument (nodes = $(kwargs[:nodes])).")
             kwargs[:nodes]
         elseif ismissing(nodes)
-            :one_per_producer
+            () # <- Default Nutrients.Nodes blueprint constructor.
         else
             nodes
         end
         fields = fields_from_kwargs(
-            NutrientIntake,
+            NutrientIntake_,
             kwargs;
             # Values from Brose2008.
             default = (;
@@ -109,9 +106,16 @@ function F.expand!(raw, ::NutrientIntake_)
     raw.producer_growth = ni
 end
 
+(false) && (local NutrientIntake, _NutrientIntake) # (reassure JuliaLS)
 @component begin
     NutrientIntake <: ProducerGrowth
-    requires(Foodweb)
+    requires(
+        GrowthRate,
+        Nutrients.Turnover,
+        Nutrients.Supply,
+        Nutrients.Concentration,
+        Nutrients.HalfSaturation,
+    )
     blueprints(Blueprint::NutrientIntake_)
 end
 export NutrientIntake

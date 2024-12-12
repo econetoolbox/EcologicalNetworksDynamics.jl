@@ -514,6 +514,16 @@ function Base.showerror(io::IO, e::CannotImplyConstruct)
     )
 end
 
+function Base.showerror(io::IO, e::InconsistentForSameComponent)
+    (; focal, other) = e
+    println(io, "Component would be brought by two inconsistent blueprints:")
+    Base.show(io, MIME("text/plain"), focal.blueprint)
+    println(io, '\n' * render_path(focal))
+    println("  * OR *\n")
+    Base.show(io, MIME("text/plain"), other.blueprint)
+    println(io, '\n' * render_path(other))
+end
+
 function Base.showerror(io::IO, e::MissingRequiredComponent)
     (; miss, comp, node, reason) = e
     path = render_path(node)

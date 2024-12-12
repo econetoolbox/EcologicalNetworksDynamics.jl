@@ -58,4 +58,10 @@
     m = base + GrowthRate(5) + LogisticGrowth(; r = nothing)
     @test m.r == [0, 0, 0, 5, 5]
 
+    # If you don't bring, make sure the target model completes your incomplete blueprint.
+    @sysfails(
+        base + LogisticGrowth(; r = nothing),
+        Missing(GrowthRate, LogisticGrowth, [LogisticGrowth.Blueprint], nothing),
+    )
+
 end

@@ -50,11 +50,6 @@ end
 Brought(C::CompType{V}) where {V} = BroughtField{C,V}
 Brought(c::Component) = Brought(typeof(c))
 componentof(::Type{BroughtField{C,V}}) where {C,V} = C
-# Defer accesses to inner value.
-refvalue(bf::BroughtField) = getfield(bf, :value)
-Base.getproperty(bf::BroughtField, name::Symbol) = getproperty(refvalue(bf), name)
-Base.setproperty!(bf::BroughtField, name::Symbol, rhs) =
-    setproperty!(refvalue(bf), name, rhs)
 # Basic query.
 does_bring(bp::BroughtField) = !isnothing(refvalue(bp))
 does_imply(bp::BroughtField) = does_bring(bp) && refvalue(bp) isa Type
@@ -440,7 +435,15 @@ end
 
 #-------------------------------------------------------------------------------------------
 # Transparent use of the broughtfield inner value.
+
+refvalue(bf::BroughtField) = getfield(bf, :value)
+Base.getproperty(bf::BroughtField, name::Symbol) = getproperty(refvalue(bf), name)
+Base.setproperty!(bf::BroughtField, name::Symbol, rhs) =
+    setproperty!(refvalue(bf), name, rhs)
+
 Base.:(==)(a::BroughtField, b) = refvalue(a) == b
+Base.:(==)(a, b::BroughtField) = a == refvalue(b)
+Base.:(==)(a::BroughtField, b::BroughtField) = refvalue(a) == refvalue(b)
 
 #-------------------------------------------------------------------------------------------
 # Checked call to implicit constructor, supposed to yield a consistent blueprint.
