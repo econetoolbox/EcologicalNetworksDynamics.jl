@@ -102,7 +102,7 @@ function Node(
         else
             throw("⚠ Invalid brought value. ⚠ \
                    This is either a bug in the framework or in the components library. \
-                   Please report if you can reproduce with a minimal example. \
+                   Please report if you can reproduce with a minimal example.\n\
                    Received brought value: $br ::$(typeof(br)).")
         end
     end
@@ -364,9 +364,9 @@ function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
                    $subtitle\n\
                    This system state consistency \
                    is no longer guaranteed by the program. \
-                   This should not happen and must be considered a bug. \
+                   This should not happen and must be considered a bug.\n\
                    Consider reporting if you can reproduce \
-                   with a minimal working example. \
+                   with a minimal example.\n\
                    In any case, please drop the current system value \
                    and create a new one.\n\
                    $epilog"))

@@ -116,8 +116,8 @@ const Nti = NontrophicInteractions
 export NontrophicInteractions, Nti
 export Competition
 export Facilitation
+export Interference
 export Refuge
-export interference
 
 #  # The above components mostly setup *data* within the model.
 #  # In the nex they mostly specify the *code* needed to simulate it.

@@ -43,10 +43,10 @@
     Random.seed!(12)
 
     # From a number of links.
-    cl = Competition.Topology(; L = 4, sym = false)
+    ct = Competition.Topology(; L = 4, sym = false)
 
     # Stochastic expansion!
-    m = base + cl
+    m = base + ct
     @test m.competition.links.matrix == [
         0 0 0 0
         0 0 0 1
@@ -54,8 +54,8 @@
         0 1 0 0
     ]
     # So, surprisingly:                       /!\
-    @test (base + cl).competition.links.matrix != (base + cl).competition.links.matrix
-    @test typeof(cl) == Competition.Topology.Random
+    @test (base + ct).competition.links.matrix != (base + ct).competition.links.matrix
+    @test typeof(ct) == Competition.Topology.Random
 
     # Or from connectance.
     m = base + Competition.Topology(; C = 0.5)

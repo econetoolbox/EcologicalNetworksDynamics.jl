@@ -44,6 +44,7 @@ only = [
     #  "./data_components/nutrients/half_saturation.jl"
     "./data_components/nontrophic_layers/competition.jl"
     "./data_components/nontrophic_layers/facilitation.jl"
+    "./data_components/nontrophic_layers/interference.jl"
     #  "./code_components/linear_response.jl"
 ] # Only run these if specified.
 if isempty(only)
