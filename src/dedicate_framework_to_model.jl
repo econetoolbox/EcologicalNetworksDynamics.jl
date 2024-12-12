@@ -4,7 +4,9 @@
 import .Framework
 const F = Framework # Convenience alias for the whole components library.
 import .F:
+    @blueprint,
     @component,
+    @conflicts,
     @method,
     Brought,
     CheckError,

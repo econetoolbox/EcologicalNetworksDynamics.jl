@@ -439,6 +439,10 @@ function Base.convert(BF::Type{BroughtField{C,V}}, akw::Tuple{Tuple,NamedTuple})
 end
 
 #-------------------------------------------------------------------------------------------
+# Transparent use of the broughtfield inner value.
+Base.:(==)(a::BroughtField, b) = refvalue(a) == b
+
+#-------------------------------------------------------------------------------------------
 # Checked call to implicit constructor, supposed to yield a consistent blueprint.
 function implicit_constructor_for(
     expected_C::CompType,

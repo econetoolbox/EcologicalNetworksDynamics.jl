@@ -1,56 +1,73 @@
 # Subtypes commit to specifying the code
 # associated with producer growth terms,
-# and all associated required data.
+# and all required associated data.
 # They are all mutually exclusive.
-abstract type ProducerGrowth <: ModelBlueprint end
+abstract type ProducerGrowth <: Component end
 export ProducerGrowth
+
+# For the sake of simplicity, to not have defaults lying everywhere.
+# But this is open to discussion.
+abstract type ProducerGrowthBlueprint <: Blueprint end
+F.implied_blueprint_for(::ProducerGrowthBlueprint, ::Component) = F.cannot_imply_construct()
 
 #-------------------------------------------------------------------------------------------
 # Simple logistic growth.
 
-mutable struct LogisticGrowth <: ProducerGrowth
-    r::Option{GrowthRate}
-    K::Option{CarryingCapacity}
-    producers_competition::Option{ProducersCompetition}
-    LogisticGrowth(; kwargs...) = new(
+(false) && (local LogisticGrowth, _LogisticGrowth) # (reassure JuliaLS)
+
+# Only 1 blueprint for now: same name as component, suffixed with '_'.
+mutable struct LogisticGrowth_ <: ProducerGrowthBlueprint
+    r::Brought(GrowthRate)
+    K::Brought(CarryingCapacity)
+    producers_competition::Brought(ProducersCompetition)
+    LogisticGrowth_(; kwargs...) = new(
         fields_from_kwargs(
-            LogisticGrowth,
+            LogisticGrowth_,
             kwargs;
             default = (r = :Miele2019, K = 1, producers_competition = (; diag = 1)),
         )...,
     )
 end
+@blueprint LogisticGrowth_
 
-function F.expand!(model, ::LogisticGrowth)
+function F.expand!(raw, ::LogisticGrowth_)
     # Gather all data set up by brought components
     # to construct the actual functional response value.
-    s = model._scratch
+    s = raw._scratch
     lg = Internals.LogisticGrowth(
         # Alias so values gets updated on component `write!`.
         s[:producers_competition],
         s[:carrying_capacity],
         # Growth rates are already stored in `model.biorates` at this point.
     )
-    model.producer_growth = lg
+    raw.producer_growth = lg
 end
 
-@component LogisticGrowth
+@component begin
+    LogisticGrowth <: ProducerGrowth
+    #  requires(GrowthRate, CarryingCapacity, ProducersCompetition) #  HERE: is that implied by brought fields?
+    blueprints(Blueprint::LogisticGrowth_)
+end
 export LogisticGrowth
+
+(::_LogisticGrowth)(args...; kwargs...) = LogisticGrowth_(args...; kwargs...)
 
 #-------------------------------------------------------------------------------------------
 # Nutrient intake.
 
-# Convenience elision of e.g. 'nodes = 2': just use NutrientIntake(2) to bring nodes.
-# Alternately, the number of nodes can be inferred
-# from the non-scalar values if any is given.
-mutable struct NutrientIntake <: ProducerGrowth
-    r::Option{GrowthRate}
-    nodes::Option{Nutrients.Nodes}
-    turnover::Option{Nutrients.Turnover}
-    supply::Option{Nutrients.Supply}
-    concentration::Option{Nutrients.Concentration}
-    half_saturation::Option{Nutrients.HalfSaturation}
-    function NutrientIntake(nodes = missing; kwargs...)
+(false) && (local NutrientIntake, _NutrientIntake) # (reassure JuliaLS)
+
+mutable struct NutrientIntake_ <: ProducerGrowthBlueprint
+    r::Brought(GrowthRate)
+    nodes::Brought(Nutrients.Nodes)
+    turnover::Brought(Nutrients.Turnover)
+    supply::Brought(Nutrients.Supply)
+    concentration::Brought(Nutrients.Concentration)
+    half_saturation::Brought(Nutrients.HalfSaturation)
+    # Convenience elision of e.g. 'nodes = 2': just use NutrientIntake(2) to bring nodes.
+    # Alternately, the number of nodes can be inferred
+    # from the non-scalar values if any is given.
+    function NutrientIntake_(nodes = missing; kwargs...)
         nodes = if haskey(kwargs, :nodes)
             ismissing(nodes) ||
                 argerr("Nodes specified once as plain argument ($(repr(nodes))) \
@@ -77,9 +94,10 @@ mutable struct NutrientIntake <: ProducerGrowth
         new(fields...)
     end
 end
+@blueprint NutrientIntake_
 
-function F.expand!(model, ::NutrientIntake)
-    s = model._scratch
+function F.expand!(raw, ::NutrientIntake_)
+    s = raw._scratch
     ni = Internals.NutrientIntake(
         s[:nutrients_turnover],
         s[:nutrients_supply],
@@ -88,13 +106,20 @@ function F.expand!(model, ::NutrientIntake)
         s[:nutrients_names],
         s[:nutrients_index],
     )
-    model.producer_growth = ni
+    raw.producer_growth = ni
 end
 
-@component NutrientIntake requires(Foodweb)
+@component begin
+    NutrientIntake <: ProducerGrowth
+    requires(Foodweb)
+    blueprints(Blueprint::NutrientIntake_)
+end
 export NutrientIntake
+
+(::_NutrientIntake)(args...; kwargs...) = NutrientIntake_(args...; kwargs...)
+
+@conflicts(NutrientIntake, Nti.Layer)
 
 #-------------------------------------------------------------------------------------------
 # These are exclusive ways to specify producer growth.
 @conflicts(LogisticGrowth, NutrientIntake)
-@conflicts(NutrientIntake, NtiLayer)

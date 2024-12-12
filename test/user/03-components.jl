@@ -18,35 +18,7 @@ import .EN: WriteError
 
 # Many small similar components tests files, although they easily diverge.
 only = [
-    #  "./data_components/species.jl"
-    #  "./data_components/foodweb.jl"
-    #  "./data_components/body_mass.jl"
-    #  "./data_components/metabolic_class.jl"
-    #  "./data_components/temperature.jl"
-    #  "./data_components/hill_exponent.jl"
-    #  "./data_components/growth_rate.jl"
-    #  "./data_components/efficiency.jl"
-    #  "./data_components/carrying_capacity.jl"
-    #  "./data_components/mortality.jl"
-    #  "./data_components/metabolism.jl"
-    #  "./data_components/maximum_consumption.jl"
-    #  "./data_components/producers_competition.jl"
-    #  "./data_components/consumers_preferences.jl"
-    #  "./data_components/handling_time.jl"
-    #  "./data_components/attack_rate.jl"
-    #  "./data_components/half_saturation_density.jl"
-    #  "./data_components/intraspecific_interference.jl"
-    #  "./data_components/consumption_rate.jl"
-    #  "./data_components/nutrients/nodes.jl"
-    #  "./data_components/nutrients/turnover.jl"
-    #  "./data_components/nutrients/supply.jl"
-    #  "./data_components/nutrients/concentration.jl"
-    #  "./data_components/nutrients/half_saturation.jl"
-    "./data_components/nontrophic_layers/competition.jl"
-    "./data_components/nontrophic_layers/facilitation.jl"
-    "./data_components/nontrophic_layers/interference.jl"
-    "./data_components/nontrophic_layers/refuge.jl"
-    #  "./code_components/linear_response.jl"
+    "./code_components/logistic_growth.jl",
 ] # Only run these if specified.
 if isempty(only)
     for subfolder in ["./data_components", "./code_components"]

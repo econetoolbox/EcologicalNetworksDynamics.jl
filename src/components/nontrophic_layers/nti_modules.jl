@@ -34,7 +34,6 @@ const F = Framework
 import .F: @blueprint
 
 import .EN.NontrophicInteractions:
-    NtiLayer,
     check_functional_form,
     expand_topology!,
     fields_from_multiplex_parms,
@@ -44,6 +43,7 @@ import .EN.NontrophicInteractions:
     random_nti_early_check,
     set_layer!,
     set_layer_scalar_data!
+const Nti = EN.NontrophicInteractions
 
 # (reassure JuliaLS)
 include("../macros_keywords.jl")

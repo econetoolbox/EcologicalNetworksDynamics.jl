@@ -109,7 +109,8 @@ function component_macro(__module__, __source__, input...)
     if !isnothing(super)
         # Infer value type from the abstract supercomponent.
         # Same, for abstract component types.
-        super isa Symbol || perr("Expected supercomponent symbol, got: $(repr(super)).")
+        is_identifier_path(super) ||
+            perr("Expected supercomponent path, got: $(repr(super)).")
         push_res!(
             quote
                 SuperComponent =

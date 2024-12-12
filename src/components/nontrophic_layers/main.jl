@@ -66,7 +66,7 @@ multiplex_defaults = MultiplexParametersDict(;
     ),
 )
 
-abstract type NtiLayer <: Component end
+abstract type Layer <: Component end
 
 # The following layers code is heavily duplicated,
 # but keep it as-is since they may diverge in the future.

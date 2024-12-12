@@ -69,7 +69,7 @@ end
 (false) && (local Layer, _Layer) # (reassure JuliaLS)
 # For some (legacy?) reason, the foodweb topology is not the only requirement.
 @component begin
-    Layer <: NtiLayer
+    Layer <: Nti.Layer
     requires(BodyMass, MetabolicClass, Topology, FunctionalForm, Intensity)
     blueprints(Pack::Pack)
 end
