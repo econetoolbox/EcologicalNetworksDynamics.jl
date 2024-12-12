@@ -1,6 +1,8 @@
 # Factorize numerous imports useful within the NTI submodules.
 # To be `include`d from these modules.
 
+using SparseArrays
+
 using EcologicalNetworksDynamics
 const EN = EcologicalNetworksDynamics
 using .EN.Framework
@@ -19,17 +21,17 @@ import .EN:
     Model,
     Option,
     SparseMatrix,
+    System,
     argerr,
     checkfails,
     fields_from_kwargs,
-    @blueprint,
     @component,
     @get,
     @propspace,
     @ref,
     @species_index
 const F = Framework
-using SparseArrays
+import .F: @blueprint
 
 import .EN.NontrophicInteractions:
     NtiLayer,

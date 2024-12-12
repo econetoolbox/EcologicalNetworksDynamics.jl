@@ -32,12 +32,12 @@
 #   - When given a comptype or a singleton component instance, make it *implied*.
 #   - When given anything else, query the following for a callable blueprint constructor:
 #
-#     constructor_for_embedded(::Blueprint, ::Val{fieldname}) = Component
-#     # (defaults to the provided component if single, not reified/overrideable yet)
+#       constructor_for_embedded(::Blueprint, ::Val{fieldname}) = Component
+#       # (defaults to the provided component if single, not reified/overrideable yet)
 #
-# Then pass whatever value to this constructor to get this sugar:
+#     then pass whatever value to this constructor to get this sugar:
 #
-#   blueprint.field = value  --->  blueprint.field = EmbeddedBlueprintConstructor(value)
+#       blueprint.field = value  --->  blueprint.field = EmbeddedBlueprintConstructor(value)
 #
 # ERGONOMIC BET: This will only work if there is no ambiguity which constructor to call:
 # make it only work if the component singleton instance brought by the field is callable,

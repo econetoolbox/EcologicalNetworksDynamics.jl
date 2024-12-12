@@ -3,6 +3,7 @@
 import EcologicalNetworksDynamics.Framework:
     AddError,
     BroughtAlreadyInValue,
+    CannotImplyConstruct,
     CompType,
     Component,
     ConflictMacroExecError,
@@ -155,7 +156,6 @@ function sysfails(__source__, __module__, xp, input)
         Add(AddName_, fields__) |
         Check(late_check_, fields__) |
         Property(PropertyPath_, message_) |
-        ErrName_(name_, message_) |
         Alias_(fields__) |
         CatchAll_
     )
@@ -195,8 +195,10 @@ function sysfails(__source__, __module__, xp, input)
 
         errname = if Alias == :Missing
             :MissingRequiredComponent
+        elseif Alias == :CannotImply
+            :CannotImplyConstruct
         else
-            throw("Unknown AddError alias: $(repr(errname)).")
+            throw("Unknown AddError alias: $(repr(Alias)).")
         end
         yield(errname, fields)
 
@@ -204,18 +206,6 @@ function sysfails(__source__, __module__, xp, input)
 
         (PropertyError, :($__module__, $(Meta.quot(PropertyPath)), $message))
 
-    elseif !isnothing(ErrName)
-        # TODO: is this actually useful now?
-        assert_symbol(ErrName)
-        isnothing(name) || assert_symbol(name)
-        errparms = [:Value]
-        name = Meta.quot(name)
-        # Prepare for evaluation within this testing context.
-        ErrName = Symbol(ErrName, :Error)
-        ErrName = :($F.$ErrName)
-        E = SystemException
-        args = :($__module__, $ErrName, $errparms, $name, $message)
-        (E, args)
     else
         throw("Unimplemented system error-checking:\n  @sysfails(xp, $input)")
     end

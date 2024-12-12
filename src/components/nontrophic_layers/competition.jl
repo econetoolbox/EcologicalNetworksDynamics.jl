@@ -39,7 +39,7 @@ include("./competition/functional_form.jl")
 # Aggregated blueprint.
 
 mutable struct Pack <: Blueprint
-    topology::Brought(Topology)
+    topology::Brought(Topology) # This field can't be implied-constructed: forbid 'imply'.
     intensity::Brought(Intensity)
     functional_form::Brought(FunctionalForm)
     # For direct use by human caller.
@@ -48,10 +48,10 @@ mutable struct Pack <: Blueprint
     # For use by higher-level nontrophic layers utils.
     Pack(d::MultiplexParametersDict) = new(fields_from_multiplex_parms(:competition, d)...)
 end
-F.implied_blueprint_for(::Pack, ::_Topology) = throw("unreachable")
+F.implied_blueprint_for(::Pack, ::_Topology) = F.cannot_imply_construct()
 F.implied_blueprint_for(::Pack, ::_Intensity) = Intensity.Flat(default.intensity)
 F.implied_blueprint_for(::Pack, ::_FunctionalForm) = FunctionalForm(default.functional_form)
-@blueprint Pack "bundled layer components" depends(Topology, Intensity, FunctionalForm)
+@blueprint Pack "bundled layer components"
 
 function F.expand!(raw, ::Pack)
     # Draw all required data from the scratch
@@ -70,14 +70,16 @@ end
 
 (false) && (local Layer, _Layer) # (reassure JuliaLS)
 # For some (legacy?) reason, the foodweb topology is not the only requirement.
-@component Layer <: NtiLayer requires(BodyMass, MetabolicClass) blueprints(Pack::Pack)
+@component begin
+    Layer <: NtiLayer
+    requires(BodyMass, MetabolicClass, Topology, FunctionalForm, Intensity)
+    blueprints(Pack::Pack)
+end
 export Layer
 
 # Calling the component is like calling the (single) corresponding blueprint constructor.
 (::_Layer)(args...; kwargs...) = Pack(args...; kwargs...)
 
-function F.shortline(io::IO, ::Model, ::_Layer)
-    print(io, "Competition Layer.")
-end
+F.shortline(io::IO, ::Model, ::_Layer) = print(io, "Competition Layer.")
 
 end

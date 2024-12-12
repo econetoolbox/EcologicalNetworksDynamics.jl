@@ -86,7 +86,12 @@ function Node(
             # An 'implied' brought blueprint possibly needs to be constructed.
             implied_C = br
             has_component(system, implied_C) && continue
-            implied_bp = checked_implied_blueprint_for(blueprint, implied_C)
+            implied_bp = try
+                 checked_implied_blueprint_for(blueprint, implied_C)
+            catch e
+                e isa _CannotImplyConstruct && throw(CannotImplyConstruct(implied_C, node))
+                rethrow(e)
+            end
             child = Node(implied_bp, node, true, system, brought)
             push!(node.children, child)
         elseif br isa Blueprint
@@ -219,6 +224,7 @@ function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
         E = typeof(e)
         if E in (
             BroughtAlreadyInValue,
+            CannotImplyConstruct,
             InconsistentForSameComponent,
             MissingRequiredComponent,
             ConflictWithSystemComponent,
@@ -385,6 +391,11 @@ struct BroughtAlreadyInValue <: AddException
     node::Node
 end
 
+struct CannotImplyConstruct <: AddException
+    comp::CompType
+    node::Node
+end
+
 struct InconsistentForSameComponent <: AddException
     comp::CompType
     focal::Node
@@ -491,6 +502,15 @@ function Base.showerror(io::IO, e::BroughtAlreadyInValue)
         io,
         "Blueprint would expand into component $(cc(comp)), \
          which is already in the system.\n$path",
+    )
+end
+
+function Base.showerror(io::IO, e::CannotImplyConstruct)
+    (; comp, node) = e
+    path = render_path(node)
+    print(
+        io,
+        "This particular brought $(cc(comp)) cannot be implicitly constructed.\n$path",
     )
 end
 

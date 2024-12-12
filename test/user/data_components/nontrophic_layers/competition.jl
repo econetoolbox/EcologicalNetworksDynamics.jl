@@ -249,20 +249,23 @@
     # Cannot not bring bundled sub-components.
     @argfails(Competition.Layer(), "Missing input to initialize field :topology.")
     cl = Competition.Layer(; topology = [])
-    cl.topology = nothing # Try not to bring it?
+    cl.topology = nothing # Can't be unbrought if missing.
     @sysfails(
         base + cl,
-        Missing(Competition.Topology, nothing, [Competition.Layer.Pack], nothing)
+        Missing(Competition.Topology, Competition.Layer, [Competition.Layer.Pack], nothing)
     )
     @sysfails(
         base + Competition.Layer(; A = (L = 4, sym = true), F = nothing),
-        Missing(Competition.FunctionalForm, nothing, [Competition.Layer.Pack], nothing)
+        Missing(
+            Competition.FunctionalForm,
+            Competition.Layer,
+            [Competition.Layer.Pack],
+            nothing,
+        )
     )
 
-    # HERE: this "bundled" 'Pack' blueprint does not 'bring' the others
-    # with the exact same semantics: they cannot miss
-    # and they cannot be constructed when *implied*. How to fix this?
+    # Special-cased unimpliable topology.
     cl.topology = Competition.Topology
-    base + cl
+    @sysfails(base + cl, CannotImply(Competition.Topology, [Competition.Layer.Pack]))
 
 end
