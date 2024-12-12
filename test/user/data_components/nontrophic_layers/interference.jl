@@ -54,7 +54,7 @@
         0 0 0 0
         1 0 0 0
     ]
-    # So, surprisingly:                       /!\
+    # So, surprisingly:                        /!\
     @test (base + it).interference.links.matrix != (base + it).interference.links.matrix
     @test typeof(it) == Interference.Topology.Random
 

@@ -73,7 +73,7 @@ abstract type NtiLayer <: Component end
 include("./competition.jl")
 include("./facilitation.jl")
 include("./interference.jl")
-#  include("./refuge.jl")
+include("./refuge.jl")
 
 export Competition
 export Facilitation

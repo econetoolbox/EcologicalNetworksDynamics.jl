@@ -54,7 +54,7 @@
         0 1 0 1
         0 1 1 0
     ]
-    # So, surprisingly:                       /!\
+    # So, surprisingly:                        /!\
     @test (base + fl).facilitation.links.matrix != (base + fl).facilitation.links.matrix
     @test typeof(fl) == Facilitation.Topology.Random
 

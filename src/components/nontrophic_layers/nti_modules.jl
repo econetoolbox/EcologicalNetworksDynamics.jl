@@ -57,5 +57,5 @@ if (false)
     using .KwargsHelpers
     using .MultiplexApi: MultiplexParametersDict, InteractionDict, interactions_names
     using .AliasingDicts: expand
-    local ( competition, facilitation, interference )
+    local ( competition, facilitation, interference, refuge )
 end
