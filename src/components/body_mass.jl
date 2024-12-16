@@ -17,7 +17,7 @@ import .EcologicalNetworksDynamics: _Species, Species, _Foodweb, Foodweb
 mutable struct Raw <: Blueprint
     M::Vector{Float64}
     species::Brought(Species)
-    Raw(M, sp = _Species) = new(Float64.(M), sp)
+    Raw(M, sp = _Species) = new(@tographdata(M, Vector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.M))
 @blueprint Raw "masses values"

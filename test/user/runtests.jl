@@ -12,7 +12,12 @@ import ..Main: @viewfails, @sysfails, @argfails, @failswith, WriteError
 export Value, @viewfails, @sysfails, @argfails, @failswith, WriteError
 
 # Run all .jl files we can find except the current one (and without recursing).
-only = ["./03-components.jl"] # Unless some files are specified here, in which case only run these.
+only = [
+    "./01-input.jl"
+    "./02-graphviews.jl"
+    "./03-components.jl"
+    "./04-exposed_data.jl"
+] # Unless some files are specified here, in which case only run these.
 if isempty(only)
     folder = dirname(@__FILE__)
     for file in readdir(folder)

@@ -25,7 +25,7 @@ include("./allometry_identifiers.jl")
 mutable struct Raw <: Blueprint
     classes::Vector{Symbol}
     species::Brought(Species)
-    Raw(classes, sp = _Species) = new(Symbol.(classes), sp)
+    Raw(classes, sp = _Species) = new(@tographdata(classes, Vector{Symbol}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.classes))
 @blueprint Raw "metabolic classes" depends(Foodweb)

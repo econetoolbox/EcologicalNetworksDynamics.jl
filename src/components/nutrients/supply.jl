@@ -15,7 +15,7 @@ import .EN: Nutrients
 mutable struct Raw <: Blueprint
     s::Vector{Float64}
     nutrients::Brought(Nutrients.Nodes)
-    Raw(s, nt = Nutrients._Nodes) = new(Float64.(s), nt)
+    Raw(s, nt = Nutrients._Nodes) = new(@tographdata(s, Vector{Float64}), nt)
 end
 F.implied_blueprint_for(bp::Raw, ::Nutrients._Nodes) = Nutrients.Nodes(length(bp.s))
 @blueprint Raw "supply values"

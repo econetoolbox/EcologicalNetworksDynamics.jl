@@ -112,7 +112,7 @@ Base.getindex(v::AbstractGraphDataView) = check_access_dim(v) # (trigger correct
 Base.setindex!(v::AbstractGraphDataReadWriteView, rhs, access::Ref...) =
     setindex!(v, rhs, access)
 Base.setindex!(v::AbstractGraphDataReadOnlyView, args...) =
-    throw(ViewError(typeof(v), "This view into graph edges data is read-only."))
+    throw(ViewError(typeof(v), "This view into graph $(level_name(v))s data is read-only."))
 
 function setindex!(v::AbstractGraphDataReadWriteView, rhs, access)
     check_access_dim(v, access...)
@@ -124,6 +124,8 @@ inline_(access::Tuple) = join(repr.(access), ", ")
 inline(access::Tuple) = "[$(inline_(access))]"
 inline(access::Tuple, original) = "$(inline(access)) (=$(inline(original)))"
 inline(access::Tuple, ::Tuple{Vararg{Int}}) = inline(access)
+inline_size(access::Tuple) = "($(inline_(access)))"
+inline_size(access::Tuple{Int64}) = "$(inline_(access))"
 
 function to_checked_index(v::AbstractGraphDataView, index::Int...)
     check_access(v, nothing, index)
@@ -160,14 +162,15 @@ level_name(v::AbstractGraphDataView) = level_name(typeof(v))
 # Basic bound checks for dense views.
 
 function check_dense_access(v::AbstractGraphDataView, ::Any, index::Tuple{Vararg{Int}})
-    all(0 .< index .<= length(v)) && return
+    all(0 .< index .<= size(v)) && return
     item = uppercasefirst(item_name(v))
     level = level_name(v)
     s = plural(length(v))
+    z = size(v)
     throw(ViewError(
         typeof(v),
         "$item index $(inline(index)) is off-bounds \
-        for a view into $(inline_(size(v))) $(level)$s data.",
+        for a view into $(inline_size(z)) $(level)$s data.",
     ))
 end
 plural(n) = n > 1 ? "s" : ""
@@ -192,7 +195,7 @@ function check_sparse_access(
     refs = if isnothing(labels)
         "index $(inline(index))"
     else
-        "label$(n > 1 : "s" : "") $labels ($index)"
+        "label$(n > 1 ? "s" : "") $(inline(labels)) ($(inline(index)))"
     end
     throw(
         ViewError(
@@ -204,7 +207,7 @@ function check_sparse_access(
 end
 
 function valid_refs_phrase(v, template, labels)
-    valids = collect(valid_refs(v, template, labels))
+    valids = sort!(collect(valid_refs(v, template, labels)))
     if isempty(valids)
         "There is no valid $(vref(labels)) for this template."
     elseif length(valids) == 1
@@ -215,7 +218,7 @@ function valid_refs_phrase(v, template, labels)
          are $(join_elided(valids, ", ", " and "; max))."
     end
 end
-valid_refs_phrase(_, template::AbstractMatrix, ::Nothing) =
+valid_refs_phrase(_, template::AbstractMatrix, ::Any) =
     "Valid indices must comply to the following template:\n\
      $(repr(MIME("text/plain"), template))"
 vref(::Nothing) = "index"
@@ -234,6 +237,10 @@ end
 # Convert labels to indexes (a mapping is available as `._index`).
 
 function to_index(v::AbstractNodesView, s::Label)
+    if !hasfield(typeof(v), :_index)
+        item = item_name(v)
+        throw(ViewError(typeof(v), "No index to interpret $item node label $(repr(s))."))
+    end
     map = v._index
     y = Symbol(s)
     if !haskey(map, y)
@@ -262,6 +269,7 @@ function to_index(v::AbstractEdgesView, s::Label, t::Label)
     end
     if !haskey(cols, z)
         cols = sort(collect(keys(cols)))
+        item = item_name(v)
         verr("Invalid $item edge target label: $(repr(z)). \
               Expected $(either(cols)), got instead: $(repr(t)).")
     end
@@ -281,7 +289,8 @@ function dimerr(reftype, v, level, exp, labs)
         ViewError(
             typeof(v),
             "$level data are $exp-dimensional: \
-             cannot access $(item_name(v)) data values with $n $(reftype(n)): $labs.",
+             cannot access $(item_name(v)) data values with $n $(reftype(n)): \
+             $(inline(labs)).",
         ),
     )
 end
@@ -289,12 +298,14 @@ laberr(args...) = dimerr(n -> n > 1 ? "labels" : "label", args...)
 inderr(args...) = dimerr(n -> n > 1 ? "indices" : "index", args...)
 check_access_dim(v::AbstractNodesView) = inderr(v, "Nodes", 1, ())
 check_access_dim(v::AbstractEdgesView) = inderr(v, "Edges", 2, ())
-check_access_dim(::AbstractNodesView, _::Int) = nothing
-check_access_dim(::AbstractEdgesView, _::Int, _::Int) = nothing
-check_access_dim(::AbstractNodesView, _::Label) = nothing
-check_access_dim(::AbstractEdgesView, _::Label, _::Label) = nothing
+check_access_dim(v::AbstractNodesView, i::Int...) = inderr(v, "Nodes", 1, i)
+check_access_dim(v::AbstractEdgesView, i::Int...) = inderr(v, "Edges", 2, i)
+check_access_dim(::AbstractNodesView, ::Int) = nothing
+check_access_dim(::AbstractEdgesView, ::Int, ::Int) = nothing
 check_access_dim(v::AbstractNodesView, labels::Label...) = laberr(v, "Nodes", 1, labels)
 check_access_dim(v::AbstractEdgesView, labels::Label...) = laberr(v, "Edges", 2, labels)
+check_access_dim(::AbstractNodesView, ::Label) = nothing
+check_access_dim(::AbstractEdgesView, ::Label, ::Label) = nothing
 # Requesting vector[1, 1, 1, 1] is actuall valid in julia.
 # Only trigger the error out of this very strict 1-situation.
 check_access_dim(v::AbstractNodesView, i::Int, index::Int...) =

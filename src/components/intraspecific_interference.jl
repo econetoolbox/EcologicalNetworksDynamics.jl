@@ -18,7 +18,7 @@ mutable struct Raw <: Blueprint
     c::SparseVector{Float64}
     species::Brought(Species)
     Raw(c::SparseVector{Float64}, sp = _Species) = new(c, sp)
-    Raw(c, sp = _Species) = new(SparseVector(Float64.(c)), sp)
+    Raw(c, sp = _Species) = new(@tographdata(c, SparseVector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.c))
 @blueprint Raw "intra-specific interference values"

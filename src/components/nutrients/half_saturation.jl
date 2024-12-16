@@ -15,7 +15,7 @@ import .EN: Foodweb, Nutrients
 mutable struct Raw <: Blueprint
     h::Matrix{Float64}
     nutrients::Brought(Nutrients.Nodes)
-    Raw(h, nt = Nutrients._Nodes) = new(Float64.(h), nt)
+    Raw(h, nt = Nutrients._Nodes) = new(@tographdata(h, Matrix{Float64}), nt)
 end
 F.implied_blueprint_for(bp::Raw, ::Nutrients._Nodes) = Nutrients.Nodes(size(bp.h)[2])
 @blueprint Raw "producers × nutrients half-saturation matrix"
@@ -98,7 +98,8 @@ end
 @expose_data edges begin
     property(nutrients.half_saturation)
     depends(HalfSaturation)
-    @nutrients_index
+    row_index(raw -> @ref raw.producers.dense_index)
+    col_index(raw -> @ref raw.nutrients.index)
     ref(raw -> raw._scratch[:nutrients_half_saturation])
     get(HalfSaturations{Float64}, "producer-to-nutrient link")
     write!((raw, rhs::Real, i, j) -> HalfSaturation_.check(rhs, (i, j)))

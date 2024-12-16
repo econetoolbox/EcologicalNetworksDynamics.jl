@@ -18,7 +18,7 @@ mutable struct Raw <: Blueprint
     B0::SparseVector{Float64}
     species::Brought(Species)
     Raw(B0::SparseVector{Float64}, sp = _Species) = new(B0, sp)
-    Raw(B0, sp = _Species) = new(SparseVector(Float64.(B0)), sp)
+    Raw(B0, sp = _Species) = new(@tographdata(B0, SparseVector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.B0))
 @blueprint Raw "half-saturation density values"

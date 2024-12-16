@@ -18,7 +18,7 @@ mutable struct Raw <: Blueprint
     d::Vector{Float64}
     species::Brought(Species)
     Raw(d::Vector{Float64}, sp = _Species) = new(d, sp)
-    Raw(d, sp = _Species) = new(Float64.(d), sp)
+    Raw(d, sp = _Species) = new(@tographdata(d, Vector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.d))
 @blueprint Raw "mortality values"

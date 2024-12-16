@@ -23,7 +23,7 @@ import .EN: Foodweb, Nutrients
 mutable struct Raw <: Blueprint
     c::Matrix{Float64}
     nutrients::Brought(Nutrients.Nodes)
-    Raw(c, nt = Nutrients._Nodes) = new(Float64.(c), nt)
+    Raw(c, nt = Nutrients._Nodes) = new(@tographdata(c, Matrix{Float64}), nt)
 end
 F.implied_blueprint_for(bp::Raw, ::Nutrients._Nodes) = Nutrients.Nodes(size(bp.c)[2])
 @blueprint Raw "producers × nutrients concentration matrix"
@@ -106,9 +106,10 @@ end
 @expose_data edges begin
     property(nutrients.concentration)
     depends(Concentration)
-    @nutrients_index
+    row_index(raw -> @ref raw.producers.dense_index)
+    col_index(raw -> @ref raw.nutrients.index)
     ref(raw -> raw._scratch[:nutrients_concentration])
-    get(Concentations{Float64}, "producer-to-nutrient link")
+    get(Concentrations{Float64}, "producer-to-nutrient link")
     write!((raw, rhs::Real, i, j) -> Concentration_.check(rhs, (i, j)))
 end
 

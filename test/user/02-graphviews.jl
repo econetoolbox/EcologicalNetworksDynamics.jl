@@ -64,17 +64,17 @@ import .EN: WriteError
 
     # Guard against invalid dimensions index.
     m = "Nodes data are 1-dimensional: \
-         cannot access species data values with 0 index: ()."
+         cannot access species data values with 0 index: []."
     @viewfails(bm[], BM, m)
     @viewfails(bm[] = 1, BM, m)
 
     m = "Nodes data are 1-dimensional: \
-         cannot access species data values with 2 indices: (1, 2)."
+         cannot access species data values with 2 indices: [1, 2]."
     @viewfails(bm[1, 2], BM, m)
     @viewfails(bm[1, 2] = 1, BM, m)
 
     m = "Nodes data are 1-dimensional: \
-         cannot access species data values with 2 labels: (:a, :b)."
+         cannot access species data values with 2 labels: [:a, :b]."
     @viewfails(bm[:a, :b], BM, m)
     @viewfails(bm[:a, :b] = 1, BM, m)
 

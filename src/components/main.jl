@@ -33,35 +33,6 @@
 #   - Sparse (templated) edges data.
 #   - Behaviour (graph data that actually represents *code* to run the model).
 
-# HERE: Now that the framework has been refactored,
-# change all the following components with the following design:
-#
-#   module OmegaBlueprints
-#      # /!\ many redundant imports to factorize here.
-#      struct Raw <: Blueprint ... end
-#      struct Random <: Blueprint ... end
-#      @blueprint Raw
-#      @blueprint Random
-#      ...
-#   end
-#
-#   @component Omega blueprints(Raw::OmegaBlueprints.Raw, Random::OmegaBlueprints.Random, ..)
-#
-#   function (C::_Omega)(args...; kwargs...)
-#      if ..
-#          C.Raw(...)
-#      elseif ...
-#          C.Random(...)
-#      else ...
-#      end
-#   end
-#
-#   # Use as a blueprint constructor, but also as a blueprint namespace.
-#   Omega(...)
-#   Omega.Random(...)
-#   Omega.Raw(...)
-#
-
 # Helpers.
 include("./macros_keywords.jl")
 include("./allometry.jl")

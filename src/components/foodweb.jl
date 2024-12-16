@@ -22,7 +22,7 @@ import .EN: _Species, Species
 mutable struct Matrix <: Blueprint
     A::@GraphData SparseMatrix{:bin}
     species::Brought(Species)
-    Matrix(A, sp = Species) = new((@tographdata A SparseMatrix{:bin}), sp)
+    Matrix(A, sp = Species) = new(@tographdata(A, SparseMatrix{:bin}), sp)
 end
 # Infer number of species from matrix size.
 F.implied_blueprint_for(bp::Matrix, ::_Species) = Species(size(bp.A, 1))
@@ -63,7 +63,7 @@ end
 mutable struct Adjacency <: Blueprint
     A::@GraphData {Adjacency}{:bin} # (refs are either numbers or names)
     species::Brought(Species)
-    Adjacency(A, sp = Species) = new((@tographdata A {Adjacency}{:bin}), sp)
+    Adjacency(A, sp = Species) = new(@tographdata(A, {Adjacency}{:bin}), sp)
 end
 
 # Infer number or names of species from the lists.

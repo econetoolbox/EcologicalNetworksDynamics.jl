@@ -18,7 +18,7 @@ mutable struct Raw <: Blueprint
     alpha::SparseVector{Float64}
     species::Brought(Species)
     Raw(alpha::SparseVector{Float64}, sp = _Species) = new(alpha, sp)
-    Raw(alpha, sp = _Species) = new(SparseVector(Float64.(alpha)), sp)
+    Raw(alpha, sp = _Species) = new(@tographdata(alpha, SparseVector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.alpha))
 @blueprint Raw "consumption rates"

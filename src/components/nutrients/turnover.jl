@@ -15,7 +15,7 @@ import .EN: Nutrients
 mutable struct Raw <: Blueprint
     t::Vector{Float64}
     nutrients::Brought(Nutrients.Nodes)
-    Raw(t, nt = Nutrients._Nodes) = new(Float64.(t), nt)
+    Raw(t, nt = Nutrients._Nodes) = new(@tographdata(t, Vector{Float64}), nt)
 end
 F.implied_blueprint_for(bp::Raw, ::Nutrients._Nodes) = Nutrients.Nodes(length(bp.t))
 @blueprint Raw "turnover values"

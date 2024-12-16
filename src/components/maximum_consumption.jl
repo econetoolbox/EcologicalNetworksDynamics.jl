@@ -18,7 +18,7 @@ mutable struct Raw <: Blueprint
     y::SparseVector{Float64}
     species::Brought(Species)
     Raw(y::SparseVector{Float64}, sp = _Species) = new(y, sp)
-    Raw(y, sp = _Species) = new(SparseVector(Float64.(y)), sp)
+    Raw(y, sp = _Species) = new(@tographdata(y, SparseVector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.y))
 @blueprint Raw "maximum consumption values"

@@ -21,7 +21,7 @@ mutable struct Names <: Blueprint
     names::Vector{Symbol}
 
     # Convert anything to symbols.
-    Names(names) = new(Symbol.(names))
+    Names(names) = new(@tographdata names Vector{Symbol})
     Names(names...) = new(Symbol.(collect(names)))
 
     # From an index (useful when implied).

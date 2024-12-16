@@ -610,7 +610,7 @@ macro expose_data(
                         rhs = convert($rhs_type, rhs)
                     catch
                         Framework.properr(
-                            typeof(raw),
+                            System{typeof(raw)},
                             $sfirst_path,
                             "Cannot set with a value of type $(typeof(rhs)): $(repr(rhs)).",
                         )

@@ -23,7 +23,7 @@ mutable struct Raw <: Blueprint
     r::SparseVector{Float64}
     species::Brought(Species)
     Raw(r::SparseVector{Float64}, sp = _Species) = new(r, sp)
-    Raw(r, sp = _Species) = new(SparseVector(Float64.(r)), sp)
+    Raw(r, sp = _Species) = new(@tographdata(r, SparseVector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.r))
 @blueprint Raw "growth rate values"

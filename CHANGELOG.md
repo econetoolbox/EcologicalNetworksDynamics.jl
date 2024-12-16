@@ -91,6 +91,18 @@
   - Akward plurals like `model.body_masses` and `model.metabolic_classes`
     become `model.body_mass` and `model.metabolic_class`.
 
+- Julia allows linear indexing into 2D structures,
+  but the package chooses instead to consider this a semantic flaw:
+  ```julia-repl
+  julia> m = Model(
+             Foodweb([:a => [:b, :c], :b => [:c, :d]]),
+             Efficiency(:Miele2019; e_herbivorous = .1, e_carnivorous = .2),
+         );
+         m.e[5]
+  ERROR: View error (EcologicalNetworksDynamics.EfficiencyRates):
+  Edges data are 2-dimensional:
+  cannot access trophic link data values with 1 index: [5].
+  ```
 
 ## New features
 

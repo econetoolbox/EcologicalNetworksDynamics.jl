@@ -18,7 +18,7 @@ mutable struct Raw <: Blueprint
     K::SparseVector{Float64}
     species::Brought(Species)
     Raw(K::SparseVector{Float64}, sp = _Species) = new(K, sp)
-    Raw(K, sp = _Species) = new(SparseVector(Float64.(K)), sp)
+    Raw(K, sp = _Species) = new(@tographdata(K, SparseVector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.K))
 @blueprint Raw "carrying capacity values"

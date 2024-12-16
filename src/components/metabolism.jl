@@ -18,7 +18,7 @@ mutable struct Raw <: Blueprint
     x::Vector{Float64}
     species::Brought(Species)
     Raw(x::Vector{Float64}, sp = _Species) = new(x, sp)
-    Raw(x, sp = _Species) = new(Float64.(x), sp)
+    Raw(x, sp = _Species) = new(@tographdata(x, Vector{Float64}), sp)
 end
 F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.x))
 @blueprint Raw "metabolism values"
