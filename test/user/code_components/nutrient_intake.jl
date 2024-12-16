@@ -1,6 +1,6 @@
 @testset "Nutrient intake component." begin
 
-    const N = Nutrients
+    N = Nutrients
 
     base = Model(
         Foodweb([:a => :b, :c => [:d, :e]]), # 3 producers.
@@ -42,30 +42,58 @@
     @test NutrientIntake(2) == NutrientIntake(; nodes = 2)
     @test NutrientIntake([:u, :v]) == NutrientIntake(; nodes = [:u, :v])
 
+    # Don't bring nodes blueprint if it can be implied by another input.
+    ni = NutrientIntake(; supply = [1, 2])
+    @test !does_bring(ni.nodes)
+    @test does_bring(ni.supply)
+
+    # Correct implicit reordering of sub-components.
+    # TODO: this should be moved as a pure Framework test.
+    m = base + ni # 'Nutrients.Nodes' is expanded *prior* to 'Supply' and 'Turnover'.
+
     # Watch consistency.
-    @sysfails(
-        base + NutrientIntake(; supply = [1, 2]), #  HERE: fix with standard 'PerProducer'.
-        Check(NutrientIntake, N.SupplyFromRawValues),
-        "Invalid size for parameter 's': expected (3,), got (2,)."
-    )
-    @sysfails(
-        base + Nutrients.Nodes(3) + NutrientIntake(2),
-        Check(NutrientIntake),
-        "blueprint also brings '$(Nutrients.Nodes)', which is already in the system."
-    )
-    @sysfails(
-        base + Nutrients.Nodes(1) + NutrientIntake(nothing; turnover = [1, 2]),
-        Check(NutrientIntake, Nutrients.TurnoverFromRawValues),
-        "Invalid size for parameter 't': expected (1,), got (2,)."
-    )
-    @sysfails(
-        base + NutrientIntake(3; turnover = [1, 2]),
-        Check(NutrientIntake, Nutrients.TurnoverFromRawValues),
-        "Invalid size for parameter 't': expected (3,), got (2,)."
-    )
     @argfails(
         NutrientIntake(3; nodes = 2),
-        "Nodes specified once as plain argument (3) and once as keyword argument (nodes = 2)."
+        "Nodes specified once as plain argument (3) \
+         and once as keyword argument (nodes = 2)."
+    )
+
+    @sysfails(
+        base + NutrientIntake(3; supply = [1, 2]),
+        Add(
+            InconsistentForSameComponent,
+            N.Nodes,
+            [N.Nodes.Number, true, N.Supply.Raw, false, NutrientIntake.Blueprint],
+            [N.Nodes.Number, false, NutrientIntake.Blueprint],
+        )
+    )
+
+    @sysfails(
+        base + NutrientIntake(; supply = [1, 2], turnover = [1, 2, 3]),
+        Add(
+            InconsistentForSameComponent,
+            N.Nodes,
+            [N.Nodes.Number, true, N.Supply.Raw, false, NutrientIntake.Blueprint],
+            [N.Nodes.Number, true, N.Turnover.Raw, false, NutrientIntake.Blueprint],
+        )
+    )
+
+    @sysfails(
+        base + N.Nodes(3) + NutrientIntake(2),
+        Add(
+            BroughtAlreadyInValue,
+            N.Nodes,
+            [N.Nodes.Number, false, NutrientIntake.Blueprint],
+        )
+    )
+
+    @sysfails(
+        base + N.Nodes(1) + NutrientIntake(nothing; turnover = [1, 2]),
+        Check(
+            late,
+            [N.Turnover.Raw, false, NutrientIntake.Blueprint],
+            "Invalid size for parameter 't': expected (1,), got (2,).",
+        )
     )
 
 end

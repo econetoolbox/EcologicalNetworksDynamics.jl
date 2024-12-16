@@ -65,15 +65,15 @@ mutable struct NutrientIntake_ <: ProducerGrowthBlueprint
     # Alternately, the number of nodes can be inferred
     # from the non-scalar values if any is given.
     function NutrientIntake_(nodes = missing; kwargs...)
-        nodes = if haskey(kwargs, :nodes)
+        (nodes, default_nodes) = if haskey(kwargs, :nodes)
             ismissing(nodes) ||
                 argerr("Nodes specified once as plain argument ($(repr(nodes))) \
                         and once as keyword argument (nodes = $(kwargs[:nodes])).")
-            kwargs[:nodes]
+            (kwargs[:nodes], false)
         elseif ismissing(nodes)
-            () # <- Default Nutrients.Nodes blueprint constructor.
+            ((), true) # <- Default Nutrients.Nodes blueprint constructor.
         else
-            nodes
+            (nodes, false)
         end
         fields = fields_from_kwargs(
             NutrientIntake_,
@@ -88,6 +88,19 @@ mutable struct NutrientIntake_ <: ProducerGrowthBlueprint
                 half_saturation = 0.15,
             ),
         )
+        # Careful not to default-bring a blueprint for nodes
+        # that would otherwise be inconsistent with user-brought ones.
+        if default_nodes
+            i_nodes = findfirst(==(:nodes), fieldnames(NutrientIntake_))
+            for brought in fields[i_nodes+1:end]
+                if F.implies_blueprint_for(brought, Nutrients.Nodes)
+                    fields[i_nodes] = nothing # In this case, bring nothing instead.
+                    break
+                end
+            end
+        end
+        # This blueprint has several different ways of implying nutrient nodes.
+        # Check that they are consistent upfront.
         new(fields...)
     end
 end

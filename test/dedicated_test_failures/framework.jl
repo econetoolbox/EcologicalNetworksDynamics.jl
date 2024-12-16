@@ -12,6 +12,7 @@ import EcologicalNetworksDynamics.Framework:
     ConflictWithSystemComponent,
     Framework,
     HookCheckFailure,
+    InconsistentForSameComponent,
     ItemMacroExecError,
     ItemMacroParseError,
     MissingRequiredComponent,

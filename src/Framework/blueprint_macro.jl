@@ -445,6 +445,8 @@ Base.:(==)(a::BroughtField, b) = refvalue(a) == b
 Base.:(==)(a, b::BroughtField) = a == refvalue(b)
 Base.:(==)(a::BroughtField, b::BroughtField) = refvalue(a) == refvalue(b)
 
+implies_blueprint_for(bf::BroughtField, c) = implies_blueprint_for(refvalue(bf), c)
+
 #-------------------------------------------------------------------------------------------
 # Checked call to implicit constructor, supposed to yield a consistent blueprint.
 function implicit_constructor_for(

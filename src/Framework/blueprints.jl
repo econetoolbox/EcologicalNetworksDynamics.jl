@@ -115,6 +115,11 @@ function checked_implied_blueprint_for(b::Blueprint, C::CompType)
     end
     bp
 end
+# Query.
+implies_blueprint_for(b::Blueprint, C::CompType) =
+    hasmethod(implied_blueprint_for, Tuple{typeof(b),C})
+implies_blueprint_for(b::Blueprint, c::Component) = implies_blueprint_for(b, typeof(c))
+
 
 #-------------------------------------------------------------------------------------------
 # Conflicts.

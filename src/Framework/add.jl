@@ -12,8 +12,9 @@
 #     - Error if any brought component conflicts with components already in the system.
 #   - When collection is over, visit the tree post-order to:
 #     - Check requirements/conflicts against components already brought in pre-order.
+#     - Record requirements to determine the expansion order.
 #     - Run the `early_check`.
-#   - Visit post-order again to:
+#   - Consume the tree from requirements to dependents to:
 #     - Run the late `check`.
 #     - Expand the blueprint into a component.
 #     - Execute possible triggers.
@@ -45,6 +46,11 @@ end
 # indexed by the concrete components they provide.
 # Blueprints providing several components are duplicated.
 const BroughtList{V} = Dict{CompType{V},Vector{Node}}
+
+# Keep track of the fully checked blueprints,
+# along with the brought blueprints that need to be expanded prior to themselves.
+const Requirements{V} = OrderedSet{CompType{V}}
+const CheckedList{V} = OrderedDict{CompType{V},Tuple{Node,Requirements{V}}}
 
 #-------------------------------------------------------------------------------------------
 # Recursively create during first pass, pre-order,
@@ -113,12 +119,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Recursively check during second pass, post-order,
 # assuming the whole tree is set up.
-function check(
-    node::Node,
-    system::System,
-    brought::BroughtList,
-    checked::OrderedDict{<:CompType,Node},
-)
+function check(node::Node, system::System, brought::BroughtList, checked::CheckedList)
 
     # Recursively check children first.
     for child in node.children
@@ -127,19 +128,25 @@ function check(
 
     # Check requirements.
     blueprint = node.blueprint
+    reqs = []
+    for (R, reason) in checked_expands_from(blueprint)
+        push!(reqs, (R, reason, nothing))
+    end
     for C in componentsof(blueprint)
-        for (reqs, requirer) in
-            [(requires(C), C), (checked_expands_from(blueprint), nothing)]
-            for (R, reason) in reqs
-                # Check against the current system value.
-                has_component(system, R) && continue
-                # Check against other components about to be brought.
-                any(C -> R <: C, keys(checked)) ||
-                    throw(MissingRequiredComponent(R, requirer, node, reason))
-            end
+        for (R, reason) in requires(C)
+            push!(reqs, (R, reason, C))
         end
+    end
+    for (R, reason, requirer) in reqs
+        # Check against the current system value.
+        has_component(system, R) && continue
+        # Check against other components about to be brought.
+        any(C -> R <: C, keys(brought)) ||
+            throw(MissingRequiredComponent(R, requirer, node, reason))
+    end
 
-        # Guard against conflicts.
+    # Guard against conflicts.
+    for C in componentsof(blueprint)
         for (C_as, Other, reason) in all_conflicts(C)
             if has_component(system, Other)
                 (Other, Other_abstract) =
@@ -158,6 +165,7 @@ function check(
             end
             for Chk in keys(checked)
                 if Chk <: Other
+                    n, _ = checked[Chk]
                     throw(
                         ConflictWithBroughtComponent(
                             C,
@@ -165,7 +173,7 @@ function check(
                             node,
                             Chk,
                             Chk === Other ? nothing : Other,
-                            checked[Chk],
+                            n,
                             reason,
                         ),
                     )
@@ -184,7 +192,10 @@ function check(
             end
         end
 
-        checked[C] = node
+        # Record as a fully checked node, along with the list of nodes
+        # to expand prior to itself.
+        checked[C] =
+            (node, OrderedSet(R for (R, _, _) in reqs if !has_component(system, R)))
     end
 
 end
@@ -199,7 +210,7 @@ function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
 
     forest = Node[]
     brought = BroughtList{V}() # Populated during pre-order traversal.
-    checked = OrderedDict{CompType{V},Node}() # Populated during first post-order traversal.
+    checked = CheckedList{V}() # Populated during post-order traversal.
 
     #---------------------------------------------------------------------------------------
     # Read-only preliminary checking.
@@ -265,9 +276,29 @@ function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
             triggers[combination] = (consumed, fns)
         end
 
-        # Second post-order visit: expand the blueprints.
-        for Chk in keys(checked)
-            node = first(brought[Chk])
+        # Order the checked blueprints so their requirements are met prior to expansion.
+        expand = OrderedSet{CompType{V}}()
+        while !isempty(checked)
+            # Search for the first component
+            # whose bringer blueprint has all requirements met.
+            (C, (_, reqs)) = first(checked)
+            while true
+                for R in reqs
+                    R in expand && continue
+                    C = R
+                    _, reqs = checked[R]
+                    break
+                end
+                break
+            end
+            # Expand it before the others.
+            pop!(checked, C)
+            push!(expand, C)
+        end
+
+        # Expand them all in correct order.
+        for C in expand
+            node = first(brought[C])
             blueprint = node.blueprint
 
             # Temporary patch after renaming check -> late_check
@@ -543,7 +574,7 @@ function Base.showerror(io::IO, e::MissingRequiredComponent)
 end
 
 late_fail_warn(path) = "Not all blueprints have been expanded.\n\
-                        The system consistency is still guaranteed, \
+                        This means that the system consistency is still guaranteed, \
                         but some components have not been added.\n\
                         $path"
 

@@ -14,7 +14,7 @@ sep("Test internals.")
 #  include("./internals/runtests.jl")
 
 sep("Test System/Blueprints/Components framework.")
-#  include("./framework/runtests.jl")
+include("./framework/runtests.jl")
 
 sep("Test API utils.")
 #  include("./topologies.jl")

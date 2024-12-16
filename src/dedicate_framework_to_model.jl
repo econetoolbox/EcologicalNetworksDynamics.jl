@@ -22,7 +22,14 @@ import .F:
     has_component
 
 # Direct re-exports from the framework module.
-export add!, properties, blueprints, components, has_component
+export add!
+export blueprints
+export components
+export does_bring
+export does_embed
+export does_imply
+export has_component
+export properties
 
 const Internal = Internals.ModelParameters # <- TODO: rename when refactoring Internals.
 const Blueprint = F.Blueprint{Internal}

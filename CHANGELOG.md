@@ -113,3 +113,31 @@
    0  0  1
    1  0  0
   ```
+
+- Aggregated blueprints expansion is clever enough
+  to not error if two brought blueprints would bring the same component:
+  ```julia-repl
+  julia> base = Model(
+             Foodweb([:a => :b]),
+             BodyMass(1),
+             MetabolicClass(:all_invertebrates),
+         )
+         ni = NutrientIntake(nodes = 2; supply = [1, 2], turnover = [1, 2]);
+         # 3 different specifications of Nutrients.Nodes.
+  julia> ni.nodes
+  <embedded blueprint for <Nutrients.Nodes>: Number {
+    n: 2,
+  }>
+  julia> ni.supply.nutrients
+  <implied blueprint for <Nutrients.Nodes>>
+  julia> ni.turnover.nutrients
+  <implied blueprint for <Nutrients.Nodes>>
+  julia> base + ni; # But this still works fine.
+  ```
+
+- Aggregated blueprints expansion is clever enough
+  to correctly figure a correct expansion order among brought blueprints:
+  ```julia-repl
+  julia> ni = NutrientIntake(; turnover = [1, 2]);
+  julia> base + ni; # `ni.turnover.nutrients` is expanded before `ni.supply`.
+  ```
