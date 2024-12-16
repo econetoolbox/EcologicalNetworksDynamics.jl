@@ -123,6 +123,6 @@ export Refuge
 # In the next they mostly specify the *code* needed to simulate it.
 include("./producer_growth.jl")
 include("./functional_responses.jl")
-#  # Metabolism and Mortality are also code components,
-#  # but they are not reified yet and only reduce
-#  # to the single data component they each bring.
+# Metabolism and Mortality are also technically code components,
+# but they are not reified yet and only reduce
+# to the single data component they each bring.

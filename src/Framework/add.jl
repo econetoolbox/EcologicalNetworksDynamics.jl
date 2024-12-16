@@ -129,13 +129,13 @@ function check(node::Node, system::System, brought::BroughtList, checked::Checke
     # Check requirements.
     blueprint = node.blueprint
     reqs = []
-    for (R, reason) in checked_expands_from(blueprint)
-        push!(reqs, (R, reason, nothing))
-    end
     for C in componentsof(blueprint)
         for (R, reason) in requires(C)
             push!(reqs, (R, reason, C))
         end
+    end
+    for (R, reason) in checked_expands_from(blueprint)
+        push!(reqs, (R, reason, nothing))
     end
     for (R, reason, requirer) in reqs
         # Check against the current system value.
