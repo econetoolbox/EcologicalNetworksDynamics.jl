@@ -122,6 +122,8 @@ end
 end
 export ClassicResponse
 
+(::_ClassicResponse)(args...; kwargs...) = ClassicResponse_(args...; kwargs...)
+
 #-------------------------------------------------------------------------------------------
 mutable struct LinearResponse_ <: FunctionalResponseBlueprint
     alpha::Brought(ConsumptionRate)
@@ -149,6 +151,8 @@ end
     blueprints(Blueprint::LinearResponse_)
 end
 export LinearResponse
+
+(::_LinearResponse)(args...; kwargs...) = LinearResponse_(args...; kwargs...)
 
 #-------------------------------------------------------------------------------------------
 # Set one, but not the others.

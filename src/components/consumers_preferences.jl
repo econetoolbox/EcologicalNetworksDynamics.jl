@@ -100,9 +100,12 @@ export ConsumersPreferences
 
 function (::_ConsumersPreferences)(w)
 
-    w = @tographdata w {Scalar, SparseMatrix, Adjacency}{Float64}
+    w = @tographdata w {Symbol, Scalar, SparseMatrix, Adjacency}{Float64}
 
-    if w isa SparseMatrix
+    if w isa Symbol
+        @check_symbol w :homogeneous
+        @expand_symbol(w, :homogeneous => ConsumersPreferences.Homogeneous())
+    elseif w isa SparseMatrix
         ConsumersPreferences.Raw(w)
     elseif w isa Real
         ConsumersPreferences.Flat(w)

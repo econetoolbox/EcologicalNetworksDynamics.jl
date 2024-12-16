@@ -55,6 +55,9 @@ does_bring(bp::BroughtField) = !isnothing(refvalue(bp))
 does_imply(bp::BroughtField) = does_bring(bp) && refvalue(bp) isa Type
 does_embed(bp::BroughtField) = does_bring(bp) && refvalue(bp) isa Blueprint
 export Brought, does_bring, does_imply, does_embed
+embedded(bp::BroughtField) = does_embed(bp) ? refvalue(bp) : nothing
+implied(bp::BroughtField) = does_imply(bp) ? refvalue(bp) : nothing
+export embedded, implied
 
 # The code checking macro invocation consistency requires
 # that pre-requisites (methods implementations) be specified *prior* to invocation.
