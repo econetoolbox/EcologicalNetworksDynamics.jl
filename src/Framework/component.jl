@@ -39,6 +39,12 @@ singleton_instance(C::CompType) = throw("No concrete singleton instance of '$C'.
 # Extract underlying system wrapped value type from a component.
 system_value_type(::CompRef{V}) where {V} = V
 
+# Typecheck regardless of the instance/type.
+isacomponent(::CompType) = true
+isacomponent(::Component) = true
+isacomponent(::Any) = false
+export isacomponent
+
 #-------------------------------------------------------------------------------------------
 # Requirements.
 

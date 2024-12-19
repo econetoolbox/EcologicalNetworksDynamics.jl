@@ -80,6 +80,4 @@ export Layer
 # Calling the component is like calling the (single) corresponding blueprint constructor.
 (::_Layer)(args...; kwargs...) = Pack(args...; kwargs...)
 
-F.shortline(io::IO, ::Model, ::_Layer) = print(io, "Competition Layer.")
-
 end

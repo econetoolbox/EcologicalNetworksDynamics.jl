@@ -15,6 +15,8 @@ end
 # fall back attempt to convert to its 'Union' field, which is not a constructor.
 pass_args_kwargs(BF::Type{<:F.BroughtField}, ::Nothing) = BF(nothing)
 pass_args_kwargs(BF::Type{<:F.BroughtField}, C::F.CompType) = BF(C)
+pass_args_kwargs(BF::Type{<:F.BroughtField}, C::F.Component) = BF(C)
+pass_args_kwargs(BF::Type{<:F.BroughtField}, bp::F.Blueprint) = BF(bp)
 function pass_args_kwargs(BF::Type{<:F.BroughtField}, input)
     ak = to_args_kwargs(input)
     convert(BF, ak)
@@ -25,7 +27,8 @@ end
 # unless the input is already of the right type
 # and then there is no need to construct more.
 function pass_args_kwargs_to_type(type, input)
-    input isa type ? input : pass_args_kwargs(type, input)
+    res = input isa type
+    res ? input : pass_args_kwargs(type, input)
 end
 
 # Given a struct type,

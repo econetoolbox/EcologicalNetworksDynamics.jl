@@ -13,15 +13,16 @@ import .F:
     System,
     add!,
     blueprints,
-    embedded,
     checkfails,
     checkrefails,
     components,
     does_bring,
     does_embed,
     does_imply,
+    embedded,
     has_component,
-    implied
+    implied,
+    isacomponent
 
 # Direct re-exports from the framework module.
 export add!
@@ -33,11 +34,14 @@ export does_imply
 export embedded
 export has_component
 export implied
+export isacomponent
 export properties
 
 const Internal = Internals.ModelParameters # <- TODO: rename when refactoring Internals.
+
 const Blueprint = F.Blueprint{Internal}
 const BlueprintSum = F.BlueprintSum{Internal}
+const CompType = F.CompType{Internal}
 const Component = F.Component{Internal}
 
 const Model = F.System{Internal}

@@ -100,9 +100,9 @@ F.add_trigger!(
     end,
 )
 
-(::_Nodes)() = Nodes.PerProducer()
-(::_Nodes)(names) = Nodes.Names(names)
 (::_Nodes)(n::Integer) = Nodes.Number(n)
+(::_Nodes)(names) = Nodes.Names(names)
+(::_Nodes)(; per_producer = 1) = Nodes.PerProducer(per_producer)
 
 function F.shortline(io::IO, model::Model, ::_Nodes)
     N = model.nutrients.number

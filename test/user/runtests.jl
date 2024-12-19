@@ -13,10 +13,11 @@ export Value, @viewfails, @sysfails, @argfails, @failswith, WriteError
 
 # Run all .jl files we can find except the current one (and without recursing).
 only = [
-    "./01-input.jl"
-    "./02-graphviews.jl"
-    "./03-components.jl"
-    "./04-exposed_data.jl"
+    #  "./01-input.jl"
+    #  "./02-graphviews.jl"
+    #  "./03-components.jl"
+    #  "./04-exposed_data.jl"
+    "./05-default_model.jl"
 ] # Unless some files are specified here, in which case only run these.
 if isempty(only)
     folder = dirname(@__FILE__)
