@@ -17,7 +17,8 @@ only = [
     #  "./02-graphviews.jl"
     #  "./03-components.jl"
     #  "./04-exposed_data.jl"
-    "./05-default_model.jl"
+    #  "./05-default_model.jl"
+    "06-basic_pipelines.jl"
 ] # Unless some files are specified here, in which case only run these.
 if isempty(only)
     folder = dirname(@__FILE__)

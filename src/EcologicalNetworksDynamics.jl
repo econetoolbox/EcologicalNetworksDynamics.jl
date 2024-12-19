@@ -6,8 +6,8 @@ using OrderedCollections
 using SparseArrays
 using Graphs
 
-imap = Iterators.map
-ifilter = Iterators.filter
+const imap = Iterators.map
+const ifilter = Iterators.filter
 iid(it) = imap(identity, it) # Useful to not leak refs.
 
 #-------------------------------------------------------------------------------------------
@@ -96,13 +96,12 @@ include("./expose_data.jl")
 # connecting them to the internals via the framework.
 include("./components/main.jl")
 
-# HERE: now that all components have been upgraded, upgrade the following!
 # Additional exposed utils built on top of components and methods.
 include("./default_model.jl")
 include("./nontrophic_layers.jl")
-#  include("./simulate.jl")
-#  include("./topology.jl")
-#  include("./diversity.jl")
+include("./simulate.jl")
+include("./topology.jl")
+include("./diversity.jl")
 
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true
