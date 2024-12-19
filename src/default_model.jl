@@ -133,10 +133,14 @@ function default_model(blueprints::Union{Blueprint,BlueprintSum}...; without = C
         for brought in F.brought(bp)
             brought isa Blueprint || continue
             for B in F.componentsof(brought)
-                collected(B) &&
-                    argerr("Blueprint embeds an already given sub-blueprint:\n  \
-                             - The blueprint: $bp\n  \
-                             - Already given: $(peek_collected(B))")
+                if collected(B)
+                    bp = sprint(F.display_long, bp, 1)
+                    alr = sprint(F.display_long, peek_collected(B), 1)
+                    B = sprint(Base.show, B)
+                    argerr("Blueprint embeds an already given sub-blueprint for $B:\n  \
+                             -> The blueprint: $bp\n  \
+                             -> Already given: $alr")
+                end
                 # 'Construct' the brought bueprints
                 # to also recursively collect their dependencies.
                 collect_needed!(brought)
@@ -218,7 +222,7 @@ function default_model(blueprints::Union{Blueprint,BlueprintSum}...; without = C
         fr =
             given(BioenergeticResponse) ? BioenergeticResponse :
             given(LinearResponse) ? LinearResponse : nothing
-        isnothing(fr) || argerr("Temperature response is not designed for $(nameof(fr)). \
+        isnothing(fr) || argerr("Temperature response is not designed for $fr. \
                                  Use ClassicResponse instead, \
                                  or don't specify a temperature.")
     end
@@ -344,7 +348,7 @@ function default_model(blueprints::Union{Blueprint,BlueprintSum}...; without = C
     model = Model()
 
     already = Set() # (avoid duplicated multi-provided blueprints)
-    for (C, bp) in final
+    for (_, bp) in final
         isnothing(bp) && continue
         bp in already && continue
 

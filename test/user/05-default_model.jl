@@ -3,7 +3,7 @@ module TestDefaultModel
 using EcologicalNetworksDynamics
 using Test
 
-Value = EcologicalNetworksDynamics.InnerParms # To make @sysfails work.
+Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
 import ..Main: @sysfails, @argfails
 
 @testset "Default model." begin
@@ -138,22 +138,20 @@ import ..Main: @sysfails, @argfails
         ),
     )
     @test has_component(m, ClassicResponse)
-    @test has_component(m, RefugeLayer)
-    @test has_component(m, FacilitationLayer)
-    @test !has_component(m, CompetitionLayer)
-    @test !has_component(m, InterferenceLayer)
-    @test m.facilitation_layer_intensity == 8
-    @test m.refuge_layer_intensity == 5
-    @test sum(m.refuge_links) == 4
-    @test sum(m.facilitation_links) == 6
+    @test has_component(m, Refuge.Layer)
+    @test has_component(m, Facilitation.Layer)
+    @test !has_component(m, Competition.Layer)
+    @test !has_component(m, Interference.Layer)
+    @test m.facilitation.intensity == 8
+    @test m.refuge.intensity == 5
+    @test sum(m.refuge.links.matrix) == 4
+    @test m.facilitation.links.number == 6
 
     # Check input consistency.
     @argfails(default_model(), "No blueprint specified for a foodweb.")
     @argfails(
         default_model(fw, BodyMass(2), ClassicResponse(; M = 3)),
-        "Blueprint for $ClassicResponse brings $BodyMass, already given:\n  \
-           - $ClassicResponse brings: blueprint for $BodyMass(M: 3.0)\n  \
-           - already given: blueprint for $BodyMass(M: 2.0)"
+        ["Blueprint embeds an already given sub-blueprint for <$BodyMass>:"]
     )
     @argfails(
         default_model(fw, Temperature(290), BioenergeticResponse()),

@@ -6,25 +6,7 @@ using ..AliasingDicts
 import ..Option
 import ..SparseMatrix
 
-# (reassure JuliaLS)
-#! format: off
-if (false)
-    (
-        local
-        InteractionDict,
-        Multiplex,
-        MultiplexArguments,
-        MultiplexDict,
-        MultiplexParametersDict,
-        TrackedMultiplexParameterDict,
-        parse_interaction_for_multiplex_parameter,
-        parse_multiplex_arguments,
-        parse_multiplex_parameter_for_interaction,
-
-        var""
- )
-end
-#! format: on
+include("multiplex_identifiers.jl")
 
 @aliasing_dict(
     InteractionDict,

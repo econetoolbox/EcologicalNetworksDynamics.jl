@@ -43,23 +43,25 @@ end
 # but it's useful for higher-level NTI interfaces like `L = (refuge = 5, interference = 8)`.
 function fields_from_multiplex_parms(int::Symbol, d::MultiplexParametersDict)
     name = Symbol(uppercasefirst(String(int)))
-    TopologyFromRawEdges = eval(Symbol(name, :TopologyFromRawEdges))
-    RandomTopology = eval(Symbol(:Random, name, :Topology))
-    Intensity = eval(Symbol(name, :Intensity))
+    mod = eval(name)
+    RawTopology = mod.Topology.Raw
+    RandomTopology = mod.Topology.Random
+    Intensity = mod.Intensity
     res = [
         if haskey(d, :A)
-            TopologyFromRawEdges(d[:A])
+            RawTopology(d[:A])
         else
-            RandomTopology(
-                get(d, :L, nothing),
-                get(d, :C, nothing),
-                get(d, :sym, multiplex_defaults[:s][int]),
+            kw = (;
+                L = get(d, :L, nothing),
+                C = get(d, :C, nothing),
+                symmetry = get(d, :sym, multiplex_defaults[:s][int]),
             )
+            RandomTopology(; filter(!isnothing, kw)...)
         end,
         Intensity(get(d, :intensity, multiplex_defaults[:I][int])),
     ]
     if int != :interference
-        FunctionalForm = eval(Symbol(name, :FunctionalForm))
+        FunctionalForm = mod.FunctionalForm
         push!(res, FunctionalForm(get(d, :fn, multiplex_defaults[:fn][int])))
     end
     res

@@ -99,7 +99,7 @@ include("./components/main.jl")
 # HERE: now that all components have been upgraded, upgrade the following!
 # Additional exposed utils built on top of components and methods.
 include("./default_model.jl")
-#  include("./nontrophic_layers.jl")
+include("./nontrophic_layers.jl")
 #  include("./simulate.jl")
 #  include("./topology.jl")
 #  include("./diversity.jl")
