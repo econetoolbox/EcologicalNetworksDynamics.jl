@@ -56,7 +56,13 @@ function fields_from_multiplex_parms(int::Symbol, d::MultiplexParametersDict)
                 C = get(d, :C, nothing),
                 symmetry = get(d, :sym, multiplex_defaults[:s][int]),
             )
-            RandomTopology(; filter(!isnothing, kw)...)
+            if VERSION >= v"1.11"
+                RandomTopology(; filter(!isnothing, kw)...)
+            else
+                RandomTopology(;
+                    Dict(k => v for (k, v) in zip(keys(kw), kw) if !isnothing(v))...,
+                )
+            end
         end,
         Intensity(get(d, :intensity, multiplex_defaults[:I][int])),
     ]
