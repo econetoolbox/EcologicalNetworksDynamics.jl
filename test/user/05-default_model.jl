@@ -149,9 +149,14 @@ import ..Main: @sysfails, @argfails
 
     # Check input consistency.
     @argfails(default_model(), "No blueprint specified for a foodweb.")
-    @argfails(
+    @sysfails(
         default_model(fw, BodyMass(2), ClassicResponse(; M = 3)),
-        ["Blueprint embeds an already given sub-blueprint for <$BodyMass>:"]
+        Add(
+            InconsistentForSameComponent,
+            BodyMass,
+            [BodyMass.Flat, false, ClassicResponse.Blueprint],
+            [BodyMass.Flat],
+        ),
     )
     @argfails(
         default_model(fw, Temperature(290), BioenergeticResponse()),

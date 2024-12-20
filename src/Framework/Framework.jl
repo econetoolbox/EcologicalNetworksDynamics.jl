@@ -130,7 +130,7 @@ export checkfails, checkrefails
 component_color = crayon"yellow"
 blueprint_color = crayon"blue"
 field_color = crayon"cyan"
-grayed = crayon"black"
+grayed = crayon"dark_gray"
 reset = crayon"reset"
 cc(C) = "$component_color$C$reset"
 bc(B) = "$blueprint_color$B$reset"
@@ -160,8 +160,8 @@ include("./component.jl") # <- But better start reading from this file.
 include("./blueprints.jl")
 include("./methods.jl")
 include("./properties.jl")
-include("./add.jl")
 include("./plus_operator.jl")
+include("./add.jl")
 
 # Exposed macros.
 include("./macro_helpers.jl")

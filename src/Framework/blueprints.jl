@@ -196,3 +196,11 @@ end
 function Base.showerror(io::IO, ::UnspecifiedComponents{B}) where {B}
     print(io, "Unspecified provided components for '$(repr(B))'.")
 end
+
+# Improve field name error.
+Base.getproperty(b::Blueprint, name::Symbol) =
+    if hasproperty(b, name)
+        @invoke getproperty(b::Any, name)
+    else
+        error("blueprint $(typeof(b)) has no field $(repr(name))")
+    end

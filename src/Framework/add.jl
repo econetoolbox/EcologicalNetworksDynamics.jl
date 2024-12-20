@@ -1,36 +1,45 @@
 # Add components to the system: check and expand.
 #
-# Here is the add!(system, blueprint) procedure for one focal blueprint:
-#   - The given blueprint is visited pre-order
-#     to collect the corresponding graph of sub-blueprints:
-#     it is the root node, and edges are colored depending on whether
-#     the brought is an 'embedding' or an 'implication'.
+# The expansion procedure is rather general,
+# as it assumes that several blueprints are added at once
+# and that they constitute an ordered *forest*
+# since they each may bring sub-blueprints.
+#
+# In addition, the caller can provide:
+#   - `defaults`: a set of blueprints to be automatically added
+#      if not explicitly provided as the main input.
+#   - `hooks`: a set of sub-blueprints to be automatically brought
+#      if either defaults or given blueprints require it.
+#   - `excluded/without`: a set of components to explicitly *not* bring
+#      from the defaults, or the hooks.
+#
+# The challenge here is to correctly check for conflicts/inconsistencies etc.
+# and then pick a correct expansion order.
+# Here is the general procedure without additional options:
+#   - The forest is visited pre-order to collect the corresponding graph of sub-blueprints:
+#     the one given by the caller are root nodes, and edges are colored depending on whether
+#     the 'broughts' are 'embedded' or 'implied'.
 #     - Error if an embedded blueprint brings a component already in the system.
 #     - Ignore implied blueprints bringing components already in the system.
-#     - Error if any brought component is already brought by another sub-blueprint
+#     - Build implied blueprints if they are not already brought.
+#     - Ignore implied blueprints if they are already brought.
+#     - Error if any brought component is already brought by another blueprint
 #       and the two differ.
+#     - Error if any brought components was supposed to be excluded.
+#   - When collection is over, decide whether to construct the defaults blueprints
+#     and append them at the end of the forest,
+#     pre-order again like an extension of the above step.
+#   - Second traversal: visit the forest post-order to:
 #     - Error if any brought component conflicts with components already in the system.
-#   - When collection is over, visit the tree post-order to:
 #     - Check requirements/conflicts against components already brought in pre-order.
-#     - Record requirements to determine the expansion order.
+#     - Trigger any required 'hook' by appending them to the forest (pre-order)
+#       if this can avoid a 'MissingRequiredComponent' error.
 #     - Run the `early_check`.
-#   - Consume the tree from requirements to dependents to:
+#     - Record requirements to determine the expansion order.
+#   - Consume the forest from requirements to dependents to:
 #     - Run the late `check`.
 #     - Expand the blueprint into a component.
 #     - Execute possible triggers.
-#
-# TODO: Exposing the first analysis steps of the above will be useful
-# to implement default_model.
-# The default model handles a *forest* of blueprints, and needs to possibly *move* nodes
-# from later blueprints to earlier blueprints so as to make the inference intuitive and
-# consistent.
-# Maybe this can even be implemented within the framework itself, something along:
-#    add_default!(
-#        forest::Blueprints;
-#        without = Component[],
-#        defaults = OrderedDict{Component,Function{<SomeState> ↦ Blueprint}}(),
-#        state_control! = Function{new_brought/implied_blueprint ↦ edit_state},
-#    )
 
 # Prepare thorough analysis of recursive sub-blueprints possibly brought
 # by the blueprints given.
@@ -42,15 +51,45 @@ struct Node
     children::Vector{Node}
 end
 
-# Keep track of the blueprints about to be brought,
-# indexed by the concrete components they provide.
-# Blueprints providing several components are duplicated.
-const BroughtList{V} = Dict{CompType{V},Vector{Node}}
-
-# Keep track of the fully checked blueprints,
-# along with the brought blueprints that need to be expanded prior to themselves.
+# Internal state of the add! procedure.
 const Requirements{V} = OrderedSet{CompType{V}}
-const CheckedList{V} = OrderedDict{CompType{V},Tuple{Node,Requirements{V}}}
+struct AddState{V}
+    target::System{V}
+    forest::Vector{Node}
+
+    # Keep track of the blueprints about to be brought (including root blueprints),
+    # indexed by the concrete components they provide.
+    # Blueprints providing several components are duplicated.
+    # Populated during pre-order traversal.
+    brought::Dict{CompType{V},Vector{Node}}
+
+    # Keep track of the fully checked blueprints,
+    # along with the brought blueprints that need to be expanded *prior* to themselves.
+    # Populated during post-order traversal.
+    checked::OrderedDict{CompType{V},Tuple{Node,Requirements{V}}}
+
+    # Bring defaults.
+    # The callables signature is (caller_status, if_unbrought) -> Blueprint:
+    #  - `caller_status`: any value constructed after first pass
+    #    from the `defaults_status`(is_brought) function provided by caller.
+    #    where `is_brought` is a callable we provide to check whether
+    #    the given component is found to be brought after the first forest visit.
+    #  - `if_unbrought(C, BP)` is a callable we provide to fill default sub-blueprints.
+    #    It either returns nothing if C is already brought\
+    #    or it calls the caller-provided constructor `BP`.
+    defaults::OrderedDict{CompType{V},Function}
+
+    # Pick blueprints from the hooks if possible to avoid MissingRequiredComponent.
+    hooks::Dict{CompType{V},Blueprint{V}}
+
+    # List components that the caller wishes to not automatically add.
+    excluded::Vector{CompType{V}}
+
+    AddState{V}(target::System{V}) where {V} =
+        new(target, [], Dict(), OrderedDict(), OrderedDict(), Dict(), [])
+end
+is_excluded(add::AddState, C) = any(X <: C for X in add.excluded)
+is_brought(add::AddState, C) = any(B <: C for B in keys(add.brought))
 
 #-------------------------------------------------------------------------------------------
 # Recursively create during first pass, pre-order,
@@ -60,8 +99,9 @@ function Node(
     parent::Option{Node},
     implied::Bool,
     system::System,
-    brought::BroughtList,
+    add::AddState,
 )
+    (; brought) = add
 
     # Create node and connect to parent, without its children yet.
     node = Node(blueprint, parent, implied, [])
@@ -69,6 +109,8 @@ function Node(
     for C in componentsof(blueprint)
         isabstracttype(C) && throw("No blueprint expands into an abstract component. \
                                     This is a bug in the framework.")
+
+        is_excluded(add, C) && throw(ExcludedBrought(C, node))
 
         # Check for duplication if embedded.
         !implied && has_component(system, C) && throw(BroughtAlreadyInValue(C, node))
@@ -91,19 +133,21 @@ function Node(
         if br isa CompType
             # An 'implied' brought blueprint possibly needs to be constructed.
             implied_C = br
+            # Skip it if already brought or already present in the target system.
             has_component(system, implied_C) && continue
+            is_brought(add, implied_C) && continue
             implied_bp = try
                 checked_implied_blueprint_for(blueprint, implied_C)
             catch e
                 e isa _CannotImplyConstruct && throw(CannotImplyConstruct(implied_C, node))
                 rethrow(e)
             end
-            child = Node(implied_bp, node, true, system, brought)
+            child = Node(implied_bp, node, true, system, add)
             push!(node.children, child)
         elseif br isa Blueprint
             # An 'embedded' blueprint is brought.
             embedded_bp = br
-            child = Node(embedded_bp, node, false, system, brought)
+            child = Node(embedded_bp, node, false, system, add)
             push!(node.children, child)
         else
             throw("⚠ Invalid brought value. ⚠ \
@@ -118,12 +162,14 @@ end
 
 #-------------------------------------------------------------------------------------------
 # Recursively check during second pass, post-order,
-# assuming the whole tree is set up.
-function check(node::Node, system::System, brought::BroughtList, checked::CheckedList)
+# assuming the whole tree is set up (hooks aside).
+function check!(add::AddState, node::Node)
+
+    (; target, checked, hooks) = add
 
     # Recursively check children first.
     for child in node.children
-        check(child, system, brought, checked)
+        check!(add, child)
     end
 
     # Check requirements.
@@ -139,18 +185,33 @@ function check(node::Node, system::System, brought::BroughtList, checked::Checke
     end
     for (R, reason, requirer) in reqs
         # Check against the current system value.
-        has_component(system, R) && continue
-        # Check against other components about to be brought.
-        any(C -> R <: C, keys(brought)) ||
-            throw(MissingRequiredComponent(R, requirer, node, reason))
+        has_component(target, R) && continue
+        # Check against other components about to be provided.
+        if !is_brought(add, R)
+            # No blueprint brings the missing component.
+            # Pick it from the hooks if to fill up the gap if any.
+            hooked = false
+            for (H, h) in hooks
+                if H <: R
+                    # Append the hook to the forest,
+                    # re-doing the first pass over it at least.
+                    hook = pop!(hooks, H)
+                    root = Node(hook, nothing, false, target, add)
+                    push!(add.forest, root)
+                    hooked = true
+                    break
+                end
+            end
+            hooked || throw(MissingRequiredComponent(R, requirer, node, reason))
+        end
     end
 
     # Guard against conflicts.
     for C in componentsof(blueprint)
         for (C_as, Other, reason) in all_conflicts(C)
-            if has_component(system, Other)
+            if has_component(target, Other)
                 (Other, Other_abstract) =
-                    isabstracttype(Other) ? (first(system._abstract[Other]), Other) :
+                    isabstracttype(Other) ? (first(target._abstract[Other]), Other) :
                     (Other, nothing)
                 throw(
                     ConflictWithSystemComponent(
@@ -195,23 +256,50 @@ function check(node::Node, system::System, brought::BroughtList, checked::Checke
         # Record as a fully checked node, along with the list of nodes
         # to expand prior to itself.
         checked[C] =
-            (node, OrderedSet(R for (R, _, _) in reqs if !has_component(system, R)))
+            (node, OrderedSet(R for (R, _, _) in reqs if !has_component(target, R)))
     end
 
 end
 
 # ==========================================================================================
 # Entry point into adding components from a forest of blueprints.
-function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
+function add!(
+    system::System{V},
+    blueprints::Union{Blueprint{V},BlueprintSum{V}}...;
+    # (see the documentation for `AddState` to understand the following options)
+    defaults_status = (_) -> (),
+    defaults = [],
+    hooks = Blueprint{V}[],
+    without = [],
+) where {V}
 
-    if length(blueprints) == 0
-        argerr("No blueprint given to expand into the system.")
+    # Construct internal state.
+    add = AddState{V}(system)
+
+    isacomponent(without) && (without = [without]) # (interpret single as singleton)
+    for w in without
+        isacomponent(w) || argerr("Not a component: $(repr(w)) ::$(typeof(w)).")
+        push!(add.excluded, component_type(w))
     end
 
-    forest = Node[]
-    brought = BroughtList{V}() # Populated during pre-order traversal.
-    checked = CheckedList{V}() # Populated during post-order traversal.
+    # Extract blueprints from their sums.
+    bps = []
+    for bp in blueprints
+        terms = bp isa BlueprintSum ? bp.pack : (bp,)
+        for bp in terms
+            push!(bps, bp)
+        end
+    end
+    blueprints = bps
 
+    for h in hooks
+        for H in componentsof(h)
+            H in add.excluded && continue
+            add.hooks[H] = h
+        end
+    end
+
+    (; forest, brought, checked) = add
     #---------------------------------------------------------------------------------------
     # Read-only preliminary checking.
 
@@ -221,13 +309,30 @@ function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
         for bp in blueprints
             # Get our owned local copy so it cannot be changed afterwards by the caller.
             bp = copy(bp)
-            root = Node(bp, nothing, false, system, brought)
+            root = Node(bp, nothing, false, system, add)
             push!(forest, root)
         end
 
-        # Post-order visit, check requirements.
+        # Construct caller state,
+        # useful for them to decide their defaults
+        # depending on the blueprints already brought.
+        is_brought_(C) = is_brought(add, component_type(C))
+        caller_state = defaults_status(is_brought_)
+        # Based on this state,
+        # ask the caller to construct their additional default blueprints.
+        if_unbrought(U, BP) = is_brought_(component_type(U)) ? nothing : BP()
+        for (D, build_default) in defaults
+            D = component_type(D)
+            is_excluded(add, D) && continue
+            is_brought_(D) && continue
+            def = build_default(caller_state, if_unbrought)
+            root = Node(def, nothing, false, system, add)
+            push!(forest, root)
+        end
+
+        # Post-order visit, check requirements, using hooks if needed.
         for node in forest
-            check(node, system, brought, checked)
+            check!(add, node)
         end
 
     catch e
@@ -235,6 +340,7 @@ function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
         E = typeof(e)
         if E in (
             BroughtAlreadyInValue,
+            ExcludedBrought,
             CannotImplyConstruct,
             InconsistentForSameComponent,
             MissingRequiredComponent,
@@ -300,12 +406,6 @@ function add!(system::System{V}, blueprints::Blueprint{V}...) where {V}
         for C in expand
             node = first(brought[C])
             blueprint = node.blueprint
-
-            # Temporary patch after renaming check -> late_check
-            # to forbid silent no-checks.
-            applicable(check, system_value_type, blueprint) &&
-                throw("The `check` method seems defined for $blueprint, \
-                       but it wouldn't be run as the new name is `late_check`.")
 
             # Last check hook against current system value.
             try
@@ -423,6 +523,11 @@ struct BroughtAlreadyInValue <: AddException
 end
 
 struct CannotImplyConstruct <: AddException
+    comp::CompType
+    node::Node
+end
+
+struct ExcludedBrought <: AddException
     comp::CompType
     node::Node
 end
@@ -545,12 +650,22 @@ function Base.showerror(io::IO, e::CannotImplyConstruct)
     )
 end
 
+function Base.showerror(io::IO, e::ExcludedBrought)
+    (; comp, node) = e
+    path = render_path(node)
+    print(
+        io,
+        "Component $(cc(comp)) is explicitly excluded \
+         but this blueprint is bringing it:\n$path",
+    )
+end
+
 function Base.showerror(io::IO, e::InconsistentForSameComponent)
     (; focal, other) = e
     println(io, "Component would be brought by two inconsistent blueprints:")
     Base.show(io, MIME("text/plain"), focal.blueprint)
     println(io, '\n' * render_path(focal))
-    println("  * OR *\n")
+    println(io, "  * OR *\n")
     Base.show(io, MIME("text/plain"), other.blueprint)
     println(io, '\n' * render_path(other))
 end

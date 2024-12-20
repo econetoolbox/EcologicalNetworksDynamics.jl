@@ -60,21 +60,19 @@
 
     @sysfails(
         base + NutrientIntake(3; supply = [1, 2]),
-        Add(
-            InconsistentForSameComponent,
-            N.Nodes,
-            [N.Nodes.Number, true, N.Supply.Raw, false, NutrientIntake.Blueprint],
-            [N.Nodes.Number, false, NutrientIntake.Blueprint],
+        Check(
+            late,
+            [N.Supply.Raw, false, NutrientIntake.Blueprint],
+            "Invalid size for parameter 's': expected (3,), got (2,).",
         )
     )
 
     @sysfails(
         base + NutrientIntake(; supply = [1, 2], turnover = [1, 2, 3]),
-        Add(
-            InconsistentForSameComponent,
-            N.Nodes,
-            [N.Nodes.Number, true, N.Supply.Raw, false, NutrientIntake.Blueprint],
-            [N.Nodes.Number, true, N.Turnover.Raw, false, NutrientIntake.Blueprint],
+        Check(
+            late,
+            [N.Supply.Raw, false, NutrientIntake.Blueprint],
+            "Invalid size for parameter 's': expected (3,), got (2,).",
         )
     )
 

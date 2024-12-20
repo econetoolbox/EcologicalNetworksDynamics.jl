@@ -35,7 +35,7 @@ end
 @testset "Retrieve correct trajectory indices from simulation results" begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Nutrients.Nodes(2))
-    sol = simulate(m, 0.5, 500; N0=0.2)
+    sol = simulate(m, 0.5, 500; N0 = 0.2)
 
     # Pick correct values within the trajectory.
     sp = get_species_indices(sol)
@@ -50,14 +50,14 @@ end
 function check_extinctions(actual, expected)
     @test keys(actual) == keys(expected)
     for (k, v) in actual
-        @test round(v; digits=2) ≈ expected[k]
+        @test round(v; digits = 2) ≈ expected[k]
     end
 end
 
 @testset "Retrieve extinct species." begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
-    sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties=false)
+    sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties = false)
     ext = get_extinctions(sol)
     check_extinctions(ext, Dict([1 => 256.80, 2 => 484.07]))
 
@@ -118,12 +118,12 @@ end
     check_extinctions(ext, Dict(3 => 22.57, 4 => 23.17, 5 => 61.76))
 
     # Scroll back in time.
-    check_extinctions(get_extinctions(sol; date=60), Dict(3 => 22.57, 4 => 23.17))
-    check_extinctions(get_extinctions(sol; date=23), Dict(3 => 22.57))
-    check_extinctions(get_extinctions(sol; date=20), Dict())
+    check_extinctions(get_extinctions(sol; date = 60), Dict(3 => 22.57, 4 => 23.17))
+    check_extinctions(get_extinctions(sol; date = 23), Dict(3 => 22.57))
+    check_extinctions(get_extinctions(sol; date = 20), Dict())
 
     @argfails(
-        get_extinctions(sol; date=150),
+        get_extinctions(sol; date = 150),
         "Invalid date for a simulation in t = [0.0, 100.0]: 150."
     )
 
