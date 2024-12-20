@@ -6,20 +6,13 @@ using Test
 using ..TestFailures
 
 Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
-import ..Main: @viewfails, @sysfails, @argfails, @failswith, WriteError
+import ..Main: @viewfails, @sysfails, @argfails, @failswith
 
 # Expose to further test submodules.
-export Value, @viewfails, @sysfails, @argfails, @failswith, WriteError
+export Value, @viewfails, @sysfails, @argfails, @failswith
 
 # Run all .jl files we can find except the current one (and without recursing).
-only = [
-    #  "./01-input.jl"
-    #  "./02-graphviews.jl"
-    #  "./03-components.jl"
-    #  "./04-exposed_data.jl"
-    #  "./05-default_model.jl"
-    "06-basic_pipelines.jl"
-] # Unless some files are specified here, in which case only run these.
+only = [] # Unless some files are specified here, in which case only run these.
 if isempty(only)
     folder = dirname(@__FILE__)
     for file in readdir(folder)

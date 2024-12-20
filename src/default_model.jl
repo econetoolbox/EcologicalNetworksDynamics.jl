@@ -113,7 +113,7 @@ function default_model(blueprints::Union{Blueprint,BlueprintSum}...; without = C
 
     # When constructing a default aggregated blueprint,
     # fill brought sub-blueprints from either blueprint sources.
-    function take_brought!(C, default)
+    take_brought!(C, default) =
         if collected(C) || excluded(C)
             nothing # Don't bring.
         else
@@ -126,7 +126,6 @@ function default_model(blueprints::Union{Blueprint,BlueprintSum}...; without = C
             collect_needed!(bp)
             bp
         end
-    end
 
     # Mark embedded components if any.
     function mark_embedded_by!(bp)

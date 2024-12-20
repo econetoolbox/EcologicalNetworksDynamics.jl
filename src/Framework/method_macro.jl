@@ -328,9 +328,11 @@ function method_macro(__module__, __source__, input...)
                                 false
                             end
                             if maybe_propspaces && !isempty(prop_paths)
-                                OrderedSet(map(prop_paths) do (path, P, pname)
+                                # (avoid duplicate methods defs for properties aliases)
+                                ps = OrderedSet(map(prop_paths) do (path, P, pname)
                                     P
-                                end) # (avoid duplicate methods defs for properties aliases)
+                                end)
+                                push!(ps, System{ValueType}) # (always have the system as a target)
                             else
                                 [System{ValueType}]
                             end

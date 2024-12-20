@@ -127,7 +127,7 @@ function show_degenerated_biomass_graph_properties(raw::Internal, biomass, arg)
         else
             m *= " contains degenerated species nodes:\n"
         end
-        vec(i_species) = "[$(join_elided(raw.species_label.(sort(i_species)), ", "))]"
+        vec(i_species) = "[$(join_elided(@ref(raw.species.label).(sort(i_species)), ", "))]"
         for (sp, prods, cons, ip, sc) in diagnostics
             n_sp, n_prods, n_cons, n_ip, n_sc = length.((sp, prods, cons, ip, sc))
             m *= "Connected component with $n_sp species:\n"

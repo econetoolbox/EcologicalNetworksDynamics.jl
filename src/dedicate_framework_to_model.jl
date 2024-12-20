@@ -1,4 +1,9 @@
 # The main value, wrapped into a System, is what we hand out to user as "the model".
+# Use this file to define simplified framework primitives
+# under the hypothesis that the only system value we will work with
+# is the ecological model.
+# The purpose is to make subsequent code in `./components`, `simulate.jl` etc.
+# easier to read and write.
 
 # Fine-grained namespace control.
 import .Framework

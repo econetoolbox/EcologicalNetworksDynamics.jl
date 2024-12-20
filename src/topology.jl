@@ -28,7 +28,7 @@ function get_topology(raw::Internal; without_species = [], without_nutrients = [
     end
     if !isempty(without_nutrients)
         check_nutrients(g)
-        nti = raw.nutrients_index
+        nti = @ref raw.nutrients.index
         @check_refs_if_list without_nutrients "nutrients" nti
         push!(removes, (:nutrients, without_nutrients, nti))
     end
@@ -96,7 +96,7 @@ See [`topology`](@ref).
 """
 isolated_producers(raw::Internal; kwargs...) =
     isolated_producers(get_topology(raw; kwargs...), raw.producers_indices)
-@method isolated_producers depends(Foodweb)
+@method isolated_producers depends(Foodweb) read_as(producers.isolated)
 
 isolated_producers(sol::Solution; kwargs...) =
     isolated_producers(get_topology(sol; kwargs...), get_model(sol).producers_indices)
@@ -130,9 +130,12 @@ See [`topology`](@ref).
 
   - ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
 """
-starving_consumers(raw::Internal; kwargs...) =
-    starving_consumers(get_topology(raw; kwargs...), raw.producers_indices, raw.consumers_indices)
-@method starving_consumers depends(Foodweb)
+starving_consumers(raw::Internal; kwargs...) = starving_consumers(
+    get_topology(raw; kwargs...),
+    raw.producers_indices,
+    raw.consumers_indices,
+)
+@method starving_consumers depends(Foodweb) read_as(consumers.starving)
 
 function starving_consumers(sol::Solution; kwargs...)
     (; producers_indices, consumers_indices) = get_model(sol)

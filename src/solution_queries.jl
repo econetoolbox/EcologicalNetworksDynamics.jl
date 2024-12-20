@@ -31,7 +31,7 @@ Retrieve the correct indices to extract nutrients-related data from simulation o
 """
 function get_nutrients_indices(sol::Solution)
     m = get_model(sol)
-    N = m.n_nutrients
+    N = m.nutrients.number
     S = m.species.number
     (S+1):(S+N)
 end
