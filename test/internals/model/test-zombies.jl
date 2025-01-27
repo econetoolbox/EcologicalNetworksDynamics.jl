@@ -30,7 +30,7 @@ end
 # Ensure that when an species already extinct species comeback to life (aka a zombie)
 # when using an implicit solver, that no @info message are shown.
 # For more information about zombies see these issues:
-# https://github.com/BecksLab/EcologicalNetworksDynamics.jl/issues/65
+# https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/65
 # https://discourse.julialang.org/t/zombies-in-biological-ode-why-is-my-solver-not-sticking-to-zero/90409
 @testset "Do not print zombies." begin
     S = 30

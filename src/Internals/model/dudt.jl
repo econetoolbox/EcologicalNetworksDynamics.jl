@@ -32,7 +32,7 @@ function dudt!(du, u, p, _)
     end
 
     # Avoid zombie species by forcing extinct biomasses to zero.
-    # https://github.com/BecksLab/EcologicalNetworksDynamics.jl/issues/65
+    # https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/65
     for sp in keys(extinct_sp)
         u[sp] = 0.0
     end
