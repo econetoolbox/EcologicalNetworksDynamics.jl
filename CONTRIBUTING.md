@@ -12,10 +12,10 @@ This guide assumes you're working on a standard linux distribution,
 as it uses basic shell commands and [Julia's REPL].
 If you are not and you have trouble following along,
 don't hesitate to reach out at
-[BecksLab/EcologicalNetworksDynamics.jl]
+[econetoolbox/EcologicalNetworksDynamics.jl]
 and ask for support.
 
-[BecksLab/EcologicalNetworksDynamics.jl]: https://github.com/BecksLab/EcologicalNetworksDynamics.jl
+[econetoolbox/EcologicalNetworksDynamics.jl]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl
 [Julia's REPL]: https://docs.julialang.org/en/v1/stdlib/REPL/
 
 ## Set up a clean working directory to host the project
@@ -51,7 +51,7 @@ $ cd EcoNetD-dev
 Download latest state of the project with:
 
 ```console
-$ git clone git@github.com:BecksLab/EcologicalNetworksDynamics.jl
+$ git clone git@github.com:econetoolbox/EcologicalNetworksDynamics.jl
 ```
 
 At this point, your directories structure should look something like:
@@ -277,5 +277,5 @@ $ git push --force origin my_cool_feature
 ```
 
 __In case you need any sort of kind help or support.
-Don't hesitate to reach out to [BecksLab/EcologicalNetworksDynamics.jl]__
+Don't hesitate to reach out to [econetoolbox/EcologicalNetworksDynamics.jl]__
 __Happy contributing <3__

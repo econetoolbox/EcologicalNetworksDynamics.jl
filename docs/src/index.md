@@ -50,20 +50,20 @@ Lastly, the Tutorials section contains realistic use-cases of EcologicalNetworks
 
 During your journey learning EcologicalNetworksDynamics you might encounter issues.
 If so the best is to open an issue on the
-[GitHub page of EcologicalNetworksDynamics](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/issues).
+[GitHub page of EcologicalNetworksDynamics](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues).
 To ensure that we can help you efficiently,
 please provide a short description of your problem, and a minimal example to reproduce the error you encountered.
 
 ## How can I contribute?
 
 The easiest way to contribute is to
-[open an issue](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/issues)
+[open an issue](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues)
 if you spot a bug, a typo or can't manage to do something.
 Another way is to fork the repository,
 start working from the `dev` branch,
 and when ready, submit a pull request.
 The contribution guidelines are detailed
-[here](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/dev/CONTRIBUTING.md).
+[here](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/dev/CONTRIBUTING.md).
 
 ## Citing
 
@@ -71,4 +71,4 @@ Please cite EcologicalNetworksDynamics
 if you use it in research, teaching, or other activities.
 
   - **TODO: add paper DOI**
-  - package: [DOI:10.5281/zenodo.10853977](https://zenodo.org/doi/10.5281/zenodo.10853977)
+  - package: [DOI:10.5281/zenodo.14609708](https://zenodo.org/doi/10.5281/zenodo.14609708)

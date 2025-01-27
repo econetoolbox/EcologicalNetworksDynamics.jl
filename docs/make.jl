@@ -12,7 +12,7 @@ makedocs(;
               ", Iago Bonnici" *
               ", Sonia Kéfi" *
               ", Andrew Beckerman",
-    repo = "https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/{commit}{path}#{line}",
+    repo = "https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/{commit}{path}#{line}",
     sitename = "EcologicalNetworksDynamics.jl",
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", "false") == "true",
@@ -45,4 +45,4 @@ makedocs(;
     ],
 )
 
-deploydocs(; repo = "github.com/BecksLab/EcologicalNetworksDynamics.jl", devbranch = "doc")
+deploydocs(; repo = "github.com/econetoolbox/EcologicalNetworksDynamics.jl", devbranch = "doc")

@@ -1,6 +1,6 @@
 <p align="center" width="100%">
-    <img height="150" src="https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/logo-and-name.svg#gh-light-mode-only">
-    <img height="150" src="https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/logo-and-name-dark.svg#gh-dark-mode-only">
+    <img height="150" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/logo-and-name.svg#gh-light-mode-only">
+    <img height="150" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/logo-and-name-dark.svg#gh-dark-mode-only">
 </p>
 
 EcologicalNetworksDynamics is a Julia package that simulates species biomass dynamics
@@ -9,10 +9,10 @@ EcologicalNetworksDynamics makes things easy for beginners
 while remaining flexible for adventurous or experienced users
 who would like to tweak the model.
 
-[![docs](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/actions/workflows/docs.yml/badge.svg?branch=main)](https://beckslab.github.io/EcologicalNetworksDynamics.jl/)
-[![tests](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/actions/workflows/tests.yml)
+[![docs](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/actions/workflows/docs.yml/badge.svg?branch=main)](https://econetoolbox.github.io/EcologicalNetworksDynamics.jl/)
+[![tests](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/actions/workflows/tests.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10853978.svg)](https://doi.org/10.5281/zenodo.10853978)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14609708.svg)](https://doi.org/10.5281/zenodo.14609708)
 
 ## Before you start
 
@@ -67,8 +67,8 @@ from the generation of the network structure
 to the simulation of the biomass dynamics.
 At each step, we detail how the model can be customized at your will.
 
-[Quick start]: https://beckslab.github.io/EcologicalNetworksDynamics.jl/man/quickstart/
-[Guide]: https://beckslab.github.io/EcologicalNetworksDynamics.jl/
+[Quick start]: https://econetoolbox.github.io/EcologicalNetworksDynamics.jl/man/quickstart/
+[Guide]: https://econetoolbox.github.io/EcologicalNetworksDynamics.jl/
 
 ## Getting help
 
@@ -79,7 +79,7 @@ To ensure that we can help you efficiently,
 please provide a short description of your problem
 and a minimal example to reproduce the error you encountered.
 
-[an issue]: https://github.com/BecksLab/EcologicalNetworksDynamics.jl/issues
+[an issue]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues
 
 ## How can I contribute?
 
@@ -89,9 +89,9 @@ Another way is to fork the repository,
 start working from the `dev` branch,
 and when ready, submit a pull request.
 The contribution guidelines are detailed
-[here](https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/dev/CONTRIBUTING.md).
+[here](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/dev/CONTRIBUTING.md).
 
-[open an issue]: https://github.com/BecksLab/EcologicalNetworksDynamics.jl/issues
+[open an issue]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues
 
 ## Citing
 
@@ -109,7 +109,7 @@ supported by the LabEx CeMEB,
 an ANR "Investissements d'avenir" program (ANR-10-LABX-04-01).
 
 <p align="center" width="100%">
-    <img height="100" src="https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/isem.png">
-    <img height="100" src="https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/cnrs.png">
-    <img height="100" src="https://github.com/BecksLab/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/mbb.png">
+    <img height="100" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/isem.png">
+    <img height="100" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/cnrs.png">
+    <img height="100" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/mbb.png">
 </p>
