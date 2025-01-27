@@ -6,7 +6,7 @@ sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$re
 
 # Testing utils.
 include("./test_failures.jl")
-include("./dedicate_test_failures.jl")
+include("./dedicated_test_failures.jl")
 
 # The whole testing suite has been moved to "internals"
 # while we are focusing on constructing the library API.
@@ -17,6 +17,7 @@ sep("Test System/Blueprints/Components framework.")
 include("./framework/runtests.jl")
 
 sep("Test API utils.")
+include("./topologies.jl")
 include("./aliasing_dicts.jl")
 include("./multiplex_api.jl")
 include("./graph_data_inputs/runtests.jl")

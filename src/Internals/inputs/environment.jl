@@ -2,6 +2,8 @@ mutable struct Environment
     T::Float64
 end
 
+Base.:(==)(a::Environment, b::Environment) = equal_fields(a, b)
+
 """
 One line Environment display.
 """

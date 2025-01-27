@@ -1,61 +1,111 @@
 # Set or generate consumption rates for every consumer in the model.
 
-# Adapted from half saturation density.
+# Mostly duplicated from half saturation density.
 
-# One blueprint variant, but keep the same pattern as other biorates
-# just for consistency, in case of future pattern evolution.
+# (reassure JuliaLS)
+(false) && (local ConsumptionRate, _ConsumptionRate)
 
 # ==========================================================================================
-abstract type ConsumptionRate <: ModelBlueprint end
-# All subtypes must require(Foodweb).
+# Blueprints.
 
-ConsumptionRate(alpha) = ConsumptionRateFromRawValues(alpha)
+module ConsumptionRate_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Species, _Species, Foodweb, _Foodweb
+
+#-------------------------------------------------------------------------------------------
+mutable struct Raw <: Blueprint
+    alpha::SparseVector{Float64}
+    species::Brought(Species)
+    Raw(alpha::SparseVector{Float64}, sp = _Species) = new(alpha, sp)
+    Raw(alpha, sp = _Species) = new(@tographdata(alpha, SparseVector{Float64}), sp)
+end
+F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.alpha))
+@blueprint Raw "consumption rates"
+export Raw
+
+F.early_check(bp::Raw) = check_nodes(check, bp.alpha)
+check(alpha, ref = nothing) = check_value(>=(0), alpha, ref, :alpha, "Not a positive value")
+
+function F.late_check(raw, bp::Raw)
+    (; alpha) = bp
+    cons = @ref raw.consumers.mask
+    @check_template alpha cons :consumers
+end
+
+F.expand!(raw, bp::Raw) = expand!(raw, bp.alpha)
+function expand!(raw, alpha)
+    raw._scratch[:consumption_rate] = collect(alpha) # Legacy storage is dense.
+    # Keep a true sparse version in the cache.
+    raw._cache[:consumption_rate] = alpha
+end
+
+#-------------------------------------------------------------------------------------------
+mutable struct Flat <: Blueprint
+    alpha::Float64
+end
+@blueprint Flat "uniform consumption rate" depends(Foodweb)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.alpha)
+F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.alpha, @ref raw.consumers.mask))
+
+#-------------------------------------------------------------------------------------------
+mutable struct Map <: Blueprint
+    alpha::@GraphData Map{Float64}
+    Map(alpha) = new(@tographdata(alpha, Map{Float64}))
+end
+@blueprint Map "[species => consumption rate] map"
+export Map
+
+F.early_check(bp::Map) = check_nodes(check, bp.alpha)
+function F.late_check(raw, bp::Map)
+    (; alpha) = bp
+    index = @ref raw.species.index
+    cons = @ref raw.consumers.mask
+    @check_list_refs alpha :consumer index template(cons)
+end
+
+function F.expand!(raw, bp::Map)
+    index = @ref raw.species.index
+    alpha = to_sparse_vector(bp.alpha, index)
+    expand!(raw, alpha)
+end
+
+end
+
+# ==========================================================================================
+@component ConsumptionRate{Internal} requires(Foodweb) blueprints(ConsumptionRate_)
 export ConsumptionRate
 
-#-------------------------------------------------------------------------------------------
-mutable struct ConsumptionRateFromRawValues <: ConsumptionRate
-    alpha::@GraphData {Scalar, SparseVector, Map}{Float64}
-    ConsumptionRateFromRawValues(alpha) = new(@tographdata alpha SNK{Float64})
+function (::_ConsumptionRate)(alpha)
+
+    alpha = @tographdata alpha {Scalar, SparseVector, Map}{Float64}
+
+    if alpha isa Real
+        ConsumptionRate.Flat(alpha)
+    elseif alpha isa AbstractVector
+        ConsumptionRate.Raw(alpha)
+    else
+        ConsumptionRate.Map(alpha)
+    end
+
 end
 
-function F.check(model, bp::ConsumptionRateFromRawValues)
-    (; _consumers_mask, _consumers_sparse_index) = model
-    (; alpha) = bp
-    @check_refs_if_list alpha :consumers _consumers_sparse_index dense
-    @check_template_if_sparse alpha _consumers_mask :consumers
-end
-
-function F.expand!(model, bp::ConsumptionRateFromRawValues)
-    (; _consumers_mask, _species_index) = model
-    (; alpha) = bp
-    @to_sparse_vector_if_map alpha _species_index
-    @to_template_if_scalar Real alpha _consumers_mask
-    model._scratch[:consumption_rate] = collect(alpha)
-end
-
-@component ConsumptionRateFromRawValues requires(Foodweb)
-export ConsumptionRateFromRawValues
-
-#-------------------------------------------------------------------------------------------
-# Keep in case more alternate blueprints are added.
-# @conflicts(ConsumptionRateFromRawValues)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:ConsumptionRate}) = ConsumptionRate
-
-# ==========================================================================================
 @expose_data nodes begin
     property(consumption_rate, alpha)
-    get(ConsumptionRates{Float64}, sparse, "consumer")
-    ref(m -> m._scratch[:consumption_rate])
-    template(m -> m._consumers_mask)
-    write!((m, rhs, i) -> (m._consumption_rate[i] = rhs))
-    @species_index
     depends(ConsumptionRate)
+    @species_index
+    ref_cached(_ -> nothing) # Cache filled on component expansion.
+    get(ConsumptionRates{Float64}, sparse, "consumer")
+    template(raw -> @ref raw.consumers.mask)
+    write!((raw, rhs::Real, i) -> begin
+        ConsumptionRate_.check(rhs, i)
+        rhs = Float64(rhs)
+        raw._scratch[:consumption_rate][i] = rhs
+        rhs
+    end)
 end
 
-# ==========================================================================================
-display_short(bp::ConsumptionRate; kwargs...) =
-    display_short(bp, ConsumptionRate; kwargs...)
-display_long(bp::ConsumptionRate; kwargs...) = display_long(bp, ConsumptionRate; kwargs...)
-F.display(model, ::Type{<:ConsumptionRate}) =
-    "Consumption rate: [$(join_elided(model._consumption_rate, ", "))]"
+F.shortline(io::IO, model::Model, ::_ConsumptionRate) =
+    print(io, "Consumption rate: [$(join_elided(model._consumption_rate, ", "))]")

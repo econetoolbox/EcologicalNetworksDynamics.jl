@@ -1,59 +1,82 @@
 # Set or generate producer competition rates
 # for every producer-to-producer link in the model.
 
-# Two blueprints: one from raw values,
-# the other from diagonal elements.
-# Although these do not differ in their dependencies,
-# use the same patterns as other 'biorates' for consistency.
+# Mostly duplicated from Efficiency.
+
+# (reassure JuliaLS)
+(false) && (local ProducersCompetition, _ProducersCompetition)
 
 # ==========================================================================================
-abstract type ProducersCompetition <: ModelBlueprint end
-# All subtypes must require(Foodweb).
-
-function ProducersCompetition(alpha = nothing; kwargs...)
-
-    if isempty(kwargs)
-        isnothing(alpha) && argerr("No input provided to specify producers competition.")
-        ProducersCompetitionFromRawValues(alpha)
-    else
-        ProducersCompetitionFromDiagonal(; kwargs...)
-    end
-
-end
-
-export ProducersCompetition
+module ProducersCompetition_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Foodweb, _Foodweb
 
 #-------------------------------------------------------------------------------------------
-mutable struct ProducersCompetitionFromRawValues <: ProducersCompetition
-    alpha::@GraphData {Scalar, SparseMatrix, Adjacency}{Float64}
-    ProducersCompetitionFromRawValues(alpha) = new(@tographdata alpha SEA{Float64})
+mutable struct Raw <: Blueprint
+    alpha::SparseMatrix{Float64}
+    Raw(alpha) = new(@tographdata(alpha, SparseMatrix{Float64}))
 end
+@blueprint Raw "sparse matrix"
+export Raw
 
-function F.check(model, bp::ProducersCompetitionFromRawValues)
-    (; _producers_links, _species_index) = model
+F.early_check(bp::Raw) = check_edges(check, bp.alpha)
+check(alpha, ref = nothing) = check_value(>=(0), alpha, ref, :alpha, "Not a positive value")
+
+function F.late_check(raw, bp::Raw)
     (; alpha) = bp
-    @check_refs_if_list alpha "producers link" _species_index template(_producers_links)
-    @check_template_if_sparse alpha _producers_links "producers link"
+    A = @ref raw.producers.matrix
+    @check_template alpha A "producers links"
 end
 
-function F.expand!(model, bp::ProducersCompetitionFromRawValues)
-    (; _producers_links, _species_index) = model
-    (; alpha) = bp
-    ind = _species_index
-    @to_sparse_matrix_if_adjacency alpha ind ind
-    @to_template_if_scalar Real alpha _producers_links
-    model._scratch[:producers_competition] = alpha
-end
-
-@component ProducersCompetitionFromRawValues requires(Foodweb)
-export ProducersCompetitionFromRawValues
+F.expand!(raw, bp::Raw) = expand!(raw, bp.alpha)
+expand!(raw, alpha) = raw._scratch[:producers_competition] = alpha
 
 #-------------------------------------------------------------------------------------------
-mutable struct ProducersCompetitionFromDiagonal <: ProducersCompetition
-    diag::Float64
-    off::Float64
-    ProducersCompetitionFromDiagonal(d, o = 0) = new(d, o)
-    function ProducersCompetitionFromDiagonal(; kwargs...)
+mutable struct Flat <: Blueprint
+    alpha::Float64
+end
+@blueprint Flat "uniform value" depends(Foodweb)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.alpha)
+function F.expand!(raw, bp::Flat)
+    (; alpha) = bp
+    A = @ref raw.producers.matrix
+    alpha = to_template(alpha, A)
+    expand!(raw, alpha)
+end
+
+#-------------------------------------------------------------------------------------------
+mutable struct Adjacency <: Blueprint
+    alpha::@GraphData Adjacency{Float64}
+    Adjacency(alpha) = new(@tographdata(alpha, Adjacency{Float64}))
+end
+@blueprint Adjacency "[producer => [producer => competition]] adjacency list"
+export Adjacency
+
+F.early_check(bp::Adjacency) = check_edges(check, bp.alpha)
+function F.late_check(raw, bp::Adjacency)
+    (; alpha) = bp
+    index = @ref raw.species.index
+    A = @ref raw.producers.matrix
+    @check_list_refs alpha "producers link" index template(A)
+end
+
+function F.expand!(raw, bp::Adjacency)
+    index = @ref raw.species.index
+    alpha = to_sparse_matrix(bp.alpha, index, index)
+    expand!(raw, alpha)
+end
+
+#-------------------------------------------------------------------------------------------
+# From a diagonal symmetric: 1 value for self-competition, 1 value for inter-producers.
+
+mutable struct Diagonal <: Blueprint
+    diag::Float64 # Diagonal values.
+    off::Float64 # Off-diagonal values.
+    Diagonal(d, o = 0) = new(d, o)
+    function Diagonal(; kwargs...)
         @kwargs_helpers kwargs
         alias!(:diag, :diagonal, :d)
         alias!(:off, :offdiagonal, :offdiag, :o, :rest, :nondiagonal, :nd)
@@ -63,55 +86,69 @@ mutable struct ProducersCompetitionFromDiagonal <: ProducersCompetition
         new(d, o)
     end
 end
+@blueprint Diagonal "diagonal/off-diagonal values"
+export Diagonal
 
-function F.expand!(model, bp::ProducersCompetitionFromDiagonal)
-    (; S, _producers_links) = model
+function F.early_check(bp::Diagonal)
+    check(bp.diag, (:diag,))
+    check(bp.off, (:off,))
+end
+
+function F.expand!(raw, bp::Diagonal)
     (; diag, off) = bp
-
+    S = @get raw.richness
+    A = @ref raw.producers.matrix
     alpha = spzeros((S, S))
-    sources, targets, _ = findnz(_producers_links)
+    sources, targets, _ = findnz(A)
     for (i, j) in zip(sources, targets)
         alpha[i, j] = (i == j) ? diag : off
     end
-
-    model._scratch[:producers_competition] = alpha
+    expand!(raw, alpha)
 end
 
-@component ProducersCompetitionFromDiagonal requires(Foodweb)
-export ProducersCompetitionFromDiagonal
-
-#-------------------------------------------------------------------------------------------
-@conflicts(ProducersCompetitionFromRawValues, ProducersCompetitionFromDiagonal)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:ProducersCompetition}) = ProducersCompetition
-
-# ==========================================================================================
-@expose_data edges begin
-    property(producers_competition)
-    get(ProducersCompetitionRates{Float64}, sparse, "producer link")
-    ref(m -> m._scratch[:producers_competition])
-    template(m -> m._producers_links)
-    write!((m, rhs, i, j) -> (m._scratch[:producers_competition][i, j] = rhs))
-    @species_index
-    depends(ProducersCompetition)
 end
 
 # ==========================================================================================
-display_short(bp::ProducersCompetition; kwargs...) =
-    display_short(bp, ProducersCompetition; kwargs...)
-display_long(bp::ProducersCompetition; kwargs...) =
-    display_long(bp, ProducersCompetition; kwargs...)
+# Component and generic constructors.
 
-function F.display(model, ::Type{<:ProducersCompetition})
-    nz = findnz(model._producers_competition)[3]
-    "ProducersCompetition: " * if isempty(nz)
-        "·"
-    else
-        min, max = minimum(nz), maximum(nz)
-        if min == max
-            "$min"
+@component begin
+    ProducersCompetition{Internal}
+    requires(Foodweb)
+    blueprints(ProducersCompetition_)
+end
+export ProducersCompetition
+
+function (::_ProducersCompetition)(alpha = nothing; kwargs...)
+
+    if isempty(kwargs)
+        isnothing(alpha) && argerr("No input provided to specify producers competition.")
+        alpha = @tographdata alpha {Scalar, SparseMatrix, Adjacency}{Float64}
+        if alpha isa SparseMatrix
+            ProducersCompetition.Raw(alpha)
+        elseif alpha isa Real
+            ProducersCompetition.Flat(alpha)
         else
-            "ranging from $min to $max."
+            ProducersCompetition.Adjacency(alpha)
         end
+    else
+        isnothing(alpha) ||
+            argerr("No need to provide both alpha matrix and keyword arguments.")
+        ProducersCompetition.Diagonal(; kwargs...)
     end
+
+end
+
+@expose_data edges begin
+    property(producers.competition)
+    depends(ProducersCompetition)
+    @species_index
+    ref(raw -> raw._scratch[:producers_competition])
+    get(ProducersCompetitionRates{Float64}, sparse, "producers link")
+    template(raw -> @ref raw.producers.matrix)
+    write!((raw, rhs::Real, i, j) -> ProducersCompetition_.check(rhs, (i, j)))
+end
+
+function F.shortline(io::IO, model::Model, ::_ProducersCompetition)
+    print(io, "Producers competition: ")
+    showrange(io, model.producers._competition)
 end

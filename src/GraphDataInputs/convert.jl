@@ -125,6 +125,31 @@ function graphdataconvert(::Type{BinMap{<:Any}}, input; expected_I = nothing)
     res
 end
 
+# The binary case *can* accept boolean masks.
+function graphdataconvert(
+    ::Type{BinMap{<:Any}},
+    input::AbstractVector{Bool};
+    expected_I = Int64,
+)
+    res = BinMap{expected_I}()
+    for (i, val) in enumerate(input)
+        val && push!(res, i)
+    end
+    res
+end
+
+function graphdataconvert(
+    ::Type{BinMap{<:Any}},
+    input::AbstractSparseVector{Bool,I};
+    expected_I = I,
+) where {I}
+    res = BinMap{expected_I}()
+    for i in findnz(input)[1]
+        push!(res, i)
+    end
+    res
+end
+
 #-------------------------------------------------------------------------------------------
 # Similar, nested logic for adjacency maps.
 
@@ -193,6 +218,38 @@ function graphdataconvert(::Type{BinAdjacency{<:Any}}, input; expected_I = nothi
     res
 end
 
+# The binary case *can* accept boolean matrices.
+function graphdataconvert(
+    ::Type{BinAdjacency{<:Any}},
+    input::AbstractMatrix{Bool},
+    expected_I = Int64,
+)
+    res = BinAdjacency{expected_I}()
+    for (i, row) in enumerate(eachrow(input))
+        adj_line = BinMap(j for (j, val) in enumerate(row) if val)
+        isempty(adj_line) && continue
+        res[i] = adj_line
+    end
+    res
+end
+
+function graphdataconvert(
+    ::Type{BinAdjacency{<:Any}},
+    input::AbstractSparseMatrix{Bool,I},
+    expected_I = I,
+) where {I}
+    res = BinAdjacency{expected_I}()
+    nzi, nzj, _ = findnz(input)
+    for (i, j) in zip(nzi, nzj)
+        if haskey(res, i)
+            push!(res[i], j)
+        else
+            res[i] = BinMap([j])
+        end
+    end
+    res
+end
+
 # Alias if types matches exactly.
 graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
 graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Int64,T}) where {T} = input
@@ -202,6 +259,23 @@ graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {
 graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int64,T}) where {T} = input
 graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
 graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int64}) = input
+
+#-------------------------------------------------------------------------------------------
+# Extract binary maps/adjacency from regular ones.
+function graphdataconvert(::Type{BinMap}, input::Map{I}) where {I}
+    res = BinMap{I}()
+    for (k, _) in input
+        push!(res, k)
+    end
+    res
+end
+function graphdataconvert(::Type{BinAdjacency{<:Any}}, input::Adjacency{I}) where {I}
+    res = BinAdjacency{I}()
+    for (i, sub) in input
+        res[i] = graphdataconvert(BinMap, sub)
+    end
+    res
+end
 
 #-------------------------------------------------------------------------------------------
 # Conversion helpers.
@@ -273,9 +347,11 @@ end
 # Example usage:
 #   @tographdata var {Sym, Scal, SpVec}{Float64}
 #   @tographdata var YSN{Float64}
-macro tographdata(var, input)
+macro tographdata(var::Symbol, input)
     @defloc
-    var isa Symbol || argerr("Not a variable: $(repr(var)) at $loc.")
+    tographdata(loc, var, input)
+end
+function tographdata(loc, var, input)
     @capture(input, types_{Target_} | types_{})
     isnothing(types) && argerr("Invalid @tographdata target types at $loc.\n\
                                 Expected @tographdata var {aliases...}{Target}. \
@@ -307,7 +383,7 @@ function _tographdata(vsym, var, targets)
                 argerr("Error while attempting to convert \
                         '$vsym' to $Target \
                         (details further down the stacktrace). \
-                        Received $(repr(var))::$(typeof(var)).")
+                        Received $(repr(var)) ::$(typeof(var)).")
             end
         end
     end
@@ -317,3 +393,14 @@ function _tographdata(vsym, var, targets)
             The value received is $(repr(var)) ::$(typeof(var)).")
 end
 export @tographdata
+
+# Convenience to re-bind in local scope, avoiding the akward following pattern:
+#   long_var_name = @tographdata long_var_name <...>
+# In favour of:
+#   @tographdata! long_var_name <...>
+macro tographdata!(var::Symbol, input)
+    @defloc
+    evar = esc(var)
+    :($evar = $(tographdata(loc, var, input)))
+end
+export @tographdata!

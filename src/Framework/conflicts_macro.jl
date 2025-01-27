@@ -19,6 +19,12 @@
 #
 # Minimal use: @conflicts(A, B, C)
 macro conflicts(input...)
+    conflicts_macro(__module__, __source__, input...)
+end
+export @conflicts
+
+# Extract function to ease debugging with Revise.
+function conflicts_macro(__module__, __source__, input...)
 
     # Push resulting generated code to this variable.
     res = quote end
@@ -35,7 +41,8 @@ macro conflicts(input...)
 
     # Convenience wrap.
     tovalue(xp, ctx, type) = to_value(__module__, xp, ctx, :xerr, type)
-    tocomptype(xp, ctx) = to_component_type(__module__, xp, :ValueType, ctx, :xerr)
+    tocomp_novaluetype(xp, ctx) = to_component(__module__, xp, ctx, :xerr)
+    tocomp(xp, ctx) = to_component(__module__, xp, :ValueType, ctx, :xerr)
 
     #---------------------------------------------------------------------------------------
     # Parse macro input,
@@ -52,6 +59,7 @@ macro conflicts(input...)
     entries = :([])
     for entry in input
 
+        (false) && (local comp, conf, invalid, reasons, mess) # (reassure JuliaLS)
         #! format: off
         @capture(entry,
             (comp_ => (reasons__,)) |
@@ -67,18 +75,14 @@ macro conflicts(input...)
 
         if isnothing(first_entry)
             ctx = "First conflicting entry"
-            push_res!(
-                quote
-                    First = $(tovalue(comp, ctx, DataType))
-                    First <: Blueprint ||
-                        xerr("$($ctx): not a subtype of '$Blueprint': '$First'.")
-                    ValueType = system_value_type(First)
-                end,
-            )
+            push_res!(quote
+                First = $(tocomp_novaluetype(comp, ctx))
+                ValueType = system_value_type(First)
+            end)
             first_entry = comp
             comp = :First
         else
-            comp = tocomptype(comp, "Conflicting entry")
+            comp = tocomp(comp, "Conflicting entry")
         end
 
         reasons_xp = :([])
@@ -86,7 +90,7 @@ macro conflicts(input...)
             @capture(reason, (conf_ => mess_))
             isnothing(conf) &&
                 perr("Not a `Component => \"reason\"` pair: $(repr(reason)).")
-            conf = tocomptype(conf, "Reason reference")
+            conf = tocomp(conf, "Reason reference")
             mess = tovalue(mess, "Reason message", String)
             push!(reasons_xp.args, :($conf, $mess))
         end
@@ -103,8 +107,8 @@ macro conflicts(input...)
     push_res!(
         quote
             entries = $entries
-            comps = first.(entries)
-            keys = Set(comps)
+            comps = CompType{ValueType}[first(e) for e in entries]
+            keys = OrderedSet{CompType{ValueType}}(comps)
             for (a, reasons) in entries
                 for (b, message) in reasons
                     b in keys ||
@@ -113,11 +117,90 @@ macro conflicts(input...)
                     declare_conflict(a, b, message, xerr)
                 end
             end
-            declare_conflicts_clique(xerr, comps...)
+            declare_conflicts_clique(xerr, comps)
         end,
     )
+
+    # Avoid confusing/leaky return type from macro invocation.
+    push_res!(quote
+        nothing
+    end)
 
     res
 
 end
-export @conflicts
+
+# Guard against declaring conflicts between sub/super components.
+function vertical_conflict(err)
+    (sub, sup) -> begin
+        it = sub === sup ? "itself" : "its own super-component $sup"
+        err("Component $sub cannot conflict with $it.")
+    end
+end
+
+# Declare one particular conflict with a reason.
+# Guard against redundant reasons specifications.
+function declare_conflict(A::CompType, B::CompType, reason::Reason, err)
+    vertical_guard(A, B, vertical_conflict(err))
+    for (k, c, reason) in all_conflicts(A)
+        isnothing(reason) && continue
+        if B <: c
+            as_K = k === A ? "" : " (as $k)"
+            as_C = B === c ? "" : " (as $c)"
+            err("Component $A$as_K already declared to conflict with $B$as_C \
+                 for the following reason:\n  $(reason)")
+        end
+    end
+    # Append new method or override by updating value.
+    current = conflicts_(A) # Creates a new empty value if falling back on default impl.
+    if isempty(current)
+        # Dynamically add method to lend reference to the value lended by `conflicts_`.
+        eval(quote
+            conflicts_(::Type{$A}) = $current
+        end)
+    end
+    current[B] = reason
+end
+
+# Fill up a clique, not overriding any existing reason.
+function declare_conflicts_clique(err, components::Vector{<:CompType{V}}) where {V}
+
+    # The result of overriding methods like the above
+    # will not be visible from within the same function call
+    # because of <mumblemumblejuliaworldcount>.
+    # So, collect all required overrides in this collection
+    # to perform them only once at the end.
+
+    changes = Dict{CompType{V},Tuple{Bool,Any}}() # {Component: (needs_override, NewConflictsDict)}
+
+    function process_pair(A::CompType{V}, B::CompType{V})
+        vertical_guard(A, B, vertical_conflict(err))
+        current = if haskey(changes, A)
+            _, current = changes[A]
+            current
+        else
+            current = conflicts_(A)
+            changes[A] = (isempty(current), current)
+            current
+        end
+        haskey(current, B) || (current[B] = nothing)
+    end
+
+    # Triangular-iterate to guard against redundant items.
+    for (i, a) in enumerate(components)
+        for b in components[1:(i-1)]
+            process_pair(a, b)
+            process_pair(b, a)
+        end
+    end
+
+    # Perform all the overrides at once.
+    for (C, (needs_override, conflicts)) in changes
+        if needs_override
+            eval(quote
+                conflicts_(::Type{$C}) = $conflicts
+            end)
+        end
+    end
+
+end

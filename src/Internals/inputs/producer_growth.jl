@@ -30,6 +30,9 @@ mutable struct NutrientIntake <: ProducerGrowth
     NutrientIntake(args...) = new(args...)
 end
 
+Base.:(==)(a::U, b::V) where {U<:ProducerGrowth,V<:ProducerGrowth} =
+    U == V && equal_fields(a, b)
+
 """
     length(n::NutrientIntake)
 
