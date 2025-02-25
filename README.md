@@ -98,7 +98,7 @@ The contribution guidelines are detailed
 Please mention `EcologicalNetworksDynamics.jl`
 if you use it in research, teaching, or other activities.
 To cite the package, please refer to the associated
-[preprint](https://doi.org/10.1101/2024.03.20.585899).
+[paper](https://doi.org/10.1111/2041-210X.14497).
 
 
 ## Acknowledgments
