@@ -103,7 +103,7 @@ const EN = EcologicalNetworksDynamics
     @argfails(
         BodyMass("nope"),
         "Error while attempting to convert 'M' \
-         to key-value map for 'Float64' data \
+         to ref-value map for 'Float64' data \
          (details further down the stacktrace). \
          Received \"nope\" ::$String."
     )

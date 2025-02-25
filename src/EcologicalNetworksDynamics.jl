@@ -20,7 +20,7 @@ include("./display.jl")
 using .Display
 
 # Common error to throw on user input error.
-argerr(mess) = throw(ArgumentError(mess))
+argerr(mess, raise = throw) = raise(ArgumentError(mess))
 
 # Alias common types.
 const Option{T} = Union{Nothing,T}

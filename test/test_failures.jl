@@ -85,7 +85,7 @@ function failswith(src, mod, xp, exception_pattern, expect_expansion_failure)
                 rethrow($e)
             end
         else
-            $error($"Unexpected success at $loc\nWas expecting: $exception_pattern")
+            $error($"Unexpected success at $loc\nWas expecting: $exception_pattern", throw)
         end
     end)
 end
@@ -140,13 +140,18 @@ struct FailedFailure <: Exception
 end
 Base.showerror(io::IO, e::FailedFailure) = print(io, "Failed failure test: $(e.message)")
 # Local override.
-error(mess) = throw(FailedFailure(mess))
+error(mess, throw = rethrow) = throw(FailedFailure(mess))
 
 #-------------------------------------------------------------------------------------------
 # Convenience message checking utils.
 
-check_message(exact::String, m) = exact == m || error("Expected error message:\n  $exact\n\
-                                                       actual error message:\n  $m")
+function check_message(exact::String, m)
+    (exact == m) || error("Expected vs. actual error messages:\n\
+                           --------------------------------------\n\
+                           >>> $exact\n\
+                           <<< $m\n\
+                           -------------------------------------")
+end
 
 function check_message(substrings::Vector{String}, m)
     # Seek substrings.

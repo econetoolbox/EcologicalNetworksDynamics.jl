@@ -1,3 +1,6 @@
+struct _Alias end
+Alias = _Alias() # Use as an unambiguous keyword.
+
 @testset "Graph data conversion." begin
 
     # ======================================================================================
@@ -10,248 +13,314 @@
     # To scalar symbols.
 
     input = 'a'
-    res = @tographdata input YSV{Float64}
+    res = @tographdata input YSV{Float64} # Test this form once..
     @test same_type_value(res, :a)
 
-    input = "a"
-    res = @tographdata input YSV{Float64}
-    @test same_type_value(res, :a)
+    # .. then shorten subsequent tests.
+    function convert(types, input, expected)
+        # (reproduce @tographdata macro)
+        types = GraphDataInputs.graph_data_list(types, nothing; escape = false)
+        types = Base.eval.((GraphDataInputs,), types)
+        actual = GraphDataInputs._tographdata(:input, input, types)
+        match = if expected isa _Alias
+            aliased(input, actual)
+        else
+            same_type_value(expected, actual)
+        end
+        if !match
+            println("expected: $expected ::$(typeof(expected))")
+            println("actual  : $actual ::$(typeof(actual))")
+        end
+        match
+    end
 
-    input = "a"
-    res = @tographdata input Y{}
-    @test same_type_value(res, :a)
+    @test convert(:(YSV{Float64}), "a", :a)
+    @test convert(:(Y{}), "a", :a)
 
     # To scalar strings.
-    input = 'a'
-    res = @tographdata input SYV{String}
-    @test same_type_value(res, "a")
-
-    input = :a
-    res = @tographdata input SYV{String}
-    @test same_type_value(res, "a")
+    @test convert(:(SYV{String}), 'a', "a")
+    @test convert(:(SYV{String}), :a, "a")
 
     # (type order matters or the first matching wins)
-    input = 'a'
-    res = @tographdata input YSV{String} # (Y first wins)
-    @test same_type_value(res, :a)
+    @test convert(:(YSV{String}), 'a', :a) # (Y first wins)
 
     #---------------------------------------------------------------------------------------
     # To floating point values, any collection.
 
-    input = 5
-    res = @tographdata input YSV{Float64}
-    @test same_type_value(res, 5.0)
-
-    input = [5]
-    res = @tographdata input YSV{Float64}
-    @test same_type_value(res, [5.0])
-
-    input = [5, 8]
-    res = @tographdata input YSN{Float64}
-    @test same_type_value(res, sparse([5.0, 8.0]))
-
-    input = [5 8; 8 5]
-    res = @tographdata input YSM{Float64}
-    @test same_type_value(res, [5.0 8.0; 8.0 5.0])
-
-    input = [5 8; 8 5]
-    res = @tographdata input YSE{Float64}
-    @test same_type_value(res, sparse([5.0 8.0; 8.0 5.0]))
+    @test convert(:(YSV{Float64}), 5, 5.0)
+    @test convert(:(YSV{Float64}), [5], [5.0])
+    @test convert(:(YSN{Float64}), [5, 8], sparse([5.0, 8.0]))
+    @test convert(:(YSM{Float64}), [5 8; 8 5], [5.0 8.0; 8.0 5.0])
+    @test convert(:(YSE{Float64}), [5 8; 8 5], sparse([5.0 8.0; 8.0 5.0]))
 
     # Aliased version if exact type is provided.
-    input = 5.0
-    res = @tographdata input YSV{Float64}
-    @test same_type_value(res, 5.0)
-
-    input = [5.0]
-    res = @tographdata input YSV{Float64}
-    @test aliased(input, res) # No conversion has been made.
-
-    input = sparse([5.0, 8.0])
-    res = @tographdata input YSN{Float64}
-    @test aliased(input, res)
-
-    input = [5.0 8.0; 8.0 5.0]
-    res = @tographdata input YSM{Float64}
-    @test aliased(input, res)
-
-    input = sparse([5.0 8.0; 8.0 5.0])
-    res = @tographdata input YSE{Float64}
-    @test aliased(input, res)
+    @test convert(:(YSV{Float64}), 5.0, 5.0)
+    @test convert(:(YSV{Float64}), [5.0], Alias) # No conversion has been made.
+    @test convert(:(YSN{Float64}), sparse([5.0, 8.0]), Alias)
+    @test convert(:(YSM{Float64}), [5.0 8.0; 8.0 5.0], Alias)
+    @test convert(:(YSE{Float64}), sparse([5.0 8.0; 8.0 5.0]), Alias)
 
     #---------------------------------------------------------------------------------------
     # To integers, any collection.
 
-    input = 5
-    res = @tographdata input YSV{Int64}
-    @test same_type_value(res, 5)
-
-    input = [5]
-    res = @tographdata input YSV{Int64}
-    @test aliased(input, res) # No conversion has been made.
-
-    input = [5, 8]
-    res = @tographdata input YSN{Int64}
-    @test same_type_value(res, sparse([5, 8]))
-
-    input = [5 8; 8 5]
-    res = @tographdata input YSM{Int64}
-    @test aliased(input, res)
-
-    input = [5 8; 8 5]
-    res = @tographdata input YSE{Int64}
-    @test same_type_value(res, sparse([5 8; 8 5]))
+    @test convert(:(YSV{Int64}), 5, 5)
+    @test convert(:(YSV{Int64}), [5], Alias) # No conversion has been made.
+    @test convert(:(YSN{Int64}), [5, 8], sparse([5, 8]))
+    @test convert(:(YSM{Int64}), [5 8; 8 5], Alias)
+    @test convert(:(YSE{Int64}), [5 8; 8 5], sparse([5 8; 8 5]))
 
     #---------------------------------------------------------------------------------------
     # To booleans, any collection.
 
-    input = 1
-    res = @tographdata input YS{Bool}
-    @test same_type_value(res, true)
-
-    input = [1, 0]
-    res = @tographdata input YSV{Bool}
-    @test same_type_value(res, [true, false])
-
-    input = [false, true]
-    res = @tographdata input YSV{Bool}
-    @test aliased(input, res)
+    @test convert(:(YS{Bool}), 1, true)
+    @test convert(:(YSV{Bool}), [1, 0], [true, false])
+    @test convert(:(YSV{Bool}), [false, true], Alias)
     # etc.
 
     #---------------------------------------------------------------------------------------
-    # To key-value maps, any iterable of pairs.
+    # To ref-value maps, any iterable of pairs.
 
-    input = [1 => 5, (2, 8)] # Index keys.
-    res = @tographdata input K{Float64}
-    @test same_type_value(res, OrderedDict(1 => 5.0, 2 => 8.0))
+    # Index refs.
+    @test convert(:(K{Float64}), [1 => 5, (2, 8)], OrderedDict(1 => 5.0, 2 => 8.0))
 
-    input = ["a" => 5, (:b, 8), ['c', 13]] # Label keys.
-    res = @tographdata input K{Float64}
-    @test same_type_value(res, OrderedDict(:a => 5.0, :b => 8.0, :c => 13.0))
+    # Label refs.
+    @test convert(
+        :(K{Float64}),
+        ["a" => 5, (:b, 8), ['c', 13]],
+        OrderedDict(:a => 5.0, :b => 8.0, :c => 13.0),
+    )
 
-    input = []
-    res = @tographdata input K{Float64}
-    @test same_type_value(res, OrderedDict{Int64,Float64}()) # Default to integer index.
+    # Default to symbol index.
+    @test convert(:(K{Float64}), [], OrderedDict{Symbol,Float64}())
+
+    # Group refs.
+    @test convert(
+        :(K{Float64}),
+        [("a", :b) => 5, [(:c, 'd'), 8], [:e, 13]],
+        OrderedDict(:a => 5.0, :b => 5.0, :c => 8.0, :d => 8.0, :e => 13.0),
+    )
+    @test convert(
+        :(K{Float64}),
+        [(1, 2) => 5, [(3, 4), 8], [5, 13]],
+        OrderedDict(1 => 5.0, 2 => 5.0, 3 => 8.0, 4 => 8.0, 5 => 13.0),
+    )
 
     # Alias by using the exact same type.
-    input = OrderedDict(:a => 5.0, :b => 8.0)
-    res = @tographdata input K{Float64}
-    @test aliased(input, res)
+    @test convert(:(K{Float64}), OrderedDict(:a => 5.0, :b => 8.0), Alias)
 
     # Special binary case.
-    input = [1, 2]
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet([1, 2]))
-
-    input = ["a", :b, 'c']
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet([:a, :b, :c]))
-
-    input = []
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet{Int64}())
-
-    input = OrderedSet([:a, :b, :c])
-    res = @tographdata input K{:bin}
-    @test aliased(input, res)
+    @test convert(:(K{:bin}), [1, 2], OrderedSet([1, 2]))
+    @test convert(:(K{:bin}), ["a", :b, 'c'], OrderedSet([:a, :b, :c]))
+    @test convert(:(K{:bin}), [], OrderedSet{Symbol}())
+    @test convert(:(K{:bin}), OrderedSet([:a, :b, :c]), Alias)
 
     # Accept boolean masks.
-    input = Bool[1, 0, 1, 1, 0]
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet([1, 3, 4]))
-
-    input = sparse(Bool[1, 0, 1, 1, 0])
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet([1, 3, 4]))
+    @test convert(:(K{:bin}), Bool[1, 0, 1, 1, 0], OrderedSet([1, 3, 4]))
+    @test convert(:(K{:bin}), sparse(Bool[1, 0, 1, 1, 0]), OrderedSet([1, 3, 4]))
 
     # Still, use Bool as expected for ternary true/false/miss logic.
-    input = [1 => true, 3 => false]
-    res = @tographdata input K{Bool}
-    @test same_type_value(res, OrderedDict([1 => true, 3 => false]))
+    @test convert(:(K{Bool}), [1 => true, 3 => false], OrderedDict([1 => true, 3 => false]))
+
+    # Use boolean mask as grouped refs.
+    @test convert(
+        :(K{Float64}),
+        [Bool[1, 0, 1, 0, 0] => 5, (sparse(Bool[0, 1, 0, 1, 0]), 8), [5, 13]],
+        OrderedDict(1 => 5.0, 2 => 8.0, 3 => 5.0, 4 => 8.0, 5 => 13.0),
+    )
 
     #---------------------------------------------------------------------------------------
     # To adjacency lists, any nested iterable.
 
-    input = [1 => [5 => 50, 6 => 60], (2, (7 => 14, 8 => 16))]
-    res = @tographdata input A{Float64}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{Float64}),
+        [1 => [5 => 50, 6 => 60], (2, (7 => 14, 8 => 16))],
         OrderedDict(
             1 => OrderedDict(5 => 50.0, 6 => 60.0),
             2 => OrderedDict(7 => 14.0, 8 => 16.0),
         ),
     )
 
-    input = ["a" => [:b => 50, 'c' => 60], ("b", (:c => 14, 'a' => 16))]
-    res = @tographdata input A{Float64}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{Float64}),
+        ["a" => [:b => 50, 'c' => 60], ("b", (:c => 14, 'a' => 16))],
         OrderedDict(
             :a => OrderedDict(:b => 50.0, :c => 60.0),
             :b => OrderedDict(:c => 14.0, :a => 16.0),
         ),
     )
 
-    input = []
-    res = @tographdata input A{Float64}
-    @test same_type_value(res, OrderedDict{Int64,OrderedDict{Int64,Float64}}())
-
-    input = OrderedDict(
-        :a => OrderedDict(:b => 50.0, :c => 60.0),
-        :b => OrderedDict(:c => 14.0, :a => 16.0),
+    # Grouping refs and values on either source or target side.
+    @test convert(
+        :(A{Float64}),
+        [
+            # Group source refs.
+            ("a", :b) => [:c => 5, ['d', 6]],
+            # Specify values per-source.
+            [(:a => 7, ('b', 8)), [:e, 'f']],
+            # Group even more within either lhs..
+            (((['a', :b], 9), 'c' => 10), [:g :h]),
+            # .. or lhs.
+            ('a', :b, "c") => [(:i, 'j') => 11, (:k, 12)],
+        ],
+        #! format: off
+        OrderedDict(
+            :a => OrderedDict(
+                :c => 5.0,
+                :d => 6.0,
+                :e => 7.0,
+                :f => 7.0,
+                :g => 9.0,
+                :h => 9.0,
+                :i => 11.0,
+                :j => 11.0,
+                :k => 12.0,
+            ),
+            :b => OrderedDict(
+                :c => 5.0,
+                :d => 6.0,
+                :e => 8.0,
+                :f => 8.0,
+                :g => 9.0,
+                :h => 9.0,
+                :i => 11.0,
+                :j => 11.0,
+                :k => 12.0,
+            ),
+            :c => OrderedDict(
+                :g => 10.0,
+                :h => 10.0,
+                :i => 11.0,
+                :j => 11.0,
+                :k => 12.0,
+            ),
+        ),
+        #! format: on
     )
-    res = @tographdata input A{Float64}
-    @test aliased(input, res)
+
+    # Same with indices and boolean masks.
+    @test convert(
+        :(A{Float64}),
+        [
+            Bool[1, 1, 0] => [3 => 50, [4, 60]],
+            [(1 => 70, (2, 80)), sparse(Bool[0, 0, 0, 0, 1, 1])],
+            ((([1, 2], 90), 3 => 100), Bool[0, 0, 0, 0, 0, 0, 1, 1]),
+            Bool[1, 1, 1] => [(9, 10) => 110, (11, 120)],
+        ],
+        #! format: off
+        OrderedDict(
+            1 => OrderedDict(
+                3  => 50.0,
+                4  => 60.0,
+                5  => 70.0,
+                6  => 70.0,
+                7  => 90.0,
+                8  => 90.0,
+                9  => 110.0,
+                10 => 110.0,
+                11 => 120.0,
+            ),
+            2 => OrderedDict(
+                3  => 50.0,
+                4  => 60.0,
+                5  => 80.0,
+                6  => 80.0,
+                7  => 90.0,
+                8  => 90.0,
+                9  => 110.0,
+                10 => 110.0,
+                11 => 120.0,
+            ),
+            3 => OrderedDict(
+                7  => 100.0,
+                8  => 100.0,
+                9  => 110.0,
+                10 => 110.0,
+                11 => 120.0,
+            ),
+        ),
+        #! format: on
+    )
+
+    @test convert(:(A{Float64}), [], OrderedDict{Symbol,OrderedDict{Symbol,Float64}}())
+
+    @test convert(
+        :(A{Float64}),
+        OrderedDict(
+            :a => OrderedDict(:b => 50.0, :c => 60.0),
+            :b => OrderedDict(:c => 14.0, :a => 16.0),
+        ),
+        Alias,
+    )
 
     # Special binary case.
-    input = [1 => [5, 6], (2, (7, 8))]
-    res = @tographdata input A{:bin}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{:bin}),
+        [1 => [5, 6], (2, (7, 8))],
         OrderedDict(1 => OrderedSet([5, 6]), 2 => OrderedSet([7, 8])),
     )
 
-    input = ["a" => [:b, 'c'], ("b", (:c, 'a'))]
-    res = @tographdata input A{:bin}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{:bin}),
+        ["a" => [:b, 'c'], ("b", (:c, 'a'))],
         OrderedDict(:a => OrderedSet([:b, :c]), :b => OrderedSet([:c, :a])),
     )
 
-    input = ["a" => :b, ("b", 'c')] # Allow singleton keys.
-    res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict(:a => OrderedSet([:b]), :b => OrderedSet([:c])))
+    @test convert(
+        :(A{:bin}),
+        [(1, 2) => [3], ((2, 3), 1)],
+        OrderedDict(1 => OrderedSet([3]), 2 => OrderedSet([3, 1]), 3 => OrderedSet([1])),
+    )
 
-    input = []
-    res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict{Int64,OrderedSet{Int64}}())
+    @test convert(
+        :(A{:bin}),
+        [("a", :b) => ['c'], (("b", :c), 'a')],
+        OrderedDict(
+            :a => OrderedSet([:c]),
+            :b => OrderedSet([:c, :a]),
+            :c => OrderedSet([:a]),
+        ),
+    )
 
-    input = OrderedDict(1 => OrderedSet([2, 7]), 2 => OrderedSet([3, 8]))
-    res = @tographdata input A{:bin}
-    @test aliased(input, res)
+    # Allow singleton refs.
+    @test convert(
+        :(A{:bin}),
+        ["a" => :b, ("b", 'c')],
+        OrderedDict(:a => OrderedSet([:b]), :b => OrderedSet([:c])),
+    )
+
+    @test convert(:(A{:bin}), [], OrderedDict{Symbol,OrderedSet{Symbol}}())
+
+    @test convert(
+        :(A{:bin}),
+        OrderedDict(1 => OrderedSet([2, 7]), 2 => OrderedSet([3, 8])),
+        Alias,
+    )
 
     # Accept boolean matrices.
-    input = Bool[
-        0 1 0
-        0 0 0
-        1 0 1
-    ]
-    res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])))
+    @test convert(
+        :(A{:bin}),
+        Bool[
+            0 1 0
+            0 0 0
+            1 0 1
+        ],
+        OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])),
+    )
 
-    input = sparse(Bool[
-        0 1 0
-        0 0 0
-        1 0 1
-    ])
-    res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])))
+    @test convert(
+        :(A{:bin}),
+        sparse(Bool[
+            0 1 0
+            0 0 0
+            1 0 1
+        ]),
+        OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])),
+    )
 
     # Ternary logic.
-    input = [1 => [5 => true, 7 => false], (2, ([7, false], 9 => true))]
-    res = @tographdata input A{Bool}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{Bool}),
+        [1 => [5 => true, 7 => false], (2, ([7, false], 9 => true))],
         OrderedDict(
             1 => OrderedDict(5 => true, 7 => false),
             2 => OrderedDict(7 => false, 9 => true),
@@ -272,13 +341,13 @@
     @argfails(
         (@tographdata input YV{Float64}),
         "Could not convert 'input' to either Symbol or Vector{Float64}. \
-         The value received is 5 ::Int64.",
+         The value received is 5 ::$Int.",
     )
 
     input = 5.0
     @argfails(
-        (@tographdata input YSV{Int64}),
-        "Could not convert 'input' to either Symbol, Int64 or Vector{Int64}. \
+        (@tographdata input YSV{Int}),
+        "Could not convert 'input' to either Symbol, $Int or Vector{$Int}. \
          The value received is 5.0 ::Float64.",
     )
 
@@ -287,7 +356,7 @@
         (@tographdata input YSV{Bool}),
         "Error while attempting to convert 'input' to Vector{Bool} \
          (details further down the stacktrace). \
-         Received [0, 1, 2] ::Vector{Int64}.",
+         Received [0, 1, 2] ::Vector{$Int}.",
     )
     # And down the stacktrace:
     @failswith(
@@ -298,98 +367,535 @@
     #---------------------------------------------------------------------------------------
     # More specific failures.
 
-    gc = GraphDataInputs.graphdataconvert # (don't check first error in stacktrace)
-
-    # Maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @argfails(
-        gc((@GraphData K{Float64}), Type),
-        "Key-value mapping input needs to be iterable.",
-    )
-    @argfails(gc((@GraphData K{Float64}), [5]), "Not a key-value pair: 5 ::Int64.")
-    @argfails(gc((@GraphData K{Float64}), "abc"), "Not a key-value pair: 'a' ::Char.")
-    @argfails(
-        gc((@GraphData K{Float64}), [(Type, "a")]),
-        "Cannot convert key to integer or symbol label: \
-         received Type ::UnionAll.",
-    )
-    @argfails(
-        gc((@GraphData K{Float64}), [(5, "a")]),
-        "Map value at key '5' cannot be converted to 'Float64': \
-         received \"a\" ::String.",
-    )
-    @argfails(
-        gc((@GraphData K{Float64}), [(5, 8), (:a, 5)]),
-        "Map key cannot be converted to 'Int64': received :a ::Symbol.",
-    )
-    @argfails(gc((@GraphData K{Float64}), [(5, 8), (5, 9)]), "Duplicated key: 5.")
+    # (don't check first error in stacktrace)
+    gc(type, input, ExpectedRefType = nothing) =
+        GraphDataInputs.graphdataconvert(type, input; ExpectedRefType)
 
     # Binary maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @argfails(gc((@GraphData K{:bin}), Type), "Binary mapping input needs to be iterable.")
-    @argfails(
-        gc((@GraphData K{:bin}), [Type]),
-        "Cannot convert key to integer or symbol label: \
-         received Type ::UnionAll.",
-    )
-    @argfails(
-        gc((@GraphData K{:bin}), [5, :a]),
-        "Map key cannot be converted to 'Int64': \
-         received :a ::Symbol.",
-    )
-    @argfails(gc((@GraphData K{:bin}), [5, 5]), "Duplicated key: 5.")
+    BinMap = @GraphData Map{:bin}
 
-    # Adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @argfails(
-        gc((@GraphData A{Float64}), Type),
-        "Adjacency list input needs to be iterable.",
+    @argfails( #  :not_iterable
+        gc(BinMap, Type),
+        "Input for binary map needs to be iterable.\n\
+         Received: Type ::UnionAll."
     )
-    @argfails(
-        gc((@GraphData A{Float64}), [Type]),
-        "Not a key-value pair: Type ::UnionAll.",
+
+    @argfails( #  :pair_as_iterable
+        gc(BinMap, :a => :b),
+        "The pair at [] is just considered an iterable in this context, \
+         which may be confusing. \
+         Consider using an explicit vector instead like [:a, :b]."
     )
-    @argfails(
-        gc((@GraphData A{Float64}), [5 => 8]),
-        "Error while parsing adjacency list input at key '5' \
-         (see further down the stacktrace).", # (see map error above)
+
+    @argfails( #  :not_a_ref
+        gc(BinMap, [Type]),
+        "Cannot interpret node reference as integer index or symbol label: \
+         received at [1]: Type ::UnionAll.",
     )
-    @argfails(
-        gc((@GraphData A{Float64}), [5 => [:a => 8]]),
-        "Error while parsing adjacency list input at key '5' \
-         (see further down the stacktrace).",
+
+    @argfails( #  :unexpected_ref_type
+        gc(BinMap, [5], Symbol),
+        "Invalid node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1]: 5 ::$Int."
     )
-    # (down the stacktrace)
-    @argfails(
-        gc((@GraphData K{Float64}), ['a' => 8]; expected_I = Int64),
-        "Expected 'Int64' as key types, got 'Symbol' instead \
-         (inferred from first key: 'a' ::Char).",
+
+    @argfails( #  :unexpected_ref_type
+        gc(BinMap, [:label], Int),
+        "Invalid node reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1]: :label ::Symbol."
     )
-    @argfails(
-        gc((@GraphData A{Float64}), [:a => [:b => 8], 'a' => [:c => 9]]),
-        "Duplicated key: :a.",
+
+    @argfails( #  :inconsistent_ref_type
+        gc(BinMap, [5, :a]),
+        "The node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '5', \
+         but a label (Symbol) is now found at [2]: :a ::Symbol.",
+    )
+
+    # :duplicate_node
+    @argfails(gc(BinMap, [5, 5]), "Duplicated node reference at [2]: 5 ::$Int.")
+
+    # (from boolean masks)
+    @argfails( # :boolean_label
+        gc(BinMap, Bool[0, 0, 1, 0, 1], Symbol),
+        "A label-indexed binary map cannot be produced from boolean vectors."
+    )
+
+    # :unexpected_ref_type for boolean masks is tested when used for parsing grouped refs.
+
+    # Maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    Map = @GraphData Map{Float64}
+
+    @argfails( #  :not_iterable
+        gc(Map, Type),
+        "Input for map needs to be iterable.\nReceived: Type ::UnionAll.",
+    )
+
+    #  :not_a_pair
+    @argfails(gc(Map, [5]), "Not a 'reference(s) => value' pair at [1]: 5 ::$Int.")
+    @argfails(gc(Map, "abc"), "Not a 'reference(s) => value' pair at [1]: 'a' ::Char.")
+
+    @argfails( #  :not_a_ref (plain)
+        gc(Map, [(Type, "a")]),
+        "Cannot interpret node reference as integer index or symbol label: \
+         received at [1][left]: Type ::UnionAll.",
+    )
+
+    @argfails( #  :unexpected_ref_type (plain)
+        gc(Map, [(5, "a")], Symbol),
+        "Invalid node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][left]: 5 ::$Int.",
+    )
+
+    @argfails( #  :unexpected_ref_type (plain)
+        gc(Map, [(:label, "a")], Int),
+        "Invalid node reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left]: :label ::Symbol.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (plain)
+        gc(Map, [(5, 8), (:a, 5)]),
+        "The node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '5', \
+         but a label (Symbol) is now found at [2][left]: :a ::Symbol."
+    )
+
+    @argfails( #  :inconsistent_ref_type (plain)
+        gc(Map, [(:a, 5), (8, 5)]),
+        "The node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][left]: 8 ::$Int."
+    )
+
+    @argfails( #  :not_a_ref (grouped)
+        gc(Map, [[:a, Type] => 5]),
+        "Cannot interpret node reference as integer index or symbol label: \
+         received at [1][left][2]: Type ::UnionAll."
+    )
+
+    @argfails( #  :unexpected_ref_type (grouped)
+        gc(Map, [[5, :b] => 8], Symbol),
+        "Invalid node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][left][1]: 5 ::$Int."
+    )
+
+    @argfails( #  :inconsistent_ref_type (grouped)
+        gc(Map, [:a => 5, [:b, 3] => 8]),
+        "The node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][left][2]: 3 ::$Int."
+    )
+
+    @argfails( #  :duplicate_node (grouped)
+        gc(Map, [[:a, :b, :a] => 5]),
+        "Duplicated node reference at [1][left][3]: :a ::Symbol."
+    )
+
+    @argfails( #  :boolean_label
+        gc(Map, [:a => 5, Bool[0, 1, 1] => 8], Symbol),
+        "A label-indexed group of nodes \
+         cannot be produced from boolean vectors \
+         at [2][left]: Bool[0, 1, 1] ::Vector{Bool}."
+    )
+
+    @argfails( #  :inconsistent_ref_type (bool)
+        gc(Map, [:a => 5, Bool[0, 1, 1] => 8]),
+        "The group of nodes reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but a boolean vector (only yielding indices) \
+         is now found at [2][left]: Bool[0, 1, 1] ::Vector{Bool}."
+    )
+
+    @argfails( #  :not_a_value
+        gc(Map, [(5, "a")]),
+        "Expected values of type 'Float64', \
+         received instead at [1][right]: \"a\" ::String.",
+    )
+
+    @argfails( #  :duplicate_node
+        gc(Map, [[:a, :b] => 5, [:c, :a] => 8]),
+        "Duplicated node reference :\n\
+         Received before: a => 5.0\n\
+         Received now   : a => 8 ::$Int at [2][left][2]: :a ::Symbol."
     )
 
     # Binary adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @argfails(
-        gc((@GraphData A{:bin}), Type),
-        "Binary adjacency list input needs to be iterable.",
+    BinAdj = @GraphData Adjacency{:bin}
+
+    @argfails( #  :not_iterable
+        gc(BinAdj, Type),
+        "Input for binary adjacency map needs to be iterable.\n\
+         Received: Type ::UnionAll.",
     )
-    @argfails(gc((@GraphData A{:bin}), [Type]), "Not a key-value pair: Type ::UnionAll.",)
-    @argfails(
-        gc((@GraphData A{:bin}), [5 => [Type]]),
-        "Error while parsing adjacency list input at key '5' \
-         (see further down the stacktrace).", # (see binary map error above)
+
+    @argfails( #  :not_a_pair
+        gc(BinAdj, [Type]),
+        "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
     )
-    @argfails(
-        gc((@GraphData A{:bin}), [:a => [5]]),
-        "Error while parsing adjacency list input at key 'a' \
-         (see further down the stacktrace).",
+
+    @argfails( #  :not_a_ref (plain source)
+        gc(BinAdj, [Type => 5]),
+        "Cannot interpret source node reference as integer index or symbol label: \
+         received at [1][left]: Type ::UnionAll.",
     )
-    # (down the stacktrace)
-    @argfails(
-        gc((@GraphData K{:bin}), [5]; expected_I = Symbol),
-        "Expected 'Symbol' as key types, got 'Int64' instead \
-         (inferred from first key: 5 ::Int64).",
+
+    @argfails( #  :not_a_ref (plain target)
+        gc(BinAdj, [5 => Type]),
+        "Cannot interpret target node reference as integer index or symbol label: \
+         received at [1][right]: Type ::UnionAll.",
     )
-    @argfails(gc((@GraphData A{:bin}), [5 => [8], 4 + 1 => [9]]), "Duplicated key: 5.",)
+
+    @argfails( #  :unexpected_ref_type (plain source)
+        gc(BinAdj, [:a => :b], Int),
+        "Invalid source node reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left]: :a ::Symbol.",
+    )
+
+    @argfails( #  :unexpected_ref_type (plain target)
+        gc(BinAdj, [1 => 2], Symbol),
+        "Invalid source node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][left]: 1 ::$Int.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (plain source)
+        gc(BinAdj, [:a => :b, 2 => :c]),
+        "The source node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][left]: 2 ::$Int.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (plain target)
+        gc(BinAdj, [1 => :b]),
+        "The target node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '1', \
+         but a label (Symbol) is now found at [1][right]: :b ::Symbol.",
+    )
+
+    @argfails( #  :not_a_ref (grouped sources)
+        gc(BinAdj, [2 => 5, [1, Type] => 3]),
+        "Cannot interpret source node reference as integer index or symbol label: \
+         received at [2][left][2]: Type ::UnionAll.",
+    )
+
+    @argfails( #  :not_a_ref (grouped targets)
+        gc(BinAdj, [2 => 5, 1 => [3, Type]]),
+        "Cannot interpret target node reference as integer index or symbol label: \
+         received at [2][right][2]: Type ::UnionAll.",
+    )
+
+    @argfails( #  :unexpected_ref_type (grouped sources)
+        gc(BinAdj, [[:a] => 5], Int),
+        "Invalid source node reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left][1]: :a ::Symbol.",
+    )
+
+    @argfails( #  :unexpected_ref_type (grouped targets)
+        gc(BinAdj, [:a => [:b, :c, 4]], Symbol),
+        "Invalid target node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][right][3]: 4 ::$Int.",
+    )
+
+    @argfails( #   :pair_as_iterable (grouped sources)
+        gc(BinAdj, [(:a => :b) => :c], Symbol),
+        "The pair at [1][left] is just considered an iterable in this context, \
+         which may be confusing. \
+         Consider using an explicit vector instead like [:a, :b].",
+    )
+
+    @argfails( #   :pair_as_iterable (grouped targets)
+        gc(BinAdj, [:a => :b => :c], Symbol),
+        "The pair at [1][right] is just considered an iterable in this context, \
+         which may be confusing. \
+         Consider using an explicit vector instead like [:b, :c].",
+    )
+
+    @argfails( #  :inconsistent_ref_type (grouped sources)
+        gc(BinAdj, [[1, :b, 3] => 4]),
+        "The source node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '1', \
+         but a label (Symbol) is now found at [1][left][2]: :b ::Symbol.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (grouped targets)
+        gc(BinAdj, [:a => [:b, :c, 4]]),
+        "The target node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [1][right][3]: 4 ::$Int.",
+    )
+
+    @argfails( #  :duplicate_node (grouped sources)
+        gc(BinAdj, [:a => :b, :a => :c, [:b, :c, 'b'] => :a]),
+        "Duplicated source node reference at [3][left][3]: 'b' ::Char.",
+    )
+
+    @argfails( #  :boolean_label (sources)
+        gc(BinAdj, [:a => :b, Bool[1, 1, 0] => :c], Symbol),
+        "A label-indexed group of source nodes cannot be produced from boolean vectors \
+         at [2][left]: Bool[1, 1, 0] ::Vector{Bool}.",
+    )
+
+    @argfails( #  :boolean_label (targets)
+        gc(BinAdj, [:a => :b, :c => Bool[1, 1, 0]], Symbol),
+        "A label-indexed group of target nodes cannot be produced from boolean vectors \
+         at [2][right]: Bool[1, 1, 0] ::Vector{Bool}.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (bool sources)
+        gc(BinAdj, [:a => :b, Bool[1, 1, 0] => :c]),
+        "The group of source nodes reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but a boolean vector (only yielding indices) is now found \
+         at [2][left]: Bool[1, 1, 0] ::Vector{Bool}.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (bool targets)
+        gc(BinAdj, [:a => :b, :c => Bool[1, 1, 0]]),
+        "The group of target nodes reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but a boolean vector (only yielding indices) is now found \
+         at [2][right]: Bool[1, 1, 0] ::Vector{Bool}.",
+    )
+
+    @argfails( #  :duplicate_edge
+        gc(BinAdj, [5 => [8], 4 + 1 => [4 * 2]]),
+        "Duplicate edge specification 5 → 8 at [2][right][1]: 8 ::$Int."
+    )
+
+    @argfails( #  :duplicate_edge
+        gc(BinAdj, [[:a, :b] => [:b], :a => [:c, :b]]),
+        "Duplicate edge specification :a → :b at [2][right][2]: :b ::Symbol."
+    )
+
+    @argfails( #  :no_targets
+        gc(BinAdj, [[1, 2] => []]),
+        "No target provided for source 1 at [1][right]."
+    )
+
+    @argfails( #  :no_targets
+        gc(BinAdj, [:a => [:b], :c => ()]),
+        "No target provided for source :c at [2][right]."
+    )
+
+    @argfails( #  :no_sources
+        gc(BinAdj, [[] => [1, 2]]),
+        "No sources provided at [1][left].",
+    )
+
+    @argfails( #  :boolean_label
+        gc(BinAdj, Bool[1 0 1], Symbol),
+        "A label-indexed binary adjacency list cannot be produced from boolean matrices.",
+    )
+
+    # Adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    Adj = @GraphData Adjacency{Float64}
+
+    @argfails( #  :not_iterable
+        gc(Adj, Type),
+        "Input for adjacency map needs to be iterable.\n\
+         Received: Type ::UnionAll.",
+    )
+
+    @argfails( #  :not_a_pair
+        gc(Adj, [Type]),
+        "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
+    )
+
+
+    @argfails( #  :not_a_pair (plain sources) : pick :not_a_ref
+        gc(Adj, [Type => 5]),
+        "Cannot interpret source reference as integer index or symbol label: \
+         received at [1][left]: $Type ::$UnionAll.",
+    )
+
+    @argfails( #  :unexpected_ref_type (plain source)
+        gc(Adj, [:a => 5], Int),
+        "Invalid source reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left]: :a ::Symbol.",
+    )
+
+    @argfails( # :inconsistent_ref_type (plain source)
+        gc(Adj, [(:a => 5) => :b, (1 => 8) => :c]),
+        "The source reference type for this input \
+         was first inferred to be a label ($Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][left][left]: 1 ::$Int.",
+    )
+
+    @argfails( # :not_a_value (plain source)
+        gc(Adj, [(:a => 5im) => :b]),
+        "Expected values of type '$Float64', \
+         received instead at [1][left][right]: 0 + 5im ::$Complex{$Int}.",
+    )
+
+    @argfails( # :not_a_pair (map source) : pick :not_a_ref
+        gc(Adj, [[Type] => 5]),
+        "Cannot interpret source reference as integer index or symbol label: \
+         received at [1][left][1]: $Type ::$UnionAll.",
+    )
+
+    @argfails( # :unexpected_ref_type (map source)
+        gc(Adj, [[5] => 8], Symbol),
+        "Invalid source reference type. \
+         Expected $Symbol (or convertible). \
+         Received instead at [1][left][1]: 5 ::$Int.",
+    )
+
+    @argfails( # :inconsistent_ref_type (map source)
+        gc(Adj, [[5, :a] => 8]),
+        "The source reference type for this input \
+         was first inferred to be an index ($Int) \
+         based on the received '5', \
+         but a label ($Symbol) is now found at [1][left][2]: :a ::$Symbol.",
+    )
+
+    @argfails( # :duplicate_node (map source)
+        gc(Adj, [[:a => 5, :a => 8] => :b]),
+        "Duplicated source reference :\n\
+         Received before: a => 5.0\n\
+         Received now   : a => 8 ::$Int at [1][left][2][left][1]: :a ::$Symbol.",
+    )
+
+    @argfails( # :duplicate_node (map source)
+        gc(Adj, [[:a => 5, [:b, :b] => 8] => :c]),
+        "Duplicated source reference at [1][left][2][left][2]: :b ::$Symbol.",
+    )
+
+    @argfails( # :duplicate_node (map source)
+        gc(Adj, [[:a, :a] => 8]),
+        "Duplicated source reference at [1][left][2]: :a ::$Symbol.",
+    )
+
+    @argfails( # :boolean_label (map source)
+        gc(Adj, [Bool[0, 1, 1, 0] => (2 => 10)], Symbol),
+        "A label-indexed group of sources cannot be produced from boolean vectors \
+         at [1][left]: $Bool[0, 1, 1, 0] ::$Vector{$Bool}.",
+    )
+
+    @argfails( # :inconsistent_ref_type (map source)
+        gc(Adj, [:a => (:b => 5), Bool[0, 1, 1, 0] => (2 => 10)]),
+        "The group of sources reference type for this input \
+         was first inferred to be a label ($Symbol) based on the received ':a', \
+         but a boolean vector (only yielding indices) \
+         is now found at [2][left]: $Bool[0, 1, 1, 0] ::$Vector{$Bool}.",
+    )
+
+    @argfails( # :not_a_value (plain source)
+        gc(Adj, [[:a => 5im] => :b]),
+        "Expected values of type '$Float64', \
+         received instead at [1][left][1][right]: 0 + 5im ::$Complex{$Int}.",
+    )
+
+    # TODO: better explain that the duplication comes from the boolean?
+    # (although this really is a weird input)
+    @argfails( # :duplicate_node (map source)
+        gc(Adj, [[1 => 5, 2 => 8, Bool[0, 1, 1] => 9] => 3]),
+        "Duplicated source reference :\n\
+         Received before: 2 => 8.0\n\
+         Received now   : 2 => 9 ::$Int at [1][left][3][left][1]: 2 ::$Int.",
+    )
+
+    # # # ≈ same on the target side # # #
+    # TODO: I am having a hard time making sure that all error paths are covered.
+    # Design a more systematic way?
+
+    @argfails( #  :not_a_pair (plain targets) : pick :not_a_ref
+        gc(Adj, [5 => Type]),
+        "Cannot interpret target reference as integer index or symbol label: \
+         received at [1][right]: $Type ::$UnionAll.",
+    )
+
+    @argfails( #  :unexpected_ref_type (plain target)
+        gc(Adj, [1 => (:a => 5)], Int),
+        "Invalid target reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][right][left]: :a ::Symbol.",
+    )
+
+    @argfails( # :inconsistent_ref_type (plain target)
+        gc(Adj, [:a => (:b => 5), :c => (3 => 8)]),
+        "The target reference type for this input \
+         was first inferred to be a label ($Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][right][left]: 3 ::$Int.",
+    )
+
+    @argfails( # :not_a_value (plain target)
+        gc(Adj, [:a => (:b => 5im)]),
+        "Expected values of type '$Float64', \
+         received instead at [1][right][right]: 0 + 5im ::$Complex{$Int}.",
+    )
+
+    @argfails( # :not_a_pair (map target) : pick :not_a_ref
+        gc(Adj, [5 => [Type]]),
+        "Cannot interpret target reference as integer index or symbol label: \
+         received at [1][right][1]: $Type ::$UnionAll.",
+    )
+
+    @argfails( # :unexpected_ref_type (map target)
+        gc(Adj, [:a => [2]], Symbol),
+        "Invalid target reference type. \
+         Expected $Symbol (or convertible). \
+         Received instead at [1][right][1]: 2 ::$Int.",
+    )
+
+    @argfails( # :duplicate_node (map target)
+        gc(Adj, [:a => [:b => 5, :b => 8]]),
+        "Duplicated target reference :\n\
+         Received before: b => 5.0\n\
+         Received now   : b => 8 ::$Int at [1][right][2][left][1]: :b ::$Symbol.",
+    )
+
+    @argfails( # :duplicate_node (map target)
+        gc(Adj, [:a => [:b => 5, [:c, :c] => 8]]),
+        "Duplicated target reference at [1][right][2][left][2]: :c ::$Symbol.",
+    )
+
+    @argfails( # :not_a_value (plain target)
+        gc(Adj, [:a => [:b => 5im]]),
+        "Expected values of type '$Float64', \
+         received instead at [1][right][1][right]: 0 + 5im ::$Complex{$Int}.",
+    )
+
+    # # # Specific to Adjacency maps # # #
+
+    @argfails( # :two_values
+        gc(Adj, [(:a => 5) => [:b => 8]]),
+        "Cannot associate values to both source and target ends of edges at [1]:\n\
+         Received LHS: ((:a, 5.0),)\n\
+         Received RHS: $OrderedDict(:b => 8.0).",
+    )
+
+    @argfails( # :no_value
+        gc(Adj, [:a => [:b, :c]]),
+        "No values found for either source or target end of edges at [1]:\n\
+         Received LHS: (:a,)\n\
+         Received RHS: $OrderedSet{$Symbol}([:b, :c])."
+    )
+
+    @argfails( # :duplicate_edge
+        gc(Adj, [:a => [:b => 5, :c => 8], [:a => 13] => [:c, :d]]),
+        "Duplicate edge specification:\n\
+         Previously received: :a → :c (8.0)\n\
+         Now received:        :a → :c (13.0) at [2][right][1]: :c ::$Symbol."
+    )
+
+    @argfails( # :no_targets
+        gc(Adj, [:a => []]),
+        "No target provided for `target => value` pair at [1][left][1].",
+    )
+
+    @argfails( # :no_sources
+        gc(Adj, [[] => :b]),
+        "No sources provided at [1][left][0].",
+    )
 
     # ======================================================================================
     # Invalid uses.
@@ -420,7 +926,7 @@ end
     @test nrefs(l) == 0
     @test collect(refs(l)) == []
     @test nrefspace(l) == 0
-    @test refspace(l) == 0
+    @test refspace(l) == OrderedDict{Symbol,Int}()
     @test collect(accesses(l)) == []
     @test empty_space(0)
     @test !inspace((0,), 0) && !inspace((1,), 0)

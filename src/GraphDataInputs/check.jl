@@ -257,7 +257,7 @@ function check_list_refs(
     # Check that there is anything to check.
     if empty_space(space) && !isempty(list)
         lv = level(list)
-        rt = reftype(list)
+        rt = refname(list)
         checkfails("No possible valid $lv $rt in '$name' \
                    like $(disp_access(first(accesses(list)))): \
                    the reference space for '$item' is empty.")
@@ -267,7 +267,7 @@ function check_list_refs(
     for acc in accesses(list)
         inspace(acc, space) && continue
         lv = level(list)
-        rt = reftype(list)
+        rt = refname(list)
         checkfails("Invalid '$item' $lv $rt in '$name'. \
                     $(outspace(acc, space, get_value(list, acc)))")
     end
@@ -284,10 +284,10 @@ end
 # For error messages.
 level(::UMap) = "node"
 level(::UAdjacency) = "edge"
-reftype(::UList{Int64}) = "index"
-reftype(::UList{Symbol}) = "label"
-reftypes(::UList{Int64}) = "indices"
-reftypes(::UList{Symbol}) = "labels"
+refname(::UList{Int64}) = "index"
+refname(::UList{Symbol}) = "label"
+refnames(::UList{Int64}) = "indices"
+refnames(::UList{Symbol}) = "labels"
 outspace(acc, n::Int64, val) =
     "Index does not fall within the valid range 1:$n: $(disp_access(acc)) ($(repr(val)))."
 outspace(acc, x::Index, val) =
@@ -324,11 +324,11 @@ function check_templated_refs(list, space, template, name, item)
         index = to_index(acc, space)
         complies_to_template(index) && continue
         lv = level(list)
-        rt = reftype(list)
+        rt = refname(list)
         val = get_value(list, acc)
         checkfails("Invalid '$item' $lv $rt in '$name': \
                     $(disp_access(acc)) ($(repr(val))). \
-                    $(valids(index, acc, space, template, reftypes(list)))")
+                    $(valids(index, acc, space, template, refnames(list)))")
     end
 end
 
@@ -406,7 +406,7 @@ check_missing_refs(list, space, template, name, item) =
         for needle in needles(space, template)
             needle in haystack && continue
             lv = level(list)
-            rt = reftype(list)
+            rt = refname(list)
             checkfails("Missing '$item' $lv $rt in '$name': \
                         no value specified for $(disp_access(needle)).")
         end
