@@ -67,31 +67,41 @@ function graphdataconvert(
     expected_I = nothing, # Use if somehow imposed by the calling context.
 ) where {T}
     applicable(iterate, input) || argerr("Key-value mapping input needs to be iterable.")
-    it = iterate(input)
+    it_pairs = iterate(input)
 
-    # Key type cannot be inferred if input is empty. Arbitrary default to integers.
-    if isnothing(it)
-        I = isnothing(expected_I) ? Int64 : expected_I
+    # Reference type cannot be inferred if input is empty.
+    # Default to labels because they are stable in case of nodes deletions.
+    if isnothing(it_pairs)
+        I = isnothing(expected_I) ? Symbol : expected_I
         return Map{I,T}()
     end
 
     # If there is a first element, use it to infer key type.
-    pair, it = it
-    key, value = checked_pair_split(pair)
-    I = infer_key_type(key)
-    check_key_type(I, expected_I, key)
-    key, value = checked_pair_convert((I, T), (key, value))
+    pair, it_pairs = it_pairs
+    refs, value = checked_pair_split(pair)
+    refs = to_grouped_refs(refs)
+    it_refs = iterate(refs)
+    isnothing(it_refs) && argerr("No reference received for value: $(repr(pair)).")
+    first_ref, _ = it_refs
+    I = infer_ref_type(first_ref)
     res = Map{I,T}()
-    res[key] = value
+    for ref in refs
+        check_ref_type(I, expected_I, ref)
+        ref, value = checked_pair_convert((I, T), (ref, value))
+        res[ref] = value
+    end
 
     # Then fill up the map.
-    it = iterate(input, it)
-    while !isnothing(it)
-        pair, it = it
-        key, value = checked_pair_convert((I, T), checked_pair_split(pair))
-        haskey(res, key) && duperr(key)
-        res[key] = value
-        it = iterate(input, it)
+    it_pairs = iterate(input, it_pairs)
+    while !isnothing(it_pairs)
+        pair, it_pairs = it_pairs
+        # HERE: split this check into check-value first and then check-ref for every ref.
+        refs, value = checked_pair_convert((I, T), checked_pair_split(pair))
+        for ref in to_grouped_refs(refs)
+            haskey(res, ref) && duperr(ref)
+            res[ref] = value
+        end
+        it_pairs = iterate(input, it_pairs)
     end
     res
 end
@@ -107,9 +117,9 @@ function graphdataconvert(::Type{BinMap{<:Any}}, input; expected_I = nothing)
 
     # Type inference from first element.
     key, it = it
-    I = infer_key_type(key)
-    check_key_type(I, expected_I, key)
-    key = checked_key_convert(I, key)
+    I = infer_ref_type(key)
+    check_ref_type(I, expected_I, key)
+    key = checked_ref_convert(I, key)
     res = BinMap{I}()
     push!(res, key)
 
@@ -117,7 +127,7 @@ function graphdataconvert(::Type{BinMap{<:Any}}, input; expected_I = nothing)
     it = iterate(input, it)
     while !isnothing(it)
         key, it = it
-        key = checked_key_convert(I, key)
+        key = checked_ref_convert(I, key)
         key in res && duperr(key)
         push!(res, key)
         it = iterate(input, it)
@@ -164,9 +174,9 @@ function graphdataconvert(::Type{Adjacency{<:Any,T}}, input; expected_I = nothin
     # Treat values as regular maps.
     pair, it = it
     key, value = checked_pair_split(pair)
-    I = infer_key_type(key)
-    check_key_type(I, expected_I, key)
-    key = checked_key_convert(I, key)
+    I = infer_ref_type(key)
+    check_ref_type(I, expected_I, key)
+    key = checked_ref_convert(I, key)
     value = submap((@GraphData {Map}{T}), value, I, key)
     res = Adjacency{I,T}()
     res[key] = value
@@ -176,7 +186,7 @@ function graphdataconvert(::Type{Adjacency{<:Any,T}}, input; expected_I = nothin
     while !isnothing(it)
         pair, it = it
         key, value = checked_pair_split(pair)
-        key = checked_key_convert(I, key)
+        key = checked_ref_convert(I, key)
         value = submap((@GraphData {Map}{T}), value, I, key)
         haskey(res, key) && duperr(key)
         res[key] = value
@@ -197,9 +207,9 @@ function graphdataconvert(::Type{BinAdjacency{<:Any}}, input; expected_I = nothi
     # Type inference from first element.
     pair, it = it
     key, value = checked_pair_split(pair)
-    I = infer_key_type(key)
-    check_key_type(I, expected_I, key)
-    key = checked_key_convert(I, key)
+    I = infer_ref_type(key)
+    check_ref_type(I, expected_I, key)
+    key = checked_ref_convert(I, key)
     value = submap((@GraphData {Map}{:bin}), value, I, key)
     res = BinAdjacency{I}()
     res[key] = value
@@ -209,7 +219,7 @@ function graphdataconvert(::Type{BinAdjacency{<:Any}}, input; expected_I = nothi
     while !isnothing(it)
         pair, it = it
         key, value = checked_pair_split(pair)
-        key = checked_key_convert(I, key)
+        key = checked_ref_convert(I, key)
         value = submap((@GraphData {Map}{:bin}), value, I, key)
         haskey(res, key) && duperr(key)
         res[key] = value
@@ -280,16 +290,23 @@ end
 #-------------------------------------------------------------------------------------------
 # Conversion helpers.
 
-duperr(key) = argerr("Duplicated key: $(repr(key)).")
+duperr(ref) = argerr("Duplicated reference: $(repr(ref)).")
 
-function infer_key_type(key)
-    applicable(graphdataconvert, Int64, key) && return Int64
-    applicable(graphdataconvert, Symbol, key) && return Symbol
-    argerr("Cannot convert key to integer or symbol label: \
-            received $(repr(key)) ::$(typeof(key)).")
+function infer_ref_type(ref)
+    applicable(graphdataconvert, Int64, ref) && return Int64
+    applicable(graphdataconvert, Symbol, ref) && return Symbol
+    argerr("Cannot convert reference to integer index or symbol label: \
+            received $(repr(ref)) ::$(typeof(ref)).")
 end
 
-check_key_type(I, expected_I, first_key) =
+# Normalize ungrouped refs into iterable singleton refs group.
+to_grouped_refs(refs) = if applicable(iterate, refs) && !(refs isa Integer)
+    refs
+else
+    (refs,)
+end
+
+check_ref_type(I, expected_I, first_key) =
     isnothing(expected_I) ||
     I == expected_I ||
     argerr("Expected '$expected_I' as key types, got '$I' instead \
@@ -304,12 +321,12 @@ checked_pair_split(pair) =
         argerr("Not a key-value pair: $(repr(pair)) ::$(typeof(pair)).")
     end
 
-checked_key_convert(I, key) =
+checked_ref_convert(I, ref) =
     try
-        graphdataconvert(I, key)
+        graphdataconvert(I, ref)
     catch
-        argerr("Map key cannot be converted to '$(I)': \
-                received $(repr(key)) ::$(typeof(key)).")
+        argerr("Map reference cannot be converted to '$(I)': \
+                received $(repr(ref)) ::$(typeof(ref)).")
     end
 
 checked_value_convert(T, value, key) =
@@ -321,7 +338,7 @@ checked_value_convert(T, value, key) =
     end
 
 checked_pair_convert((I, T), (key, value)) =
-    (checked_key_convert(I, key), checked_value_convert(T, value, key))
+    (checked_ref_convert(I, key), checked_value_convert(T, value, key))
 
 submap(::Type{M}, input, I, key) where {M<:Map} =
     try
