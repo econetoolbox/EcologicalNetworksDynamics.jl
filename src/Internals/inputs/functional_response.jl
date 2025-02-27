@@ -27,6 +27,9 @@ struct LinearResponse <: FunctionalResponse
 end
 #### end ####
 
+Base.:(==)(a::U, b::V) where {U<:FunctionalResponse,V<:FunctionalResponse} =
+    U == V && equal_fields(a, b)
+
 #### Type display ####
 """
 One line display FunctionalResponse

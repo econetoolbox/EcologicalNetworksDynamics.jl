@@ -24,4 +24,6 @@ else
     end
 end
 
+Framework.LOCAL_MACROCALLS = false
+
 end

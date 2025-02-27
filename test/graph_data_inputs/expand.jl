@@ -4,12 +4,12 @@
     # Symbols.
 
     input = :a
-    res = @build_from_symbol(input, a => 4 + 5, b => "nope", c => unevaluated)
-    res = @build_from_symbol(input, :a => 4 + 5, :b => "nope", :c => unevaluated)
+    res = @expand_symbol(input, a => 4 + 5, b => "nope", c => unevaluated)
+    res = @expand_symbol(input, :a => 4 + 5, :b => "nope", :c => unevaluated)
     @test res == 9
 
     # Use sophisticated expressions if needed.
-    res = @build_from_symbol(
+    res = @expand_symbol(
         input,
         a => begin
             temp = 5
@@ -24,24 +24,24 @@
     @test !(@isdefined temp)
 
     # Incorrect uses.
-    @failswith(@build_from_symbol(input, a), MethodError, expansion)
+    @failswith(@expand_symbol(input, a), MethodError, expansion)
     @xargfails(
-        @build_from_symbol(input, 4 + 5),
+        @expand_symbol(input, 4 + 5),
         [
-            "Invalid @build_from_symbol macro use at",
+            "Invalid @expand_symbol macro use at",
             "Expected `symbol => expression` pairs. Got :(4 + 5).",
         ]
     )
     @xargfails(
-        @build_from_symbol(input, (4 + 5) => 8),
+        @expand_symbol(input, (4 + 5) => 8),
         [
-            "Invalid @build_from_symbol macro use at",
+            "Invalid @expand_symbol macro use at",
             "Expected `symbol => expression` pairs. Got :(4 + 5 => 8).",
         ]
     )
     input = :wrong
     @argfails( # Invoker failed to meet assumptions.
-        @build_from_symbol(input, a => 5),
+        @expand_symbol(input, a => 5),
         "⚠ Incorrectly checked symbol for input: :wrong. \
          This is a bug in the package. \
          Consider reporting if you can reproduce with a minimal example."
@@ -184,9 +184,35 @@
     input = gc((@GraphData K{Float64}), [:c => 8, :a => 7, :b => 9])
     @test to_dense_vector(input, index) == [7.0, 9.0, 8.0]
 
+    input = Dict(:c => 3, :a => 1, :b => 2)
+    @test to_dense_refs(input) == [:a, :b, :c]
+
     #---------------------------------------------------------------------------------------
     # Matrices from adjacency lists.
 
+    # To dense data (watch not to miss data).
+    small, large =
+        (Dict(Symbol(c) => i for (i, c) in enumerate(letters)) for letters in ("ab", "ABC"))
+
+    input = gc(
+        (@GraphData A{Float64}),
+        [1 => [3 => 5, 1 => 8, 2 => 4], 2 => [2 => 9, 3 => 7, 1 => 3]],
+    )
+    @test to_dense_matrix(input) == [
+        8 4 5
+        3 9 7
+    ]
+
+    input = gc(
+        (@GraphData A{Float64}),
+        [:a => [:C => 5, :A => 8, :B => 4], :b => [:B => 9, :C => 7, :A => 3]],
+    )
+    @test to_dense_matrix(input, small, large) == [
+        8 4 5
+        3 9 7
+    ]
+
+    # To sparse data.
     small, large = (
         Dict(Symbol(c) => i for (i, c) in enumerate(letters)) for
         letters in ("abc", "ABCDE")
@@ -332,6 +358,24 @@
 
     input = "not a map"
     @to_sparse_matrix_if_adjacency input small large
+    @test input == "not a map"
+
+    # Dense matrix.
+    small, large =
+        (Dict(Symbol(c) => i for (i, c) in enumerate(letters)) for letters in ("ab", "ABC"))
+
+    input = gc(
+        (@GraphData A{Float64}),
+        [1 => [1 => 8, 2 => 5, 3 => 4], 2 => [2 => 7, 1 => 9, 3 => 2]],
+    )
+    @to_dense_matrix_if_adjacency input small large
+    @test input == [
+        8 5 4
+        9 7 2
+    ]
+
+    input = "not a map"
+    @to_dense_matrix_if_adjacency input small large
     @test input == "not a map"
 
 end

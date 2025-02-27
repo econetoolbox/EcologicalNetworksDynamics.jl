@@ -1,70 +1,94 @@
 # Set or generate handling times for every trophic link in the model.
-#
-# Handling times are either given as raw values,
-# or they are calculated from temperature-dependent allometric rules.
-#
-# Adapted from efficiency (for raw values)
-# and carrying capacity (for temperature dependence).
+
+# Mostly duplicated from Efficiency.
+
+# (reassure JuliaLS)
+(false) && (local HandlingTime, _HandlingTime)
 
 # ==========================================================================================
-abstract type HandlingTime <: ModelBlueprint end
-# All subtypes must require(Foodweb).
-
-# Construct either variant based on user input,
-# but disallow direct allometric input in this constructor,
-# for consistence with other allometry-compliant biorates.
-function HandlingTime(h_t)
-
-    @check_if_symbol h_t (:Miele2019, :Binzer2016)
-
-    if h_t == :Binzer2016
-        HandlingTimeFromTemperature(h_t)
-    else
-        HandlingTimeFromRawValues(h_t)
-    end
-
-end
-
-export HandlingTime
+module HandlingTime_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Foodweb, _Foodweb, BodyMass, MetabolicClass, _Temperature
 
 #-------------------------------------------------------------------------------------------
-mutable struct HandlingTimeFromRawValues <: HandlingTime
-    h_t::@GraphData {Scalar, Symbol, SparseMatrix, Adjacency}{Float64}
-    function HandlingTimeFromRawValues(h_t)
-        @check_if_symbol h_t (:Miele2019,)
-        new(@tographdata h_t SYEA{Float64})
-    end
+mutable struct Raw <: Blueprint
+    h_t::SparseMatrix{Float64}
+    foodweb::Brought(Foodweb)
+    Raw(h_t, foodweb = _Foodweb) = new(@tographdata(h_t, SparseMatrix{Float64}), foodweb)
 end
+F.implied_blueprint_for(bp::Raw, ::_Foodweb) = Foodweb(bp.h_t .!= 0)
+@blueprint Raw "sparse matrix"
+export Raw
 
-# Default times from Miele2019 require a value of M.
-F.buildsfrom(bp::HandlingTimeFromRawValues) =
-    (bp.h_t == :Miele2019) ?
-    [BodyMass => "Miele2019 method for calculating handling times \
-                  requires individual body mass data."] : []
+F.early_check(bp::Raw) = check_edges(check, bp.h_t)
+check(h_t, ref = nothing) = check_value(>=(0), h_t, ref, :h_t, "Not a positive value")
 
-function F.check(model, bp::HandlingTimeFromRawValues)
-    (; _A, _species_index) = model
+function F.late_check(raw, bp::Raw)
     (; h_t) = bp
-    @check_if_symbol h_t (:Miele2019,)
-    @check_refs_if_list h_t "trophic link" _species_index template(_A)
-    @check_template_if_sparse h_t _A "trophic link"
+    A = @ref raw.trophic.matrix
+    @check_template h_t A "trophic links"
 end
 
-function F.expand!(model, bp::HandlingTimeFromRawValues)
-    (; _A, _species_index) = model
-    (; h_t) = bp
-    ind = _species_index
-    @expand_if_symbol(h_t, :Miele2019 => Internals.handling_time(model._foodweb))
-    @to_sparse_matrix_if_adjacency h_t ind ind
-    @to_template_if_scalar Real h_t _A
-    model._scratch[:handling_time] = h_t
-end
+F.expand!(raw, bp::Raw) = expand!(raw, bp.h_t)
 
-@component HandlingTimeFromRawValues requires(Foodweb)
-export HandlingTimeFromRawValues
+# Stored only in scratch space: only used within adequate functional response.
+expand!(raw, h_t) = raw._scratch[:handling_time] = h_t
 
 #-------------------------------------------------------------------------------------------
-binzer2016_handling_time_allometry_rates() = (
+mutable struct Flat <: Blueprint
+    h_t::Float64
+end
+@blueprint Flat "uniform handling time" depends(Foodweb)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.h_t)
+function F.expand!(raw, bp::Flat)
+    (; h_t) = bp
+    A = @ref raw.trophic.matrix
+    h_t = to_template(h_t, A)
+    expand!(raw, h_t)
+end
+
+#-------------------------------------------------------------------------------------------
+mutable struct Adjacency <: Blueprint
+    h_t::@GraphData Adjacency{Float64}
+    foodweb::Brought(Foodweb)
+    Adjacency(h_t, foodweb = _Foodweb) = new(@tographdata(h_t, Adjacency{Float64}), foodweb)
+end
+function F.implied_blueprint_for(bp::Adjacency, ::_Foodweb)
+    (; h_t) = bp
+    Foodweb(@tographdata h_t Adjacency{:bin})
+end
+@blueprint Adjacency "[predactor => [prey => handling time]] adjacency list"
+export Adjacency
+
+F.early_check(bp::Adjacency) = check_edges(check, bp.h_t)
+function F.late_check(raw, bp::Adjacency)
+    (; h_t) = bp
+    index = @ref raw.species.index
+    A = @ref raw.trophic.matrix
+    @check_list_refs h_t "trophic link" index template(A)
+end
+
+function F.expand!(raw, bp::Adjacency)
+    index = @ref raw.species.index
+    h_t = to_sparse_matrix(bp.h_t, index, index)
+    expand!(raw, h_t)
+end
+
+#-------------------------------------------------------------------------------------------
+# With Miele2019 formulae.
+mutable struct Miele2019 <: Blueprint end
+@blueprint Miele2019 "body masses" depends(BodyMass)
+export Miele2019
+function F.expand!(raw, ::Miele2019)
+    h_t = Internals.handling_time(raw._foodweb)
+    expand!(raw, h_t)
+end
+
+#-------------------------------------------------------------------------------------------
+binzer2016_allometry_rates() = (
     E_a = 0.26,
     allometry = Allometry(;
         producer = (a = 0, b = -0.45, c = 0.47), # ? Is that intended @hanamayall?
@@ -73,67 +97,80 @@ binzer2016_handling_time_allometry_rates() = (
     ),
 )
 
-mutable struct HandlingTimeFromTemperature <: HandlingTime
+mutable struct Temperature <: Blueprint
     E_a::Float64
     allometry::Allometry
-    HandlingTimeFromTemperature(E_a; kwargs...) =
-        new(E_a, parse_allometry_arguments(kwargs))
-    HandlingTimeFromTemperature(E_a, allometry::Allometry) = new(E_a, allometry)
-    function HandlingTimeFromTemperature(default::Symbol)
-        @check_if_symbol default (:Binzer2016,)
-        return @build_from_symbol default (
-            :Binzer2016 => new(binzer2016_handling_time_allometry_rates()...)
-        )
+    Temperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
+    Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
+    function Temperature(default::Symbol)
+        @check_symbol default (:Binzer2016,)
+        @expand_symbol default (:Binzer2016 => new(binzer2016_allometry_rates()...))
     end
 end
+@blueprint Temperature "allometric rates and activation energy" depends(
+    _Temperature,
+    BodyMass,
+    MetabolicClass,
+)
+export Temperature
 
-F.buildsfrom(::HandlingTimeFromTemperature) = [Temperature, BodyMass, MetabolicClass]
-
-function F.check(_, bp::HandlingTimeFromTemperature)
-    al = bp.allometry
-    (_, template) = binzer2016_handling_time_allometry_rates()
-    check_template(al, template, "handling times from temperature")
+function F.early_check(bp::Temperature)
+    (; allometry) = bp
+    check_template(
+        allometry,
+        binzer2016_allometry_rates()[2],
+        "handling time (from temperature)",
+    )
 end
 
-function F.expand!(model, bp::HandlingTimeFromTemperature)
-    (; _M, T, _metabolic_classes, _A) = model
+function F.expand!(raw, bp::Temperature)
     (; E_a) = bp
-    h_t = sparse_edges_allometry(bp.allometry, _A, _M, _metabolic_classes; E_a, T)
-    model._scratch[:handling_time] = h_t
+    T = @get raw.T
+    M = @ref raw.M
+    mc = @ref raw.metabolic_class
+    A = @ref raw.trophic.matrix
+    h_t = sparse_edges_allometry(bp.allometry, A, M, mc; E_a, T)
+    expand!(raw, h_t)
 end
 
-@component HandlingTimeFromTemperature requires(Foodweb)
-export HandlingTimeFromTemperature
-
-#-------------------------------------------------------------------------------------------
-@conflicts(HandlingTimeFromRawValues, HandlingTimeFromTemperature)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:HandlingTime}) = HandlingTime
+end
 
 # ==========================================================================================
+@component HandlingTime{Internal} requires(Foodweb) blueprints(HandlingTime_)
+export HandlingTime
+
+function (::_HandlingTime)(h_t)
+
+    h_t = @tographdata h_t {Symbol, Scalar, SparseMatrix, Adjacency}{Float64}
+    @check_if_symbol h_t (:Miele2019, :Binzer2016)
+
+    if h_t isa Symbol
+        @expand_symbol(
+            h_t,
+            :Miele2019 => HandlingTime.Miele2019(),
+            :Binzer2016 => HandlingTime.Temperature(h_t),
+        )
+    elseif h_t isa Real
+        HandlingTime.Flat(h_t)
+    elseif h_t isa AbstractMatrix
+        HandlingTime.Raw(h_t)
+    else
+        HandlingTime.Adjacency(h_t)
+    end
+
+end
+
 @expose_data edges begin
     property(handling_time)
-    get(HandlingTimes{Float64}, sparse, "trophic link")
-    ref(m -> m._scratch[:handling_time])
-    template(m -> m._A)
-    write!((m, rhs, i, j) -> (m._handling_time[i, j] = rhs))
-    @species_index
     depends(HandlingTime)
+    @species_index
+    ref(raw -> raw._scratch[:handling_time])
+    get(HandlingTimes{Float64}, sparse, "trophic link")
+    template(raw -> @ref raw.trophic.matrix)
+    write!((raw, rhs::Real, i, j) -> HandlingTime_.check(rhs, (i, j)))
 end
 
-# ==========================================================================================
-display_short(bp::HandlingTime; kwargs...) = display_short(bp, HandlingTime; kwargs...)
-display_long(bp::HandlingTime; kwargs...) = display_long(bp, HandlingTime; kwargs...)
-function F.display(model, ::Type{<:HandlingTime})
-    nz = findnz(model._handling_time)[3]
-    "Handling time: " * if isempty(nz)
-        "·"
-    else
-        min, max = minimum(nz), maximum(nz)
-        if min == max
-            "$min"
-        else
-            "$min to $max."
-        end
-    end
+function F.shortline(io::IO, model::Model, ::_HandlingTime)
+    print(io, "Handling time: ")
+    showrange(io, model._handling_time)
 end
