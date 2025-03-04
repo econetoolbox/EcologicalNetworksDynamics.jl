@@ -109,7 +109,8 @@ supported by the LabEx CeMEB,
 an ANR "Investissements d'avenir" program (ANR-10-LABX-04-01).
 
 <p align="center" width="100%">
-    <img height="100" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/isem.png">
-    <img height="100" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/cnrs.png">
-    <img height="100" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/mbb.png">
+    <img height="75" src="https://www.ukri.org/wp-content/uploads/2022/03/ukri-nerc-square-logo.png">
+    <img height="75" src="https://www.cnrs.fr/sites/default/files/logo/logo.svg">
+    <img height="75" src="https://www.labex-cemeb.org/sites/default/files/styles/plateforme/public/mbb.png?itok=XnA8W3ye">
+    <img height="75" src="https://isem-evolution.fr/wp-content/uploads/2020/10/LOGO_ISEM.svg">
 </p>
