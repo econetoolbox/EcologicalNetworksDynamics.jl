@@ -1,54 +1,59 @@
-# Convenience macro for defining components.
+# Convenience macro for defining a new component.
 #
-# Invoker defines the blueprint struct
-# and associated check/expand! methods the way they wish,
-# and then calls:
+# Invoker defines possible abstract component supertype,
+# and/or some blueprints types providing only the created component,
+# then invokes:
 #
-#   @component Blueprint requires(components...) implies(blueprints...)
+#   @component Name{ValueType} requires(components...) blueprints(name::Type, ...)
 #
-# Or alternately:
+# Or:
+#
+#   @component Name <: SuperComponentType requires(components...) blueprints(name::Type, ...)
+#
+# This alternate block-form is supported:
 #
 #   @component begin
-#       Blueprint
+#       Name{ValueType}
+#  (or) Name <: SuperComponentType
 #       requires(components...)
-#       implies(blueprints...)
+#       blueprints(name::Type, ModuleName, ...) # (all @blueprints exported from module)
 #   end
 #
-# The blueprint 'implied' are either trivial and specified as `Implied()`
-# in which case the following method is generated:
+# Consistency checks are run by the macro then by the generated code.
+# When all check pass, the following (approximate) component code
+# should result from expansion:
 #
-#   construct_implied(::Typeof{Implied}, ::Blueprint) = Implied()
+# ------------------------------------------------------------------
+#   # Component type.
+#   struct _Name <: SuperComponentType (or Component{ValueType})
+#     Blueprint1::Type{Blueprint{ValueType}}
+#     Blueprint2::Type{Blueprint{ValueType}}
+#     ...
+#   end
 #
-# Or they are nontrivial and specified as `Implied`:
+#   # Component singleton value.
+#   const Name = _Name(
+#       BlueprintType1,
+#       BlueprintType2,
+#       ...
+#   )
+#   singleton_instance(::Type{_Name}) = Name
 #
-#   construct_implied(::Typeof{Implied}, b::Blueprint) = Implied(b)
+#   # Base blueprints.
+#   componentsof(::Blueprint1) = (_Name,)
+#   componentsof(::Blueprint2) = (_Name,)
+#   ...
 #
-# and then invoker is responsible for having defined:
+#   requires(::Type{_Name}) = ...
+# ------------------------------------------------------------------
 #
-#   Implied(::Blueprint) = ...
-#
-# If useful, invoker can also define:
-#
-#   can_imply(::Blueprint, ::Type{Implied}) = ...
-#
-# this defaults to `true`
-# unless the blueprint data can possibly be not sufficient
-# to calculate the implied component.
-# This is referred to as *optional* implication.
-#
-# Regarding the blueprints 'brought': make an ergonomic BET:
-# any blueprint field subtyping 'Blueprint' is considered brought,
-# so it feels like "subblueprints" or "subcomponents".
-# Also, any field subtyping 'Union{Nothing,<:Blueprint}'
-# is considered *optionally* brought depending on the blueprint value.
-#
-# The components corresponding to both blueprints 'implied' and 'brought',
-# are automatically be recorded as 'required',
-# even if unspecified in the 'required' section.
-#
-# The code checking macro invocation consistency requires
-# that these pre-requisites be specified *prior* to invocation.
 macro component(input...)
+    # Extract function to ease debugging with Revise.
+    component_macro(__module__, __source__, input...)
+end
+export @component
+
+function component_macro(__module__, __source__, input...)
 
     # Push resulting generated code to this variable.
     res = quote end
@@ -58,7 +63,7 @@ macro component(input...)
     perr(mess) = throw(ItemMacroParseError(:component, __source__, mess))
 
     # Raise *during execution* if the macro was invoked with inconsistent input.
-    # (assuming `NewComponent` generated variable has been set)
+    # (assuming the `NewComponent` generated variable has been set)
     src = Meta.quot(__source__)
     push_res!(
         quote
@@ -68,9 +73,10 @@ macro component(input...)
         end,
     )
 
-    # Convenience wrap.
+    # Convenience local wrap.
     tovalue(xp, ctx, type) = to_value(__module__, xp, ctx, :xerr, type)
-    tocomptype(xp, ctx) = to_component_type(__module__, xp, :ValueType, ctx, :xerr)
+    tobptype(xp, ctx) = to_blueprint_type(__module__, xp, :ValueType, ctx, :xerr)
+    tocomp(xp, ctx) = to_component(__module__, xp, :ValueType, ctx, :xerr)
 
     #---------------------------------------------------------------------------------------
     # Parse macro input,
@@ -86,230 +92,144 @@ macro component(input...)
         perr(
             "$(li == 0 ? "Not enough" : "Too much") macro input provided. Example usage:\n\
              | @component begin\n\
-             |      Blueprint\n\
+             |      Name <: SuperComponent\n\
              |      requires(...)\n\
-             |      implies(...)\n\
+             |      blueprints(...)\n\
              | end\n",
         )
     end
 
-    # The first section needs to be a concrete component.
-    # Use it to extract the associated underlying expected system value type,
-    # checked for consistency against upcoming other specified component.
-    blueprint_xp = input[1]
+    # Extract component name, value type and supercomponent from the first section.
+    component_xp = input[1]
+    (false) && (local name, value_type, super) # (reassure JuliaLS)
+    @capture(component_xp, name_{value_type_} | (name_ <: super_))
+    isnothing(name) &&
+        perr("Expected component `Name{ValueType}` or `Name <: SuperComponent`, \
+              got instead: $(repr(component_xp)).")
+    if !isnothing(super)
+        # Infer value type from the abstract supercomponent.
+        # Same, for abstract component types.
+        is_identifier_path(super) ||
+            perr("Expected supercomponent path, got: $(repr(super)).")
+        push_res!(
+            quote
+                SuperComponent =
+                    $(tovalue(super, "Evaluating given supercomponent", DataType))
+                if !(SuperComponent <: Component)
+                    xerr("Supercomponent: $SuperComponent does not subtype $Component.")
+                end
+                ValueType = system_value_type(SuperComponent)
+            end,
+        )
+    elseif !isnothing(value_type)
+        push_res!(
+            quote
+                ValueType =
+                    $(tovalue(value_type, "Evaluating given system value type", DataType))
+                SuperComponent = Component{ValueType}
+            end,
+        )
+    end
+    component_name = name
+    component_sym = Meta.quot(name)
+    component_type = Symbol(:_, name)
     push_res!(
         quote
-            NewComponent = $(tovalue(blueprint_xp, "Blueprint type", DataType))
-            NewComponent <: Blueprint ||
-                xerr("Not a subtype of '$Blueprint': '$NewComponent'.")
-            isabstracttype(NewComponent) && xerr(
-                "Cannot define component from an abstract blueprint type: '$NewComponent'.",
-            )
-            ValueType = system_value_type(NewComponent)
-
-            specified_as_component(NewComponent) &&
-                xerr("Blueprint type '$NewComponent' already marked \
-                      as a component for '$(System{ValueType})'.")
-
+            isdefined($__module__, $component_sym) &&
+                xerr("Cannot define component '$($component_sym)': name already defined.")
+            NewComponent = $component_sym
         end,
     )
 
     # Next come other optional sections in any order.
     requires_xp = nothing # Evaluates to [(component => reason), ...]
-    implies_xp = nothing # Evaluates to [(component, is_trivial), ...]
+    blueprints_xp = nothing # Evaluates to [(identifier, path), ...]
 
     for i in input[2:end]
 
         # Require section: specify necessary components.
+        (false) && (local reqs) # (reassure JuliaLS)
         @capture(i, requires(reqs__))
         if !isnothing(reqs)
             isnothing(requires_xp) || perr("The `requires` section is specified twice.")
-            requires_xp = :([])
-            for req in reqs
-                # Set requirement reason to 'nothing' if unspecified.
-                @capture(req, comp_ => reason_)
-                if isnothing(reason)
-                    comp = req
-                else
-                    reason = tovalue(reason, "Requirement reason", String)
-                end
-                comp = tocomptype(comp, "Required component")
-                req = :($comp => $reason)
-                push!(requires_xp.args, req)
-            end
+            requires_xp =
+                to_comp_reasons(__module__, reqs, :ValueType, "Required component", :xerr)
             continue
         end
 
-        # Implies section: specify automatically expanded blueprints.
-        @capture(i, implies(impls__))
-        if !isnothing(impls)
-            isnothing(implies_xp) || perr("The `implies` section is specified twice.")
-            implies_xp = :([])
-            for impl in impls
-                @capture(impl, trivial_())
-                (xp, flag) = if isnothing(trivial)
-                    (tocomptype(impl, "Implied blueprint"), false)
+        # Blueprints section: specify blueprints providing the new component.
+        (false) && (local bps) # (reassure JuliaLS)
+        @capture(i, blueprints(bps__))
+        if !isnothing(bps)
+            isnothing(blueprints_xp) || perr("The `blueprints` section is specified twice.")
+            blueprints_xp = :([])
+            for bp in bps
+                (false) && (local bpname, B, modname) # (reassure JuliaLS)
+                @capture(bp, bpname_::B_)
+                if isnothing(bpname)
+                    is_identifier_path(bp) ||
+                        perr("Expected `name::Type` or `ModuleName` to specify blueprint, \
+                              found instead: $(repr(bp)).")
+                    push!(blueprints_xp.args, tovalue(bp, "Blueprints list", Module))
                 else
-                    (tocomptype(trivial, "Trivial implied blueprint"), true)
+                    xp = tobptype(B, "Blueprint")
+                    push!(blueprints_xp.args, :($(Meta.quot(bpname)), $xp))
                 end
-                push!(implies_xp.args, :($xp, $flag))
             end
             continue
         end
 
         perr("Invalid @component section. \
-              Expected `requires(..)` or `implies(..)`, \
-              got: $(repr(i)).")
+              Expected `requires(..)` or `blueprints(..)`, \
+              got instead: $(repr(i)).")
 
     end
     isnothing(requires_xp) && (requires_xp = :([]))
-    isnothing(implies_xp) && (implies_xp = :([]))
+    isnothing(blueprints_xp) && (blueprints_xp = :([]))
 
-    # Check that consistent requires/implied component types have been specified.
+    # Check that consistent required component types have been specified.
+    push_res!(quote
+        # Required components.
+        reqs = $requires_xp
+        reqs = triangular_vertical_guard(reqs, ValueType, xerr)
+    end)
+
+    # Guard against redundancies / collisions among base blueprints.
     push_res!(
         quote
-
-            # Required components.
-            reqs = OrderedDict{Component,Reason}()
-            for (req, reason) in $requires_xp
-                # Triangular-check against redundancies.
-                for (already, _) in reqs
-                    vertical_guard(
-                        req,
-                        already,
-                        () -> xerr("Requirement '$req' is specified twice."),
-                        (sub, sup) ->
-                            xerr("Requirement '$sub' is also specified as '$sup'."),
-                    )
-                end
-                reqs[req] = reason
-            end
-
-            # Implied blueprints.
-            implies = $implies_xp
-            impls = OrderedSet{Component}()
-            trivials = Vector{Bool}()
-            for (impl, trivial) in implies
-
-                # Triangular-check against redundancies.
-                for already in impls
-                    vertical_guard(
-                        impl,
-                        already,
-                        () -> xerr("Implied blueprint '$impl' is specified twice."),
-                        (sub, sup) ->
-                            xerr("Implied blueprint '$sub' is also specified as '$sup'."),
-                    )
-                end
-
-                # Check against cross-sections specifications.
-                for (req, _) in reqs
-                    vertical_guard(
-                        req,
-                        impl,
-                        (sub, sup) -> begin
-                            as_r = sub === sup ? "" : " (as '$req')"
-                            xerr("Component is both a requirement$(as_r) \
-                                  and implied: '$impl'.")
-                        end,
-                    )
-                end
-
-                push!(impls, impl)
-                push!(trivials, trivial)
-            end
-
-            # Check that the required constructors have been setup.
-            for (impl, trivial) in implies
-                if trivial
-                    try
-                        which(impl, ())
-                    catch
-                        xerr("No trivial blueprint default constructor has been defined \
-                              to implicitly add '$impl' \
-                              when adding '$NewComponent' to a system.")
+            base_blueprints = []
+            for spec in $blueprints_xp
+                # [(blueprint name as component field, blueprint type)]
+                blueprints = if spec isa Module
+                    # Collect all blueprints within the given module
+                    # and use their type names as component fields names.
+                    bps = []
+                    # /!\ Use unexposed Julia API here: unsorted_names,
+                    # so that the order of base blueprints within the components
+                    # match their order of definition within the lib.
+                    # If this ever becomes unavailable, just switch back to `names`.
+                    for name in Base.unsorted_names(spec)
+                        local B = getfield(spec, name)
+                        B isa DataType && B <: Blueprint{ValueType} || continue
+                        push!(bps, (name, B))
                     end
+                    isempty(bps) && xerr("Module '$spec' \
+                                          exports no blueprint for '$ValueType'.")
+                    bps
                 else
-                    try
-                        which(impl, (NewComponent,))
-                    catch
-                        xerr("No blueprint constructor has been defined \
-                              to implicitly add '$impl' \
-                              when adding '$NewComponent' to a system.")
+                    # Only one pair has been explicitly provided.
+                    local name, B = spec
+                    [(name, B)]
+                end
+                for (name, B) in blueprints
+                    # Triangular-check.
+                    for (other, Other) in base_blueprints
+                        other == name && xerr("Base blueprint $(repr(other)) \
+                                               both refers to '$Other' and to '$B'.")
+                        Other == B && xerr("Base blueprint '$B' bound to \
+                                            both names $(repr(other)) and $(repr(name)).")
                     end
-                end
-            end
-
-            # Brings: automatically inferred from the fields.
-            brought = OrderedSet{Component}()
-            brought_parms = Vector{Tuple{Symbol,Bool}}() # (name, is_optional)
-            for (fieldtype, name) in zip(NewComponent.types, fieldnames(NewComponent))
-
-                # Optional if unioned with nothing.
-                (bring, is_optional) = if fieldtype isa Union
-                    if fieldtype.a === Nothing && fieldtype.b <: Blueprint{ValueType}
-                        (fieldtype.b, true)
-                    elseif fieldtype.b === Nothing && fieldtype.a <: Blueprint{ValueType}
-                        (fieldtype.a, true)
-                    else
-                        continue
-                    end
-                elseif fieldtype <: Blueprint{ValueType}
-                    (fieldtype, false)
-                else
-                    continue
-                end
-
-                # Triangular-check against redundancies.
-                for (already, (a, _)) in zip(brought, brought_parms)
-                    vertical_guard(
-                        bring,
-                        already,
-                        () -> xerr("Both fields $(repr(a)) and $(repr(name)) \
-                                    bring component '$bring'."),
-                        (sub, sup) -> xerr("Fields $(repr(name)) and $(repr(a)): \
-                                            brought component '$sub' is also specified as '$sup'."),
-                    )
-                end
-
-                # Check against cross-"sections" specifications.
-                for (req, _) in reqs
-                    vertical_guard(
-                        req,
-                        bring,
-                        (sub, sup) -> begin
-                            as_r = sub === sup ? "" : " (as '$req')"
-                            xerr("Component is both a requirement$(as_r) \
-                                  and brought: '$bring'.")
-                        end,
-                    )
-                end
-                for (impl, _) in implies
-                    vertical_guard(
-                        impl,
-                        bring,
-                        (sub, sup) -> begin
-                            as_i = sub === sup ? "" : " (as '$impl')"
-                            xerr("Component is both implied$(as_i) \
-                                  and brought: '$bring'.")
-                        end,
-                    )
-                end
-
-                push!(brought, bring)
-                push!(brought_parms, (name, is_optional))
-
-            end
-
-            # Automatically require implied and brought components.
-            for (impl, _) in implies
-                reqs[impl] = "implied."
-            end
-            for (bring, (_, is_optional)) in zip(brought, brought_parms)
-                reqs[bring] = if is_optional
-                    "optionally brought."
-                else
-                    "brought."
+                    push!(base_blueprints, (name, B))
                 end
             end
         end,
@@ -317,79 +237,95 @@ macro component(input...)
 
     #---------------------------------------------------------------------------------------
     # At this point, all necessary information should have been parsed and checked,
-    # both at expansion time and generated code execution time.
+    # both at expansion time (within this very macro body code)
+    # and generated code execution time
+    # (within the code currently being generated although not executed yet).
     # The only remaining code to generate work is just the code required
     # for the system to work correctly.
 
-    # Setup the components required.
+    # Construct the component type, with base blueprints types as fields.
+    ena = esc(component_name)
+    ety = esc(component_type)
+    enas = Meta.quot(component_name)
+    etys = Meta.quot(component_type)
     push_res!(quote
-        Framework.requires(::Type{NewComponent}) = reqs
-    end)
-
-    # Setup the blueprints implied.
-    push_res!(quote
-        function Framework.implies(bp::NewComponent)
-            res = []
-            for I in impls
-                can_imply(bp, I) && push!(res, I)
-            end
-            res
+        str = quote
+            struct $($etys) <: $SuperComponent end
         end
-    end)
-
-    # Setup the blueprints brought.
-    push_res!(quote
-        function Framework.brings(bp::NewComponent)
-            res = []
-            for (B, (name, is_optional)) in zip(brought, brought_parms)
-                field = getfield(bp, name)
-                is_optional && isnothing(field) && continue
-                push!(res, B)
-            end
-            res
+        for (name, B) in base_blueprints
+            push!(str.args[2].args[3].args, quote
+                $name::Type{$B}
+            end)
         end
+        $__module__.eval(str)
     end)
 
-    # Generate trivial implied components constructors for auto-loading.
-    # This requires one additional nested level of code generation
-    # because the exact list of implied and brought components
-    # are only known after macro expansion.
+    # Construct the singleton instance.
     push_res!(
         quote
-
-            for (impl, trivial) in zip(impls, trivials)
-                if trivial
-                    eval(quote
-                        construct_implied(::Type{$impl}, ::$NewComponent) = $impl()
-                    end)
-                else
-                    eval(
-                        quote
-                            construct_implied(::Type{$impl}, bp::$NewComponent) = $impl(bp)
-                        end,
-                    )
-                end
+            cstr = :($($etys)())
+            for (_, B) in base_blueprints
+                push!(cstr.args, B)
             end
-
-            for (bring, (name, _)) in zip(brought, brought_parms)
-                eval(quote
-                    construct_brought(::Type{$bring}, bp::$NewComponent) = bp.$name
-                end)
+            cstr = quote
+                const $($enas) = $cstr
             end
-
+            $__module__.eval(cstr)
+            # Connect instance to type.
+            Framework.singleton_instance(::Type{$ety}) = $ena
+            # Ensure singleton unicity.
+            (C::Type{$ety})(args...; kwargs...) =
+                throw("Cannot construct other instances of $C.")
         end,
     )
 
-    # Legacy record.
+    # Connect to blueprint types.
     push_res!(quote
-        push!(COMPONENTS_SPECIFIED, NewComponent)
+        for (_, B) in base_blueprints
+            $__module__.eval(quote
+                $Framework.componentsof(::$B) = $($ety,)
+            end)
+        end
+    end)
+
+    # Setup the components required.
+    push_res!(
+        quote
+            Framework.requires(::Type{$ety}) =
+                CompsReasons{ValueType}(k => v for (k, v) in reqs) # Copy to avoid leaks.
+        end,
+    )
+
+    # Helpful display resuming base blueprint types for this component.
+    push_res!(
+        quote
+            function Base.show(io::IO, ::MIME"text/plain", C::$ety)
+                it = crayon"italics"
+                print(io, "$component_color$C$reset $grayed(component for $ValueType")
+                names = fieldnames(typeof(C))
+                if isempty(names)
+                    print(io, " with no base blueprint")
+                else
+                    println(io, ", expandable from:")
+                    for name in fieldnames(typeof(C))
+                        B = getfield(C, name)
+                        print(io, "  $blueprint_color$name$reset$grayed: $it")
+                        shortline(io, B)
+                        println(io, "$reset$grayed,")
+                    end
+                end
+                print(io, ")$reset")
+            end
+        end,
+    )
+
+    # Avoid confusing/leaky return type from macro invocation.
+    push_res!(quote
+        nothing
     end)
 
     res
 end
-export @component
 
-# Implied component are assumed to be always computable by default.
-can_imply(::Blueprint, ::Type{<:Blueprint}) = true
-const COMPONENTS_SPECIFIED = Set{Component}()
-specified_as_component(c::Component) = c in COMPONENTS_SPECIFIED
+# For specification by framework users.
+shortline(io, B::Type{<:Blueprint}) = @invoke show(io, B::DataType)

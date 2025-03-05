@@ -22,9 +22,7 @@ Base.:+(a::BlueprintSum{V}, b::BlueprintSum{V}) where {V} =
     BlueprintSum{V}(vcat(a.pack, b.pack))
 function Base.:+(s::System{V}, sum::BlueprintSum{V}) where {V}
     clone = copy(s)
-    for b in sum.pack
-        add!(clone, b)
-    end
+    add!(clone, sum.pack...)
     clone
 end
 
