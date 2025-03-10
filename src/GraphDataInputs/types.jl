@@ -37,7 +37,7 @@
 #   - 'Index' is a valid {label -> index} mapping (/!\ yes, same name as 'index').
 
 
-# I is either inferred to Int64 or Symbol depending on user input.
+# R is either inferred to Int or Symbol depending on user input.
 const Map{R,T} = OrderedDict{R,T}
 const Adjacency{R,T} = OrderedDict{R,OrderedDict{R,T}}
 const BinMap{R} = OrderedSet{R}
@@ -171,7 +171,13 @@ const UAdjacency{R} = Union{BinAdjacency{R},Adjacency{R,<:Any}}
 const UBinList{R} = Union{BinMap{R},BinAdjacency{R}}
 const UNonBinList{R} = Union{Map{R},Adjacency{R}}
 const UList{R} = Union{UMap{R},UAdjacency{R}}
-const Index = AbstractDict{Symbol,Int64}
+const Index = AbstractDict{Symbol,Int}
+
+# Extract reference type.
+reftype(::Map{R}) where {R} = R
+reftype(::BinMap{R}) where {R} = R
+reftype(::Adjacency{R}) where {R} = R
+reftype(::BinAdjacency{R}) where {R} = R
 
 # Iterate over all references present in the list.
 refs(l::BinMap) = l
@@ -192,18 +198,18 @@ nrefs_inner(l::UAdjacency) = length(refs_inner(l))
 
 # Extrapolate total number of references in the reference space.
 # Assuming contiguity, infer missing integers.
-nrefspace(l::UList{Int64}) = maximum(refs(l); init = 0)
+nrefspace(l::UList{Int}) = maximum(refs(l); init = 0)
 nrefspace(l::UList{Symbol}) = nrefs(l) # Cannot guess missing symbols.
-nrefspace_outer(l::UAdjacency{Int64}) = maximum(refs_outer(l))
-nrefspace_inner(l::UAdjacency{Int64}) = maximum(refs_inner(l))
+nrefspace_outer(l::UAdjacency{Int}) = maximum(refs_outer(l))
+nrefspace_inner(l::UAdjacency{Int}) = maximum(refs_inner(l))
 nrefspace_outer(l::UAdjacency{Symbol}) = nrefs_outer(l)
 nrefspace_inner(l::UAdjacency{Symbol}) = nrefs_inner(l)
 
 # Infer total references space.
 # In the integer case, the 'space' is reduced to a single number.
-refspace(l::UList{Int64}) = nrefspace(l) # Assume contiguity.
-refspace_outer(l::UAdjacency{Int64}) = nrefspace_outer(l)
-refspace_inner(l::UAdjacency{Int64}) = nrefspace_inner(l)
+refspace(l::UList{Int}) = nrefspace(l) # Assume contiguity.
+refspace_outer(l::UAdjacency{Int}) = nrefspace_outer(l)
+refspace_inner(l::UAdjacency{Int}) = nrefspace_inner(l)
 
 # In the symbol case, the reference space is actually an 'Index'.
 todict(refs) = OrderedDict(ref => i for (i, ref) in enumerate(refs))
@@ -227,12 +233,12 @@ get_value(l::BinMap, (ref,)) = ref in l
 get_value(l::BinAdjacency, (i, j)) = j in l[i]
 
 # Check that a references space contains any possible access.
-empty_space(n::Int64) = n <= 0
+empty_space(n::Int) = n <= 0
 empty_space(x::Index) = isempty(x)
 empty_space((a, b)) = empty_space(a) || empty_space(b)
 
 # Check an access against a reference space.
-inspace((i,)::Tuple{Int64}, n::Int64) = 0 < i <= n
+inspace((i,)::Tuple{Int}, n::Int) = 0 < i <= n
 inspace((s,)::Tuple{Symbol}, x::Index) = s in keys(x)
 inspace((a, b), (x, y)) = inspace((a,), x) && inspace((b,), y)
 
