@@ -27,18 +27,27 @@
 #
 # For maps and adjacency lists, use `:bin` instead of a type parameter
 # to trigger the special binary case.
+#
+# Referring to a particular node can become subtle in this context:
+#   - 'index' is an integer used to access data.
+#   - 'label' is a symbol used to access data.
+#   - 'reference' is either and index or a label.
+#   - 'access' is a homogeneous tuple of references use to access data: either (i,) or (i, j).
+#   - 'Space' is the set of all possible references.
+#   - 'Index' is a valid {label -> index} mapping (/!\ yes, same name as 'index').
+
 
 # I is either inferred to Int64 or Symbol depending on user input.
-const Map{I,T} = OrderedDict{I,T}
-const Adjacency{I,T} = OrderedDict{I,OrderedDict{I,T}}
-const BinMap{I} = OrderedSet{I}
-const BinAdjacency{I} = OrderedDict{I,OrderedSet{I}}
+const Map{R,T} = OrderedDict{R,T}
+const Adjacency{R,T} = OrderedDict{R,OrderedDict{R,T}}
+const BinMap{R} = OrderedSet{R}
+const BinAdjacency{R} = OrderedDict{R,OrderedSet{R}}
 export Map, Adjacency, BinMap, BinAdjacency
 
-const AbstractMap{I,T} = AbstractDict{I,T}
-const AbstractAdjacency{I,T} = AbstractDict{I,<:AbstractDict{I,T}}
-const AbstractBinMap{T} = AbstractSet{T}
-const AbstractBinAdjacency{I} = AbstractDict{I,<:AbstractSet{I}}
+const AbstractMap{R,T} = AbstractDict{R,T}
+const AbstractAdjacency{R,T} = AbstractDict{R,<:AbstractDict{R,T}}
+const AbstractBinMap{R} = AbstractSet{R}
+const AbstractBinAdjacency{R} = AbstractDict{R,<:AbstractSet{R}}
 
 aliases = OrderedDict(
     # Special cases.
@@ -66,14 +75,14 @@ als = repr(MIME("text/plain"), aliases) # (to include in error messages)
 #   @macro ... {YSN}          # (convenience twist)
 #   @macro ... Symbol         # (convenience twist if it matches a full name)
 function parse_types(loc, input)
-    if input isa Symbol
+    specs = if input isa Symbol
         if haskey(rev_aliases, input)
-            specs = [input]
+            [input]
         else
-            specs = Symbol.(collect(String(input)))
+            Symbol.(collect(String(input)))
         end
     elseif input.head == :braces
-        specs = Symbol.(input.args)
+        Symbol.(input.args)
     else
         argerr("Invalid macro input at $loc:\n\
                 Expected a braced-list of type aliases among:\n$als\n\
@@ -155,19 +164,13 @@ export @GraphData
 
 # ==========================================================================================
 # Analyse references in lists.
-# 'index' is an integer used to access data.
-# 'label' is a symbol used to access data.
-# 'reference' is either and index or a label.
-# 'access' is a homogeneous tuple of references use to access data: either (i,) or (i, j).
-# 'Space' is the set of all possible references.
-# 'Index' is a {label -> index} mapping (/!\ yes, same name as 'index').
 
 # Aliases clarifying dispatch.
-const UMap{I} = Union{BinMap{I},Map{I,<:Any}}
-const UAdjacency{I} = Union{BinAdjacency{I},Adjacency{I,<:Any}}
-const UBinList{I} = Union{BinMap{I},BinAdjacency{I}}
-const UNonBinList{I} = Union{Map{I},Adjacency{I}}
-const UList{I} = Union{UMap{I},UAdjacency{I}}
+const UMap{R} = Union{BinMap{R},Map{R,<:Any}}
+const UAdjacency{R} = Union{BinAdjacency{R},Adjacency{R,<:Any}}
+const UBinList{R} = Union{BinMap{R},BinAdjacency{R}}
+const UNonBinList{R} = Union{Map{R},Adjacency{R}}
+const UList{R} = Union{UMap{R},UAdjacency{R}}
 const Index = AbstractDict{Symbol,Int64}
 
 # Iterate over all references present in the list.
@@ -180,7 +183,7 @@ refs_outer(l::UAdjacency) = keys(l)
 refs_inner(l::UAdjacency) = OrderedSet(Iterators.flatten(refs(sub) for (_, sub) in l))
 # Unless we assume so.
 refs(l::UAdjacency) =
-    OrderedSet(ref for (i, sub) in l for ref in Iterators.flatten(((i,), refs(sub))))
+    OrderedSet(ref for (a, sub) in l for ref in Iterators.flatten(((a,), refs(sub))))
 
 # Count references present in the list.
 nrefs(l::UList) = length(refs(l))
@@ -236,7 +239,7 @@ inspace((a, b), (x, y)) = inspace((a,), x) && inspace((b,), y)
 # ==========================================================================================
 # Single entrypoint to iterate over either nodes/edges collections
 # and always yield (ref, value) pairs.
-# `ref` is either (i,), (i, j),  (:ref,) or (:ref1, :ref2) depending on the input.
+# `ref` is either (i,), (i, j),  (:label,) or (:lab1, :lab2) depending on the input.
 
 # Base methods work with any iterable type (or nested).
 node_items(pairs) = (((i,), v) for (i, v) in pairs)
@@ -263,33 +266,33 @@ export node_items, edge_items, items
 
 disp_access(access::Tuple) = "[$(join(repr.(access), ", "))]"
 
-display_short(map::Map) = "{$(join(("$(repr(k)): $v" for (k, v) in map), ", "))}"
+display_short(map::Map) = "{$(join(("$(repr(r)): $v" for (r, v) in map), ", "))}"
 function display_long(map::Map; level = 0)
     res = "{"
     ind(n) = "\n" * repeat("  ", level + n)
-    for (k, v) in map
-        res *= ind(1) * "$(repr(k)) => $v,"
+    for (r, v) in map
+        res *= ind(1) * "$(repr(r)) => $v,"
     end
     res * ind(0) * "}"
 end
 
-display_short(map::BinMap) = "{$(join(("$(repr(k))" for k in map), ", "))}"
+display_short(map::BinMap) = "{$(join(("$(repr(r))" for r in map), ", "))}"
 function display_long(map::BinMap; level = 0)
     res = "{"
     ind(n) = "\n" * repeat("  ", level + n)
-    for k in map
-        res *= ind(1) * "$(repr(k)),"
+    for r in map
+        res *= ind(1) * "$(repr(r)),"
     end
     res * ind(0) * "}"
 end
 
 display_short(adj::Union{Adjacency,BinAdjacency}) =
-    "{$(join(("$(repr(k)): $(display_short(list))" for (k, list) in adj), ", "))}"
+    "{$(join(("$(repr(r)): $(display_short(list))" for (r, list) in adj), ", "))}"
 function display_long(adj::Union{Adjacency,BinAdjacency}; level = 0)
     res = "{"
     ind(n) = "\n" * repeat("  ", level + n)
-    for (k, list) in adj
-        res *= ind(1) * "$(repr(k)) => $(display_long(list; level = level + 1)),"
+    for (r, list) in adj
+        res *= ind(1) * "$(repr(r)) => $(display_long(list; level = level + 1)),"
     end
     res * ind(0) * "}"
 end

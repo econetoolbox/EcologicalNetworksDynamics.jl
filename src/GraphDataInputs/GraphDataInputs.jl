@@ -18,7 +18,9 @@
 #   - Map (key-value pairs) of the form:
 #       [:a => u, :c => v]   (using nodes labels)
 #       [1 => u, 3 => v]     (using node indices)
-#       TODO: feature [[1,2,3] => u, [4,5] => v]?
+#     convenience factorized form, grouping nodes:
+#       [(:a, :b) => u, (:c, :d) => v]
+#       [(1, 2) => u, (3, 4) => v]
 #     or, special-casing binary data:
 #       [:a, :c]
 #       [1, 3]
@@ -28,12 +30,18 @@
 #    - Sparse matrix if the data only concerns a subset of possible edges
 #      eg.: "trophic links"
 #    - Adjacency list of the form:
-#       [:a => [:b => u, :c => v], :b => [:d => w]]  (using node labels)
+#       [:a => (:b => u, :c => v), :b => (:d => w)]  (grouping targets)
+#       [(:a => u, :b => v) => :c, (:b => w) => :d]  (grouping sources)
+#       [(:a => u, :b => v) => :c, :b => (:d => w)]  (mixing allowed)
 #      or
-#       [1 => [2 => u, 3 => v], 2 => [4 => w]]       (using nodes indices)
+#       [1 => (2 => u, 3 => v), 2 => (4 => w)]       (using nodes indices)
+#       ⋮                                            ⋮
 #      or, special-casing binary edge data:
-#       [:a => [:b, :c], :b => [:d]]
+#       [:a => (:b, :c), :b => (:d,)]  # (grouping targets)
+#       [(:a, :b) => :c, (:b,) => :d]  # (grouping sources)
+#       [(:a, :b) => :c, :b => (:d,)]  # (mixing)
 #       [1 => [2, 3], 2 => [4]]
+#       ⋮
 #       (allowed because singletons are unambiguous in this context)
 #       [:a => :b, :b => :d]
 #       [1 => 2, 2 => 4]
@@ -100,7 +108,11 @@
 #
 # For maps, any iterable input structured like: --------------------------------------------
 #
-#   [[Id, T], ...]
+#   [
+#     [Id, T],
+#     [(Id, ...), T], # (grouped nodes)
+#     ...,
+#   ]
 #
 # is accepted and transformed into:
 #
@@ -119,15 +131,23 @@
 #
 # For adjacency lists, any iterable input structured like: ---------------------------------
 #
-#   [[Id, [[Id, T], ...]], ...]
+#   [
+#     [Id, ([Id, T], ...)], # (grouped targets)
+#     [([Id, T], ...), Id], # (grouped sources)
+#     ...,
+#   ]
 #
 # is accepted and transformed into:
 #
 #   OrderedDict{Id,OrderedDict{Id, T}}
 #
-# Or in the special binary case, iny iterable input like:
+# Or in the special binary case, any iterable input like:
 #
-#   [[Id, [Id, ...]], ...]
+#   [
+#     [Id, (Id, ...)], # (grouped targets)
+#     [(Id, ...), Id], # (grouped sources)
+#     ...,
+#   ]
 #
 # is accepted and transformed into:
 #
