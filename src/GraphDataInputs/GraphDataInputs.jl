@@ -30,15 +30,18 @@
 #    - Sparse matrix if the data only concerns a subset of possible edges
 #      eg.: "trophic links"
 #    - Adjacency list of the form:
-#       [:a => (:b => u, :c => v), :b => (:d => w)]  (grouping targets)
-#       [(:a => u, :b => v) => :c, (:b => w) => :d]  (grouping sources)
+#       [:a => (:b => u, :c => v), :b => (:d => w)]  (group targets)
+#       [(:a => u, :b => v) => :c, (:b => w) => :d]  (group sources)
+#       [(:a, :b) => (:c => u, :d => v)]             (group both, target-wise)
+#       [(:a => u, :b => v) => (:c, :d)]             (group both, source-wise)
 #       [(:a => u, :b => v) => :c, :b => (:d => w)]  (mixing allowed)
 #      or
 #       [1 => (2 => u, 3 => v), 2 => (4 => w)]       (using nodes indices)
 #       ⋮                                            ⋮
 #      or, special-casing binary edge data:
-#       [:a => (:b, :c), :b => (:d,)]  # (grouping targets)
-#       [(:a, :b) => :c, (:b,) => :d]  # (grouping sources)
+#       [:a => (:b, :c), :b => (:d,)]  # (group targets)
+#       [(:a, :b) => :c, (:b,) => :d]  # (group sources)
+#       [(:a, :b) => (:c, :d)]         # (group both)
 #       [(:a, :b) => :c, :b => (:d,)]  # (mixing)
 #       [1 => [2, 3], 2 => [4]]
 #       ⋮

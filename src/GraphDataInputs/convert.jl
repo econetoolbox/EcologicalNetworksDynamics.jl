@@ -77,15 +77,16 @@ function graphdataconvert(
         return Map{R,T}()
     end
 
+    first_ref = ( Ref{Any}(nothing), Ref(false))
+
     # If there is a first element, use it to infer ref type.
     pair, it_pairs = it_pairs
-    refs, value = checked_pair_split(pair)
+    refs, value = checked_pair_split(pair, true)
     refs = to_grouped_refs(refs)
     it_refs = iterate(refs)
     isnothing(it_refs) && argerr("No reference received for value: $(repr(pair)).")
-    first_ref, _ = it_refs
-    R = infer_ref_type(first_ref)
-    check_ref_type(R, ExpectedRefType, first_ref)
+    ref, _ = it_refs
+    R = checked_ref_type(ref, ExpectedRefType, first_ref)
     res = Map{R,T}()
     for ref in refs
         ref, value = checked_pair_convert((R, T), (ref, value))
@@ -96,7 +97,7 @@ function graphdataconvert(
     it_pairs = iterate(input, it_pairs)
     while !isnothing(it_pairs)
         pair, it_pairs = it_pairs
-        refs, value = checked_pair_split(pair)
+        refs, value = checked_pair_split(pair, true)
         refs = to_grouped_refs(refs)
         (value, invalid_value) = try
             (checked_value_convert(T, value, refs), false)
@@ -115,29 +116,30 @@ function graphdataconvert(
 end
 
 # Special binary case.
-function graphdataconvert(::Type{BinMap{<:Any}}, input; expected_I = nothing)
+function graphdataconvert(::Type{BinMap{<:Any}}, input; ExpectedRefType = nothing)
     applicable(iterate, input) || argerr("Binary mapping input needs to be iterable.")
     it = iterate(input)
     if isnothing(it)
-        R = isnothing(expected_I) ? Int64 : expected_I
+        R = isnothing(ExpectedRefType) ? Int : ExpectedRefType
         return BinMap{R}()
     end
 
+    first_ref = ( Ref{Any}(nothing), Ref(false))
+
     # Type inference from first element.
-    key, it = it
-    R = infer_ref_type(key)
-    check_ref_type(R, expected_I, key)
-    key = checked_ref_convert(R, key)
+    ref, it = it
+    R = checked_ref_type(ref, ExpectedRefType, first_ref)
+    ref = checked_ref_convert(R, ref)
     res = BinMap{R}()
-    push!(res, key)
+    push!(res, ref)
 
     # Fill up the set.
     it = iterate(input, it)
     while !isnothing(it)
-        key, it = it
-        key = checked_ref_convert(R, key)
-        key in res && duperr(key)
-        push!(res, key)
+        ref, it = it
+        ref = checked_ref_convert(R, ref)
+        ref in res && duperr(ref)
+        push!(res, ref)
         it = iterate(input, it)
     end
     res
@@ -147,9 +149,9 @@ end
 function graphdataconvert(
     ::Type{BinMap{<:Any}},
     input::AbstractVector{Bool};
-    expected_I = Int64,
+    ExpectedRefType = Int,
 )
-    res = BinMap{expected_I}()
+    res = BinMap{ExpectedRefType}()
     for (i, val) in enumerate(input)
         val && push!(res, i)
     end
@@ -159,11 +161,11 @@ end
 function graphdataconvert(
     ::Type{BinMap{<:Any}},
     input::AbstractSparseVector{Bool,R};
-    expected_I = R,
+    ExpectedRefType = R,
 ) where {R}
-    res = BinMap{expected_I}()
-    for i in findnz(input)[1]
-        push!(res, i)
+    res = BinMap{ExpectedRefType}()
+    for ref in findnz(input)[1]
+        push!(res, ref)
     end
     res
 end
@@ -171,19 +173,109 @@ end
 #-------------------------------------------------------------------------------------------
 # Similar, nested logic for adjacency maps.
 
-function graphdataconvert(::Type{Adjacency{<:Any,T}}, input; expected_I = nothing) where {T}
+function graphdataconvert(
+    ::Type{Adjacency{<:Any,T}},
+    input;
+    ExpectedRefType = nothing,
+) where {T}
     applicable(iterate, input) || argerr("Adjacency list input needs to be iterable.")
     it = iterate(input)
     if isnothing(it)
-        R = isnothing(expected_I) ? Int64 : expected_I
+        R = isnothing(ExpectedRefType) ? Int : ExpectedRefType
         return Adjacency{R,T}()
     end
 
-    # Treat values as regular maps.
     pair, it = it
+    lhs, rhs = checked_pair_split(pair, false)
+
+    # Call 'strong' end the side of this pair that is holding the value,
+    # and 'weak' end the other side, without the values.
+    # Either side is also either grouped or plain:
+    #         |  weak    |   strong
+    #   plain | :a       |   :a => u
+    #   group | (:a, :b) |  (:a => u, :b => v)
+    #
+    # Diagnose each side, attempting to parse as either, asking forgiveness not permission.
+
+    first_ref = ( Ref{Any}(nothing), Ref(false))
+
+    map((lhs, rhs)) do side
+        determined = false
+        (is_strong_group, strong_group, R_strong_group) = try
+            # Attempt to parse as a submap, only successful for strong groups.
+            sub = graphdataconvert((@GraphData {Map}{T}), side; ExpectedRefType)
+            (true, sub, reftype(sub))
+        catch e
+            (false, e, nothing)
+        end
+        determined |= is_strong_group
+        (is_weak_group, weak_group, R_weak_group) = if !determined
+            # Attempt to as a sub-binmap, only successful for weak groups.
+            try
+                sub = graphdataconvert((@GraphData {Map}{:bin}), side; ExpectedRefType)
+                (true, sub, reftype(sub))
+            catch e
+                (false, e, nothing)
+            end
+        else
+            (false, nothing, nothing)
+        end
+        determined |= is_weak_group
+        # Only plain options remain, but group them to normalize.
+        (is_weak_plain, group, R_weak_plain) = if !is_strong_group && !is_weak_group
+            try
+                R = infer_ref_type(side)
+                (true, (side,), R)
+            catch e
+                (false, e, nothing)
+            end
+        else
+            (false, nothing, nothing)
+        end
+        determined |= is_weak_plain
+        (is_strong_plain, group, R_strong_plain) = if !determined
+            ref, value = checked_pair_split(side, true)
+            R = checked_ref_type(ref, ExpectedRefType, first_ref)
+            # HERE: leverage the above more ↑
+            # In particular, it should be passed down when calculating submaps
+            # (yet erased if they fail)
+            (true, (ref => value,), typeof(ref))
+        else
+            (false, nothing, nothing)
+        end
+    end
+
+    (strong_grouped_sources, strong_grouped_lhs_R, is_lhs_strong_grouped),
+    (strong_grouped_targets, strong_grouped_rhs_R, is_rhs_strong_grouped) =
+        map((lhs, rhs)) do side
+            try
+                sub = submap((@GraphData {Map}{T}), side, ExpectedRefType)
+                (sub, reftype(sub), true)
+            catch e
+                (e, nothing, false)
+            end
+        end
+    ((weak_sources, weak_lhs), (weak_targets, weak_rhs)) = map((
+        (lhs, is_rhs_strong_grouped),
+        (rhs, is_lhs_strong_grouped),
+    )) do (side, is_other_strong_grouped)
+        if is_other_strong_grouped
+            try
+                R = infer_ref_type(side)
+                ((side,), true, R)
+            catch _
+            end
+        end
+    end
+
+    (is_lhs_strong_grouped && is_rhs_strong_grouped) &&
+        argerr("Cannot provide values for both sources and targets in adjacency input.\n\
+                Received LHS: $(repr(lhs))\n\
+                Received RHS: $(repr(rhs))")
+
+
     key, value = checked_pair_split(pair)
-    R = infer_ref_type(key)
-    check_ref_type(R, expected_I, key)
+    R = checked_ref_type(key, ExpectedRefType, key, first_ref)
     key = checked_ref_convert(R, key)
     value = submap((@GraphData {Map}{T}), value, R, key)
     res = Adjacency{R,T}()
@@ -203,20 +295,21 @@ function graphdataconvert(::Type{Adjacency{<:Any,T}}, input; expected_I = nothin
     res
 end
 
-function graphdataconvert(::Type{BinAdjacency{<:Any}}, input; expected_I = nothing)
+function graphdataconvert(::Type{BinAdjacency{<:Any}}, input; ExpectedRefType = nothing)
     applicable(iterate, input) ||
         argerr("Binary adjacency list input needs to be iterable.")
     it = iterate(input)
     if isnothing(it)
-        R = isnothing(expected_I) ? Int64 : expected_I
+        R = isnothing(ExpectedRefType) ? Int : ExpectedRefType
         return BinAdjacency{R}()
     end
+
+    first_ref = ( Ref{Any}(nothing), Ref(false))
 
     # Type inference from first element.
     pair, it = it
     key, value = checked_pair_split(pair)
-    R = infer_ref_type(key)
-    check_ref_type(R, expected_I, key)
+    R = checked_ref_type(key, ExpectedRefType, first_ref)
     key = checked_ref_convert(R, key)
     value = submap((@GraphData {Map}{:bin}), value, R, key)
     res = BinAdjacency{R}()
@@ -240,9 +333,9 @@ end
 function graphdataconvert(
     ::Type{BinAdjacency{<:Any}},
     input::AbstractMatrix{Bool},
-    expected_I = Int64,
+    ExpectedRefType = Int,
 )
-    res = BinAdjacency{expected_I}()
+    res = BinAdjacency{ExpectedRefType}()
     for (i, row) in enumerate(eachrow(input))
         adj_line = BinMap(j for (j, val) in enumerate(row) if val)
         isempty(adj_line) && continue
@@ -254,9 +347,9 @@ end
 function graphdataconvert(
     ::Type{BinAdjacency{<:Any}},
     input::AbstractSparseMatrix{Bool,R},
-    expected_I = R,
+    ExpectedRefType = R,
 ) where {R}
-    res = BinAdjacency{expected_I}()
+    res = BinAdjacency{ExpectedRefType}()
     nzi, nzj, _ = findnz(input)
     for (i, j) in zip(nzi, nzj)
         if haskey(res, i)
@@ -270,13 +363,13 @@ end
 
 # Alias if types matches exactly.
 graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
-graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Int64,T}) where {T} = input
-graphdataconvert(::Type{BinMap{<:Any}}, input::BinMap{Int64}) = input
+graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
+graphdataconvert(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
 graphdataconvert(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
 graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
-graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int64,T}) where {T} = input
+graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
 graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
-graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int64}) = input
+graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.
@@ -301,7 +394,7 @@ end
 duperr(ref) = argerr("Duplicated reference: $(repr(ref)).")
 
 function infer_ref_type(ref)
-    applicable(graphdataconvert, Int64, ref) && return Int64
+    applicable(graphdataconvert, Int, ref) && return Int
     applicable(graphdataconvert, Symbol, ref) && return Symbol
     argerr("Cannot convert reference to integer index or symbol label: \
             received $(repr(ref)) ::$(typeof(ref)).")
@@ -315,11 +408,40 @@ to_grouped_refs(refs) =
         (refs,)
     end
 
-check_ref_type(R, ExpectedRefType, first_ref) =
-    isnothing(ExpectedRefType) ||
-    R == ExpectedRefType ||
-    argerr("Expected '$ExpectedRefType' as node reference types, got '$R' instead \
-            (inferred from first ref: $(repr(first_ref)) ::$(typeof(first_ref))).")
+
+# Check ref type consistency wrt expected type or first type found.
+function checked_ref_type(
+    ref,
+    ExpectedRefType,
+    (first_ref, found_first_ref)::Tuple{Ref{Any},Ref{Bool}}
+)
+    Expected = if isnothing(ExpectedRefType)
+        if found_first_ref[]
+            typeof(first_ref)
+        else
+            nothing
+        end
+    else
+        ExpectedRefType
+    end
+    if !found_first_ref[]
+        first_ref[] = ref
+        found_first_ref[] = true
+    end
+    R = infer_ref_type(ref)
+    if !isnothing(Expected)
+        if R != Expected
+            mess = "Expected '$ExpectedRefType' as node reference types, got '$R' instead"
+            if isnothing(ExpectedRefType)
+                f = first_ref[]
+                mess *= " (inferred from first ref: $(repr(f)) ::$(typeof(f)))"
+            end
+            mess *= "."
+        end
+        argerr(mess)
+    end
+    R
+end
 
 checked_ref_convert(R, ref) =
     try
@@ -338,12 +460,16 @@ checked_value_convert(T, value, ref) =
     end
 
 # "Better ask forgiveness than permission".. is that also julian?
-checked_pair_split(pair) =
+checked_pair_split(pair, for_node::Bool) =
     try
-        ref, value = pair
-        return ref, value
+        lhs, rhs = pair
+        return lhs, rhs
     catch
-        argerr("Not a (node reference, value) pair: $(repr(pair)) ::$(typeof(pair)).")
+        if for_node
+            argerr("Not a `node reference => value` pair: $(repr(pair)) ::$(typeof(pair)).")
+        else
+            argerr("Not a `source(s) => target(s)` pair: $(repr(pair)) ::$(typeof(pair)).")
+        end
     end
 
 checked_pair_convert((R, T), (ref, value)) =
@@ -351,16 +477,21 @@ checked_pair_convert((R, T), (ref, value)) =
 
 submap(::Type{M}, input, R, ref) where {M<:Map} =
     try
-        graphdataconvert(M, input; expected_I = R)
+        graphdataconvert(M, input; ExpectedRefType = R)
     catch
-        argerr("Error while parsing adjacency list input at ref '$ref' \
-                (see further down the stacktrace).")
+        if isnothing(ref)
+            argerr("Error while parsing sources as adjacency list input \
+                    (see further down the stacktrace).")
+        else
+            argerr("Error while parsing adjacency list input at ref '$ref' \
+                    (see further down the stacktrace).")
+        end
     end
 # Special binary case allows scalar refs to be directly used instead of singleton.
 function submap(::Type{BM}, input, R, ref) where {BM<:BinMap}
     typeof(input) == R && (input = [input]) # Convert scalar ref to singleton ref.
     try
-        graphdataconvert(BM, input; expected_I = R)
+        graphdataconvert(BM, input; ExpectedRefType = R)
     catch
         argerr("Error while parsing adjacency list input at ref '$ref' \
                 (see further down the stacktrace).")
