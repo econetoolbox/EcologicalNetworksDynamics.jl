@@ -60,12 +60,17 @@ end
 # ==========================================================================================
 # Map/Adjacency conversions.
 
+# Collect the first reference found when parsing user input into map/adjacency.
+# Useful for reporting.
+const FirstRef = Tuple{Ref{Any},Ref{Bool}} # (first value parsed as a ref, raise when set)
+
 # Mappings accept any valid incoming collection
 # (very non-type-stable: only meant for direct user-facing APIs)
 function graphdataconvert(
     ::Type{Map{<:Any,T}},
     input;
     ExpectedRefType = nothing, # Use if somehow imposed by the calling context.
+    first_ref = nothing, # Useful for reporting.
 ) where {T}
     applicable(iterate, input) || argerr("Ref-value mapping input needs to be iterable.")
     it_pairs = iterate(input)
@@ -77,7 +82,9 @@ function graphdataconvert(
         return Map{R,T}()
     end
 
-    first_ref = ( Ref{Any}(nothing), Ref(false))
+    if isnothing(first_ref)
+        first_ref = (Ref{Any}(nothing), Ref(false))
+    end
 
     # If there is a first element, use it to infer ref type.
     pair, it_pairs = it_pairs
@@ -116,7 +123,12 @@ function graphdataconvert(
 end
 
 # Special binary case.
-function graphdataconvert(::Type{BinMap{<:Any}}, input; ExpectedRefType = nothing)
+function graphdataconvert(
+    ::Type{BinMap{<:Any}},
+    input;
+    ExpectedRefType = nothing,
+    first_ref = nothing,
+)
     applicable(iterate, input) || argerr("Binary mapping input needs to be iterable.")
     it = iterate(input)
     if isnothing(it)
@@ -124,7 +136,9 @@ function graphdataconvert(::Type{BinMap{<:Any}}, input; ExpectedRefType = nothin
         return BinMap{R}()
     end
 
-    first_ref = ( Ref{Any}(nothing), Ref(false))
+    if isnothing(first_ref)
+        first_ref = (Ref{Any}(nothing), Ref(false))
+    end
 
     # Type inference from first element.
     ref, it = it
@@ -197,24 +211,33 @@ function graphdataconvert(
     #
     # Diagnose each side, attempting to parse as either, asking forgiveness not permission.
 
-    first_ref = ( Ref{Any}(nothing), Ref(false))
+    first_ref = (Ref{Any}(nothing), Ref(false))
 
-    map((lhs, rhs)) do side
+    lhs, rhs = map((lhs, rhs)) do side
         determined = false
         (is_strong_group, strong_group, R_strong_group) = try
             # Attempt to parse as a submap, only successful for strong groups.
-            sub = graphdataconvert((@GraphData {Map}{T}), side; ExpectedRefType)
+            safe_first_ref = deepcopy(first_ref)
+            sub = graphdataconvert((@GraphData {Map}{T}), side; ExpectedRefType, first_ref)
             (true, sub, reftype(sub))
         catch e
+            first_ref = safe_first_ref # Restore if failed.
             (false, e, nothing)
         end
         determined |= is_strong_group
         (is_weak_group, weak_group, R_weak_group) = if !determined
             # Attempt to as a sub-binmap, only successful for weak groups.
             try
-                sub = graphdataconvert((@GraphData {Map}{:bin}), side; ExpectedRefType)
+                safe_first_ref = deepcopy(first_ref)
+                sub = graphdataconvert(
+                    (@GraphData {Map}{:bin}),
+                    side;
+                    ExpectedRefType,
+                    first_ref,
+                )
                 (true, sub, reftype(sub))
             catch e
+                first_ref = safe_first_ref # Restore if failed.
                 (false, e, nothing)
             end
         else
@@ -225,6 +248,7 @@ function graphdataconvert(
         (is_weak_plain, group, R_weak_plain) = if !is_strong_group && !is_weak_group
             try
                 R = infer_ref_type(side)
+                set_if_first_ref!(first_ref, side)
                 (true, (side,), R)
             catch e
                 (false, e, nothing)
@@ -236,14 +260,16 @@ function graphdataconvert(
         (is_strong_plain, group, R_strong_plain) = if !determined
             ref, value = checked_pair_split(side, true)
             R = checked_ref_type(ref, ExpectedRefType, first_ref)
-            # HERE: leverage the above more ↑
-            # In particular, it should be passed down when calculating submaps
-            # (yet erased if they fail)
-            (true, (ref => value,), typeof(ref))
+            set_if_first_ref!(ref, first_ref)
+            (true, (ref => value,), R)
         else
             (false, nothing, nothing)
         end
     end
+
+    println("lhs: $lhs")
+    println("rhs: $rhs")
+    error("STOP HERE")
 
     (strong_grouped_sources, strong_grouped_lhs_R, is_lhs_strong_grouped),
     (strong_grouped_targets, strong_grouped_rhs_R, is_rhs_strong_grouped) =
@@ -304,7 +330,7 @@ function graphdataconvert(::Type{BinAdjacency{<:Any}}, input; ExpectedRefType = 
         return BinAdjacency{R}()
     end
 
-    first_ref = ( Ref{Any}(nothing), Ref(false))
+    first_ref = (Ref{Any}(nothing), Ref(false))
 
     # Type inference from first element.
     pair, it = it
@@ -408,26 +434,33 @@ to_grouped_refs(refs) =
         (refs,)
     end
 
+function set_if_first_ref!((first_ref, found_first_ref)::FirstRef, ref)
+    if !found_first_ref[]
+        first_ref[] = ref
+        found_first_ref[] = true
+    end
+end
+
+function type((first_ref, found_first_ref)::FirstRef)
+    if found_first_ref[]
+        typeof(first_ref[])
+    else
+        nothing
+    end
+end
 
 # Check ref type consistency wrt expected type or first type found.
 function checked_ref_type(
     ref,
     ExpectedRefType,
-    (first_ref, found_first_ref)::Tuple{Ref{Any},Ref{Bool}}
+    first_ref::FirstRef,
 )
     Expected = if isnothing(ExpectedRefType)
-        if found_first_ref[]
-            typeof(first_ref)
-        else
-            nothing
-        end
+        type(first_ref)
     else
         ExpectedRefType
     end
-    if !found_first_ref[]
-        first_ref[] = ref
-        found_first_ref[] = true
-    end
+    set_if_first_ref!(first_ref, ref)
     R = infer_ref_type(ref)
     if !isnothing(Expected)
         if R != Expected
