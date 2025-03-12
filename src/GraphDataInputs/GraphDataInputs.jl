@@ -35,6 +35,7 @@
 #       [(:a, :b) => (:c => u, :d => v)]             (group both, target-wise)
 #       [(:a => u, :b => v) => (:c, :d)]             (group both, source-wise)
 #       [(:a => u, :b => v) => :c, :b => (:d => w)]  (mixing allowed)
+#       [(:a => u, :b => v) => :c, :b => (:d => w)]  (mixing allowed)
 #      or
 #       [1 => (2 => u, 3 => v), 2 => (4 => w)]       (using nodes indices)
 #       ⋮                                            ⋮
