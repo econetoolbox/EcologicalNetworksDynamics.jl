@@ -36,7 +36,7 @@ Threads.@threads for i in eachindex(C_values) # Parallelize on connctance values
         for aij in aij_values
             logistic_growth = LogisticGrowth(;
                 producers_competition = (diag = aii, offdiag = aij),
-                K = standardize_K(base_model.n_producers, K, aij),
+                K = standardize_K(base_model.producers.number, K, aij),
             )
             m = base_model + logistic_growth # Update logistic growth component.
             B0 = rand(S) # Initial biomass.
