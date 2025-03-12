@@ -17,7 +17,7 @@ function _simulate(raw::Internal, u0, tmax::Real; kwargs...)
 
     # If set, produce an @info message
     # to warn user about possible degenerated network topologies.
-    deg_top_arg = :show_degenerated_biomass_graph_properties
+    deg_top_arg = :show_degenerated
     deg_top = take_or!(deg_top_arg, true)
 
     # Lower threshold.
@@ -25,7 +25,7 @@ function _simulate(raw::Internal, u0, tmax::Real; kwargs...)
     extinction_threshold = @tographdata extinction_threshold {Scalar, Vector}{Float64}
 
     # Shoo.
-    verbose = take_or!(:show_extinction_events, false)
+    verbose = take_or!(:show_extinctions, false)
 
     # No TerminateSteadyState.
     extc = extinction_callback(raw, extinction_threshold; verbose)
@@ -63,7 +63,8 @@ to construct simulated biomasses trajectories.
   - `tmax`: Maximum simulation time.
   - `t0 = 0`: Starting simulation date.
   - `extinction_threshold = 1e-5`: Biomass(es) values for which species are considered extinct.
-  - `show_extinction_events = false`: Raise to display events during simulation.
+  - `show_extinction = false`: Raise to display events during simulation.
+  - `show_degenerated = true`: Raise to warn about degenerated biomass graph properties.
   - `...`: additional arguments are passed to `DifferentialEquations.solve`.
 
 Simulation results in a `Solution` object

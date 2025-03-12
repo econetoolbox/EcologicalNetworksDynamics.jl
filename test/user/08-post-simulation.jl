@@ -57,7 +57,7 @@ end
 @testset "Retrieve extinct species." begin
 
     m = default_model(Foodweb([:a => :b, :b => :c]), Mortality([0, 1, 0]))
-    sol = simulate(m, 0.5, 600; show_degenerated_biomass_graph_properties = false)
+    sol = simulate(m, 0.5, 600; show_degenerated = false)
     ext = get_extinctions(sol)
     check_extinctions(ext, Dict([1 => 256.80, 2 => 484.07]))
 
@@ -76,7 +76,7 @@ end
         This message is meant to attract your attention \
         regarding the meaning of downstream analyses \
         depending on the simulated biomasses values.
-        You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
+        You can silent it with `show_degenerated=false`.""",
     ) simulate(m, 0.5, 600)
     top = get_topology(sol)
 
@@ -112,7 +112,7 @@ end
         This message is meant to attract your attention \
         regarding the meaning of downstream analyses \
         depending on the simulated biomasses values.
-        You can silent it with `show_degenerated_biomass_graph_properties=false`.""",
+        You can silent it with `show_degenerated=false`.""",
     ) simulate(m, 0.5, 100)
     ext = get_extinctions(sol)
     check_extinctions(ext, Dict(3 => 22.57, 4 => 23.17, 5 => 61.76))
