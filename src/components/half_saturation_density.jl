@@ -1,67 +1,115 @@
 # Set or generate half saturation densities for every consumer in the model.
 
-# Adapted from maximum consumption rate.
+# Mostly duplicated from maximum consumption.
 
-# One blueprint variant, but keep the same pattern as other biorates
-# just for consistency, in case of future pattern evolution.
+# (reassure JuliaLS)
+(false) && (local HalfSaturationDensity, _HalfSaturationDensity)
 
 # ==========================================================================================
-abstract type HalfSaturationDensity <: ModelBlueprint end
-# All subtypes must require(Foodweb).
+# Blueprints.
 
-HalfSaturationDensity(B0) = HalfSaturationDensityFromRawValues(B0)
+module HalfSaturationDensity_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Species, _Species, Foodweb, _Foodweb
+
+#-------------------------------------------------------------------------------------------
+mutable struct Raw <: Blueprint
+    B0::SparseVector{Float64}
+    species::Brought(Species)
+    Raw(B0::SparseVector{Float64}, sp = _Species) = new(B0, sp)
+    Raw(B0, sp = _Species) = new(@tographdata(B0, SparseVector{Float64}), sp)
+end
+F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.B0))
+@blueprint Raw "half-saturation density values"
+export Raw
+
+F.early_check(bp::Raw) = check_nodes(check, bp.B0)
+check(B0, ref = nothing) = check_value(>=(0), B0, ref, :B0, "Not a positive value")
+
+function F.late_check(raw, bp::Raw)
+    (; B0) = bp
+    cons = @ref raw.consumers.mask
+    @check_template B0 cons :consumers
+end
+
+F.expand!(raw, bp::Raw) = expand!(raw, bp.B0)
+function expand!(raw, B0)
+    raw._scratch[:half_saturation_density] = collect(B0) # Legacy storage is dense.
+    # Keep a true sparse version in the cache.
+    raw._cache[:half_saturation_density] = B0
+end
+
+#-------------------------------------------------------------------------------------------
+mutable struct Flat <: Blueprint
+    B0::Float64
+end
+@blueprint Flat "uniform half-saturation density" depends(Foodweb)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.B0)
+F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.B0, @ref raw.consumers.mask))
+
+#-------------------------------------------------------------------------------------------
+mutable struct Map <: Blueprint
+    B0::@GraphData Map{Float64}
+    Map(B0) = new(@tographdata(B0, Map{Float64}))
+end
+@blueprint Map "[species => half-saturation density] map"
+export Map
+
+F.early_check(bp::Map) = check_nodes(check, bp.B0)
+function F.late_check(raw, bp::Map)
+    (; B0) = bp
+    index = @ref raw.species.index
+    cons = @ref raw.consumers.mask
+    @check_list_refs B0 :consumer index template(cons)
+end
+
+function F.expand!(raw, bp::Map)
+    index = @ref raw.species.index
+    B0 = to_sparse_vector(bp.B0, index)
+    expand!(raw, B0)
+end
+
+end
+
+# ==========================================================================================
+@component HalfSaturationDensity{Internal} requires(Foodweb) blueprints(
+    HalfSaturationDensity_,
+)
 export HalfSaturationDensity
 
-#-------------------------------------------------------------------------------------------
-mutable struct HalfSaturationDensityFromRawValues <: HalfSaturationDensity
-    B0::@GraphData {Scalar, SparseVector, Map}{Float64}
-    HalfSaturationDensityFromRawValues(B0) = new(@tographdata B0 SNK{Float64})
+function (::_HalfSaturationDensity)(B0)
+
+    B0 = @tographdata B0 {Scalar, SparseVector, Map}{Float64}
+
+    if B0 isa Real
+        HalfSaturationDensity.Flat(B0)
+    elseif B0 isa AbstractVector
+        HalfSaturationDensity.Raw(B0)
+    else
+        HalfSaturationDensity.Map(B0)
+    end
+
 end
 
-function F.check(model, bp::HalfSaturationDensityFromRawValues)
-    (; _consumers_mask, _consumers_sparse_index) = model
-    (; B0) = bp
-    @check_refs_if_list B0 :consumers _consumers_sparse_index dense
-    @check_template_if_sparse B0 _consumers_mask :consumers
-end
-
-function store_legacy_B0!(model, B0::SparseVector{Float64})
-    model._scratch[:half_saturation_density] = collect(B0)
-    model._cache[:half_saturation_density] = B0
-end
-
-function F.expand!(model, bp::HalfSaturationDensityFromRawValues)
-    (; _consumers_mask, _species_index) = model
-    (; B0) = bp
-    @to_sparse_vector_if_map B0 _species_index
-    @to_template_if_scalar Real B0 _consumers_mask
-    store_legacy_B0!(model, B0)
-end
-
-@component HalfSaturationDensityFromRawValues requires(Foodweb)
-export HalfSaturationDensityFromRawValues
-
-#-------------------------------------------------------------------------------------------
-# Keep in case more alternate blueprints are added.
-# @conflicts(HalfSaturationDensityFromRawValues)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:HalfSaturationDensity}) = HalfSaturationDensity
-
-# ==========================================================================================
 @expose_data nodes begin
     property(half_saturation_density)
-    get(HalfSaturationDensities{Float64}, sparse, "consumer")
-    ref_cache(m -> nothing) # Cache loaded on component expansion.
-    template(m -> m._consumers_mask)
-    write!((m, rhs, i) -> (m._scratch[:half_saturation_density][i] = rhs))
-    @species_index
     depends(HalfSaturationDensity)
+    @species_index
+    ref_cached(_ -> nothing) # Cache filled on component expansion.
+    get(HalfSaturationDensities{Float64}, sparse, "consumer")
+    template(raw -> @ref raw.consumers.mask)
+    write!((raw, rhs::Real, i) -> begin
+        HalfSaturationDensity_.check(rhs, i)
+        rhs = Float64(rhs)
+        raw._scratch[:half_saturation_density][i] = rhs
+        rhs
+    end)
 end
 
-# ==========================================================================================
-display_short(bp::HalfSaturationDensity; kwargs...) =
-    display_short(bp, HalfSaturationDensity; kwargs...)
-display_long(bp::HalfSaturationDensity; kwargs...) =
-    display_long(bp, HalfSaturationDensity; kwargs...)
-F.display(model, ::Type{<:HalfSaturationDensity}) =
-    "Half-saturation density: [$(join_elided(model._half_saturation_density, ", "))]"
+F.shortline(io::IO, model::Model, ::_HalfSaturationDensity) = print(
+    io,
+    "Half-saturation density: [$(join_elided(model._half_saturation_density, ", "))]",
+)

@@ -16,6 +16,8 @@ mutable struct BioRates
 end
 #### end ####
 
+Base.:(==)(a::BioRates, b::BioRates) = equal_fields(a, b)
+
 #### Type display ####
 """
 One line [`BioRates`](@ref) display.

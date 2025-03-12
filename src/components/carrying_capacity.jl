@@ -1,127 +1,163 @@
 # Set or generate carrying capacity for every producer in the model.
-#
-# Two blueprint variants "for the same component",
-# depending on whether raw values or allometric rules for temperature are used.
 
-abstract type CarryingCapacity <: ModelBlueprint end
-# All subtypes must require(Foodweb).
+# Mostly duplicated from GrowthRate.
 
-# Construct either variant based on user input,
-# but disallow direct allometric input in this constructor,
-# for consistence with other allometry-compliant biorates.
-function CarryingCapacity(K)
+# (reassure JuliaLS)
+(false) && (local CarryingCapacity, _CarryingCapacity)
 
-    @check_if_symbol K (:Binzer2016,)
+# ==========================================================================================
+# Blueprints.
 
-    if K == :Binzer2016
-        CarryingCapacityFromTemperature(K)
-    else
-        CarryingCapacityFromRawValues(K)
-    end
-
-end
-
-export CarryingCapacity
+module CarryingCapacity_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EN: Species, _Species, Foodweb, _Foodweb, BodyMass, MetabolicClass, _Temperature
 
 #-------------------------------------------------------------------------------------------
-mutable struct CarryingCapacityFromRawValues <: CarryingCapacity
-    K::@GraphData {Scalar, SparseVector, Map}{Float64}
-    CarryingCapacityFromRawValues(K) = new(@tographdata K SNK{Float64})
+mutable struct Raw <: Blueprint
+    K::SparseVector{Float64}
+    species::Brought(Species)
+    Raw(K::SparseVector{Float64}, sp = _Species) = new(K, sp)
+    Raw(K, sp = _Species) = new(@tographdata(K, SparseVector{Float64}), sp)
 end
+F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.K))
+@blueprint Raw "carrying capacity values"
+export Raw
 
-function F.check(model, bp::CarryingCapacityFromRawValues)
-    (; _producers_mask, _producers_sparse_index) = model
+F.early_check(bp::Raw) = check_nodes(check, bp.K)
+check(K, ref = nothing) = check_value(>=(0), K, ref, :K, "Not a positive value")
+
+function F.late_check(raw, bp::Raw)
     (; K) = bp
-    @check_refs_if_list K :producers _producers_sparse_index
-    @check_template_if_sparse K _producers_mask :producers
+    prods = @ref raw.producers.mask
+    @check_template K prods :producers
 end
 
-function store_legacy_K!(model, K::SparseVector{Float64})
+F.expand!(raw, bp::Raw) = expand!(raw, bp.K)
+function expand!(raw, K)
     # The legacy format is a dense vector with 'nothing' values.
     res = Union{Nothing,Float64}[nothing for i in 1:length(K)]
     for (i, k) in zip(findnz(K)...)
         res[i] = k
     end
     # Store in scratch space until we're sure to bring in the "LogisticGrowth" component.
-    model._scratch[:carrying_capacity] = res
+    raw._scratch[:carrying_capacity] = res
     # Keep a true sparse version in the cache.
-    model._cache[:carrying_capacity] = K
+    raw._cache[:carrying_capacity] = K
 end
-
-function F.expand!(model, bp::CarryingCapacityFromRawValues)
-    (; _producers_mask, _species_index) = model
-    (; K) = bp
-    @to_sparse_vector_if_map K _species_index
-    @to_template_if_scalar Real K _producers_mask
-    store_legacy_K!(model, K)
-end
-
-@component CarryingCapacityFromRawValues requires(Foodweb)
-export CarryingCapacityFromRawValues
 
 #-------------------------------------------------------------------------------------------
-binzer2016_carrying_capacity_allometry_rates() =
+mutable struct Flat <: Blueprint
+    K::Float64
+end
+@blueprint Flat "uniform carrying capacity" depends(Foodweb)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.K)
+F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.K, @ref raw.producers.mask))
+
+#-------------------------------------------------------------------------------------------
+mutable struct Map <: Blueprint
+    K::@GraphData Map{Float64}
+    Map(K) = new(@tographdata(K, Map{Float64}))
+end
+@blueprint Map "[species => carrying capacity] map"
+export Map
+
+F.early_check(bp::Map) = check_nodes(check, bp.K)
+function F.late_check(raw, bp::Map)
+    (; K) = bp
+    index = @ref raw.species.index
+    prods = @ref raw.producers.mask
+    @check_list_refs K :producer index template(prods)
+end
+
+function F.expand!(raw, bp::Map)
+    index = @ref raw.species.index
+    K = to_sparse_vector(bp.K, index)
+    expand!(raw, K)
+end
+
+#-------------------------------------------------------------------------------------------
+binzer2016_allometry_rates() =
     (E_a = 0.71, allometry = Allometry(; producer = (a = 3, b = 0.28)))
 
-mutable struct CarryingCapacityFromTemperature <: CarryingCapacity
+# TODO: since only producers are involved,
+# does it make sense to receive and process a full allometric dict here?
+
+mutable struct Temperature <: Blueprint
     E_a::Float64
     allometry::Allometry
-    CarryingCapacityFromTemperature(E_a; kwargs...) =
-        new(E_a, parse_allometry_arguments(kwargs))
-    CarryingCapacityFromTemperature(E_a, allometry::Allometry) = new(E_a, allometry)
-    function CarryingCapacityFromTemperature(default::Symbol)
-        @check_if_symbol default (:Binzer2016,)
-        return @build_from_symbol default (
-            :Binzer2016 => new(binzer2016_carrying_capacity_allometry_rates()...)
-        )
+    Temperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
+    Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
+    function Temperature(default::Symbol)
+        @check_symbol default (:Binzer2016,)
+        @expand_symbol default (:Binzer2016 => new(binzer2016_allometry_rates()...))
     end
 end
+@blueprint Temperature "allometric rates and activation energy" depends(
+    _Temperature,
+    BodyMass,
+    MetabolicClass,
+)
+export Temperature
 
-F.buildsfrom(::CarryingCapacityFromTemperature) = [Temperature, BodyMass, MetabolicClass]
-
-function F.check(_, bp::CarryingCapacityFromTemperature)
-    al = bp.allometry
-    (_, template) = binzer2016_carrying_capacity_allometry_rates()
-    check_template(al, template, "carrying capacity rate from temperature")
-end
-
-function F.expand!(model, bp::CarryingCapacityFromTemperature)
-    (; _M, T, _metabolic_classes, _producers_mask) = model
-    (; E_a) = bp
-    K = sparse_nodes_allometry(
-        bp.allometry,
-        _producers_mask,
-        _M,
-        _metabolic_classes;
-        E_a,
-        T,
+function F.early_check(bp::Temperature)
+    (; allometry) = bp
+    check_template(
+        allometry,
+        binzer2016_allometry_rates()[2],
+        "carrying capacity (from temperature)",
     )
-    store_legacy_K!(model, K)
 end
 
-@component CarryingCapacityFromTemperature requires(Foodweb)
-export CarryingCapacityFromTemperature
+function F.expand!(raw, bp::Temperature)
+    (; E_a) = bp
+    T = @get raw.T
+    M = @ref raw.M
+    mc = @ref raw.metabolic_class
+    prods = @ref raw.producers.mask
+    K = sparse_nodes_allometry(bp.allometry, prods, M, mc; E_a, T)
+    expand!(raw, K)
+end
 
-#-------------------------------------------------------------------------------------------
-@conflicts(CarryingCapacityFromRawValues, CarryingCapacityFromTemperature)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:CarryingCapacity}) = CarryingCapacity
+end
 
 # ==========================================================================================
+@component CarryingCapacity{Internal} requires(Foodweb) blueprints(CarryingCapacity_)
+export CarryingCapacity
+
+function (::_CarryingCapacity)(K)
+
+    K = @tographdata K {Symbol, Scalar, SparseVector, Map}{Float64}
+    @check_if_symbol K (:Binzer2016,)
+
+    if K == :Binzer2016
+        CarryingCapacity.Temperature(K)
+    elseif K isa Real
+        CarryingCapacity.Flat(K)
+    elseif K isa AbstractVector
+        CarryingCapacity.Raw(K)
+    else
+        CarryingCapacity.Map(K)
+    end
+
+end
+
 @expose_data nodes begin
     property(carrying_capacity, K)
-    get(CarryingCapacities{Float64}, sparse, "producer")
-    ref_cache(m -> nothing) # Cache loaded on component expansion.
-    template(m -> m._producers_mask)
-    write!((m, rhs, i) -> (m._scratch[:carrying_capacity][i] = rhs))
-    @species_index
     depends(CarryingCapacity)
+    @species_index
+    ref_cached(_ -> nothing) # Cache filled on component expansion.
+    get(CarryingCapacities{Float64}, sparse, "producer")
+    template(raw -> @ref raw.producers.mask)
+    write!((raw, rhs::Real, i) -> begin
+        CarryingCapacity_.check(rhs, i)
+        rhs = Float64(rhs)
+        raw._scratch[:carrying_capacity][i] = rhs
+        rhs
+    end)
 end
 
-# ==========================================================================================
-display_short(bp::CarryingCapacity; kwargs...) =
-    display_short(bp, CarryingCapacity; kwargs...)
-display_long(bp::CarryingCapacity; kwargs...) =
-    display_long(bp, CarryingCapacity; kwargs...)
-F.display(model, ::Type{<:CarryingCapacity}) =
-    "Carrying capacity: [$(join_elided(model._K, ", "))]"
+F.shortline(io::IO, model::Model, ::_CarryingCapacity) =
+    print(io, "Carrying capacity: [$(join_elided(model._carrying_capacity, ", "))]")

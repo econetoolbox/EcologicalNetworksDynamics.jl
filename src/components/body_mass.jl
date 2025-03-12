@@ -1,125 +1,132 @@
 # Set or generate body masses for every species in the model.
 
-# Body mass are either given as-is by user
-# or they are calculated from the foodweb with a Z-value.
-# As a consequence, component expansion only requires `Foodweb`
-# in the second case.
-# In spirit, this leads to the definition
-# of "two different blueprints for the same component".
+# (reassure JuliaLS)
+(false) && (local BodyMass, _BodyMass)
 
 # ==========================================================================================
-# Emulate this with an abstract blueprint type.
+# Blueprints.
 
-abstract type BodyMass <: ModelBlueprint end
-# All subtypes must require(Species).
+module BodyMass_
+include("blueprint_modules.jl")
+include("blueprint_modules_identifiers.jl")
+import .EcologicalNetworksDynamics: _Species, Species, _Foodweb, Foodweb
 
-# Construct either variant based on user input.
-function BodyMass(raw = nothing; Z = nothing, M = nothing)
+#-------------------------------------------------------------------------------------------
+# From raw values.
 
-    (!isnothing(raw) && !isnothing(M)) && argerr("Body masses 'M' specified twice:\n\
-                                                  once as     : $(repr(raw))\n\
-                                                  and once as : $(repr(M))")
-    israw = !isnothing(raw) || !isnothing(M)
-    isZ = !isnothing(Z)
-    M = israw ? (isnothing(raw) ? M : raw) : nothing
+mutable struct Raw <: Blueprint
+    M::Vector{Float64}
+    species::Brought(Species)
+    Raw(M, sp = _Species) = new(@tographdata(M, Vector{Float64}), sp)
+end
+F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.M))
+@blueprint Raw "masses values"
+export Raw
 
-    (!israw && !isZ) && argerr("Either 'M' or 'Z' must be provided to define body masses.")
+F.early_check(bp::Raw) = check_nodes(check, bp.M)
+check(M, ref = nothing) = check_value(>=(0), M, ref, :M, "Not a positive value")
 
-    (israw && isZ) && argerr("Cannot provide both 'M' and 'Z' to specify body masses. \n\
-                              Received M: $(repr(M))\n     \
-                                   and Z: $(repr(Z)).")
-
-    israw && return BodyMassFromRawValues(M)
-
-    BodyMassFromZ(Z)
+function F.late_check(raw, bp::Raw)
+    (; M) = bp
+    S = @get raw.S
+    @check_size M S
 end
 
+F.expand!(raw, bp::Raw) = expand!(raw, bp.M)
+expand!(raw, M) = raw._foodweb.M = M
+
+#-------------------------------------------------------------------------------------------
+# From a scalar broadcasted to all species.
+
+mutable struct Flat <: Blueprint
+    M::Float64
+end
+@blueprint Flat "uniform mass value" depends(Species)
+export Flat
+
+F.early_check(bp::Flat) = check(bp.M)
+F.expand!(raw, bp::Flat) = expand!(raw, to_size(bp.M, @get raw.S))
+
+#-------------------------------------------------------------------------------------------
+# From a species-indexed map.
+
+mutable struct Map <: Blueprint
+    M::@GraphData Map{Float64}
+    species::Brought(Species)
+    Map(M, sp = _Species) = new(@tographdata(M, Map{Float64}), sp)
+end
+F.implied_blueprint_for(bp::Map, ::_Species) = Species(refspace(bp.M))
+@blueprint Map "[species => mass] map"
+export Map
+
+F.early_check(bp::Map) = check_nodes(check, bp.M)
+function F.late_check(raw, bp::Map)
+    (; M) = bp
+    index = @ref raw.species.index
+    @check_list_refs M :species index dense
+end
+
+function F.expand!(raw, bp::Map)
+    index = @ref raw.species.index
+    M = to_dense_vector(bp.M, index)
+    expand!(raw, M)
+end
+
+#-------------------------------------------------------------------------------------------
+# From trophic levels with a Z-value.
+
+mutable struct Z <: Blueprint
+    Z::Float64
+end
+@blueprint Z "trophic levels" depends(Foodweb)
+export Z
+
+function F.late_check(_, bp::Z)
+    (; Z) = bp
+    Z >= 0 || checkfails("Cannot calculate body masses from trophic levels \
+                          with a negative value of Z: $Z.")
+end
+
+function F.expand!(raw, bp::Z)
+    A = @ref raw.A
+    M = Internals.compute_mass(A, bp.Z)
+    expand!(raw, M)
+end
+
+end
+
+# ==========================================================================================
+# Component and generic constructors.
+
+@component BodyMass{Internal} requires(Species) blueprints(BodyMass_)
 export BodyMass
 
-#-------------------------------------------------------------------------------------------
-# First variant: user provides raw body masses.
+(::_BodyMass)(M::Real) = BodyMass.Flat(M)
 
-mutable struct BodyMassFromRawValues <: BodyMass
-    M::@GraphData {Scalar, Vector, Map}{Float64}
-    BodyMassFromRawValues(M) = new(@tographdata M SVK{Float64})
+function (::_BodyMass)(; Z = nothing)
+    isnothing(Z) && argerr("Either 'M' or 'Z' must be provided to define body masses.")
+    BodyMass.Z(Z)
 end
 
-# Infer species compartment from body mass vector if given.
-F.can_imply(bp::BodyMassFromRawValues, ::Type{Species}) = !(bp.M isa Real)
-Species(bp::BodyMassFromRawValues) =
-    if bp.M isa Vector
-        Species(length(bp.M))
+function (::_BodyMass)(M)
+    M = @tographdata M {Vector, Map}{Float64}
+    if M isa Vector
+        BodyMass.Raw(M)
     else
-        Species(refs(bp.M))
+        BodyMass.Map(M)
     end
-
-function F.check(model, bp::BodyMassFromRawValues)
-    (; S, _species_index) = model
-    (; M) = bp
-    @check_refs_if_list M :species _species_index dense
-    @check_size_if_vector M S
 end
 
-function F.expand!(model, bp::BodyMassFromRawValues)
-    (; S, _species_index) = model
-    (; M) = bp
-    @to_dense_vector_if_map M _species_index
-    @to_size_if_scalar Real M S
-    model._foodweb.M = M
-end
-
-@component BodyMassFromRawValues implies(Species)
-export BodyMassFromRawValues
-
-#-------------------------------------------------------------------------------------------
-# Second variant: body masses are calculated from trophic levels.
-
-mutable struct BodyMassFromZ <: BodyMass
-    Z::@GraphData {Scalar}{Float64}
-    BodyMassFromZ(Z) = new(@tographdata Z S{Float64})
-end
-
-function F.check(_, bp::BodyMassFromZ)
-    (; Z) = bp
-    Z >= 0 || checkfails(
-        "Cannot calculate body masses from trophic levels with a negative value of Z: $Z.",
-    )
-end
-
-function F.expand!(model, bp::BodyMassFromZ)
-    (; Z) = bp
-    A = model._foodweb.A
-    M = Internals.compute_mass(A, Z)
-    model._foodweb.M = M
-end
-
-@component BodyMassFromZ requires(Foodweb)
-export BodyMassFromZ
-
-#-------------------------------------------------------------------------------------------
-# Don't specify both ways.
-@conflicts(BodyMassFromRawValues, BodyMassFromZ)
-# Temporary semantic fix before framework refactoring.
-F.componentof(::Type{<:BodyMass}) = BodyMass
-
-# ==========================================================================================
 # Basic query.
-
 @expose_data nodes begin
-    property(body_masses, M)
-    get(BodyMasses{Float64}, "species")
-    ref(m -> m._foodweb.M)
-    @species_index
+    property(body_mass, M)
     depends(BodyMass)
+    @species_index
+    ref(raw -> raw._foodweb.M)
+    get(BodyMasses{Float64}, "species")
+    write!((raw, rhs::Real, i) -> BodyMass_.check(rhs, i))
 end
 
-# ==========================================================================================
 # Display.
-
-# Highjack display to make it like both blueprints provide the same component.
-display_short(bp::BodyMass; kwargs...) = display_short(bp, BodyMass; kwargs...)
-display_long(bp::BodyMass; kwargs...) = display_long(bp, BodyMass; kwargs...)
-
-function F.display(model, ::Type{<:BodyMass})
-    "Body masses: [$(join_elided(model._body_masses, ", "))]"
-end
+F.shortline(io::IO, model::Model, ::_BodyMass) =
+    print(io, "BodyMass: [$(join_elided(model.body_mass, ", "))]")

@@ -58,6 +58,10 @@ const Option{T} = Union{Nothing,T}
 # Since parts of the API is being extracted out of this module to survive,
 # authorize using it here.
 using ..EcologicalNetworksDynamics
+const equal_fields = EcologicalNetworksDynamics.equal_fields
+
+# Part of future refactoring here.
+const Topology = EcologicalNetworksDynamics.Topologies.Topology
 
 include("./macros.jl")
 include("./inputs/foodwebs.jl")

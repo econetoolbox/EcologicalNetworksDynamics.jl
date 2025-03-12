@@ -6,13 +6,13 @@
     m = Model(Temperature(200))
     @test m.temperature == m.T == 200.0
 
-    @sysfails(m.T = 5, Property(T), "This property is read-only.")
+    # Editable.
+    m.temperature = 250
+    @test m.temperature == m.T == 250.0
 
-    @sysfails(
-        Model(Temperature(-4)),
-        Check(Temperature),
-        "Temperature needs to be positive. \
-         Received: T = -4.0."
-    )
+    mess = "Not a positive (Kelvin) value: T ="
+    @sysfails(Model(Temperature(-4)), Check(early, [Temperature.Raw], "$mess -4.0."))
+
+    @failswith((m.T = -1), WriteError("$mess -1.", :temperature, nothing, -1))
 
 end
