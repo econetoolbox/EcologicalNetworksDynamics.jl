@@ -17,29 +17,29 @@ function _simulate(raw::Internal, u0, tmax::Real; kwargs...)
 
     # If set, produce an @info message
     # to warn user about possible degenerated network topologies.
-    deg_top_arg = :show_degenerated_biomass_graph_properties
+    deg_top_arg = :show_degenerated
     deg_top = take_or!(deg_top_arg, true)
 
     # Lower threshold.
     extinction_threshold = take_or!(:extinction_threshold, 1e-12, Any)
     extinction_threshold = @tographdata extinction_threshold {Scalar, Vector}{Float64}
 
+    shex_arg = :show_extinctions
+    if given(:callback) && given(shex_arg)
+        argerr("There is no need for argument $(repr(shex_arg)) \
+                if you provide your own callbacks: \
+                the $(repr(shex_arg)) argument only effects \
+                the default `extinction_callback`.")
+    end
+
     # Shoo.
-    verbose = take_or!(:show_extinction_events, false)
+    verbose = take_or!(:show_extinctions, false)
 
     # No TerminateSteadyState.
     extc = extinction_callback(raw, extinction_threshold; verbose)
     callback = take_or!(:callbacks, Internals.CallbackSet(extc))
 
-    out = Internals.simulate(
-        raw,
-        u0;
-        tmax,
-        extinction_threshold,
-        callback,
-        verbose,
-        left()...,
-    )
+    out = Internals.simulate(raw, u0; tmax, extinction_threshold, callback, left()...)
 
     deg_top && show_degenerated_biomass_graph_properties(
         raw,
@@ -63,7 +63,8 @@ to construct simulated biomasses trajectories.
   - `tmax`: Maximum simulation time.
   - `t0 = 0`: Starting simulation date.
   - `extinction_threshold = 1e-5`: Biomass(es) values for which species are considered extinct.
-  - `show_extinction_events = false`: Raise to display events during simulation.
+  - `show_extinctions = false`: Raise to display events during simulation.
+  - `show_degenerated = true`: Raise to warn about degenerated biomass graph properties.
   - `...`: additional arguments are passed to `DifferentialEquations.solve`.
 
 Simulation results in a `Solution` object
