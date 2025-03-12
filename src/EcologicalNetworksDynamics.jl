@@ -96,12 +96,12 @@ include("./expose_data.jl")
 # connecting them to the internals via the framework.
 include("./components/main.jl")
 
-# Additional exposed utils built on top of components and methods.
-include("./default_model.jl")
-include("./nontrophic_layers.jl")
-include("./simulate.jl")
-include("./topology.jl")
-include("./diversity.jl")
+#  # Additional exposed utils built on top of components and methods.
+#  include("./default_model.jl")
+#  include("./nontrophic_layers.jl")
+#  include("./simulate.jl")
+#  include("./topology.jl")
+#  include("./diversity.jl")
 
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true
