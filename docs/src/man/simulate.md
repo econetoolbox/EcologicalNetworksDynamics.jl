@@ -54,7 +54,6 @@ We will now go through some advanced features of the `simulate` function.
 First, the `callback` keyword argument allows specifying a function that will be called at each time step of the simulation.
 We provide a built-in callback `extinction_callback` which extinguishes the species whose biomass falls below a given threshold.
 This threshold is set by default to `1e-12`, but can be changed.
-Moreover, species extinctions can be printed to the console with the `verbose` keyword argument.
 
 ```@example econetd
 foodweb = Foodweb([3 => 1, 2 => 1]) # Two predators feeding on one prey.
@@ -64,13 +63,13 @@ sol[end]
 ```
 
 ```@example econetd
-callback = extinction_callback(m, 1e-6; verbose = true)
+callback = extinction_callback(m, 1e-6)
 sol = simulate(m, [1, 1, 1], 100_000; callback) # High extinction threshold.
 sol[end]
 ```
 
 ```@example econetd
-callback = extinction_callback(m, 1e-12; verbose = true)
+callback = extinction_callback(m, 1e-12)
 sol = simulate(m, [1, 1, 1], 100_000; callback) # Low extinction threshold.
 sol[end]
 ```

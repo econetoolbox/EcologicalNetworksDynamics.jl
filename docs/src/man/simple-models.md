@@ -26,21 +26,21 @@ are set so that the predator body mass is 10 times the prey body mass.
 
 ```@example econetd
 m1 = default_model(Foodweb([3 => 2, 2 => 1]))
-m1.body_masses
+m1.body_mass
 ```
 
 But let's say you want to set the body mass of all species to 1.5, then you can do:
 
 ```@example econetd
 m2 = default_model(Foodweb([3 => 2, 2 => 1]), BodyMass(1.5))
-m2.body_masses
+m2.body_mass
 ```
 
 You can also change the default predator-prey body mass ratio to set up species body masses:
 
 ```@example econetd
 m3 = default_model(Foodweb([3 => 2, 2 => 1]), BodyMass(; Z = 5))
-m3.body_masses
+m3.body_mass
 ```
 
 In the example above the body mass of the predator is 5 times the body mass of the prey, starting with a body mass of 1 for the primary producer.
@@ -48,27 +48,18 @@ In the example above the body mass of the predator is 5 times the body mass of t
 ## Access the Model Data
 
 The parameters held by the model can be accessed via the various model properties,
-with functions named `get_<X>`:
+with functions named `m.<parameter_name>` where `m` is the model object:
 
 ```@example econetd
-get_hill_exponent(m)
+m.hill_exponent
 ```
 
 ```@example econetd
-get_body_masses(m)
+m.body_mass
 ```
 
 ```@example econetd
-get_efficiency(m)
-```
-
-Alternatively, you can access the same data with the following syntax:
-
-```@example econetd
-m.hill_exponent # Same as get_hill_exponent(m).
-m.body_masses # Same as get_body_masses(m).
-m.efficiency # Same as get_efficiency(m).
-nothing # hide
+m.efficiency
 ```
 
 The properties of the model can be viewed with:
@@ -79,19 +70,18 @@ properties(m)
 
 ## Change the Model Data
 
-Some parameters can be modified after the model was created,
-either with `set_<x>!(m, value)` or `m.<x> = value`.
+Some parameters can be modified after the model was created
+with `m.<x> = value`.
 However, not all parameters can be modified in this way for consistency issues.
 For instance, many parameters are derived from body masses, therefore changing the body masses would make the model inconsistent.
 
 ```@example econetd
 # OK: terminal data can be changed.
-set_hill_exponent!(m, 2.1)
-m.hill_exponent = 2.1 # (same)
+m.hill_exponent = 2.1
 
 try # hide
 # Not OK: this would make the rest of the model data inconsistent.
-m.body_masses = [1, 2, 3]
+m.body_mass = [1, 2, 3]
 catch err; print(stderr, "ERROR: "); showerror(stderr, err); end # hide
 ```
 

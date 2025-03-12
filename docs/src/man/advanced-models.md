@@ -49,8 +49,7 @@ m.hill_exponent
 But we can change its value, for instance to 1:
 
 ```@example econetd
-m.hill_exponent = 1 # Same as set_hill_exponent!(m, 1).
-m.hill_exponent # Check that the value has changed.
+m.hill_exponent = 1
 ```
 
 Above, we changed the value after the model was created.
@@ -61,8 +60,9 @@ m = default_model(fw, ClassicResponse(; h = 1))
 m.hill_exponent
 ```
 
-Moreover, the dynamical system is often parameterized differently, with the bioenergetic functional response as in [Williams, Brose and Martinez](https://doi.org/10.1007/978-1-4020-5337-5_2), that is parameterized with half-saturation density.
-In this case, the dynamical system reads:
+Moreover, the model can also be parameterized using the bioenergetic functional response
+as in [Williams, Brose and Martinez](https://doi.org/10.1007/978-1-4020-5337-5_2),
+that depends on species half-saturation density.
 
 ```math
 \frac{dB_i}{dt} = g(B_i)
@@ -101,9 +101,14 @@ m.half_saturation_density[2] # Check that the value is the one we set.
 ## Non-Trophic Interactions
 
 Food webs, and therefore trophic interactions, are at the core of the package.
-However, the importance of other interactions (hereafter non-trophic interactions) is increasingly recognized.
+However, the importance of interactions other than trophic
+(hereafter "non-trophic interactions")
+such as facilitation or competition, is increasingly recognized.
+They can profoundly shape the community dynamics,
+and including them or not can drastically change simulation outcomes.
 For this reason, we offer the possibility to include non-trophic interactions in food web models.
-Four non-trophic interactions can be considered as in [Miele et al., (2019)](https://doi.org/10.1371/journal.pcbi.1007269):
+Four non-trophic interactions can be modeled
+as in [Miele et al., (2019)](https://doi.org/10.1371/journal.pcbi.1007269):
 
   - Competition for space between producers
   - Plant facilitation (e.g. because of nitrogen fixation or seed dispersal)
@@ -111,7 +116,8 @@ Four non-trophic interactions can be considered as in [Miele et al., (2019)](htt
   - Refuge provisioning for prey
 
 For example, let's compare the dynamics of a plant growing toward its carrying capacity with and without facilitation.
-In this simplistic setting, we do not consider trophic interactions, but only the focal plant (1)
+In this simplistic setting, we do not consider trophic interactions,
+but only the plant (species 1)
 
 ```@example econetd
 using Plots
@@ -122,7 +128,7 @@ m_no_facilitation = default_model(fw)
 B0, t = [0.1], 10
 sol_no_facilitation = simulate(m_no_facilitation, B0, t)
 A = [0 0; 1 0]
-m_facilitation = default_model(fw, FacilitationLayer(; A))
+m_facilitation = default_model(fw, Facilitation.Layer(; A))
 sol_no_facilitation = simulate(m_no_facilitation, B0, t)
 sol_facilitation = simulate(m_facilitation, [0.1], t)
 plot(
@@ -159,7 +165,7 @@ attack_rate = []
 T_values = 273.15:1:310.15
 for T in T_values
     local m = default_model(fw, Temperature(T))
-    push!(attack_rate, m.attack_rate[2])
+    push!(attack_rate, m.attack_rate[2, 1])
 end
 plot(T_values, attack_rate; xlabel = "Temperature (K)", ylabel = "Attack Rate")
 savefig("temperature-attack-rate.svg");
@@ -199,31 +205,31 @@ To implement nutrient dynamics, we have to pass the corresponding component to t
 
 ```@example econetd
 m = default_model(fw, NutrientIntake(1))
-m.n_nutrients # Number of nutrients.
+m.nutrients.number
 ```
 
 We can of course change the number of nutrients:
 
 ```@example econetd
 m = default_model(fw, NutrientIntake(3))
-m.n_nutrients # Number of nutrients.
+m.nutrients.number
 ```
 
 We can also change the parameters of the nutrient dynamics, as the supply rate, the concentration, and the nutrient turnover rate:
 
 ```@example econetd
 m = default_model(fw, NutrientIntake(3; supply = 10.2))
-m.nutrients_supply # Supply rate of nutrients.
+m.nutrients.supply
 ```
 
 ```@example econetd
 m = default_model(fw, NutrientIntake(3; turnover = 0.2))
-m.nutrients_turnover # Turnover rate of nutrients.
+m.nutrients.turnover
 ```
 
 ```@example econetd
 m = default_model(fw, NutrientIntake(3; concentration = 0.9))
-m.nutrients_concentration # Concentration of nutrients.
+m.nutrients.concentration
 ```
 
 Nutrient concentration is a matrix, where rows correspond to producers
