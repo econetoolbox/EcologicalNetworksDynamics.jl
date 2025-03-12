@@ -24,6 +24,14 @@ function _simulate(raw::Internal, u0, tmax::Real; kwargs...)
     extinction_threshold = take_or!(:extinction_threshold, 1e-12, Any)
     extinction_threshold = @tographdata extinction_threshold {Scalar, Vector}{Float64}
 
+    shex_arg = :show_extinctions
+    if given(:callback) && given(shex_arg)
+        argerr("There is no need for argument $(repr(shex_arg)) \
+                if you provide your own callbacks: \
+                the $(repr(shex_arg)) argument only effects \
+                the default `extinction_callback`.")
+    end
+
     # Shoo.
     verbose = take_or!(:show_extinctions, false)
 
