@@ -215,9 +215,9 @@ function graphdataconvert(
 
     lhs, rhs = map((lhs, rhs)) do side
         determined = false
+        safe_first_ref = deepcopy(first_ref)
         (is_strong_group, strong_group, R_strong_group) = try
             # Attempt to parse as a submap, only successful for strong groups.
-            safe_first_ref = deepcopy(first_ref)
             sub = graphdataconvert((@GraphData {Map}{T}), side; ExpectedRefType, first_ref)
             (true, sub, reftype(sub))
         catch e
@@ -228,7 +228,6 @@ function graphdataconvert(
         (is_weak_group, weak_group, R_weak_group) = if !determined
             # Attempt to as a sub-binmap, only successful for weak groups.
             try
-                safe_first_ref = deepcopy(first_ref)
                 sub = graphdataconvert(
                     (@GraphData {Map}{:bin}),
                     side;
@@ -260,15 +259,30 @@ function graphdataconvert(
         (is_strong_plain, group, R_strong_plain) = if !determined
             ref, value = checked_pair_split(side, true)
             R = checked_ref_type(ref, ExpectedRefType, first_ref)
-            set_if_first_ref!(ref, first_ref)
+            set_if_first_ref!(first_ref, ref)
             (true, (ref => value,), R)
         else
-            (false, nothing, nothing)
+            (false, group, nothing)
         end
+        (;
+            is_strong_group,
+            strong_group,
+            R_strong_group,
+            is_weak_group,
+            weak_group,
+            R_weak_group,
+            is_weak_plain,
+            group,
+            R_weak_plain,
+            is_strong_plain,
+            R_strong_plain,
+        )
     end
 
-    println("lhs: $lhs")
-    println("rhs: $rhs")
+    display(input)
+    display(OrderedDict(pairs(lhs)))
+    display(OrderedDict(pairs(rhs)))
+    display(first_ref)
     error("STOP HERE")
 
     (strong_grouped_sources, strong_grouped_lhs_R, is_lhs_strong_grouped),
@@ -441,20 +455,15 @@ function set_if_first_ref!((first_ref, found_first_ref)::FirstRef, ref)
     end
 end
 
-function type((first_ref, found_first_ref)::FirstRef)
+type((first_ref, found_first_ref)::FirstRef) =
     if found_first_ref[]
         typeof(first_ref[])
     else
         nothing
     end
-end
 
 # Check ref type consistency wrt expected type or first type found.
-function checked_ref_type(
-    ref,
-    ExpectedRefType,
-    first_ref::FirstRef,
-)
+function checked_ref_type(ref, ExpectedRefType, first_ref::FirstRef)
     Expected = if isnothing(ExpectedRefType)
         type(first_ref)
     else
@@ -470,8 +479,8 @@ function checked_ref_type(
                 mess *= " (inferred from first ref: $(repr(f)) ::$(typeof(f)))"
             end
             mess *= "."
+            argerr(mess)
         end
-        argerr(mess)
     end
     R
 end
