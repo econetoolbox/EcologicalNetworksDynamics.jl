@@ -37,7 +37,6 @@ function _simulate(raw::Internal, u0, tmax::Real; kwargs...)
         tmax,
         extinction_threshold,
         callback,
-        verbose,
         left()...,
     )
 

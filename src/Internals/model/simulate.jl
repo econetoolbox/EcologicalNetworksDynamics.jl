@@ -114,10 +114,9 @@ function simulate(
     t0::Number = 0,
     tmax::Number = 500,
     extinction_threshold::Union{Number,AbstractVector} = 1e-5,
-    verbose = true,
     callback = CallbackSet(
         TerminateSteadyState(1e-6, 1e-4),
-        ExtinctionCallback(extinction_threshold, params, verbose),
+        ExtinctionCallback(extinction_threshold, params, true),
     ),
     diff_code_data = (dudt!, params),
     # FROM THE FUTURE - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
