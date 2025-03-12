@@ -62,38 +62,38 @@ include("./temperature.jl")
 # Replicated/adapted from the above.
 # TODO: factorize subsequent repetitions there.
 # Easier once the Internals become more consistent?
-include("./hill_exponent.jl") # <- First, good example of 'graph' component. Read first.
-include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
-include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
-include("./carrying_capacity.jl")
+#  include("./hill_exponent.jl") # <- First, good example of 'graph' component. Read first.
+#  include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
+#  include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
+#  include("./carrying_capacity.jl")
 include("./mortality.jl")
-include("./metabolism.jl")
-include("./maximum_consumption.jl")
+#  include("./metabolism.jl")
+#  include("./maximum_consumption.jl")
 include("./producers_competition.jl")
-include("./consumers_preferences.jl")
-include("./handling_time.jl")
-include("./attack_rate.jl")
-include("./half_saturation_density.jl")
-include("./intraspecific_interference.jl")
-include("./consumption_rate.jl")
+#  include("./consumers_preferences.jl")
+#  include("./handling_time.jl")
+#  include("./attack_rate.jl")
+#  include("./half_saturation_density.jl")
+#  include("./intraspecific_interference.jl")
+#  include("./consumption_rate.jl")
 
-# Namespace nutrients data.
-include("./nutrients/main.jl")
-export Nutrients
+#  # Namespace nutrients data.
+#  include("./nutrients/main.jl")
+#  export Nutrients
 
-include("./nontrophic_layers/main.jl")
-using .NontrophicInteractions
-const Nti = NontrophicInteractions
-export NontrophicInteractions, Nti
-export Competition
-export Facilitation
-export Interference
-export Refuge
+#  include("./nontrophic_layers/main.jl")
+#  using .NontrophicInteractions
+#  const Nti = NontrophicInteractions
+#  export NontrophicInteractions, Nti
+#  export Competition
+#  export Facilitation
+#  export Interference
+#  export Refuge
 
-# The above components mostly setup *data* within the model.
-# In the next they mostly specify the *code* needed to simulate it.
-include("./producer_growth.jl")
-include("./functional_responses.jl")
-# Metabolism and Mortality are also technically code components,
-# but they are not reified yet and only reduce
-# to the single data component they each bring.
+#  # The above components mostly setup *data* within the model.
+#  # In the next they mostly specify the *code* needed to simulate it.
+#  include("./producer_growth.jl")
+#  include("./functional_responses.jl")
+#  # Metabolism and Mortality are also technically code components,
+#  # but they are not reified yet and only reduce
+#  # to the single data component they each bring.
