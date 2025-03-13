@@ -133,7 +133,7 @@ first_ref(p::Parser) =
     if p.found_first_ref
         p.first_ref
     else
-        argerr("Undefined first reference: this is a bug in the package.")
+        throw("Undefined first reference: this is a bug in the package.")
     end
 
 Base.push!(p::Parser, ref) = push!(p.path, ref)
@@ -151,7 +151,13 @@ end
 # Reference type cannot be inferred if input is empty.
 # Default to labels because they are stable in case of nodes deletions.
 default_R(p::Parser) = isnothing(p.expected_R) ? Symbol : p.expected_R
-empty_result(p::Parser) = p.target_type(default_R())()
+empty_result(p::Parser) = p.target_type(default_R(p))()
+get_R(p::Parser) =
+    if p.found_first_ref
+        typeof(p.first_ref)
+    else
+        throw("Undetermined reference type: this is a bug in the package.")
+    end
 
 # Retrieve underlying result, constructing it from inferred/expected R if unset yet.
 function result!(p::Parser)
@@ -161,7 +167,7 @@ function result!(p::Parser)
     elseif !isnothing(p.expected_R)
         p.expected_R
     else
-        argerr("Cannot construct result without R being inferred: \
+        throw("Cannot construct result without R being inferred: \
                 this is a bug in the package.")
     end
     p.result = p.target_type(R)()
@@ -347,7 +353,7 @@ function graphdataconvert(
     input;
     ExpectedRefType = nothing,
     parser = nothing,
-    what = (; whole = "map", ref = "node", pair = "reference(s) => value"),
+    what = (; whole = "map", pair = "reference(s) => value", ref = "node"),
 ) where {T}
     p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{R,T}) : parser
     it = parse_iterable(p, input, what)
@@ -362,8 +368,8 @@ function graphdataconvert(
         update!(p, :right)
         value = parse_value(p, value)
         update!(p, :left)
-        push!(p, 1)
         res = result!(p)
+        push!(p, 1)
         for ref in refs
             haskey(res, ref) && duperr(p, ref)
             res[ref] = value
@@ -387,46 +393,71 @@ function graphdataconvert(
     ExpectedRefType = nothing,
     parser = nothing,
 )
-    applicable(iterate, input) ||
-        argerr("Binary adjacency list input needs to be iterable.")
-    it = iterate(input)
-    if isnothing(it)
-        R = isnothing(ExpectedRefType) ? Int : ExpectedRefType
-        return BinAdjacency{R}()
-    end
+    p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) : parser
+    it = parse_iterable(p, input, "binary adjacency map")
+    isnothing(it) && return empty_result(p)
 
-    first_ref = (Ref{Any}(nothing), Ref(false))
-
-    # Type inference from first element.
-    pair, it = it
-    key, value = checked_pair_split(pair)
-    R = checked_ref_type(key, ExpectedRefType, first_ref)
-    key = checked_ref_convert(R, key)
-    value = submap((@GraphData {Map}{:bin}), value, R, key)
-    res = BinAdjacency{R}()
-    res[key] = value
-
-    # Fill up the set.
-    it = iterate(input, it)
+    push!(p, 1)
     while !isnothing(it)
         pair, it = it
-        key, value = checked_pair_split(pair)
-        key = checked_ref_convert(R, key)
-        value = submap((@GraphData {Map}{:bin}), value, R, key)
-        haskey(res, key) && duperr(key)
-        res[key] = value
+        sources, targets = parse_pair(p, pair, "source(s) => target(s)")
+        push!(p, :left)
+        sources = parse_grouped_refs!(p, sources, "source node")
+        update!(p, :right)
+        targets = parse_grouped_refs!(p, targets, "target node")
+        res = result!(p)
+        update!(p, :left)
+        push!(p, 1)
+        pend = (length(p.path)-1):length(p.path)
+        for src in sources
+            sub = if haskey(res, src)
+                res[src]
+            else
+                res[src] = OrderedSet{get_R(p)}()
+            end
+            safe = p.path[pend]
+            p.path[pend] .= (:right, 1)
+            for tgt in targets
+                tgt in sub && interr(
+                    "Duplicate edge specification \
+                     $(repr(src)) → $(repr(tgt))$(report(p, tgt))",
+                )
+                push!(sub, tgt)
+                bump!(p)
+            end
+            p.path[pend] .= safe
+            isempty(sub) && interr("No target provided for source$(report(p, src))")
+            bump!(p)
+        end
+        pop!(p)
+        pop!(p)
         it = iterate(input, it)
+        bump!(p)
     end
-    res
+
+    result!(p)
 end
 
 # The binary case *can* accept boolean matrices.
 function graphdataconvert(
     ::Type{BinAdjacency{<:Any}},
-    input::AbstractMatrix{Bool},
-    ExpectedRefType = Int,
+    input::AbstractMatrix{Bool};
+    ExpectedRefType = nothing,
+    parser = nothing,
+    what = (; whole = "binary map"),
 )
-    res = BinAdjacency{ExpectedRefType}()
+    !isnothing(ExpectedRefType) &&
+        ExpectedRefType != Int &&
+        interr("Label-indexed binary adjacency lists \
+                cannot be produced from boolean matrices.")
+    !isnothing(parser) &&
+        parser.expected_R != Int &&
+        unexpected_reftype(what.whole, parser, input)
+    from_boolean_matrix(input)
+end
+
+function from_boolean_matrix(input)
+    res = BinAdjacency{Int}()
     for (i, row) in enumerate(eachrow(input))
         adj_line = BinMap(j for (j, val) in enumerate(row) if val)
         isempty(adj_line) && continue
@@ -435,12 +466,8 @@ function graphdataconvert(
     res
 end
 
-function graphdataconvert(
-    ::Type{BinAdjacency{<:Any}},
-    input::AbstractSparseMatrix{Bool,R},
-    ExpectedRefType = R,
-) where {R}
-    res = BinAdjacency{ExpectedRefType}()
+function from_boolean_matrix(input::AbstractSparseMatrix{Bool})
+    res = BinAdjacency{Int}()
     nzi, nzj, _ = findnz(input)
     for (i, j) in zip(nzi, nzj)
         if haskey(res, i)
