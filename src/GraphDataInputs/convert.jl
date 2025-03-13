@@ -86,6 +86,9 @@ end
 # during input parsing, especially useful for quality reporting in case of invalid input.
 # This struct is very type-unstable so as to be used for target conversion.
 mutable struct Parser
+    # Nothing for the special binary case.
+    T::Option{Type}
+
     # Useful if known by callers for some reason.
     expected_R::Option{Type}
     target_type::Function # R -> type.
@@ -99,9 +102,25 @@ mutable struct Parser
 
     # Only fill after checking for consistency, duplications etc.
     result::Union{Nothing,Map,BinMap,Adjacency,BinAdjacency}
-    Parser(expected_R, target_type, found_first_ref, first_ref) =
-        new(expected_R, target_type, found_first_ref, first_ref, [], nothing)
-    Parser(expected_R, target_type) = Parser(expected_R, target_type, false, nothing)
+    Parser(T, R, target_type) = new(T, R, target_type, false, nothing, [], nothing)
+
+    # Useful to fork into a sub-parser.
+    Parser(p::Parser, target_type) = new(
+        p.T,
+        p.expected_R,
+        target_type,
+        p.found_first_ref,
+        p.first_ref,
+        deepcopy(p.path),
+        nothing,
+    )
+end
+fork(p::Parser, target_type) = Parser(p, target_type)
+
+# Commit to successful fork.
+function merge!(a::Parser, b::Parser)
+    a.found_first_ref = b.found_first_ref
+    a.first_ref = b.first_ref
 end
 
 set_if_first!(p::Parser, ref) =
@@ -121,7 +140,7 @@ Base.push!(p::Parser, ref) = push!(p.path, ref)
 Base.pop!(p::Parser) = pop!(p.path)
 update!(p::Parser, ref) = p.path[end] = ref
 bump!(p::Parser) = p.path[end] += 1
-path(p::Parser) = "[$(join(repr.(p.path), "]["))]"
+path(p::Parser) = "[$(join(p.path, "]["))]"
 
 # /!\ possibly long: only include at the end of messages.
 function report(p::Parser, input)
@@ -148,7 +167,17 @@ function result!(p::Parser)
     p.result = p.target_type(R)()
 end
 
-duperr(p::Parser, ref) = argerr("Duplicated reference$(report(p, ref)).")
+# Exceptions with this types bubble up through the "forgiveness" pattern.
+# Because they are only emitted in situations where the input category
+# was considered unambiguous.
+struct Interrupt <: Exception
+    mess::String
+end
+function Base.showerror(io::IO, e::Interrupt)
+    print(io, e.mess)
+end
+interr(mess, raise = throw) = raise(Interrupt(mess))
+duperr(p::Parser, ref) = interr("Duplicated reference$(report(p, ref)).")
 
 #-------------------------------------------------------------------------------------------
 # Parsing blocks.
@@ -156,9 +185,13 @@ duperr(p::Parser, ref) = argerr("Duplicated reference$(report(p, ref)).")
 parse_iterable(p::Parser, input, what) =
     try
         iterate(input)
-    catch
-        argerr("Input for $what needs to be iterable.\n\
-                Received$(report(p, input))", rethrow)
+    catch e
+        e isa MethodError && argerr(
+            "Input for $what needs to be iterable.\n\
+             Received$(report(p, input))",
+            rethrow,
+        )
+        rethrow(e)
     end
 
 parse_pair(p::Parser, input, what) =
@@ -175,7 +208,7 @@ parse_pair(p::Parser, input, what) =
         argerr("Not a `$what` pair$(report(p, input)).")
     end
 
-function parse_ref!(p::Parser, input, what)
+function parse_weak_ref!(p::Parser, input, what)
     (ref, R, ok) = try
         (graphdataconvert(Symbol, input), Symbol, true)
     catch
@@ -189,7 +222,7 @@ function parse_ref!(p::Parser, input, what)
                   to integer index or symbol label: \
                   received$(report(p, input))")
     if !isnothing(p.expected_R)
-        R == p.expected_R || argerr("Invalid $what reference type. \
+        R == p.expected_R || interr("Invalid $what reference type. \
                                      Expected $(repr(p.expected_R)) (or convertible). \
                                      Received instead$(report(p, input)).")
     end
@@ -197,16 +230,52 @@ function parse_ref!(p::Parser, input, what)
     fR = typeof(first_ref(p))
     if R != fR
         a_ref = (R) -> "$(R == Symbol ? "a label" : "an index") ($R)"
-        argerr("The $what reference type for this input \
+        interr("The $what reference type for this input \
                 was first inferred to be $(a_ref(fR)) \
                 based on the received '$(first_ref(p))', \
-                but $(a_ref(R)) is found now$(report(p, ref)).")
+                but $(a_ref(R)) is now found$(report(p, ref)).")
     end
     ref
 end
 
+# If ungrouped, normalize to grouped.
+function parse_grouped_refs!(p::Parser, input, what)
+    (refs, ok) = try
+        f = fork(p, R -> BinMap{R})
+        refs = graphdataconvert(
+            BinMap{<:Any},
+            input;
+            parser = f,
+            what = "grouped references",
+            refwhat = what,
+        )
+        merge!(p, f)
+        (refs, true)
+    catch e
+        e isa Interrupt && rethrow(e)
+        try
+            ref = parse_weak_ref!(p, input, what)
+            ((ref,), true)
+        catch e
+            (e, false)
+        end
+    end
+    ok || throw(refs)
+    refs
+end
+
+parse_value(p::Parser, input) =
+    try
+        graphdataconvert(p.T, input)
+    catch
+        interr(
+            "Expected values of type '$(p.T)', received instead$(report(p, input))",
+            rethrow,
+        )
+    end
+
 #-------------------------------------------------------------------------------------------
-# Parse into binary maps.
+# Parse binary maps.
 
 function graphdataconvert(
     ::Type{BinMap{<:Any}},
@@ -215,15 +284,17 @@ function graphdataconvert(
     ExpectedRefType = nothing,
     # Use if called as a parsing block from another function in this module.
     parser = nothing,
+    what = "binary map",
+    refwhat = "node",
 )
-    p = isnothing(parser) ? Parser(ExpectedRefType, R -> BinMap{R}) : parser
-    it = parse_iterable(p, input, "binary map")
+    p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
+    it = parse_iterable(p, input, what)
     isnothing(it) && return empty_result(p)
 
     push!(p, 1)
     while !isnothing(it)
         ref, it = it
-        ref = parse_ref!(p, ref, "node")
+        ref = parse_weak_ref!(p, ref, refwhat)
         res = result!(p)
         ref in res && duperr(p, ref)
         push!(res, ref)
@@ -235,61 +306,41 @@ function graphdataconvert(
 end
 
 #-------------------------------------------------------------------------------------------
-# Parse into general maps.
-# HERE: keep going.
+# Parse general maps.
 
 function graphdataconvert(
     ::Type{Map{<:Any,T}},
     input;
-    ExpectedRefType = nothing, # Use if somehow imposed by the calling context.
-    first_ref = nothing, # Useful for reporting.
+    ExpectedRefType = nothing,
+    parser = nothing,
 ) where {T}
-    applicable(iterate, input) || argerr("Ref-value mapping input needs to be iterable.")
-    it_pairs = iterate(input)
+    p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{R,T}) : parser
+    it = parse_iterable(p, input, "map")
+    isnothing(it) && return empty_result(p)
 
-    if isnothing(it_pairs)
-        R = isnothing(ExpectedRefType) ? Symbol : ExpectedRefType
-        return Map{R,T}()
-    end
-
-    if isnothing(first_ref)
-        first_ref = (Ref{Any}(nothing), Ref(false))
-    end
-
-    # If there is a first element, use it to infer ref type.
-    pair, it_pairs = it_pairs
-    refs, value = checked_pair_split(pair, true)
-    refs = to_grouped_refs(refs)
-    it_refs = iterate(refs)
-    isnothing(it_refs) && argerr("No reference received for value: $(repr(pair)).")
-    ref, _ = it_refs
-    R = checked_ref_type(ref, ExpectedRefType, first_ref)
-    res = Map{R,T}()
-    for ref in refs
-        ref, value = checked_pair_convert((R, T), (ref, value))
-        res[ref] = value
-    end
-
-    # Then fill up the map.
-    it_pairs = iterate(input, it_pairs)
-    while !isnothing(it_pairs)
-        pair, it_pairs = it_pairs
-        refs, value = checked_pair_split(pair, true)
-        refs = to_grouped_refs(refs)
-        (value, invalid_value) = try
-            (checked_value_convert(T, value, refs), false)
-        catch e
-            (e, true) # Hold error until we've parsed the refs for better reporting.
-        end
+    push!(p, 1)
+    while !isnothing(it)
+        pair, it = it
+        refs, value = parse_pair(p, pair, "reference(s) => value")
+        push!(p, :left) # Start left because :right errors may be much uglier.
+        refs = parse_grouped_refs!(p, refs, "node")
+        update!(p, :right)
+        value = parse_value(p, value)
+        update!(p, :left)
+        push!(p, 1)
+        res = result!(p)
         for ref in refs
-            ref = checked_ref_convert(R, ref)
-            haskey(res, ref) && duperr(ref)
-            invalid_value && rethrow(value)
+            haskey(res, ref) && duperr(p, ref)
             res[ref] = value
+            bump!(p)
         end
-        it_pairs = iterate(input, it_pairs)
+        pop!(p)
+        pop!(p)
+        it = iterate(input, it)
+        bump!(p)
     end
-    res
+
+    result!(p)
 end
 
 # The binary case *can* accept boolean masks.
@@ -554,22 +605,6 @@ end
 
 #-------------------------------------------------------------------------------------------
 # Conversion helpers.
-
-# Normalize ungrouped refs into iterable singleton refs group.
-to_grouped_refs(refs) =
-    if applicable(iterate, refs) && !(refs isa Integer)
-        refs
-    else
-        (refs,)
-    end
-
-checked_value_convert(T, value, ref) =
-    try
-        graphdataconvert(T, value)
-    catch
-        argerr("Map value at ref '$ref' cannot be converted to '$(T)': \
-                received $(repr(value)) ::$(typeof(value)).")
-    end
 
 checked_pair_convert((R, T), (ref, value)) =
     (checked_ref_convert(R, ref), checked_value_convert(T, value, ref))
