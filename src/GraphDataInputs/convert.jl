@@ -59,13 +59,185 @@ end
 
 # ==========================================================================================
 # Map/Adjacency conversions.
+#
+# Any kind of input is allowed, making these "parsers" very non-type-stable.
+# (call it "parsing" but input is really *julia values*)
+# Input is an(y) iterable of (ref, value) pairs for maps,
+# with values elided in the binary case.
+# References may be grouped together, as an iterable of references instead.
+# For adjacency lists, values are maps themselves,
+# and grouping references can also happen with values on the lhs,
+# rhs being just a list of "target" references.
+#
+# Here is how we parse each toplevel input pair: (lhs, rhs).
+# Call 'strong' end the side of this pair that is holding the value(s),
+# and 'weak' end the other side, without the value(s).
+# Either side is also either grouped or plain:
+#         |  weak      |   strong
+#   plain | ref        |   ref => value
+#   group | [ref, ref] |  [ref => value, ref => value]
+#
+# The strategy is to diagnose each side separately,
+# attempting to parse as either category,
+# asking "forgiveness rather than permission".
+# During this diagnosis, normalize any 'plain' input to a (grouped,) input.
 
-# Collect the first reference found when parsing user input into map/adjacency.
-# Useful for reporting.
-const FirstRef = Tuple{Ref{Any},Ref{Bool}} # (first value parsed as a ref, raise when set)
+# Use this type to hold all temporary status required
+# during input parsing, especially useful for quality reporting in case of invalid input.
+# This struct is very type-unstable so as to be used for target conversion.
+mutable struct Parser
+    # Useful if known by callers for some reason.
+    expected_R::Option{Type}
+    target_type::Function # R -> type.
 
-# Mappings accept any valid incoming collection
-# (very non-type-stable: only meant for direct user-facing APIs)
+    # If the above is unset, infer the expected ref type from the first ref parsed.
+    found_first_ref::Bool
+    first_ref::Option{Any}
+
+    # Locate currently parsed piece of input like [1, :left, 2, :right]..
+    path::Vector{Union{Int,Symbol}}
+
+    # Only fill after checking for consistency, duplications etc.
+    result::Union{Nothing,Map,BinMap,Adjacency,BinAdjacency}
+    Parser(expected_R, target_type, found_first_ref, first_ref) =
+        new(expected_R, target_type, found_first_ref, first_ref, [], nothing)
+    Parser(expected_R, target_type) = Parser(expected_R, target_type, false, nothing)
+end
+
+set_if_first!(p::Parser, ref) =
+    if !p.found_first_ref
+        p.first_ref = ref
+        p.found_first_ref = true
+    end
+
+first_ref(p::Parser) =
+    if p.found_first_ref
+        p.first_ref
+    else
+        argerr("Undefined first reference: this is a bug in the package.")
+    end
+
+Base.push!(p::Parser, ref) = push!(p.path, ref)
+Base.pop!(p::Parser) = pop!(p.path)
+update!(p::Parser, ref) = p.path[end] = ref
+bump!(p::Parser) = p.path[end] += 1
+path(p::Parser) = "[$(join(repr.(p.path), "]["))]"
+
+# /!\ possibly long: only include at the end of messages.
+function report(p::Parser, input)
+    at = isempty(p.path) ? "" : " at $(path(p))"
+    "$at: $(repr(input)) ::$(typeof(input))"
+end
+
+# Reference type cannot be inferred if input is empty.
+# Default to labels because they are stable in case of nodes deletions.
+default_R(p::Parser) = isnothing(p.expected_R) ? Symbol : p.expected_R
+empty_result(p::Parser) = p.target_type(default_R())()
+
+# Retrieve underlying result, constructing it from inferred/expected R if unset yet.
+function result!(p::Parser)
+    isnothing(p.result) || return p.result
+    R = if p.found_first_ref
+        typeof(first_ref(p))
+    elseif !isnothing(p.expected_R)
+        p.expected_R
+    else
+        argerr("Cannot construct result without R being inferred: \
+                this is a bug in the package.")
+    end
+    p.result = p.target_type(R)()
+end
+
+duperr(p::Parser, ref) = argerr("Duplicated reference$(report(p, ref)).")
+
+#-------------------------------------------------------------------------------------------
+# Parsing blocks.
+
+parse_iterable(p::Parser, input, what) =
+    try
+        iterate(input)
+    catch
+        argerr("Input for $what needs to be iterable.\n\
+                Received$(report(p, input))", rethrow)
+    end
+
+parse_pair(p::Parser, input, what) =
+    try
+        lhs, rhs = input
+        # Note that [1, 2, 3] would become (1, 2): raise an error instead.
+        try
+            _1, _2, _3 = input # That shouldn't work with a true "pair".
+            throw("more than 2 values in pair parsing input")
+        catch
+        end
+        return lhs, rhs
+    catch
+        argerr("Not a `$what` pair$(report(p, input)).")
+    end
+
+function parse_ref!(p::Parser, input, what)
+    (ref, R, ok) = try
+        (graphdataconvert(Symbol, input), Symbol, true)
+    catch
+        try
+            (graphdataconvert(Int, input), Int, true)
+        catch
+            (nothing, nothing, false)
+        end
+    end
+    ok || argerr("Cannot interpret $what reference \
+                  to integer index or symbol label: \
+                  received$(report(p, input))")
+    if !isnothing(p.expected_R)
+        R == p.expected_R || argerr("Invalid $what reference type. \
+                                     Expected $(repr(p.expected_R)) (or convertible). \
+                                     Received instead$(report(p, input)).")
+    end
+    set_if_first!(p, ref)
+    fR = typeof(first_ref(p))
+    if R != fR
+        a_ref = (R) -> "$(R == Symbol ? "a label" : "an index") ($R)"
+        argerr("The $what reference type for this input \
+                was first inferred to be $(a_ref(fR)) \
+                based on the received '$(first_ref(p))', \
+                but $(a_ref(R)) is found now$(report(p, ref)).")
+    end
+    ref
+end
+
+#-------------------------------------------------------------------------------------------
+# Parse into binary maps.
+
+function graphdataconvert(
+    ::Type{BinMap{<:Any}},
+    input;
+    # Use if known somehow.
+    ExpectedRefType = nothing,
+    # Use if called as a parsing block from another function in this module.
+    parser = nothing,
+)
+    p = isnothing(parser) ? Parser(ExpectedRefType, R -> BinMap{R}) : parser
+    it = parse_iterable(p, input, "binary map")
+    isnothing(it) && return empty_result(p)
+
+    push!(p, 1)
+    while !isnothing(it)
+        ref, it = it
+        ref = parse_ref!(p, ref, "node")
+        res = result!(p)
+        ref in res && duperr(p, ref)
+        push!(res, ref)
+        it = iterate(input, it)
+        bump!(p)
+    end
+
+    result!(p)
+end
+
+#-------------------------------------------------------------------------------------------
+# Parse into general maps.
+# HERE: keep going.
+
 function graphdataconvert(
     ::Type{Map{<:Any,T}},
     input;
@@ -75,8 +247,6 @@ function graphdataconvert(
     applicable(iterate, input) || argerr("Ref-value mapping input needs to be iterable.")
     it_pairs = iterate(input)
 
-    # Reference type cannot be inferred if input is empty.
-    # Default to labels because they are stable in case of nodes deletions.
     if isnothing(it_pairs)
         R = isnothing(ExpectedRefType) ? Symbol : ExpectedRefType
         return Map{R,T}()
@@ -118,43 +288,6 @@ function graphdataconvert(
             res[ref] = value
         end
         it_pairs = iterate(input, it_pairs)
-    end
-    res
-end
-
-# Special binary case.
-function graphdataconvert(
-    ::Type{BinMap{<:Any}},
-    input;
-    ExpectedRefType = nothing,
-    first_ref = nothing,
-)
-    applicable(iterate, input) || argerr("Binary mapping input needs to be iterable.")
-    it = iterate(input)
-    if isnothing(it)
-        R = isnothing(ExpectedRefType) ? Int : ExpectedRefType
-        return BinMap{R}()
-    end
-
-    if isnothing(first_ref)
-        first_ref = (Ref{Any}(nothing), Ref(false))
-    end
-
-    # Type inference from first element.
-    ref, it = it
-    R = checked_ref_type(ref, ExpectedRefType, first_ref)
-    ref = checked_ref_convert(R, ref)
-    res = BinMap{R}()
-    push!(res, ref)
-
-    # Fill up the set.
-    it = iterate(input, it)
-    while !isnothing(it)
-        ref, it = it
-        ref = checked_ref_convert(R, ref)
-        ref in res && duperr(ref)
-        push!(res, ref)
-        it = iterate(input, it)
     end
     res
 end
@@ -201,15 +334,6 @@ function graphdataconvert(
 
     pair, it = it
     lhs, rhs = checked_pair_split(pair, false)
-
-    # Call 'strong' end the side of this pair that is holding the value,
-    # and 'weak' end the other side, without the values.
-    # Either side is also either grouped or plain:
-    #         |  weak    |   strong
-    #   plain | :a       |   :a => u
-    #   group | (:a, :b) |  (:a => u, :b => v)
-    #
-    # Diagnose each side, attempting to parse as either, asking forgiveness not permission.
 
     first_ref = (Ref{Any}(nothing), Ref(false))
 
@@ -431,15 +555,6 @@ end
 #-------------------------------------------------------------------------------------------
 # Conversion helpers.
 
-duperr(ref) = argerr("Duplicated reference: $(repr(ref)).")
-
-function infer_ref_type(ref)
-    applicable(graphdataconvert, Int, ref) && return Int
-    applicable(graphdataconvert, Symbol, ref) && return Symbol
-    argerr("Cannot convert reference to integer index or symbol label: \
-            received $(repr(ref)) ::$(typeof(ref)).")
-end
-
 # Normalize ungrouped refs into iterable singleton refs group.
 to_grouped_refs(refs) =
     if applicable(iterate, refs) && !(refs isa Integer)
@@ -448,70 +563,12 @@ to_grouped_refs(refs) =
         (refs,)
     end
 
-function set_if_first_ref!((first_ref, found_first_ref)::FirstRef, ref)
-    if !found_first_ref[]
-        first_ref[] = ref
-        found_first_ref[] = true
-    end
-end
-
-type((first_ref, found_first_ref)::FirstRef) =
-    if found_first_ref[]
-        typeof(first_ref[])
-    else
-        nothing
-    end
-
-# Check ref type consistency wrt expected type or first type found.
-function checked_ref_type(ref, ExpectedRefType, first_ref::FirstRef)
-    Expected = if isnothing(ExpectedRefType)
-        type(first_ref)
-    else
-        ExpectedRefType
-    end
-    set_if_first_ref!(first_ref, ref)
-    R = infer_ref_type(ref)
-    if !isnothing(Expected)
-        if R != Expected
-            mess = "Expected '$ExpectedRefType' as node reference types, got '$R' instead"
-            if isnothing(ExpectedRefType)
-                f = first_ref[]
-                mess *= " (inferred from first ref: $(repr(f)) ::$(typeof(f)))"
-            end
-            mess *= "."
-            argerr(mess)
-        end
-    end
-    R
-end
-
-checked_ref_convert(R, ref) =
-    try
-        graphdataconvert(R, ref)
-    catch
-        argerr("Map reference cannot be converted to '$(R)': \
-                received $(repr(ref)) ::$(typeof(ref)).")
-    end
-
 checked_value_convert(T, value, ref) =
     try
         graphdataconvert(T, value)
     catch
         argerr("Map value at ref '$ref' cannot be converted to '$(T)': \
                 received $(repr(value)) ::$(typeof(value)).")
-    end
-
-# "Better ask forgiveness than permission".. is that also julian?
-checked_pair_split(pair, for_node::Bool) =
-    try
-        lhs, rhs = pair
-        return lhs, rhs
-    catch
-        if for_node
-            argerr("Not a `node reference => value` pair: $(repr(pair)) ::$(typeof(pair)).")
-        else
-            argerr("Not a `source(s) => target(s)` pair: $(repr(pair)) ::$(typeof(pair)).")
-        end
     end
 
 checked_pair_convert((R, T), (ref, value)) =
