@@ -48,7 +48,7 @@ In the example above the body mass of the predator is 5 times the body mass of t
 ## Access the Model Data
 
 The parameters held by the model can be accessed via the various model properties,
-with functions named `m.<paramter_name>` where `m` is the model object:
+with functions named `m.<parameter_name>` where `m` is the model object:
 
 ```@example econetd
 m.hill_exponent
@@ -70,7 +70,7 @@ properties(m)
 
 ## Change the Model Data
 
-Some parameters can be modified after the model was created with
+Some parameters can be modified after the model was created
 with `m.<x> = value`.
 However, not all parameters can be modified in this way for consistency issues.
 For instance, many parameters are derived from body masses, therefore changing the body masses would make the model inconsistent.

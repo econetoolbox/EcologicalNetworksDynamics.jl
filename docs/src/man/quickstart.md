@@ -1,6 +1,8 @@
 # Quick start
 
-This section presents a minimal example to discover how EcologicalNetworksDynamics works. The best is to follow this tutorial by pasting the following code blocks in your Julia terminal.
+This section presents a minimal example
+to discover how EcologicalNetworksDynamics works.
+The best is to follow this tutorial by pasting the following code blocks in your Julia terminal.
 
 The first step is to create the structure of the trophic interactions.
 
@@ -10,13 +12,15 @@ using EcologicalNetworksDynamics, Plots
 fw = Foodweb([1 => 2, 2 => 3]) # 1 eats 2, and 2 eats 3.
 ```
 
-Then, you can generate the parameter of the model (species rates, interaction parameters, etc.) with
+Then, you can generate the parameter of the model
+(species rates, interaction parameters, etc.) with
 
 ```@example quickstart
 m = default_model(fw)
 ```
 
-Parameters can be accessed as follow `m.<parameter_name>`, for instance, to access species metabolic rates
+Parameters can be accessed as follow `m.<parameter_name>`,
+for instance, to access species metabolic rates
 
 ```@example quickstart
 m.metabolism

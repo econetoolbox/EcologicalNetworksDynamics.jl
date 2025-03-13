@@ -60,7 +60,8 @@ m = default_model(fw, ClassicResponse(; h = 1))
 m.hill_exponent
 ```
 
-Moreover, the model can also be parameterized using the bioenergetic functional response as in [Williams, Brose and Martinez](https://doi.org/10.1007/978-1-4020-5337-5_2),
+Moreover, the model can also be parameterized using the bioenergetic functional response
+as in [Williams, Brose and Martinez](https://doi.org/10.1007/978-1-4020-5337-5_2),
 that depends on species half-saturation density.
 
 ```math
@@ -100,10 +101,14 @@ m.half_saturation_density[2] # Check that the value is the one we set.
 ## Non-Trophic Interactions
 
 Food webs, and therefore trophic interactions, are at the core of the package.
-However, the importance of other than trophic interactions (hereafter non-trophic interactions) such as facilitation or competition, is increasingly recognized.
-They can profoundly shape the community dynamics, and including them or not can drastically change simulation outcomes.
+However, the importance of interactions other than trophic
+(hereafter "non-trophic interactions")
+such as facilitation or competition, is increasingly recognized.
+They can profoundly shape the community dynamics,
+and including them or not can drastically change simulation outcomes.
 For this reason, we offer the possibility to include non-trophic interactions in food web models.
-Four non-trophic interactions can be modeled as in [Miele et al., (2019)](https://doi.org/10.1371/journal.pcbi.1007269):
+Four non-trophic interactions can be modeled
+as in [Miele et al., (2019)](https://doi.org/10.1371/journal.pcbi.1007269):
 
   - Competition for space between producers
   - Plant facilitation (e.g. because of nitrogen fixation or seed dispersal)
@@ -111,7 +116,8 @@ Four non-trophic interactions can be modeled as in [Miele et al., (2019)](https:
   - Refuge provisioning for prey
 
 For example, let's compare the dynamics of a plant growing toward its carrying capacity with and without facilitation.
-In this simplistic setting, we do not consider trophic interactions, but only the plant (species 1)
+In this simplistic setting, we do not consider trophic interactions,
+but only the plant (species 1)
 
 ```@example econetd
 using Plots
