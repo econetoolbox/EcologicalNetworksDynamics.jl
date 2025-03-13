@@ -204,12 +204,13 @@ parse_pair(p::Parser, input, what) =
         # Note that [1, 2, 3] would become (1, 2): raise an error instead.
         try
             _1, _2, _3 = input # That shouldn't work with a true "pair".
-            throw("more than 2 values in pair parsing input")
-        catch
+            throw(nothing)
+        catch e
+            isnothing(e) && rethrow("more than 2 values in pair parsing input")
         end
         return lhs, rhs
     catch
-        argerr("Not a `$what` pair$(report(p, input)).")
+        argerr("Not a '$what' pair$(report(p, input)).", rethrow)
     end
 
 function parse_weak_ref!(p::Parser, input, what)
