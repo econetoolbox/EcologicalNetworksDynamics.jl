@@ -70,12 +70,12 @@ end
 # rhs being just a list of "target" references.
 #
 # Here is how we parse each toplevel input pair: (lhs, rhs).
-# Call 'strong' end the side of this pair that is holding the value(s),
-# and 'weak' end the other side, without the value(s).
+# Call 'pairs' end the side of this pair that is holding the value(s),
+# and 'refs' end the other side, without the value(s).
 # Either side is also either grouped or plain:
-#         |  weak      |   strong
-#   plain | ref        |   ref => value
-#   group | [ref, ref] |  [ref => value, ref => value]
+#           |  refs      |   pairs
+#   plain   | ref        |   ref => value
+#   grouped | [ref, ref] |  [ref => value, ref => value]
 #
 # The strategy is to diagnose each side separately,
 # attempting to parse as either category,
@@ -186,6 +186,16 @@ duperr(p::Parser, ref) = interr("Duplicated reference$(report(p, ref)).")
 #-------------------------------------------------------------------------------------------
 # Parsing blocks.
 
+parse_value(p::Parser, input) =
+    try
+        graphdataconvert(p.T, input)
+    catch
+        interr(
+            "Expected values of type '$(p.T)', received instead$(report(p, input))",
+            rethrow,
+        )
+    end
+
 parse_iterable(p::Parser, input, what) =
     try
         iterate(input)
@@ -213,7 +223,8 @@ parse_pair(p::Parser, input, what) =
         argerr("Not a '$what' pair$(report(p, input)).", rethrow)
     end
 
-function parse_weak_ref!(p::Parser, input, what)
+# Aka. single reference.
+function parse_plain_ref!(p::Parser, input, what)
     (ref, R, ok) = try
         (graphdataconvert(Symbol, input), Symbol, true)
     catch
@@ -246,7 +257,18 @@ inferred_ref(what, p) = "The $what reference type for this input \
                          was first inferred to be $(a_ref(typeof(first_ref(p)))) \
                          based on the received '$(first_ref(p))'"
 
-# If ungrouped, normalize to grouped.
+# Aka. (ref => value) pair.
+function parse_plain_pair!(p::Parser, input, what)
+    lhs, rhs = parse_pair(p, input)
+    push!(p, :left)
+    ref = parse_plain_ref!(p, lhs, what)
+    update!(p, :right)
+    value = parse_value(p, rhs)
+    pop!(p)
+    (ref, value)
+end
+
+# If plain, normalize to grouped.
 function parse_grouped_refs!(p::Parser, input, what)
     (refs, ok) = try
         f = fork(p, R -> BinMap{R})
@@ -261,7 +283,7 @@ function parse_grouped_refs!(p::Parser, input, what)
     catch e
         e isa Interrupt && rethrow(e)
         try
-            ref = parse_weak_ref!(p, input, what)
+            ref = parse_plain_ref!(p, input, what)
             ((ref,), true)
         catch e
             (e, false)
@@ -271,15 +293,34 @@ function parse_grouped_refs!(p::Parser, input, what)
     refs
 end
 
-parse_value(p::Parser, input) =
-    try
-        graphdataconvert(p.T, input)
-    catch
-        interr(
-            "Expected values of type '$(p.T)', received instead$(report(p, input))",
-            rethrow,
+# If plain, normalize to grouped.
+function parse_grouped_pairs!(p::Parser, input)
+    (pairs, ok) = try
+        f = fork(p, R -> Map{R,p.T})
+        pairs = graphdataconvert(
+            Map{<:Any,p.T},
+            input;
+            parser = f,
+            what = (;
+                whole = "adjacency list",
+                pair = "source(s) => target(s)",
+                ref = "node", # HERE: is that always 'node'? Should we split in lref/rref?
+            ),
         )
+        merge!(p, f)
+        (pairs, true)
+    catch e
+        e isa Interrupt && rethrow(e)
+        try
+            pair = parse_plain_pair!(p, input)
+            ((pair,), true)
+        catch e
+            (e, false)
+        end
     end
+    ok || throw(pairs)
+    pairs
+end
 
 #-------------------------------------------------------------------------------------------
 # Parse binary maps.
@@ -299,10 +340,12 @@ function graphdataconvert(
     push!(p, 1)
     while !isnothing(it)
         ref, it = it
-        ref = parse_weak_ref!(p, ref, what.ref)
+
+        ref = parse_plain_ref!(p, ref, what.ref)
         res = result!(p)
         ref in res && duperr(p, ref)
         push!(res, ref)
+
         it = iterate(input, it)
         bump!(p)
     end
@@ -363,6 +406,7 @@ function graphdataconvert(
     push!(p, 1)
     while !isnothing(it)
         pair, it = it
+
         refs, value = parse_pair(p, pair, what.pair)
         push!(p, :left) # Start left because :right errors may be much uglier.
         refs = parse_grouped_refs!(p, refs, what.ref)
@@ -378,6 +422,7 @@ function graphdataconvert(
         end
         pop!(p)
         pop!(p)
+
         it = iterate(input, it)
         bump!(p)
     end
@@ -401,6 +446,7 @@ function graphdataconvert(
     push!(p, 1)
     while !isnothing(it)
         pair, it = it
+
         sources, targets = parse_pair(p, pair, "source(s) => target(s)")
         push!(p, :left)
         sources = parse_grouped_refs!(p, sources, "source node")
@@ -419,10 +465,8 @@ function graphdataconvert(
             safe = p.path[pend]
             p.path[pend] .= (:right, 1)
             for tgt in targets
-                tgt in sub && interr(
-                    "Duplicate edge specification \
-                     $(repr(src)) → $(repr(tgt))$(report(p, tgt))",
-                )
+                tgt in sub && interr("Duplicate edge specification \
+                                      $(repr(src)) → $(repr(tgt))$(report(p, tgt))")
                 push!(sub, tgt)
                 bump!(p)
             end
@@ -432,6 +476,7 @@ function graphdataconvert(
         end
         pop!(p)
         pop!(p)
+
         it = iterate(input, it)
         bump!(p)
     end
@@ -481,147 +526,35 @@ function from_boolean_matrix(input::AbstractSparseMatrix{Bool})
 end
 
 #-------------------------------------------------------------------------------------------
-# Similar, nested logic for adjacency maps.
+# Parse adjacency maps.
 
 function graphdataconvert(
     ::Type{Adjacency{<:Any,T}},
     input;
     ExpectedRefType = nothing,
+    parser = nothing,
 ) where {T}
-    applicable(iterate, input) || argerr("Adjacency list input needs to be iterable.")
-    it = iterate(input)
-    if isnothing(it)
-        R = isnothing(ExpectedRefType) ? Int : ExpectedRefType
-        return Adjacency{R,T}()
-    end
 
-    pair, it = it
-    lhs, rhs = checked_pair_split(pair, false)
+    p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{R,T}) : parser
+    it = parse_iterable(p, input, "adjacency map")
+    isnothing(it) && return empty_result(p)
 
-    first_ref = (Ref{Any}(nothing), Ref(false))
-
-    lhs, rhs = map((lhs, rhs)) do side
-        determined = false
-        safe_first_ref = deepcopy(first_ref)
-        (is_strong_group, strong_group, R_strong_group) = try
-            # Attempt to parse as a submap, only successful for strong groups.
-            sub = graphdataconvert((@GraphData {Map}{T}), side; ExpectedRefType, first_ref)
-            (true, sub, reftype(sub))
-        catch e
-            first_ref = safe_first_ref # Restore if failed.
-            (false, e, nothing)
-        end
-        determined |= is_strong_group
-        (is_weak_group, weak_group, R_weak_group) = if !determined
-            # Attempt to as a sub-binmap, only successful for weak groups.
-            try
-                sub = graphdataconvert(
-                    (@GraphData {Map}{:bin}),
-                    side;
-                    ExpectedRefType,
-                    first_ref,
-                )
-                (true, sub, reftype(sub))
-            catch e
-                first_ref = safe_first_ref # Restore if failed.
-                (false, e, nothing)
-            end
-        else
-            (false, nothing, nothing)
-        end
-        determined |= is_weak_group
-        # Only plain options remain, but group them to normalize.
-        (is_weak_plain, group, R_weak_plain) = if !is_strong_group && !is_weak_group
-            try
-                R = infer_ref_type(side)
-                set_if_first_ref!(first_ref, side)
-                (true, (side,), R)
-            catch e
-                (false, e, nothing)
-            end
-        else
-            (false, nothing, nothing)
-        end
-        determined |= is_weak_plain
-        (is_strong_plain, group, R_strong_plain) = if !determined
-            ref, value = checked_pair_split(side, true)
-            R = checked_ref_type(ref, ExpectedRefType, first_ref)
-            set_if_first_ref!(first_ref, ref)
-            (true, (ref => value,), R)
-        else
-            (false, group, nothing)
-        end
-        (;
-            is_strong_group,
-            strong_group,
-            R_strong_group,
-            is_weak_group,
-            weak_group,
-            R_weak_group,
-            is_weak_plain,
-            group,
-            R_weak_plain,
-            is_strong_plain,
-            R_strong_plain,
-        )
-    end
-
-    display(input)
-    display(OrderedDict(pairs(lhs)))
-    display(OrderedDict(pairs(rhs)))
-    display(first_ref)
-    error("STOP HERE")
-
-    (strong_grouped_sources, strong_grouped_lhs_R, is_lhs_strong_grouped),
-    (strong_grouped_targets, strong_grouped_rhs_R, is_rhs_strong_grouped) =
-        map((lhs, rhs)) do side
-            try
-                sub = submap((@GraphData {Map}{T}), side, ExpectedRefType)
-                (sub, reftype(sub), true)
-            catch e
-                (e, nothing, false)
-            end
-        end
-    ((weak_sources, weak_lhs), (weak_targets, weak_rhs)) = map((
-        (lhs, is_rhs_strong_grouped),
-        (rhs, is_lhs_strong_grouped),
-    )) do (side, is_other_strong_grouped)
-        if is_other_strong_grouped
-            try
-                R = infer_ref_type(side)
-                ((side,), true, R)
-            catch _
-            end
-        end
-    end
-
-    (is_lhs_strong_grouped && is_rhs_strong_grouped) &&
-        argerr("Cannot provide values for both sources and targets in adjacency input.\n\
-                Received LHS: $(repr(lhs))\n\
-                Received RHS: $(repr(rhs))")
-
-
-    key, value = checked_pair_split(pair)
-    R = checked_ref_type(key, ExpectedRefType, key, first_ref)
-    key = checked_ref_convert(R, key)
-    value = submap((@GraphData {Map}{T}), value, R, key)
-    res = Adjacency{R,T}()
-    res[key] = value
-
-    # Fill up the list.
-    it = iterate(input, it)
+    push!(p, 1)
     while !isnothing(it)
         pair, it = it
-        key, value = checked_pair_split(pair)
-        key = checked_ref_convert(R, key)
-        value = submap((@GraphData {Map}{T}), value, R, key)
-        haskey(res, key) && duperr(key)
-        res[key] = value
+
+        lhs, rhs = parse_pair(p, pair, "source(s) => target(s)")
+
+        # HERE: determine each side as either (refs or pairs) then interpret.
+
         it = iterate(input, it)
+        bump!(p)
     end
-    res
+
+    result!(p)
 end
 
+#-------------------------------------------------------------------------------------------
 # Alias if types matches exactly.
 graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
 graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
@@ -647,35 +580,6 @@ function graphdataconvert(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) wher
         res[i] = graphdataconvert(BinMap, sub)
     end
     res
-end
-
-#-------------------------------------------------------------------------------------------
-# Conversion helpers.
-
-checked_pair_convert((R, T), (ref, value)) =
-    (checked_ref_convert(R, ref), checked_value_convert(T, value, ref))
-
-submap(::Type{M}, input, R, ref) where {M<:Map} =
-    try
-        graphdataconvert(M, input; ExpectedRefType = R)
-    catch
-        if isnothing(ref)
-            argerr("Error while parsing sources as adjacency list input \
-                    (see further down the stacktrace).")
-        else
-            argerr("Error while parsing adjacency list input at ref '$ref' \
-                    (see further down the stacktrace).")
-        end
-    end
-# Special binary case allows scalar refs to be directly used instead of singleton.
-function submap(::Type{BM}, input, R, ref) where {BM<:BinMap}
-    typeof(input) == R && (input = [input]) # Convert scalar ref to singleton ref.
-    try
-        graphdataconvert(BM, input; ExpectedRefType = R)
-    catch
-        argerr("Error while parsing adjacency list input at ref '$ref' \
-                (see further down the stacktrace).")
-    end
 end
 
 # ==========================================================================================
