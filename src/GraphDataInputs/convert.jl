@@ -59,172 +59,451 @@ end
 
 # ==========================================================================================
 # Map/Adjacency conversions.
+#
+# Any kind of input is allowed, making these "parsers" very non-type-stable.
+# (call it "parsing" but input is really *julia values*)
+# Input is an(y) iterable of (ref, value) pairs for maps,
+# with values elided in the binary case.
+# References may be grouped together, as an iterable of references instead.
+# For adjacency lists, values are maps themselves,
+# and grouping references can also happen with values on the lhs,
+# rhs being just a list of "target" references.
+#
+# Here is how we parse each toplevel input pair: (lhs, rhs).
+# Call 'pairs' end the side of this pair that is holding the value(s),
+# and 'refs' end the other side, without the value(s).
+# Either side is also either grouped or plain:
+#           |  refs      |   pairs
+#   plain   | ref        |   ref => value
+#   grouped | [ref, ref] |  [ref => value, ref => value]
+#
+# The strategy is to diagnose each side separately,
+# attempting to parse as either category,
+# asking "forgiveness rather than permission".
+# During this diagnosis, normalize any 'plain' input to a (grouped,) input.
 
-# Mappings accept any valid incoming collection (very non-type-stable, right?).
-function graphdataconvert(
-    ::Type{Map{<:Any,T}},
-    input;
-    expected_I = nothing, # Use if somehow imposed by the calling context.
-) where {T}
-    applicable(iterate, input) || argerr("Key-value mapping input needs to be iterable.")
-    it = iterate(input)
+# Use this type to hold all temporary status required
+# during input parsing, especially useful for quality reporting in case of invalid input.
+# This struct is very type-unstable so as to be used for target conversion.
+mutable struct Parser
+    # Nothing for the special binary case.
+    T::Option{Type}
 
-    # Key type cannot be inferred if input is empty. Arbitrary default to integers.
-    if isnothing(it)
-        I = isnothing(expected_I) ? Int64 : expected_I
-        return Map{I,T}()
-    end
+    # Useful if known by callers for some reason.
+    expected_R::Option{Type}
+    target_type::Function # R -> type.
 
-    # If there is a first element, use it to infer key type.
-    pair, it = it
-    key, value = checked_pair_split(pair)
-    I = infer_key_type(key)
-    check_key_type(I, expected_I, key)
-    key, value = checked_pair_convert((I, T), (key, value))
-    res = Map{I,T}()
-    res[key] = value
+    # If the above is unset, infer the expected ref type from the first ref parsed.
+    found_first_ref::Bool
+    first_ref::Option{Any}
 
-    # Then fill up the map.
-    it = iterate(input, it)
-    while !isnothing(it)
-        pair, it = it
-        key, value = checked_pair_convert((I, T), checked_pair_split(pair))
-        haskey(res, key) && duperr(key)
-        res[key] = value
-        it = iterate(input, it)
-    end
-    res
+    # Locate currently parsed piece of input like [1, :left, 2, :right]..
+    path::Vector{Union{Int,Symbol}}
+
+    # Only fill after checking for consistency, duplications etc.
+    result::Union{Nothing,Map,BinMap,Adjacency,BinAdjacency}
+    Parser(T, R, target_type) = new(T, R, target_type, false, nothing, [], nothing)
+
+    # Useful to fork into a sub-parser.
+    Parser(p::Parser, target_type) = new(
+        p.T,
+        p.expected_R,
+        target_type,
+        p.found_first_ref,
+        p.first_ref,
+        deepcopy(p.path),
+        nothing,
+    )
+end
+fork(p::Parser, target_type) = Parser(p, target_type)
+
+# Commit to successful fork.
+function merge!(a::Parser, b::Parser)
+    a.found_first_ref = b.found_first_ref
+    a.first_ref = b.first_ref
 end
 
-# Special binary case.
-function graphdataconvert(::Type{BinMap{<:Any}}, input; expected_I = nothing)
-    applicable(iterate, input) || argerr("Binary mapping input needs to be iterable.")
-    it = iterate(input)
-    if isnothing(it)
-        I = isnothing(expected_I) ? Int64 : expected_I
-        return BinMap{I}()
+set_if_first!(p::Parser, ref) =
+    if !p.found_first_ref
+        p.first_ref = ref
+        p.found_first_ref = true
     end
 
-    # Type inference from first element.
-    key, it = it
-    I = infer_key_type(key)
-    check_key_type(I, expected_I, key)
-    key = checked_key_convert(I, key)
-    res = BinMap{I}()
-    push!(res, key)
+first_ref(p::Parser) =
+    if p.found_first_ref
+        p.first_ref
+    else
+        throw("Undefined first reference: this is a bug in the package.")
+    end
 
-    # Fill up the set.
-    it = iterate(input, it)
+Base.push!(p::Parser, ref) = push!(p.path, ref)
+Base.pop!(p::Parser) = pop!(p.path)
+update!(p::Parser, ref) = p.path[end] = ref
+bump!(p::Parser) = p.path[end] += 1
+path(p::Parser) = "[$(join(p.path, "]["))]"
+
+# /!\ possibly long: only include at the end of messages.
+function report(p::Parser, input)
+    at = isempty(p.path) ? "" : " at $(path(p))"
+    "$at: $(repr(input)) ::$(typeof(input))"
+end
+
+# Reference type cannot be inferred if input is empty.
+# Default to labels because they are stable in case of nodes deletions.
+default_R(p::Parser) = isnothing(p.expected_R) ? Symbol : p.expected_R
+empty_result(p::Parser) = p.target_type(default_R(p))()
+get_R(p::Parser) =
+    if p.found_first_ref
+        typeof(p.first_ref)
+    else
+        throw("Undetermined reference type: this is a bug in the package.")
+    end
+
+# Retrieve underlying result, constructing it from inferred/expected R if unset yet.
+function result!(p::Parser)
+    isnothing(p.result) || return p.result
+    R = if p.found_first_ref
+        typeof(first_ref(p))
+    elseif !isnothing(p.expected_R)
+        p.expected_R
+    else
+        throw("Cannot construct result without R being inferred: \
+                this is a bug in the package.")
+    end
+    p.result = p.target_type(R)()
+end
+
+# Exceptions with this types bubble up through the "forgiveness" pattern.
+# Because they are only emitted in situations where the input category
+# was considered unambiguous.
+struct Interrupt <: Exception
+    mess::String
+end
+Base.showerror(io::IO, e::Interrupt) = print(io, e.mess)
+interr(mess, raise = throw) = raise(Interrupt(mess))
+duperr(p::Parser, ref) = interr("Duplicated reference$(report(p, ref)).")
+
+#-------------------------------------------------------------------------------------------
+# Parsing blocks.
+
+parse_value(p::Parser, input) =
+    try
+        graphdataconvert(p.T, input)
+    catch
+        interr(
+            "Expected values of type '$(p.T)', received instead$(report(p, input))",
+            rethrow,
+        )
+    end
+
+parse_iterable(p::Parser, input, what) =
+    try
+        iterate(input)
+    catch e
+        e isa MethodError && argerr(
+            "Input for $what needs to be iterable.\n\
+             Received$(report(p, input))",
+            rethrow,
+        )
+        rethrow(e)
+    end
+
+parse_pair(p::Parser, input, what) =
+    try
+        lhs, rhs = input
+        # Note that [1, 2, 3] would become (1, 2): raise an error instead.
+        try
+            _1, _2, _3 = input # That shouldn't work with a true "pair".
+            throw(nothing)
+        catch e
+            isnothing(e) && rethrow("more than 2 values in pair parsing input")
+        end
+        return lhs, rhs
+    catch
+        argerr("Not a '$what' pair$(report(p, input)).", rethrow)
+    end
+
+# Aka. single reference.
+function parse_plain_ref!(p::Parser, input, what)
+    (ref, R, ok) = try
+        (graphdataconvert(Symbol, input), Symbol, true)
+    catch
+        try
+            (graphdataconvert(Int, input), Int, true)
+        catch
+            (nothing, nothing, false)
+        end
+    end
+    ok || argerr("Cannot interpret $what reference \
+                  to integer index or symbol label: \
+                  received$(report(p, input))")
+    if !isnothing(p.expected_R)
+        R == p.expected_R || unexpected_reftype(what, p, input)
+    end
+    set_if_first!(p, ref)
+    fR = typeof(first_ref(p))
+    if R != fR
+        interr("$(inferred_ref(what, p)), but $(a_ref(R)) is now found$(report(p, ref)).")
+    end
+    ref
+end
+# Reused elsewhere.
+unexpected_reftype(what, p, input) = interr("Invalid $what reference type. \
+                                             Expected $(repr(p.expected_R)) \
+                                             (or convertible). \
+                                             Received instead$(report(p, input)).")
+a_ref(R) = "$(R == Symbol ? "a label" : "an index") ($R)"
+inferred_ref(what, p) = "The $what reference type for this input \
+                         was first inferred to be $(a_ref(typeof(first_ref(p)))) \
+                         based on the received '$(first_ref(p))'"
+
+# Aka. (ref => value) pair.
+function parse_plain_pair!(p::Parser, input, what)
+    lhs, rhs = parse_pair(p, input)
+    push!(p, :left)
+    ref = parse_plain_ref!(p, lhs, what)
+    update!(p, :right)
+    value = parse_value(p, rhs)
+    pop!(p)
+    (ref, value)
+end
+
+# If plain, normalize to grouped.
+function parse_grouped_refs!(p::Parser, input, what)
+    (refs, ok) = try
+        f = fork(p, R -> BinMap{R})
+        refs = graphdataconvert(
+            BinMap{<:Any},
+            input;
+            parser = f,
+            what = (; whole = "grouped references", ref = what),
+        )
+        merge!(p, f)
+        (refs, true)
+    catch e
+        e isa Interrupt && rethrow(e)
+        try
+            ref = parse_plain_ref!(p, input, what)
+            ((ref,), true)
+        catch e
+            (e, false)
+        end
+    end
+    ok || throw(refs)
+    refs
+end
+
+# If plain, normalize to grouped.
+function parse_grouped_pairs!(p::Parser, input)
+    (pairs, ok) = try
+        f = fork(p, R -> Map{R,p.T})
+        pairs = graphdataconvert(
+            Map{<:Any,p.T},
+            input;
+            parser = f,
+            what = (;
+                whole = "adjacency list",
+                pair = "source(s) => target(s)",
+                ref = "node", # HERE: is that always 'node'? Should we split in lref/rref?
+            ),
+        )
+        merge!(p, f)
+        (pairs, true)
+    catch e
+        e isa Interrupt && rethrow(e)
+        try
+            pair = parse_plain_pair!(p, input)
+            ((pair,), true)
+        catch e
+            (e, false)
+        end
+    end
+    ok || throw(pairs)
+    pairs
+end
+
+#-------------------------------------------------------------------------------------------
+# Parse binary maps.
+
+function graphdataconvert(
+    ::Type{BinMap{<:Any}},
+    input;
+    ExpectedRefType = nothing,
+    # Use if called as a parsing block from another function in this module.
+    parser = nothing,
+    what = (; whole = "binary map", ref = "node"),
+)
+    p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
+    it = parse_iterable(p, input, what.whole)
+    isnothing(it) && return empty_result(p)
+
+    push!(p, 1)
     while !isnothing(it)
-        key, it = it
-        key = checked_key_convert(I, key)
-        key in res && duperr(key)
-        push!(res, key)
+        ref, it = it
+
+        ref = parse_plain_ref!(p, ref, what.ref)
+        res = result!(p)
+        ref in res && duperr(p, ref)
+        push!(res, ref)
+
         it = iterate(input, it)
+        bump!(p)
     end
-    res
+
+    result!(p)
 end
 
 # The binary case *can* accept boolean masks.
 function graphdataconvert(
     ::Type{BinMap{<:Any}},
     input::AbstractVector{Bool};
-    expected_I = Int64,
+    # Match the general case..
+    ExpectedRefType = nothing,
+    parser = nothing,
+    what = (; whole = "binary map"),
 )
-    res = BinMap{expected_I}()
+    # .. although the context is much different:
+    # only indices can be retrieved or even *expected* from this kind of input.
+    !isnothing(ExpectedRefType) &&
+        ExpectedRefType != Int &&
+        interr("Label-indexed binary maps cannot be produced from boolean collections.")
+    !isnothing(parser) &&
+        parser.expected_R != Int &&
+        unexpected_reftype(what.whole, parser, input)
+    from_boolean_mask(input)
+end
+
+function from_boolean_mask(input)
+    res = BinMap{Int}()
     for (i, val) in enumerate(input)
         val && push!(res, i)
     end
     res
 end
 
-function graphdataconvert(
-    ::Type{BinMap{<:Any}},
-    input::AbstractSparseVector{Bool,I};
-    expected_I = I,
-) where {I}
-    res = BinMap{expected_I}()
-    for i in findnz(input)[1]
-        push!(res, i)
+function from_boolean_mask(input::AbstractSparseVector{Bool})
+    res = BinMap{Int}()
+    for ref in findnz(input)[1]
+        push!(res, ref)
     end
     res
 end
 
 #-------------------------------------------------------------------------------------------
-# Similar, nested logic for adjacency maps.
+# Parse general maps.
 
-function graphdataconvert(::Type{Adjacency{<:Any,T}}, input; expected_I = nothing) where {T}
-    applicable(iterate, input) || argerr("Adjacency list input needs to be iterable.")
-    it = iterate(input)
-    if isnothing(it)
-        I = isnothing(expected_I) ? Int64 : expected_I
-        return Adjacency{I,T}()
-    end
+function graphdataconvert(
+    ::Type{Map{<:Any,T}},
+    input;
+    ExpectedRefType = nothing,
+    parser = nothing,
+    what = (; whole = "map", pair = "reference(s) => value", ref = "node"),
+) where {T}
+    p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{R,T}) : parser
+    it = parse_iterable(p, input, what)
+    isnothing(it) && return empty_result(p)
 
-    # Treat values as regular maps.
-    pair, it = it
-    key, value = checked_pair_split(pair)
-    I = infer_key_type(key)
-    check_key_type(I, expected_I, key)
-    key = checked_key_convert(I, key)
-    value = submap((@GraphData {Map}{T}), value, I, key)
-    res = Adjacency{I,T}()
-    res[key] = value
-
-    # Fill up the list.
-    it = iterate(input, it)
+    push!(p, 1)
     while !isnothing(it)
         pair, it = it
-        key, value = checked_pair_split(pair)
-        key = checked_key_convert(I, key)
-        value = submap((@GraphData {Map}{T}), value, I, key)
-        haskey(res, key) && duperr(key)
-        res[key] = value
+
+        refs, value = parse_pair(p, pair, what.pair)
+        push!(p, :left) # Start left because :right errors may be much uglier.
+        refs = parse_grouped_refs!(p, refs, what.ref)
+        update!(p, :right)
+        value = parse_value(p, value)
+        update!(p, :left)
+        res = result!(p)
+        push!(p, 1)
+        for ref in refs
+            haskey(res, ref) && duperr(p, ref)
+            res[ref] = value
+            bump!(p)
+        end
+        pop!(p)
+        pop!(p)
+
         it = iterate(input, it)
+        bump!(p)
     end
-    res
+
+    result!(p)
 end
 
-function graphdataconvert(::Type{BinAdjacency{<:Any}}, input; expected_I = nothing)
-    applicable(iterate, input) ||
-        argerr("Binary adjacency list input needs to be iterable.")
-    it = iterate(input)
-    if isnothing(it)
-        I = isnothing(expected_I) ? Int64 : expected_I
-        return BinAdjacency{I}()
-    end
+#-------------------------------------------------------------------------------------------
+# Parse binary adjacency maps.
 
-    # Type inference from first element.
-    pair, it = it
-    key, value = checked_pair_split(pair)
-    I = infer_key_type(key)
-    check_key_type(I, expected_I, key)
-    key = checked_key_convert(I, key)
-    value = submap((@GraphData {Map}{:bin}), value, I, key)
-    res = BinAdjacency{I}()
-    res[key] = value
+function graphdataconvert(
+    ::Type{BinAdjacency{<:Any}},
+    input;
+    ExpectedRefType = nothing,
+    parser = nothing,
+)
+    p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) : parser
+    it = parse_iterable(p, input, "binary adjacency map")
+    isnothing(it) && return empty_result(p)
 
-    # Fill up the set.
-    it = iterate(input, it)
+    push!(p, 1)
     while !isnothing(it)
         pair, it = it
-        key, value = checked_pair_split(pair)
-        key = checked_key_convert(I, key)
-        value = submap((@GraphData {Map}{:bin}), value, I, key)
-        haskey(res, key) && duperr(key)
-        res[key] = value
+
+        sources, targets = parse_pair(p, pair, "source(s) => target(s)")
+        push!(p, :left)
+        sources = parse_grouped_refs!(p, sources, "source node")
+        update!(p, :right)
+        targets = parse_grouped_refs!(p, targets, "target node")
+        res = result!(p)
+        update!(p, :left)
+        push!(p, 1)
+        pend = (length(p.path)-1):length(p.path)
+        for src in sources
+            sub = if haskey(res, src)
+                res[src]
+            else
+                res[src] = OrderedSet{get_R(p)}()
+            end
+            safe = p.path[pend]
+            p.path[pend] .= (:right, 1)
+            for tgt in targets
+                tgt in sub && interr("Duplicate edge specification \
+                                      $(repr(src)) → $(repr(tgt))$(report(p, tgt))")
+                push!(sub, tgt)
+                bump!(p)
+            end
+            p.path[pend] .= safe
+            isempty(sub) && interr("No target provided for source$(report(p, src))")
+            bump!(p)
+        end
+        pop!(p)
+        pop!(p)
+
         it = iterate(input, it)
+        bump!(p)
     end
-    res
+
+    result!(p)
 end
 
 # The binary case *can* accept boolean matrices.
 function graphdataconvert(
     ::Type{BinAdjacency{<:Any}},
-    input::AbstractMatrix{Bool},
-    expected_I = Int64,
+    input::AbstractMatrix{Bool};
+    ExpectedRefType = nothing,
+    parser = nothing,
+    what = (; whole = "binary map"),
 )
-    res = BinAdjacency{expected_I}()
+    !isnothing(ExpectedRefType) &&
+        ExpectedRefType != Int &&
+        interr("Label-indexed binary adjacency lists \
+                cannot be produced from boolean matrices.")
+    !isnothing(parser) &&
+        parser.expected_R != Int &&
+        unexpected_reftype(what.whole, parser, input)
+    from_boolean_matrix(input)
+end
+
+function from_boolean_matrix(input)
+    res = BinAdjacency{Int}()
     for (i, row) in enumerate(eachrow(input))
         adj_line = BinMap(j for (j, val) in enumerate(row) if val)
         isempty(adj_line) && continue
@@ -233,12 +512,8 @@ function graphdataconvert(
     res
 end
 
-function graphdataconvert(
-    ::Type{BinAdjacency{<:Any}},
-    input::AbstractSparseMatrix{Bool,I},
-    expected_I = I,
-) where {I}
-    res = BinAdjacency{expected_I}()
+function from_boolean_matrix(input::AbstractSparseMatrix{Bool})
+    res = BinAdjacency{Int}()
     nzi, nzj, _ = findnz(input)
     for (i, j) in zip(nzi, nzj)
         if haskey(res, i)
@@ -250,95 +525,61 @@ function graphdataconvert(
     res
 end
 
+#-------------------------------------------------------------------------------------------
+# Parse adjacency maps.
+
+function graphdataconvert(
+    ::Type{Adjacency{<:Any,T}},
+    input;
+    ExpectedRefType = nothing,
+    parser = nothing,
+) where {T}
+
+    p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{R,T}) : parser
+    it = parse_iterable(p, input, "adjacency map")
+    isnothing(it) && return empty_result(p)
+
+    push!(p, 1)
+    while !isnothing(it)
+        pair, it = it
+
+        lhs, rhs = parse_pair(p, pair, "source(s) => target(s)")
+
+        # HERE: determine each side as either (refs or pairs) then interpret.
+
+        it = iterate(input, it)
+        bump!(p)
+    end
+
+    result!(p)
+end
+
+#-------------------------------------------------------------------------------------------
 # Alias if types matches exactly.
 graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
-graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Int64,T}) where {T} = input
-graphdataconvert(::Type{BinMap{<:Any}}, input::BinMap{Int64}) = input
+graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
+graphdataconvert(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
 graphdataconvert(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
 graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
-graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int64,T}) where {T} = input
+graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
 graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
-graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int64}) = input
+graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.
-function graphdataconvert(::Type{BinMap}, input::Map{I}) where {I}
-    res = BinMap{I}()
+function graphdataconvert(::Type{BinMap}, input::Map{R}) where {R}
+    res = BinMap{R}()
     for (k, _) in input
         push!(res, k)
     end
     res
 end
-function graphdataconvert(::Type{BinAdjacency{<:Any}}, input::Adjacency{I}) where {I}
-    res = BinAdjacency{I}()
+function graphdataconvert(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
+    res = BinAdjacency{R}()
     for (i, sub) in input
         res[i] = graphdataconvert(BinMap, sub)
     end
     res
-end
-
-#-------------------------------------------------------------------------------------------
-# Conversion helpers.
-
-duperr(key) = argerr("Duplicated key: $(repr(key)).")
-
-function infer_key_type(key)
-    applicable(graphdataconvert, Int64, key) && return Int64
-    applicable(graphdataconvert, Symbol, key) && return Symbol
-    argerr("Cannot convert key to integer or symbol label: \
-            received $(repr(key)) ::$(typeof(key)).")
-end
-
-check_key_type(I, expected_I, first_key) =
-    isnothing(expected_I) ||
-    I == expected_I ||
-    argerr("Expected '$expected_I' as key types, got '$I' instead \
-            (inferred from first key: $(repr(first_key)) ::$(typeof(first_key))).")
-
-# "Better ask forgiveness than permission".. is that also julian?
-checked_pair_split(pair) =
-    try
-        key, value = pair
-        return key, value
-    catch
-        argerr("Not a key-value pair: $(repr(pair)) ::$(typeof(pair)).")
-    end
-
-checked_key_convert(I, key) =
-    try
-        graphdataconvert(I, key)
-    catch
-        argerr("Map key cannot be converted to '$(I)': \
-                received $(repr(key)) ::$(typeof(key)).")
-    end
-
-checked_value_convert(T, value, key) =
-    try
-        graphdataconvert(T, value)
-    catch
-        argerr("Map value at key '$key' cannot be converted to '$(T)': \
-                received $(repr(value)) ::$(typeof(value)).")
-    end
-
-checked_pair_convert((I, T), (key, value)) =
-    (checked_key_convert(I, key), checked_value_convert(T, value, key))
-
-submap(::Type{M}, input, I, key) where {M<:Map} =
-    try
-        graphdataconvert(M, input; expected_I = I)
-    catch
-        argerr("Error while parsing adjacency list input at key '$key' \
-                (see further down the stacktrace).")
-    end
-# Special binary case allows scalar keys to be directly used instead of singleton.
-function submap(::Type{BM}, input, I, key) where {BM<:BinMap}
-    typeof(input) == I && (input = [input]) # Convert scalar key to singleton key.
-    try
-        graphdataconvert(BM, input; expected_I = I)
-    catch
-        argerr("Error while parsing adjacency list input at key '$key' \
-                (see further down the stacktrace).")
-    end
 end
 
 # ==========================================================================================
@@ -376,9 +617,9 @@ function _tographdata(vsym, var, targets)
                     Target = "binary adjacency list"
                 elseif Target <: Map
                     T = Target.body.parameters[2]
-                    Target = "key-value map for '$T' data"
+                    Target = "ref-value map for '$T' data"
                 elseif Target <: BinMap
-                    Target = "binary key-value map"
+                    Target = "binary ref-value map"
                 end
                 argerr("Error while attempting to convert \
                         '$vsym' to $Target \

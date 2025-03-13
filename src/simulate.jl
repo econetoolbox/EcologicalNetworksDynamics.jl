@@ -17,7 +17,7 @@ function _simulate(raw::Internal, u0, tmax::Real; kwargs...)
 
     # If set, produce an @info message
     # to warn user about possible degenerated network topologies.
-    deg_top_arg = :show_degenerated_biomass_graph_properties
+    deg_top_arg = :show_degenerated
     deg_top = take_or!(deg_top_arg, true)
 
     # Lower threshold.
