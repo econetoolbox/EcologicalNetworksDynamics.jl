@@ -20,7 +20,7 @@ include("./display.jl")
 using .Display
 
 # Common error to throw on user input error.
-argerr(mess) = throw(ArgumentError(mess))
+argerr(mess, raise = throw) = raise(ArgumentError(mess))
 
 # Alias common types.
 const Option{T} = Union{Nothing,T}
@@ -84,17 +84,17 @@ using .KwargsHelpers
 include("./GraphDataInputs/GraphDataInputs.jl")
 using .GraphDataInputs
 
-# Encapsulated views into internal arrays or pseudo-arrays.
-include("./dedicate_framework_to_model.jl")
-include("./graph_views.jl")
-using .GraphViews
+#  # Encapsulated views into internal arrays or pseudo-arrays.
+#  include("./dedicate_framework_to_model.jl")
+#  include("./graph_views.jl")
+#  using .GraphViews
 
-# Convenience macro to wire this all together.
-include("./expose_data.jl")
+#  # Convenience macro to wire this all together.
+#  include("./expose_data.jl")
 
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
-include("./components/main.jl")
+#  include("./components/main.jl")
 
 #  # Additional exposed utils built on top of components and methods.
 #  include("./default_model.jl")
