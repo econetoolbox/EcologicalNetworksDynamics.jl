@@ -67,7 +67,8 @@ end
 # References may be grouped together, as an iterable of references instead.
 # For adjacency lists, values are maps themselves,
 # and grouping references can also happen with values on the lhs,
-# rhs being just a list of "target" references.
+# rhs being just a list of "target" references
+# (see general module documentation).
 #
 # Here is how we parse each toplevel input pair: (lhs, rhs).
 # Call 'pairs' end the side of this pair that is holding the value(s),
@@ -86,14 +87,15 @@ end
 # during input parsing, especially useful for quality reporting in case of invalid input.
 # This struct is very type-unstable so as to be used for target conversion.
 mutable struct Parser
-    # Nothing for the special binary case.
+    # Target values types. Nothing for the special binary case.
     T::Option{Type}
 
     # Useful if known by callers for some reason.
     expected_R::Option{Type}
-    target_type::Function # R -> type.
+    # R -> full type of the final adjacency list or map.
+    target_type::Function
 
-    # If the above is unset, infer the expected ref type from the first ref parsed.
+    # If there is no expected R, infer the expected ref type from the first ref parsed.
     found_first_ref::Bool
     first_ref::Option{Any}
 
@@ -104,7 +106,7 @@ mutable struct Parser
     result::Union{Nothing,Map,BinMap,Adjacency,BinAdjacency}
     Parser(T, R, target_type) = new(T, R, target_type, false, nothing, [], nothing)
 
-    # Useful to fork into a sub-parser.
+    # Useful to fork into a sub-parser, "asking forgiveness" in case it fails.
     Parser(p::Parser, target_type) = new(
         p.T,
         p.expected_R,
@@ -136,6 +138,7 @@ first_ref(p::Parser) =
         throw("Undefined first reference: this is a bug in the package.")
     end
 
+# Keep track of input access path for reporting.
 Base.push!(p::Parser, ref) = push!(p.path, ref)
 Base.pop!(p::Parser) = pop!(p.path)
 update!(p::Parser, ref) = p.path[end] = ref
@@ -173,7 +176,7 @@ function result!(p::Parser)
     p.result = p.target_type(R)()
 end
 
-# Exceptions with this types bubble up through the "forgiveness" pattern.
+# Exceptions with this type bubble up through the "forgiveness" pattern.
 # Because they are only emitted in situations where the input category
 # was considered unambiguous.
 struct Interrupt <: Exception
@@ -223,7 +226,6 @@ parse_pair(p::Parser, input, what) =
         argerr("Not a '$what' pair$(report(p, input)).", rethrow)
     end
 
-# Aka. single reference.
 function parse_plain_ref!(p::Parser, input, what)
     (ref, R, ok) = try
         (graphdataconvert(Symbol, input), Symbol, true)
@@ -247,7 +249,7 @@ function parse_plain_ref!(p::Parser, input, what)
     end
     ref
 end
-# Reused elsewhere.
+# Reused later.
 unexpected_reftype(what, p, input) = interr("Invalid $what reference type. \
                                              Expected $(repr(p.expected_R)) \
                                              (or convertible). \
@@ -257,11 +259,10 @@ inferred_ref(what, p) = "The $what reference type for this input \
                          was first inferred to be $(a_ref(typeof(first_ref(p)))) \
                          based on the received '$(first_ref(p))'"
 
-# Aka. (ref => value) pair.
-function parse_plain_pair!(p::Parser, input, what)
+function parse_plain_pair!(p::Parser, input, refwhat)
     lhs, rhs = parse_pair(p, input)
     push!(p, :left)
-    ref = parse_plain_ref!(p, lhs, what)
+    ref = parse_plain_ref!(p, lhs, refwhat)
     update!(p, :right)
     value = parse_value(p, rhs)
     pop!(p)
@@ -269,21 +270,21 @@ function parse_plain_pair!(p::Parser, input, what)
 end
 
 # If plain, normalize to grouped.
-function parse_grouped_refs!(p::Parser, input, what)
+function parse_grouped_refs!(p::Parser, input, refwhat)
     (refs, ok) = try
         f = fork(p, R -> BinMap{R})
         refs = graphdataconvert(
             BinMap{<:Any},
             input;
             parser = f,
-            what = (; whole = "grouped references", ref = what),
+            what = (; whole = "grouped references", ref = refwhat),
         )
         merge!(p, f)
         (refs, true)
     catch e
         e isa Interrupt && rethrow(e)
         try
-            ref = parse_plain_ref!(p, input, what)
+            ref = parse_plain_ref!(p, input, refwhat)
             ((ref,), true)
         catch e
             (e, false)
@@ -294,25 +295,21 @@ function parse_grouped_refs!(p::Parser, input, what)
 end
 
 # If plain, normalize to grouped.
-function parse_grouped_pairs!(p::Parser, input)
+function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
     (pairs, ok) = try
         f = fork(p, R -> Map{R,p.T})
         pairs = graphdataconvert(
             Map{<:Any,p.T},
             input;
             parser = f,
-            what = (;
-                whole = "adjacency list",
-                pair = "source(s) => target(s)",
-                ref = "node", # HERE: is that always 'node'? Should we split in lref/rref?
-            ),
+            what = (; whole = "adjacency list", pair = "$refwhat(s) => value(s)", refwhat),
         )
         merge!(p, f)
         (pairs, true)
     catch e
         e isa Interrupt && rethrow(e)
         try
-            pair = parse_plain_pair!(p, input)
+            pair = parse_plain_pair!(p, input, refwhat)
             ((pair,), true)
         catch e
             (e, false)
@@ -454,25 +451,25 @@ function graphdataconvert(
         targets = parse_grouped_refs!(p, targets, "target node")
         res = result!(p)
         update!(p, :left)
-        push!(p, 1)
+        push!(p, 0)
         pend = (length(p.path)-1):length(p.path)
         for src in sources
+            bump!(p)
             sub = if haskey(res, src)
                 res[src]
             else
                 res[src] = OrderedSet{get_R(p)}()
             end
             safe = p.path[pend]
-            p.path[pend] .= (:right, 1)
+            p.path[pend] .= (:right, 0)
             for tgt in targets
+                bump!(p)
                 tgt in sub && interr("Duplicate edge specification \
                                       $(repr(src)) → $(repr(tgt))$(report(p, tgt))")
                 push!(sub, tgt)
-                bump!(p)
             end
             p.path[pend] .= safe
             isempty(sub) && interr("No target provided for source$(report(p, src))")
-            bump!(p)
         end
         pop!(p)
         pop!(p)
@@ -544,8 +541,77 @@ function graphdataconvert(
         pair, it = it
 
         lhs, rhs = parse_pair(p, pair, "source(s) => target(s)")
+        (lhs, lhs_has_values), (rhs, rhs_has_values) =
+            map(((lhs, :left, "source"), (rhs, :right, "target"))) do (side, step, refwhat)
+                push!(p, step)
+                # The error emitted will be the last one if both fail.
+                pairs, refs = parse_grouped_pairs!, parse_grouped_refs!
+                (first_try!, second_try!) =
+                    refwhat == "source" ? (pairs, refs) : (refs, pairs)
+                (group, has_values, ok) = try
+                    (first_try!(p, side; refwhat), true, true)
+                catch e
+                    e isa Interrupt && rethrow(e)
+                    try
+                        (second_try!(p, side, refwhat), false, true)
+                    catch e
+                        e isa Interrupt && rethrow(e)
+                        (e, nothing, false)
+                    end
+                end
+                ok || rethrow(group)
+                pop!(p)
+                (group, has_values)
+            end
 
-        # HERE: determine each side as either (refs or pairs) then interpret.
+        (lhs_has_values && rhs_has_values) &&
+            argerr("Cannot associate values to both source and target ends \
+                    of edges at $(path(p)):\n\
+                    Received LHS: $lhs\n\
+                    Received RHS: $rhs.")
+        !(lhs_has_values || rhs_has_values) && argerr(
+            "No values found for either source or target end of edges at $(path(p)):\n\
+             Received LHS: $lhs\n\
+             Received RHS: $rhs.",
+        )
+
+        res = result!(p)
+
+        push!(p, :left)
+        push!(p, 0)
+        pend = (length(p.path)-1):length(p.path)
+        any = false
+        for i in lhs # Values are either collected here..
+            bump!(p)
+            any = true
+            (src, value) = lhs_has_values ? i : (i, missing)
+            sub = if haskey(res, src)
+                res[src]
+            else
+                res[src] = OrderedDict{get_R(p),T}()
+            end
+            safe = p.path[pend]
+            p.path[pend] .= (:right, 0)
+            for j in rhs # .. or there.
+                bump!(p)
+                (tgt, value) = rhs_has_values ? j : (j, value)
+                haskey(sub, tgt) && interr("Duplicate edge specification:\n\
+                                            Previously received: \
+                                            $(repr(src)) → $(repr(tgt)) ($(sub[tgt]))\n\
+                                            Now received:        \
+                                            $(repr(src)) → $(repr(tgt)) ($value)\
+                                            $(report(p, tgt))")
+                sub[tgt] = value
+            end
+            p.path[pend] .= safe
+            if isempty(sub)
+                e = lhs_has_values ? "source" : "target"
+                interr("No target provided for `$e => value` pair$(report(p, value))")
+            end
+        end
+        any || interr("No sources provided$(report(p, lhs))")
+        pop!(p)
+        pop!(p)
 
         it = iterate(input, it)
         bump!(p)
