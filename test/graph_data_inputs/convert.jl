@@ -131,7 +131,7 @@
 
     input = []
     res = @tographdata input K{Float64}
-    @test same_type_value(res, OrderedDict{Int64,Float64}()) # Default to integer index.
+    @test same_type_value(res, OrderedDict{Symbol,Float64}()) # Default to symbol index.
 
     # Alias by using the exact same type.
     input = OrderedDict(:a => 5.0, :b => 8.0)
@@ -149,7 +149,7 @@
 
     input = []
     res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet{Int64}())
+    @test same_type_value(res, OrderedSet{Symbol}())
 
     input = OrderedSet([:a, :b, :c])
     res = @tographdata input K{:bin}
@@ -194,7 +194,7 @@
 
     input = []
     res = @tographdata input A{Float64}
-    @test same_type_value(res, OrderedDict{Int64,OrderedDict{Int64,Float64}}())
+    @test same_type_value(res, OrderedDict{Symbol,OrderedDict{Symbol,Float64}}())
 
     input = OrderedDict(
         :a => OrderedDict(:b => 50.0, :c => 60.0),
@@ -224,7 +224,7 @@
 
     input = []
     res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict{Int64,OrderedSet{Int64}}())
+    @test same_type_value(res, OrderedDict{Symbol,OrderedSet{Symbol}}())
 
     input = OrderedDict(1 => OrderedSet([2, 7]), 2 => OrderedSet([3, 8]))
     res = @tographdata input A{:bin}
@@ -272,13 +272,13 @@
     @argfails(
         (@tographdata input YV{Float64}),
         "Could not convert 'input' to either Symbol or Vector{Float64}. \
-         The value received is 5 ::Int64.",
+         The value received is 5 ::$Int.",
     )
 
     input = 5.0
     @argfails(
-        (@tographdata input YSV{Int64}),
-        "Could not convert 'input' to either Symbol, Int64 or Vector{Int64}. \
+        (@tographdata input YSV{Int}),
+        "Could not convert 'input' to either Symbol, $Int or Vector{$Int}. \
          The value received is 5.0 ::Float64.",
     )
 
@@ -287,7 +287,7 @@
         (@tographdata input YSV{Bool}),
         "Error while attempting to convert 'input' to Vector{Bool} \
          (details further down the stacktrace). \
-         Received [0, 1, 2] ::Vector{Int64}.",
+         Received [0, 1, 2] ::Vector{$Int}.",
     )
     # And down the stacktrace:
     @failswith(
@@ -301,95 +301,122 @@
     gc = GraphDataInputs.graphdataconvert # (don't check first error in stacktrace)
 
     # Maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    Map = @GraphData Map{Float64}
     @argfails(
-        gc((@GraphData K{Float64}), Type),
-        "Key-value mapping input needs to be iterable.",
+        gc(Map, Type),
+        "Input for map needs to be iterable.\nReceived: Type ::UnionAll.",
     )
-    @argfails(gc((@GraphData K{Float64}), [5]), "Not a key-value pair: 5 ::Int64.")
-    @argfails(gc((@GraphData K{Float64}), "abc"), "Not a key-value pair: 'a' ::Char.")
+    @argfails(gc(Map, [5]), "Not a 'reference(s) => value' pair at [1]: 5 ::$Int.")
+    @argfails(gc(Map, "abc"), "Not a 'reference(s) => value' pair at [1]: 'a' ::Char.")
     @argfails(
-        gc((@GraphData K{Float64}), [(Type, "a")]),
-        "Cannot convert key to integer or symbol label: \
-         received Type ::UnionAll.",
-    )
-    @argfails(
-        gc((@GraphData K{Float64}), [(5, "a")]),
-        "Map value at key '5' cannot be converted to 'Float64': \
-         received \"a\" ::String.",
+        gc(Map, [(Type, "a")]),
+        "Cannot interpret node reference as integer index or symbol label: \
+         received at [1][left]: Type ::UnionAll.",
     )
     @argfails(
-        gc((@GraphData K{Float64}), [(5, 8), (:a, 5)]),
-        "Map key cannot be converted to 'Int64': received :a ::Symbol.",
+        gc(Map, [(5, "a")]),
+        "Expected values of type 'Float64', \
+         received instead at [1][right]: \"a\" ::String.",
     )
-    @argfails(gc((@GraphData K{Float64}), [(5, 8), (5, 9)]), "Duplicated key: 5.")
+    @argfails(
+        gc(Map, [(5, 8), (:a, 5)]),
+        "The node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '5', \
+         but a label (Symbol) is now found at [2][left]: :a ::Symbol."
+    )
+    @argfails(
+        gc(Map, [(5, 8), (5, 9)]),
+        "Duplicated node reference at [2][left][1]: 5 ::$Int."
+    )
 
     # Binary maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @argfails(gc((@GraphData K{:bin}), Type), "Binary mapping input needs to be iterable.")
+    BinMap = @GraphData Map{:bin}
     @argfails(
-        gc((@GraphData K{:bin}), [Type]),
-        "Cannot convert key to integer or symbol label: \
-         received Type ::UnionAll.",
+        gc(BinMap, Type),
+        "Input for binary map needs to be iterable.\n\
+         Received: Type ::UnionAll."
     )
     @argfails(
-        gc((@GraphData K{:bin}), [5, :a]),
-        "Map key cannot be converted to 'Int64': \
-         received :a ::Symbol.",
+        gc(BinMap, [Type]),
+        "Cannot interpret node reference as integer index or symbol label: \
+         received at [1]: Type ::UnionAll.",
     )
-    @argfails(gc((@GraphData K{:bin}), [5, 5]), "Duplicated key: 5.")
+    @argfails(
+        gc(BinMap, [5, :a]),
+        "The node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '5', \
+         but a label (Symbol) is now found at [2]: :a ::Symbol.",
+    )
+    @argfails(gc(BinMap, [5, 5]), "Duplicated node reference at [2]: 5 ::$Int.")
 
     # Adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    Adj = @GraphData Adjacency{Float64}
     @argfails(
-        gc((@GraphData A{Float64}), Type),
-        "Adjacency list input needs to be iterable.",
+        gc(Adj, Type),
+        "Input for adjacency map needs to be iterable.\n\
+         Received: Type ::UnionAll."
     )
     @argfails(
-        gc((@GraphData A{Float64}), [Type]),
-        "Not a key-value pair: Type ::UnionAll.",
+        gc(Adj, [Type]),
+        "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
+    )
+    @argfails(gc(Adj, [5 => 8]), "Not a 'target => value' pair at [1][right]: 8 ::$Int.",)
+    @argfails(
+        gc(Adj, [5 => [:a => 8]]),
+        "The target reference type for this input \
+         was first inferred to be an index ($Int) based on the received '5', \
+         but a label (Symbol) is now found at [1][right][1][left]: :a ::Symbol.",
     )
     @argfails(
-        gc((@GraphData A{Float64}), [5 => 8]),
-        "Error while parsing adjacency list input at key '5' \
-         (see further down the stacktrace).", # (see map error above)
+        gc(Adj, ['a' => 8]; ExpectedRefType = Int),
+        "Invalid source reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left]: 'a' ::Char.",
     )
+    #  @argfails(
+    #  gc((@GraphData A{Float64}), [:a => [:b => 8], 'a' => [:c => 9]]), # HERE: now featured!
+    #  "Duplicated key: :a.",
+    #  )
     @argfails(
-        gc((@GraphData A{Float64}), [5 => [:a => 8]]),
-        "Error while parsing adjacency list input at key '5' \
-         (see further down the stacktrace).",
-    )
-    # (down the stacktrace)
-    @argfails(
-        gc((@GraphData K{Float64}), ['a' => 8]; expected_I = Int64),
-        "Expected 'Int64' as key types, got 'Symbol' instead \
-         (inferred from first key: 'a' ::Char).",
-    )
-    @argfails(
-        gc((@GraphData A{Float64}), [:a => [:b => 8], 'a' => [:c => 9]]),
-        "Duplicated key: :a.",
+        gc(Adj, [:a => [:b => 8], 'a' => ['b' => 9]]),
+        "Duplicate edge specification:\n\
+         Previously received: :a → :b (8.0)\n\
+         Now received:        :a → :b (9.0) at [2][right][1]: :b ::Symbol.",
     )
 
     # Binary adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    BinAdj = @GraphData Adjacency{:bin}
     @argfails(
-        gc((@GraphData A{:bin}), Type),
-        "Binary adjacency list input needs to be iterable.",
-    )
-    @argfails(gc((@GraphData A{:bin}), [Type]), "Not a key-value pair: Type ::UnionAll.",)
-    @argfails(
-        gc((@GraphData A{:bin}), [5 => [Type]]),
-        "Error while parsing adjacency list input at key '5' \
-         (see further down the stacktrace).", # (see binary map error above)
+        gc(BinAdj, Type),
+        "Input for binary adjacency map needs to be iterable.\n\
+         Received: Type ::UnionAll.",
     )
     @argfails(
-        gc((@GraphData A{:bin}), [:a => [5]]),
-        "Error while parsing adjacency list input at key 'a' \
-         (see further down the stacktrace).",
+        gc(BinAdj, [Type]),
+        "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
     )
-    # (down the stacktrace)
     @argfails(
-        gc((@GraphData K{:bin}), [5]; expected_I = Symbol),
-        "Expected 'Symbol' as key types, got 'Int64' instead \
-         (inferred from first key: 5 ::Int64).",
+        gc(BinAdj, [5 => [Type]]),
+        "Cannot interpret target node reference as integer index or symbol label: \
+         received at [1][right][1]: Type ::UnionAll.",
     )
-    @argfails(gc((@GraphData A{:bin}), [5 => [8], 4 + 1 => [9]]), "Duplicated key: 5.",)
+    @argfails(
+        gc(BinAdj, [:a => [5]]),
+        "The target node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received 'a', \
+         but an index ($Int) is now found at [1][right][1]: 5 ::$Int.",
+    )
+    @argfails(
+        gc(BinAdj, [5 => 8]; ExpectedRefType = Symbol),
+        "Invalid source node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][left]: 5 ::$Int.",
+    )
+    #  @argfails(gc((@GraphData A{:bin}), [5 => [8], 4 + 1 => [9]]), "Duplicated key: 5.") # HERE: now featured!
+    @argfails(
+        gc(BinAdj, [5 => [8], 4 + 1 => [4 * 2]]),
+        "Duplicate edge specification 5 → 8 at [2][right][1]: 8 ::$Int."
+    )
 
     # ======================================================================================
     # Invalid uses.
@@ -420,7 +447,7 @@ end
     @test nrefs(l) == 0
     @test collect(refs(l)) == []
     @test nrefspace(l) == 0
-    @test refspace(l) == 0
+    @test refspace(l) == OrderedDict{Symbol,Int}()
     @test collect(accesses(l)) == []
     @test empty_space(0)
     @test !inspace((0,), 0) && !inspace((1,), 0)
