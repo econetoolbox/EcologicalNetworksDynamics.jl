@@ -74,7 +74,7 @@ als = repr(MIME("text/plain"), aliases) # (to include in error messages)
 #   @macro ... YSN            # (single letters)
 #   @macro ... {YSN}          # (convenience twist)
 #   @macro ... Symbol         # (convenience twist if it matches a full name)
-function parse_types(loc, input)
+function parse_types(input, loc)
     specs = if input isa Symbol
         if haskey(rev_aliases, input)
             [input]
@@ -109,11 +109,14 @@ end
 # But if T is `:bin`:
 #  Map -> BinMap{I} where {I}
 #
-function expand_types(loc, types, T)
+function expand_types(types, T, loc; escape = true)
     # Covariant input like <:Real should not be used as-is for :Scalar.
     special_bin = false
     if T isa Expr && T.head == :<:
-        Cov, T = esc(T), esc(T.args[1])
+        Cov, T = T, T.args[1]
+        if escape
+            Cov, T = esc.((Cov, T))
+        end
     elseif T isa QuoteNode
         T == :(:bin) || argerr("Invalid type specification at $loc.\n\
                                 Did you bin :bin instead of $T?")
@@ -122,7 +125,7 @@ function expand_types(loc, types, T)
     elseif isnothing(T)
         all(types .== Symbol) || argerr("No type provided.")
     else
-        Cov = T = esc(T)
+        Cov = T = escape ? esc(T) : T
     end
     map(types) do P
         P == :Scalar && return T
@@ -141,7 +144,8 @@ function expand_types(loc, types, T)
 end
 
 # Do both.
-parse_types(loc, input, T) = expand_types(loc, parse_types(loc, input), T)
+parse_types(input, T, loc; escape = true) =
+    expand_types(parse_types(input, loc), T, loc; escape)
 
 # ==========================================================================================
 # The actual exposed macro.
@@ -151,11 +155,17 @@ parse_types(loc, input, T) = expand_types(loc, parse_types(loc, input), T)
 #   @GraphData YSN{Float64}
 macro GraphData(input)
     @defloc
+    graph_data_union(input, loc)
+end
+function graph_data_list(input, loc; escape = true)
     @capture(input, types_{T_} | types_{})
     isnothing(types) && argerr("Invalid @GraphData input at $loc.\n\
                                 Expected @GraphData {aliases...}{Type}. \
                                 Got $(repr(input)).")
-    types = parse_types(loc, types, T)
+    parse_types(types, T, loc; escape)
+end
+function graph_data_union(input, loc; escape = true)
+    types = graph_data_list(input, loc; escape)
     u = :(Union{})
     append!(u.args, types)
     u
