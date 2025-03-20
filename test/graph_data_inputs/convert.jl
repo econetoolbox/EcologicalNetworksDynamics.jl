@@ -1,3 +1,5 @@
+struct _Alias end
+
 @testset "Graph data conversion." begin
 
     # ======================================================================================
@@ -10,248 +12,189 @@
     # To scalar symbols.
 
     input = 'a'
-    res = @tographdata input YSV{Float64}
+    res = @tographdata input YSV{Float64} # Test this form once..
     @test same_type_value(res, :a)
 
-    input = "a"
-    res = @tographdata input YSV{Float64}
-    @test same_type_value(res, :a)
+    # .. then shorten subsequent tests.
+    Alias = _Alias()
+    function convert(types, input, expected)
+        # (reproduce @tographdata macro)
+        types = GraphDataInputs.graph_data_list(types, nothing; escape = false)
+        types = Base.eval.((GraphDataInputs,), types)
+        actual = GraphDataInputs._tographdata(:input, input, types)
+        match = if expected isa _Alias
+            aliased(input, actual)
+        else
+            same_type_value(expected, actual)
+        end
+        if !match
+            println("expected: $expected ::$(typeof(expected))")
+            println("actual  : $actual ::$(typeof(actual))")
+        end
+        match
+    end
 
-    input = "a"
-    res = @tographdata input Y{}
-    @test same_type_value(res, :a)
+    @test convert(:(YSV{Float64}), "a", :a)
+    @test convert(:(Y{}), "a", :a)
 
     # To scalar strings.
-    input = 'a'
-    res = @tographdata input SYV{String}
-    @test same_type_value(res, "a")
-
-    input = :a
-    res = @tographdata input SYV{String}
-    @test same_type_value(res, "a")
+    @test convert(:(SYV{String}), 'a', "a")
+    @test convert(:(SYV{String}), :a, "a")
 
     # (type order matters or the first matching wins)
-    input = 'a'
-    res = @tographdata input YSV{String} # (Y first wins)
-    @test same_type_value(res, :a)
+    @test convert(:(YSV{String}), 'a', :a) # (Y first wins)
 
     #---------------------------------------------------------------------------------------
     # To floating point values, any collection.
 
-    input = 5
-    res = @tographdata input YSV{Float64}
-    @test same_type_value(res, 5.0)
-
-    input = [5]
-    res = @tographdata input YSV{Float64}
-    @test same_type_value(res, [5.0])
-
-    input = [5, 8]
-    res = @tographdata input YSN{Float64}
-    @test same_type_value(res, sparse([5.0, 8.0]))
-
-    input = [5 8; 8 5]
-    res = @tographdata input YSM{Float64}
-    @test same_type_value(res, [5.0 8.0; 8.0 5.0])
-
-    input = [5 8; 8 5]
-    res = @tographdata input YSE{Float64}
-    @test same_type_value(res, sparse([5.0 8.0; 8.0 5.0]))
+    @test convert(:(YSV{Float64}), 5, 5.0)
+    @test convert(:(YSV{Float64}), [5], [5.0])
+    @test convert(:(YSN{Float64}), [5, 8], sparse([5.0, 8.0]))
+    @test convert(:(YSM{Float64}), [5 8; 8 5], [5.0 8.0; 8.0 5.0])
+    @test convert(:(YSE{Float64}), [5 8; 8 5], sparse([5.0 8.0; 8.0 5.0]))
 
     # Aliased version if exact type is provided.
-    input = 5.0
-    res = @tographdata input YSV{Float64}
-    @test same_type_value(res, 5.0)
-
-    input = [5.0]
-    res = @tographdata input YSV{Float64}
-    @test aliased(input, res) # No conversion has been made.
-
-    input = sparse([5.0, 8.0])
-    res = @tographdata input YSN{Float64}
-    @test aliased(input, res)
-
-    input = [5.0 8.0; 8.0 5.0]
-    res = @tographdata input YSM{Float64}
-    @test aliased(input, res)
-
-    input = sparse([5.0 8.0; 8.0 5.0])
-    res = @tographdata input YSE{Float64}
-    @test aliased(input, res)
+    @test convert(:(YSV{Float64}), 5.0, 5.0)
+    @test convert(:(YSV{Float64}), [5.0], Alias) # No conversion has been made.
+    @test convert(:(YSN{Float64}), sparse([5.0, 8.0]), Alias)
+    @test convert(:(YSM{Float64}), [5.0 8.0; 8.0 5.0], Alias)
+    @test convert(:(YSE{Float64}), sparse([5.0 8.0; 8.0 5.0]), Alias)
 
     #---------------------------------------------------------------------------------------
     # To integers, any collection.
 
-    input = 5
-    res = @tographdata input YSV{Int64}
-    @test same_type_value(res, 5)
-
-    input = [5]
-    res = @tographdata input YSV{Int64}
-    @test aliased(input, res) # No conversion has been made.
-
-    input = [5, 8]
-    res = @tographdata input YSN{Int64}
-    @test same_type_value(res, sparse([5, 8]))
-
-    input = [5 8; 8 5]
-    res = @tographdata input YSM{Int64}
-    @test aliased(input, res)
-
-    input = [5 8; 8 5]
-    res = @tographdata input YSE{Int64}
-    @test same_type_value(res, sparse([5 8; 8 5]))
+    @test convert(:(YSV{Int64}), 5, 5)
+    @test convert(:(YSV{Int64}), [5], Alias) # No conversion has been made.
+    @test convert(:(YSN{Int64}), [5, 8], sparse([5, 8]))
+    @test convert(:(YSM{Int64}), [5 8; 8 5], Alias)
+    @test convert(:(YSE{Int64}), [5 8; 8 5], sparse([5 8; 8 5]))
 
     #---------------------------------------------------------------------------------------
     # To booleans, any collection.
 
-    input = 1
-    res = @tographdata input YS{Bool}
-    @test same_type_value(res, true)
-
-    input = [1, 0]
-    res = @tographdata input YSV{Bool}
-    @test same_type_value(res, [true, false])
-
-    input = [false, true]
-    res = @tographdata input YSV{Bool}
-    @test aliased(input, res)
+    @test convert(:(YS{Bool}), 1, true)
+    @test convert(:(YSV{Bool}), [1, 0], [true, false])
+    @test convert(:(YSV{Bool}), [false, true], Alias)
     # etc.
 
     #---------------------------------------------------------------------------------------
     # To key-value maps, any iterable of pairs.
+    # HERE: test new input grouping opportunity and new error reports.
 
-    input = [1 => 5, (2, 8)] # Index keys.
-    res = @tographdata input K{Float64}
-    @test same_type_value(res, OrderedDict(1 => 5.0, 2 => 8.0))
+    # Index keys.
+    @test convert(:(K{Float64}), [1 => 5, (2, 8)], OrderedDict(1 => 5.0, 2 => 8.0))
 
-    input = ["a" => 5, (:b, 8), ['c', 13]] # Label keys.
-    res = @tographdata input K{Float64}
-    @test same_type_value(res, OrderedDict(:a => 5.0, :b => 8.0, :c => 13.0))
+    # Label keys.
+    @test convert(
+        :(K{Float64}),
+        ["a" => 5, (:b, 8), ['c', 13]],
+        OrderedDict(:a => 5.0, :b => 8.0, :c => 13.0),
+    )
 
-    input = []
-    res = @tographdata input K{Float64}
-    @test same_type_value(res, OrderedDict{Symbol,Float64}()) # Default to symbol index.
+    # Default to symbol index.
+    @test convert(:(K{Float64}), [], OrderedDict{Symbol,Float64}())
 
     # Alias by using the exact same type.
-    input = OrderedDict(:a => 5.0, :b => 8.0)
-    res = @tographdata input K{Float64}
-    @test aliased(input, res)
+    @test convert(:(K{Float64}), OrderedDict(:a => 5.0, :b => 8.0), Alias)
 
     # Special binary case.
-    input = [1, 2]
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet([1, 2]))
-
-    input = ["a", :b, 'c']
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet([:a, :b, :c]))
-
-    input = []
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet{Symbol}())
-
-    input = OrderedSet([:a, :b, :c])
-    res = @tographdata input K{:bin}
-    @test aliased(input, res)
+    @test convert(:(K{:bin}), [1, 2], OrderedSet([1, 2]))
+    @test convert(:(K{:bin}), ["a", :b, 'c'], OrderedSet([:a, :b, :c]))
+    @test convert(:(K{:bin}), [], OrderedSet{Symbol}())
+    @test convert(:(K{:bin}), OrderedSet([:a, :b, :c]), Alias)
 
     # Accept boolean masks.
-    input = Bool[1, 0, 1, 1, 0]
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet([1, 3, 4]))
-
-    input = sparse(Bool[1, 0, 1, 1, 0])
-    res = @tographdata input K{:bin}
-    @test same_type_value(res, OrderedSet([1, 3, 4]))
+    @test convert(:(K{:bin}), Bool[1, 0, 1, 1, 0], OrderedSet([1, 3, 4]))
+    @test convert(:(K{:bin}), sparse(Bool[1, 0, 1, 1, 0]), OrderedSet([1, 3, 4]))
 
     # Still, use Bool as expected for ternary true/false/miss logic.
-    input = [1 => true, 3 => false]
-    res = @tographdata input K{Bool}
-    @test same_type_value(res, OrderedDict([1 => true, 3 => false]))
+    @test convert(:(K{Bool}), [1 => true, 3 => false], OrderedDict([1 => true, 3 => false]))
 
     #---------------------------------------------------------------------------------------
     # To adjacency lists, any nested iterable.
 
-    input = [1 => [5 => 50, 6 => 60], (2, (7 => 14, 8 => 16))]
-    res = @tographdata input A{Float64}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{Float64}),
+        [1 => [5 => 50, 6 => 60], (2, (7 => 14, 8 => 16))],
         OrderedDict(
             1 => OrderedDict(5 => 50.0, 6 => 60.0),
             2 => OrderedDict(7 => 14.0, 8 => 16.0),
         ),
     )
 
-    input = ["a" => [:b => 50, 'c' => 60], ("b", (:c => 14, 'a' => 16))]
-    res = @tographdata input A{Float64}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{Float64}),
+        ["a" => [:b => 50, 'c' => 60], ("b", (:c => 14, 'a' => 16))],
         OrderedDict(
             :a => OrderedDict(:b => 50.0, :c => 60.0),
             :b => OrderedDict(:c => 14.0, :a => 16.0),
         ),
     )
 
-    input = []
-    res = @tographdata input A{Float64}
-    @test same_type_value(res, OrderedDict{Symbol,OrderedDict{Symbol,Float64}}())
+    @test convert(:(A{Float64}), [], OrderedDict{Symbol,OrderedDict{Symbol,Float64}}())
 
-    input = OrderedDict(
-        :a => OrderedDict(:b => 50.0, :c => 60.0),
-        :b => OrderedDict(:c => 14.0, :a => 16.0),
+    @test convert(
+        :(A{Float64}),
+        OrderedDict(
+            :a => OrderedDict(:b => 50.0, :c => 60.0),
+            :b => OrderedDict(:c => 14.0, :a => 16.0),
+        ),
+        Alias,
     )
-    res = @tographdata input A{Float64}
-    @test aliased(input, res)
 
     # Special binary case.
-    input = [1 => [5, 6], (2, (7, 8))]
-    res = @tographdata input A{:bin}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{:bin}),
+        [1 => [5, 6], (2, (7, 8))],
         OrderedDict(1 => OrderedSet([5, 6]), 2 => OrderedSet([7, 8])),
     )
 
-    input = ["a" => [:b, 'c'], ("b", (:c, 'a'))]
-    res = @tographdata input A{:bin}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{:bin}),
+        ["a" => [:b, 'c'], ("b", (:c, 'a'))],
         OrderedDict(:a => OrderedSet([:b, :c]), :b => OrderedSet([:c, :a])),
     )
 
-    input = ["a" => :b, ("b", 'c')] # Allow singleton keys.
-    res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict(:a => OrderedSet([:b]), :b => OrderedSet([:c])))
+    # Allow singleton keys.
+    @test convert(
+        :(A{:bin}),
+        ["a" => :b, ("b", 'c')],
+        OrderedDict(:a => OrderedSet([:b]), :b => OrderedSet([:c])),
+    )
 
-    input = []
-    res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict{Symbol,OrderedSet{Symbol}}())
+    @test convert(:(A{:bin}), [], OrderedDict{Symbol,OrderedSet{Symbol}}())
 
-    input = OrderedDict(1 => OrderedSet([2, 7]), 2 => OrderedSet([3, 8]))
-    res = @tographdata input A{:bin}
-    @test aliased(input, res)
+    @test convert(
+        :(A{:bin}),
+        OrderedDict(1 => OrderedSet([2, 7]), 2 => OrderedSet([3, 8])),
+        Alias,
+    )
 
     # Accept boolean matrices.
-    input = Bool[
-        0 1 0
-        0 0 0
-        1 0 1
-    ]
-    res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])))
+    @test convert(
+        :(A{:bin}),
+        Bool[
+            0 1 0
+            0 0 0
+            1 0 1
+        ],
+        OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])),
+    )
 
-    input = sparse(Bool[
-        0 1 0
-        0 0 0
-        1 0 1
-    ])
-    res = @tographdata input A{:bin}
-    @test same_type_value(res, OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])))
+    @test convert(
+        :(A{:bin}),
+        sparse(Bool[
+            0 1 0
+            0 0 0
+            1 0 1
+        ]),
+        OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])),
+    )
 
     # Ternary logic.
-    input = [1 => [5 => true, 7 => false], (2, ([7, false], 9 => true))]
-    res = @tographdata input A{Bool}
-    @test same_type_value(
-        res,
+    @test convert(
+        :(A{Bool}),
+        [1 => [5 => true, 7 => false], (2, ([7, false], 9 => true))],
         OrderedDict(
             1 => OrderedDict(5 => true, 7 => false),
             2 => OrderedDict(7 => false, 9 => true),

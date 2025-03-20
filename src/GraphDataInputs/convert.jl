@@ -764,7 +764,7 @@ function tographdata(loc, var, input)
     isnothing(types) && argerr("Invalid @tographdata target types at $loc.\n\
                                 Expected @tographdata var {aliases...}{Target}. \
                                 Got $(repr(input)).")
-    targets = parse_types(loc, types, Target)
+    targets = parse_types(types, Target, loc)
     targets = Expr(:vect, targets...)
     vsym = Meta.quot(var)
     var = esc(var)
