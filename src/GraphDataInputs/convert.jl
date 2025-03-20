@@ -237,7 +237,7 @@ function parse_plain_ref!(p::Parser, input, what)
         end
     end
     ok || argerr("Cannot interpret $what reference \
-                  to integer index or symbol label: \
+                  as integer index or symbol label: \
                   received$(report(p, input))")
     if !isnothing(p.expected_R)
         R == p.expected_R || unexpected_reftype(what, p, input)
@@ -260,12 +260,17 @@ inferred_ref(what, p) = "The $what reference type for this input \
                          based on the received '$(first_ref(p))'"
 
 function parse_plain_pair!(p::Parser, input, refwhat)
-    lhs, rhs = parse_pair(p, input)
+    lhs, rhs = parse_pair(p, input, "`$refwhat => value`")
     push!(p, :left)
-    ref = parse_plain_ref!(p, lhs, refwhat)
-    update!(p, :right)
-    value = parse_value(p, rhs)
-    pop!(p)
+    try
+        ref = parse_plain_ref!(p, lhs, refwhat)
+        update!(p, :right)
+        value = parse_value(p, rhs)
+    catch e
+        rethrow(e)
+    finally
+        pop!(p)
+    end
     (ref, value)
 end
 
@@ -302,7 +307,11 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
             Map{<:Any,p.T},
             input;
             parser = f,
-            what = (; whole = "adjacency list", pair = "$refwhat(s) => value(s)", refwhat),
+            what = (;
+                whole = "adjacency list",
+                pair = "$refwhat(s) => value(s)",
+                ref = refwhat,
+            ),
         )
         merge!(p, f)
         (pairs, true)
@@ -334,8 +343,9 @@ function graphdataconvert(
     it = parse_iterable(p, input, what.whole)
     isnothing(it) && return empty_result(p)
 
-    push!(p, 1)
+    push!(p, 0)
     while !isnothing(it)
+        bump!(p)
         ref, it = it
 
         ref = parse_plain_ref!(p, ref, what.ref)
@@ -344,7 +354,6 @@ function graphdataconvert(
         push!(res, ref)
 
         it = iterate(input, it)
-        bump!(p)
     end
 
     result!(p)
@@ -400,8 +409,9 @@ function graphdataconvert(
     it = parse_iterable(p, input, what)
     isnothing(it) && return empty_result(p)
 
-    push!(p, 1)
+    push!(p, 0)
     while !isnothing(it)
+        bump!(p)
         pair, it = it
 
         refs, value = parse_pair(p, pair, what.pair)
@@ -411,17 +421,16 @@ function graphdataconvert(
         value = parse_value(p, value)
         update!(p, :left)
         res = result!(p)
-        push!(p, 1)
+        push!(p, 0)
         for ref in refs
+            bump!(p)
             haskey(res, ref) && duperr(p, ref)
             res[ref] = value
-            bump!(p)
         end
         pop!(p)
         pop!(p)
 
         it = iterate(input, it)
-        bump!(p)
     end
 
     result!(p)
@@ -536,30 +545,27 @@ function graphdataconvert(
     it = parse_iterable(p, input, "adjacency map")
     isnothing(it) && return empty_result(p)
 
-    push!(p, 1)
+    push!(p, 0)
     while !isnothing(it)
+        bump!(p)
         pair, it = it
 
         lhs, rhs = parse_pair(p, pair, "source(s) => target(s)")
         (lhs, lhs_has_values), (rhs, rhs_has_values) =
             map(((lhs, :left, "source"), (rhs, :right, "target"))) do (side, step, refwhat)
                 push!(p, step)
-                # The error emitted will be the last one if both fail.
-                pairs, refs = parse_grouped_pairs!, parse_grouped_refs!
-                (first_try!, second_try!) =
-                    refwhat == "source" ? (pairs, refs) : (refs, pairs)
                 (group, has_values, ok) = try
-                    (first_try!(p, side; refwhat), true, true)
-                catch e
-                    e isa Interrupt && rethrow(e)
+                    (parse_grouped_pairs!(p, side, refwhat), true, true)
+                catch e # Don't even let interrupts pass.
+                    step == :right && rethrow(e)
                     try
-                        (second_try!(p, side, refwhat), false, true)
+                        (parse_grouped_refs!(p, side, refwhat), false, true)
                     catch e
                         e isa Interrupt && rethrow(e)
                         (e, nothing, false)
                     end
                 end
-                ok || rethrow(group)
+                ok || throw(group)
                 pop!(p)
                 (group, has_values)
             end
@@ -614,7 +620,6 @@ function graphdataconvert(
         pop!(p)
 
         it = iterate(input, it)
-        bump!(p)
     end
 
     result!(p)
