@@ -176,15 +176,50 @@ function result!(p::Parser)
     p.result = p.target_type(R)()
 end
 
-# Exceptions with this type bubble up through the "forgiveness" pattern.
-# Because they are only emitted in situations where the input category
-# was considered unambiguous.
-struct Interrupt <: Exception
-    mess::String
+# Tag thrown exceptions with a symbol
+# to decide which to report in case of multiple 'forgiveness'es.
+struct Forgiveness <: Exception
+    tag::Symbol
+    err::ArgumentError
 end
-Base.showerror(io::IO, e::Interrupt) = print(io, e.mess)
-interr(mess, raise = throw) = raise(Interrupt(mess))
-duperr(p::Parser, ref) = interr("Duplicated reference$(report(p, ref)).")
+forgerr(tag, mess, raise = throw) = raise(Forgiveness(tag, ArgumentError(mess)))
+duperr(p::Parser, ref, what) =
+    forgerr(:duplicate_node, "Duplicated $what reference$(report(p, ref)).")
+# Priorize reports.
+reports_priorities = [
+    :boolean_label
+    :duplicate_edge
+    :duplicate_node
+    :inconsistent_ref_type
+    :no_sources
+    :no_targets
+    :no_value
+    :not_a_pair
+    :not_a_ref
+    :not_a_value
+    :not_iterable
+    :two_values
+    :unexpected_ref_type
+]
+reports_priorities = Dict(s => i for (i, s) in enumerate(reports_priorities))
+# Pick the one with highest priority,
+# with subtle special-cased tweaks in case of ex-aequo.
+# The first given error is found while parsing a plain item, the other a grouped item.
+pick(plain::Forgiveness, group::Forgiveness) =
+    try
+        pp, pg = reports_priorities[plain.tag], reports_priorities[group.tag]
+        if pp == pg
+            (plain.tag == group.tag == :not_a_ref) && return group # More detailed.
+            plain # More user-friendly in general.
+        elseif pp < pg
+            plain
+        else
+            group
+        end
+    catch
+        throw("Either :$(plain.tag) or :$(group.tag) has no priority. \
+               This is a bug in the package.")
+    end
 
 #-------------------------------------------------------------------------------------------
 # Parsing blocks.
@@ -193,8 +228,9 @@ parse_value(p::Parser, input) =
     try
         graphdataconvert(p.T, input)
     catch
-        interr(
-            "Expected values of type '$(p.T)', received instead$(report(p, input))",
+        forgerr(
+            :not_a_value,
+            "Expected values of type '$(p.T)', received instead$(report(p, input)).",
             rethrow,
         )
     end
@@ -203,9 +239,10 @@ parse_iterable(p::Parser, input, what) =
     try
         iterate(input)
     catch e
-        e isa MethodError && argerr(
+        e isa MethodError && forgerr(
+            :not_iterable,
             "Input for $what needs to be iterable.\n\
-             Received$(report(p, input))",
+             Received$(report(p, input)).",
             rethrow,
         )
         rethrow(e)
@@ -223,7 +260,7 @@ parse_pair(p::Parser, input, what) =
         end
         return lhs, rhs
     catch
-        argerr("Not a '$what' pair$(report(p, input)).", rethrow)
+        forgerr(:not_a_pair, "Not a '$what' pair$(report(p, input)).", rethrow)
     end
 
 function parse_plain_ref!(p::Parser, input, what)
@@ -236,63 +273,72 @@ function parse_plain_ref!(p::Parser, input, what)
             (nothing, nothing, false)
         end
     end
-    ok || argerr("Cannot interpret $what reference \
-                  as integer index or symbol label: \
-                  received$(report(p, input))")
+    ok || forgerr(
+        :not_a_ref,
+        "Cannot interpret $what reference \
+         as integer index or symbol label: \
+         received$(report(p, input)).",
+    )
     if !isnothing(p.expected_R)
         R == p.expected_R || unexpected_reftype(what, p, input)
     end
     set_if_first!(p, ref)
     fR = typeof(first_ref(p))
     if R != fR
-        interr("$(inferred_ref(what, p)), but $(a_ref(R)) is now found$(report(p, ref)).")
+        forgerr(
+            :inconsistent_ref_type,
+            "$(inferred_ref(what, p)), but $(a_ref(R)) is now found$(report(p, ref)).",
+        )
     end
     ref
 end
 # Reused later.
-unexpected_reftype(what, p, input) = interr("Invalid $what reference type. \
-                                             Expected $(repr(p.expected_R)) \
-                                             (or convertible). \
-                                             Received instead$(report(p, input)).")
+unexpected_reftype(what, p, input) = forgerr(
+    :unexpected_ref_type,
+    "Invalid $what reference type. \
+     Expected $(repr(p.expected_R)) \
+     (or convertible). \
+     Received instead$(report(p, input)).",
+)
 a_ref(R) = "$(R == Symbol ? "a label" : "an index") ($R)"
 inferred_ref(what, p) = "The $what reference type for this input \
                          was first inferred to be $(a_ref(typeof(first_ref(p)))) \
                          based on the received '$(first_ref(p))'"
 
 function parse_plain_pair!(p::Parser, input, refwhat)
-    lhs, rhs = parse_pair(p, input, "`$refwhat => value`")
+    lhs, rhs = parse_pair(p, input, "$refwhat => value")
     push!(p, :left)
     try
         ref = parse_plain_ref!(p, lhs, refwhat)
         update!(p, :right)
         value = parse_value(p, rhs)
+        (ref, value)
     catch e
         rethrow(e)
     finally
         pop!(p)
     end
-    (ref, value)
 end
 
 # If plain, normalize to grouped.
 function parse_grouped_refs!(p::Parser, input, refwhat)
     (refs, ok) = try
-        f = fork(p, R -> BinMap{R})
-        refs = graphdataconvert(
-            BinMap{<:Any},
-            input;
-            parser = f,
-            what = (; whole = "grouped references", ref = refwhat),
-        )
-        merge!(p, f)
-        (refs, true)
-    catch e
-        e isa Interrupt && rethrow(e)
+        ref = parse_plain_ref!(p, input, refwhat)
+        ((ref,), true)
+    catch plain_error
+        plain_error isa Forgiveness
         try
-            ref = parse_plain_ref!(p, input, refwhat)
-            ((ref,), true)
-        catch e
-            (e, false)
+            f = fork(p, R -> BinMap{R})
+            refs = graphdataconvert(
+                BinMap{<:Any},
+                input;
+                parser = f,
+                what = (; whole = "grouped references", ref = refwhat),
+            )
+            merge!(p, f)
+            (refs, true)
+        catch group_error
+            (pick(plain_error, group_error), false)
         end
     end
     ok || throw(refs)
@@ -302,26 +348,25 @@ end
 # If plain, normalize to grouped.
 function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
     (pairs, ok) = try
-        f = fork(p, R -> Map{R,p.T})
-        pairs = graphdataconvert(
-            Map{<:Any,p.T},
-            input;
-            parser = f,
-            what = (;
-                whole = "adjacency list",
-                pair = "$refwhat(s) => value(s)",
-                ref = refwhat,
-            ),
-        )
-        merge!(p, f)
-        (pairs, true)
-    catch e
-        e isa Interrupt && rethrow(e)
+        pair = parse_plain_pair!(p, input, refwhat)
+        ((pair,), true)
+    catch plain_error
         try
-            pair = parse_plain_pair!(p, input, refwhat)
-            ((pair,), true)
-        catch e
-            (e, false)
+            f = fork(p, R -> Map{R,p.T})
+            pairs = graphdataconvert(
+                Map{<:Any,p.T},
+                input;
+                parser = f,
+                what = (;
+                    whole = "adjacency list",
+                    pair = "$refwhat(s) => value(s)",
+                    ref = refwhat,
+                ),
+            )
+            merge!(p, f)
+            (pairs, true)
+        catch group_error
+            (pick(plain_error, group_error), false)
         end
     end
     ok || throw(pairs)
@@ -339,24 +384,32 @@ function graphdataconvert(
     parser = nothing,
     what = (; whole = "binary map", ref = "node"),
 )
-    p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
-    it = parse_iterable(p, input, what.whole)
-    isnothing(it) && return empty_result(p)
+    try
 
-    push!(p, 0)
-    while !isnothing(it)
-        bump!(p)
-        ref, it = it
+        p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
+        it = parse_iterable(p, input, what.whole)
+        isnothing(it) && return empty_result(p)
 
-        ref = parse_plain_ref!(p, ref, what.ref)
-        res = result!(p)
-        ref in res && duperr(p, ref)
-        push!(res, ref)
+        push!(p, 0)
+        while !isnothing(it)
+            bump!(p)
+            ref, it = it
 
-        it = iterate(input, it)
+            ref = parse_plain_ref!(p, ref, what.ref)
+            res = result!(p)
+            ref in res && duperr(p, ref, what.ref)
+            push!(res, ref)
+
+            it = iterate(input, it)
+        end
+
+        result!(p)
+
+    catch e
+        # Upgrade into argument error if bubbling up to user call.
+        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
+        rethrow(e)
     end
-
-    result!(p)
 end
 
 # The binary case *can* accept boolean masks.
@@ -372,7 +425,10 @@ function graphdataconvert(
     # only indices can be retrieved or even *expected* from this kind of input.
     !isnothing(ExpectedRefType) &&
         ExpectedRefType != Int &&
-        interr("Label-indexed binary maps cannot be produced from boolean collections.")
+        forgerr(
+            :boolean_label,
+            "Label-indexed binary maps cannot be produced from boolean collections.",
+        )
     !isnothing(parser) &&
         parser.expected_R != Int &&
         unexpected_reftype(what.whole, parser, input)
@@ -405,35 +461,42 @@ function graphdataconvert(
     parser = nothing,
     what = (; whole = "map", pair = "reference(s) => value", ref = "node"),
 ) where {T}
-    p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{R,T}) : parser
-    it = parse_iterable(p, input, what)
-    isnothing(it) && return empty_result(p)
+    try
 
-    push!(p, 0)
-    while !isnothing(it)
-        bump!(p)
-        pair, it = it
+        p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{R,T}) : parser
+        it = parse_iterable(p, input, what.whole)
+        isnothing(it) && return empty_result(p)
 
-        refs, value = parse_pair(p, pair, what.pair)
-        push!(p, :left) # Start left because :right errors may be much uglier.
-        refs = parse_grouped_refs!(p, refs, what.ref)
-        update!(p, :right)
-        value = parse_value(p, value)
-        update!(p, :left)
-        res = result!(p)
         push!(p, 0)
-        for ref in refs
+        while !isnothing(it)
             bump!(p)
-            haskey(res, ref) && duperr(p, ref)
-            res[ref] = value
+            pair, it = it
+
+            refs, value = parse_pair(p, pair, what.pair)
+            push!(p, :left) # Start left because :right errors may be much uglier.
+            refs = parse_grouped_refs!(p, refs, what.ref)
+            update!(p, :right)
+            value = parse_value(p, value)
+            update!(p, :left)
+            res = result!(p)
+            push!(p, 0)
+            for ref in refs
+                bump!(p)
+                haskey(res, ref) && duperr(p, ref, what.ref)
+                res[ref] = value
+            end
+            pop!(p)
+            pop!(p)
+
+            it = iterate(input, it)
         end
-        pop!(p)
-        pop!(p)
 
-        it = iterate(input, it)
+        result!(p)
+
+    catch e
+        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
+        rethrow(e)
     end
-
-    result!(p)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -445,49 +508,62 @@ function graphdataconvert(
     ExpectedRefType = nothing,
     parser = nothing,
 )
-    p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) : parser
-    it = parse_iterable(p, input, "binary adjacency map")
-    isnothing(it) && return empty_result(p)
+    try
 
-    push!(p, 1)
-    while !isnothing(it)
-        pair, it = it
+        p =
+            isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) :
+            parser
+        it = parse_iterable(p, input, "binary adjacency map")
+        isnothing(it) && return empty_result(p)
 
-        sources, targets = parse_pair(p, pair, "source(s) => target(s)")
-        push!(p, :left)
-        sources = parse_grouped_refs!(p, sources, "source node")
-        update!(p, :right)
-        targets = parse_grouped_refs!(p, targets, "target node")
-        res = result!(p)
-        update!(p, :left)
-        push!(p, 0)
-        pend = (length(p.path)-1):length(p.path)
-        for src in sources
-            bump!(p)
-            sub = if haskey(res, src)
-                res[src]
-            else
-                res[src] = OrderedSet{get_R(p)}()
-            end
-            safe = p.path[pend]
-            p.path[pend] .= (:right, 0)
-            for tgt in targets
+        push!(p, 1)
+        while !isnothing(it)
+            pair, it = it
+
+            sources, targets = parse_pair(p, pair, "source(s) => target(s)")
+            push!(p, :left)
+            sources = parse_grouped_refs!(p, sources, "source node")
+            update!(p, :right)
+            targets = parse_grouped_refs!(p, targets, "target node")
+            res = result!(p)
+            update!(p, :left)
+            push!(p, 0)
+            pend = (length(p.path)-1):length(p.path)
+            for src in sources
                 bump!(p)
-                tgt in sub && interr("Duplicate edge specification \
-                                      $(repr(src)) → $(repr(tgt))$(report(p, tgt))")
-                push!(sub, tgt)
+                sub = if haskey(res, src)
+                    res[src]
+                else
+                    res[src] = OrderedSet{get_R(p)}()
+                end
+                safe = p.path[pend]
+                p.path[pend] .= (:right, 0)
+                for tgt in targets
+                    bump!(p)
+                    tgt in sub && forgerr(
+                        :duplicate_edge,
+                        "Duplicate edge specification \
+                         $(repr(src)) → $(repr(tgt))$(report(p, tgt)).",
+                    )
+                    push!(sub, tgt)
+                end
+                p.path[pend] .= safe
+                isempty(sub) &&
+                    forgerr(:no_targets, "No target provided for source$(report(p, src)).")
             end
-            p.path[pend] .= safe
-            isempty(sub) && interr("No target provided for source$(report(p, src))")
+            pop!(p)
+            pop!(p)
+
+            it = iterate(input, it)
+            bump!(p)
         end
-        pop!(p)
-        pop!(p)
 
-        it = iterate(input, it)
-        bump!(p)
+        result!(p)
+
+    catch e
+        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
+        rethrow(e)
     end
-
-    result!(p)
 end
 
 # The binary case *can* accept boolean matrices.
@@ -500,8 +576,11 @@ function graphdataconvert(
 )
     !isnothing(ExpectedRefType) &&
         ExpectedRefType != Int &&
-        interr("Label-indexed binary adjacency lists \
-                cannot be produced from boolean matrices.")
+        forgerr(
+            :boolean_label,
+            "Label-indexed binary adjacency lists \
+             cannot be produced from boolean matrices.",
+        )
     !isnothing(parser) &&
         parser.expected_R != Int &&
         unexpected_reftype(what.whole, parser, input)
@@ -540,19 +619,22 @@ function graphdataconvert(
     ExpectedRefType = nothing,
     parser = nothing,
 ) where {T}
+    try
 
-    p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{R,T}) : parser
-    it = parse_iterable(p, input, "adjacency map")
-    isnothing(it) && return empty_result(p)
+        p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{R,T}) : parser
+        it = parse_iterable(p, input, "adjacency map")
+        isnothing(it) && return empty_result(p)
 
-    push!(p, 0)
-    while !isnothing(it)
-        bump!(p)
-        pair, it = it
+        push!(p, 0)
+        while !isnothing(it)
+            bump!(p)
+            pair, it = it
 
-        lhs, rhs = parse_pair(p, pair, "source(s) => target(s)")
-        (lhs, lhs_has_values), (rhs, rhs_has_values) =
-            map(((lhs, :left, "source"), (rhs, :right, "target"))) do (side, step, refwhat)
+            lhs, rhs = parse_pair(p, pair, "source(s) => target(s)")
+            (lhs, lhs_has_values), (rhs, rhs_has_values) = map((
+                (lhs, :left, "source"),
+                (rhs, :right, "target"),
+            )) do (side, step, refwhat)
                 push!(p, step)
                 (group, has_values, ok) = try
                     (parse_grouped_pairs!(p, side, refwhat), true, true)
@@ -561,7 +643,7 @@ function graphdataconvert(
                     try
                         (parse_grouped_refs!(p, side, refwhat), false, true)
                     catch e
-                        e isa Interrupt && rethrow(e)
+                        e isa Forgiveness && rethrow(e)
                         (e, nothing, false)
                     end
                 end
@@ -570,59 +652,73 @@ function graphdataconvert(
                 (group, has_values)
             end
 
-        (lhs_has_values && rhs_has_values) &&
-            argerr("Cannot associate values to both source and target ends \
-                    of edges at $(path(p)):\n\
-                    Received LHS: $lhs\n\
-                    Received RHS: $rhs.")
-        !(lhs_has_values || rhs_has_values) && argerr(
-            "No values found for either source or target end of edges at $(path(p)):\n\
-             Received LHS: $lhs\n\
-             Received RHS: $rhs.",
-        )
+            (lhs_has_values && rhs_has_values) && forgerr(
+                :two_values,
+                "Cannot associate values to both source and target ends \
+                 of edges at $(path(p)):\n\
+                 Received LHS: $lhs\n\
+                 Received RHS: $rhs.",
+            )
+            !(lhs_has_values || rhs_has_values) && forgerr(
+                :no_value,
+                "No values found for either source or target end of edges at $(path(p)):\n\
+                 Received LHS: $lhs\n\
+                 Received RHS: $rhs.",
+            )
 
-        res = result!(p)
+            res = result!(p)
 
-        push!(p, :left)
-        push!(p, 0)
-        pend = (length(p.path)-1):length(p.path)
-        any = false
-        for i in lhs # Values are either collected here..
-            bump!(p)
-            any = true
-            (src, value) = lhs_has_values ? i : (i, missing)
-            sub = if haskey(res, src)
-                res[src]
-            else
-                res[src] = OrderedDict{get_R(p),T}()
-            end
-            safe = p.path[pend]
-            p.path[pend] .= (:right, 0)
-            for j in rhs # .. or there.
+            push!(p, :left)
+            push!(p, 0)
+            pend = (length(p.path)-1):length(p.path)
+            any = false
+            for i in lhs # Values are either collected here..
                 bump!(p)
-                (tgt, value) = rhs_has_values ? j : (j, value)
-                haskey(sub, tgt) && interr("Duplicate edge specification:\n\
-                                            Previously received: \
-                                            $(repr(src)) → $(repr(tgt)) ($(sub[tgt]))\n\
-                                            Now received:        \
-                                            $(repr(src)) → $(repr(tgt)) ($value)\
-                                            $(report(p, tgt))")
-                sub[tgt] = value
+                any = true
+                (src, value) = lhs_has_values ? i : (i, missing)
+                sub = if haskey(res, src)
+                    res[src]
+                else
+                    res[src] = OrderedDict{get_R(p),T}()
+                end
+                safe = p.path[pend]
+                p.path[pend] .= (:right, 0)
+                for j in rhs # .. or there.
+                    bump!(p)
+                    (tgt, value) = rhs_has_values ? j : (j, value)
+                    haskey(sub, tgt) && forgerr(
+                        :duplicate_edge,
+                        "Duplicate edge specification:\n\
+                         Previously received: \
+                         $(repr(src)) → $(repr(tgt)) ($(sub[tgt]))\n\
+                         Now received:        \
+                         $(repr(src)) → $(repr(tgt)) ($value)\
+                         $(report(p, tgt)).",
+                    )
+                    sub[tgt] = value
+                end
+                p.path[pend] .= safe
+                if isempty(sub)
+                    e = lhs_has_values ? "source" : "target"
+                    forgerr(
+                        :no_targets,
+                        "No target provided for `$e => value` pair$(report(p, value)).",
+                    )
+                end
             end
-            p.path[pend] .= safe
-            if isempty(sub)
-                e = lhs_has_values ? "source" : "target"
-                interr("No target provided for `$e => value` pair$(report(p, value))")
-            end
+            any || forgerr(:no_sources, "No sources provided$(report(p, lhs)).")
+            pop!(p)
+            pop!(p)
+
+            it = iterate(input, it)
         end
-        any || interr("No sources provided$(report(p, lhs))")
-        pop!(p)
-        pop!(p)
 
-        it = iterate(input, it)
+        result!(p)
+
+    catch e
+        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
+        rethrow(e)
     end
-
-    result!(p)
 end
 
 #-------------------------------------------------------------------------------------------
