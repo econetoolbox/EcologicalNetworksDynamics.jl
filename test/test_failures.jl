@@ -140,13 +140,18 @@ struct FailedFailure <: Exception
 end
 Base.showerror(io::IO, e::FailedFailure) = print(io, "Failed failure test: $(e.message)")
 # Local override.
-error(mess) = throw(FailedFailure(mess))
+error(mess) = rethrow(FailedFailure(mess))
 
 #-------------------------------------------------------------------------------------------
 # Convenience message checking utils.
 
-check_message(exact::String, m) = exact == m || error("Expected error message:\n  $exact\n\
-                                                       actual error message:\n  $m")
+function check_message(exact::String, m)
+    (exact == m) || error("Expected vs. actual error messages:\n\
+                           --------------------------------------\n\
+                           >>> $exact\n\
+                           <<< $m\n\
+                           -------------------------------------")
+end
 
 function check_message(substrings::Vector{String}, m)
     # Seek substrings.
