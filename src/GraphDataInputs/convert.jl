@@ -1,4 +1,4 @@
-# Convenience explicit conversion to the given union type from constructor arguments.
+# Convenience explicit conversion to the given union tgc(Map, [:a => 5, Bool[0, 1, 1] => 8])ype from constructor arguments.
 
 # The conversions allowed.
 graphdataconvert(::Type{T}, source::T) where {T} = source # Trivial identity.
@@ -151,6 +151,7 @@ function report(p::Parser, input)
     at = isempty(p.path) ? "" : " at $(path(p))"
     "$at: $(repr(input)) ::$(typeof(input))"
 end
+report(::Nothing, _) = ""
 
 # Reference type cannot be inferred if input is empty.
 # Default to labels because they are stable in case of nodes deletions.
@@ -186,6 +187,7 @@ end
 forgerr(tag, mess, raise = throw) = raise(Forgiveness(tag, ArgumentError(mess)))
 # Priorize reports.
 reports_priorities = [
+    :unexpected_ref_type
     :boolean_label
     :duplicate_edge
     :duplicate_node
@@ -198,7 +200,6 @@ reports_priorities = [
     :not_a_value
     :not_iterable
     :two_values
-    :unexpected_ref_type
 ]
 reports_priorities = Dict(s => i for (i, s) in enumerate(reports_priorities))
 # Pick the one with highest priority,
@@ -218,6 +219,15 @@ pick(plain::Forgiveness, group::Forgiveness) =
     catch
         throw("Either :$(plain.tag) or :$(group.tag) has no priority. \
                This is a bug in the package.")
+    end
+
+# Upgrade into argument error if bubbling up to user call.
+forgive(f, parser) =
+    try
+        f()
+    catch e
+        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
+        rethrow(e)
     end
 
 #-------------------------------------------------------------------------------------------
@@ -302,7 +312,7 @@ unexpected_reftype(what, p, input) = forgerr(
 a_ref(R) = "$(R == Symbol ? "a label" : "an index") ($R)"
 inferred_ref(what, p) = "The $what reference type for this input \
                          was first inferred to be $(a_ref(typeof(first_ref(p)))) \
-                         based on the received '$(first_ref(p))'"
+                         based on the received '$(repr(first_ref(p)))'"
 
 function parse_plain_pair!(p::Parser, input, refwhat)
     lhs, rhs = parse_pair(p, input, "$refwhat => value")
@@ -320,7 +330,7 @@ function parse_plain_pair!(p::Parser, input, refwhat)
 end
 
 # If plain, normalize to grouped.
-function parse_grouped_refs!(p::Parser, input, refwhat)
+function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothing)
     (refs, ok) = try
         ref = parse_plain_ref!(p, input, refwhat)
         ((ref,), true)
@@ -331,13 +341,14 @@ function parse_grouped_refs!(p::Parser, input, refwhat)
             refs = graphdataconvert(
                 BinMap{<:Any},
                 input;
+                ExpectedRefType,
                 parser = f,
                 what = (; whole = "grouped references", ref = refwhat),
             )
             merge!(p, f)
             (refs, true)
         catch group_error
-            group_error isa Forgiveness || rethrow(plain_error)
+            group_error isa Forgiveness || rethrow(group_error)
             (pick(plain_error, group_error), false)
         end
     end
@@ -367,7 +378,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
             merge!(p, f)
             (pairs, true)
         catch group_error
-            group_error isa Forgiveness || rethrow(plain_error)
+            group_error isa Forgiveness || rethrow(group_error)
             (pick(plain_error, group_error), false)
         end
     end
@@ -386,7 +397,7 @@ function graphdataconvert(
     parser = nothing,
     what = (; whole = "binary map", ref = "node"),
 )
-    try
+    forgive(parser) do
 
         p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
         it = parse_iterable(p, input, what.whole)
@@ -410,10 +421,6 @@ function graphdataconvert(
 
         result!(p)
 
-    catch e
-        # Upgrade into argument error if bubbling up to user call.
-        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
-        rethrow(e)
     end
 end
 
@@ -426,22 +433,36 @@ function graphdataconvert(
     parser = nothing,
     what = (; whole = "binary map"),
 )
-    # .. although the context is much different:
-    # only indices can be retrieved or even *expected* from this kind of input.
-    check_boolean_input(ExpectedRefType, parser, what.whole, "boolean vectors")
-    from_boolean_mask(input)
+    forgive(parser) do
+        # .. although the context is much different:
+        # only indices can be retrieved or even *expected* from this kind of input.
+        check_boolean_input(
+            ExpectedRefType,
+            input,
+            parser,
+            (; whole = what.whole, input = (plur) -> "boolean vector" * ("s"^plur)),
+        )
+        from_boolean_mask(input)
+    end
 end
 
-function check_boolean_input(ExpectedRefType, parser, what, input_what)
+function check_boolean_input(ExpectedRefType, input, parser, what)
     (!isnothing(ExpectedRefType) && ExpectedRefType != Int) && forgerr(
         :boolean_label,
-        "Label-indexed $(what)s cannot be produced from $input_what.",
+        "A label-indexed $(what.whole) \
+         cannot be produced from $(what.input(true))$(report(parser, input)).",
     )
     if !isnothing(parser)
         if isnothing(parser.expected_R)
             parser.expected_R = Int
-        else
-            parser.expected_R == Int || unexpected_reftype(what.whole, parser, input)
+        end
+        if parser.found_first_ref
+            parser.first_ref isa Int || forgerr(
+                :inconsistent_ref_type,
+                "$(inferred_ref(what.whole, parser)), \
+                 but a $(what.input(false)) (only yielding indices) \
+                 is now found$(report(parser, input)).",
+            )
         end
     end
 end
@@ -472,7 +493,7 @@ function graphdataconvert(
     parser = nothing,
     what = (; whole = "map", pair = "reference(s) => value", ref = "node"),
 ) where {T}
-    try
+    forgive(parser) do
 
         p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{R,T}) : parser
         it = parse_iterable(p, input, what.whole)
@@ -483,11 +504,11 @@ function graphdataconvert(
             bump!(p)
             pair, it = it
 
-            refs, value = parse_pair(p, pair, what.pair)
+            refs, raw_value = parse_pair(p, pair, what.pair)
             push!(p, :left) # Start left because :right errors may be much uglier.
-            refs = parse_grouped_refs!(p, refs, what.ref)
+            refs = parse_grouped_refs!(p, refs, what.ref; ExpectedRefType)
             update!(p, :right)
-            value = parse_value(p, value)
+            value = parse_value(p, raw_value)
             update!(p, :left)
             res = result!(p)
             push!(p, 0)
@@ -495,9 +516,9 @@ function graphdataconvert(
                 bump!(p)
                 haskey(res, ref) && forgerr(
                     :duplicate_node,
-                    "Duplicated $(what.ref) refererence :\n\
+                    "Duplicated $(what.ref) reference :\n\
                      Received before: $ref => $(res[ref])\n\
-                     Received now   : $ref => $(repr(value)) ::$(typeof(value))\
+                     Received now   : $ref => $(repr(raw_value)) ::$(typeof(raw_value))\
                      $(report(p, ref)).",
                 )
                 res[ref] = value
@@ -510,9 +531,6 @@ function graphdataconvert(
 
         result!(p)
 
-    catch e
-        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
-        rethrow(e)
     end
 end
 
@@ -525,7 +543,7 @@ function graphdataconvert(
     ExpectedRefType = nothing,
     parser = nothing,
 )
-    try
+    forgive(parser) do
 
         p =
             isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) :
@@ -539,9 +557,9 @@ function graphdataconvert(
 
             sources, targets = parse_pair(p, pair, "source(s) => target(s)")
             push!(p, :left)
-            sources = parse_grouped_refs!(p, sources, "source node")
+            sources = parse_grouped_refs!(p, sources, "source node"; ExpectedRefType)
             update!(p, :right)
-            targets = parse_grouped_refs!(p, targets, "target node")
+            targets = parse_grouped_refs!(p, targets, "target node"; ExpectedRefType)
             res = result!(p)
             update!(p, :left)
             push!(p, 0)
@@ -577,9 +595,6 @@ function graphdataconvert(
 
         result!(p)
 
-    catch e
-        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
-        rethrow(e)
     end
 end
 
@@ -591,8 +606,18 @@ function graphdataconvert(
     parser = nothing,
     what = (; whole = "binary adjacency list"),
 )
-    check_boolean_input(ExpectedRefType, parser, what.whole, "boolean matrices")
-    from_boolean_matrix(input)
+    forgive(parser) do
+        check_boolean_input(
+            ExpectedRefType,
+            input,
+            parser,
+            (;
+                whole = what.whole,
+                input = (plur) -> "boolean matri" * (plur ? "ces" : "x"),
+            ),
+        )
+        from_boolean_matrix(input)
+    end
 end
 
 function from_boolean_matrix(input)
@@ -627,7 +652,7 @@ function graphdataconvert(
     ExpectedRefType = nothing,
     parser = nothing,
 ) where {T}
-    try
+    forgive(parser) do
 
         p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{R,T}) : parser
         it = parse_iterable(p, input, "adjacency map")
@@ -649,7 +674,7 @@ function graphdataconvert(
                 catch e_pairs
                     e_pairs isa Forgiveness || rethrow(e_pairs)
                     try
-                        (parse_grouped_refs!(p, side, refwhat), false, true)
+                        (parse_grouped_refs!(p, side, refwhat; ExpectedRefType), false, true)
                     catch e_refs
                         e_refs isa Forgiveness || rethrow(e_refs)
                         (e_refs, nothing, false)
@@ -723,9 +748,6 @@ function graphdataconvert(
 
         result!(p)
 
-    catch e
-        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
-        rethrow(e)
     end
 end
 
