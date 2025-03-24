@@ -121,6 +121,7 @@ fork(p::Parser, target_type) = Parser(p, target_type)
 
 # Commit to successful fork.
 function merge!(a::Parser, b::Parser)
+    a.expected_R = b.expected_R
     a.found_first_ref = b.found_first_ref
     a.first_ref = b.first_ref
 end
@@ -183,8 +184,6 @@ struct Forgiveness <: Exception
     err::ArgumentError
 end
 forgerr(tag, mess, raise = throw) = raise(Forgiveness(tag, ArgumentError(mess)))
-duperr(p::Parser, ref, what) =
-    forgerr(:duplicate_node, "Duplicated $what reference$(report(p, ref)).")
 # Priorize reports.
 reports_priorities = [
     :boolean_label
@@ -326,7 +325,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat)
         ref = parse_plain_ref!(p, input, refwhat)
         ((ref,), true)
     catch plain_error
-        plain_error isa Forgiveness
+        plain_error isa Forgiveness || rethrow(plain_error) # (not to miss bugs)
         try
             f = fork(p, R -> BinMap{R})
             refs = graphdataconvert(
@@ -338,6 +337,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat)
             merge!(p, f)
             (refs, true)
         catch group_error
+            group_error isa Forgiveness || rethrow(plain_error)
             (pick(plain_error, group_error), false)
         end
     end
@@ -351,6 +351,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
         pair = parse_plain_pair!(p, input, refwhat)
         ((pair,), true)
     catch plain_error
+        plain_error isa Forgiveness || rethrow(plain_error)
         try
             f = fork(p, R -> Map{R,p.T})
             pairs = graphdataconvert(
@@ -366,6 +367,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
             merge!(p, f)
             (pairs, true)
         catch group_error
+            group_error isa Forgiveness || rethrow(plain_error)
             (pick(plain_error, group_error), false)
         end
     end
@@ -397,7 +399,10 @@ function graphdataconvert(
 
             ref = parse_plain_ref!(p, ref, what.ref)
             res = result!(p)
-            ref in res && duperr(p, ref, what.ref)
+            ref in res && forgerr(
+                :duplicate_node,
+                "Duplicated $(what.ref) reference$(report(p, ref)).",
+            )
             push!(res, ref)
 
             it = iterate(input, it)
@@ -423,16 +428,22 @@ function graphdataconvert(
 )
     # .. although the context is much different:
     # only indices can be retrieved or even *expected* from this kind of input.
-    !isnothing(ExpectedRefType) &&
-        ExpectedRefType != Int &&
-        forgerr(
-            :boolean_label,
-            "Label-indexed binary maps cannot be produced from boolean collections.",
-        )
-    !isnothing(parser) &&
-        parser.expected_R != Int &&
-        unexpected_reftype(what.whole, parser, input)
+    check_boolean_input(ExpectedRefType, parser, what.whole, "boolean vectors")
     from_boolean_mask(input)
+end
+
+function check_boolean_input(ExpectedRefType, parser, what, input_what)
+    (!isnothing(ExpectedRefType) && ExpectedRefType != Int) && forgerr(
+        :boolean_label,
+        "Label-indexed $(what)s cannot be produced from $input_what.",
+    )
+    if !isnothing(parser)
+        if isnothing(parser.expected_R)
+            parser.expected_R = Int
+        else
+            parser.expected_R == Int || unexpected_reftype(what.whole, parser, input)
+        end
+    end
 end
 
 function from_boolean_mask(input)
@@ -482,7 +493,13 @@ function graphdataconvert(
             push!(p, 0)
             for ref in refs
                 bump!(p)
-                haskey(res, ref) && duperr(p, ref, what.ref)
+                haskey(res, ref) && forgerr(
+                    :duplicate_node,
+                    "Duplicated $(what.ref) refererence :\n\
+                     Received before: $ref => $(res[ref])\n\
+                     Received now   : $ref => $(repr(value)) ::$(typeof(value))\
+                     $(report(p, ref)).",
+                )
                 res[ref] = value
             end
             pop!(p)
@@ -572,18 +589,9 @@ function graphdataconvert(
     input::AbstractMatrix{Bool};
     ExpectedRefType = nothing,
     parser = nothing,
-    what = (; whole = "binary map"),
+    what = (; whole = "binary adjacency list"),
 )
-    !isnothing(ExpectedRefType) &&
-        ExpectedRefType != Int &&
-        forgerr(
-            :boolean_label,
-            "Label-indexed binary adjacency lists \
-             cannot be produced from boolean matrices.",
-        )
-    !isnothing(parser) &&
-        parser.expected_R != Int &&
-        unexpected_reftype(what.whole, parser, input)
+    check_boolean_input(ExpectedRefType, parser, what.whole, "boolean matrices")
     from_boolean_matrix(input)
 end
 
@@ -638,13 +646,13 @@ function graphdataconvert(
                 push!(p, step)
                 (group, has_values, ok) = try
                     (parse_grouped_pairs!(p, side, refwhat), true, true)
-                catch e # Don't even let interrupts pass.
-                    step == :right && rethrow(e)
+                catch e_pairs
+                    e_pairs isa Forgiveness || rethrow(e_pairs)
                     try
                         (parse_grouped_refs!(p, side, refwhat), false, true)
-                    catch e
-                        e isa Forgiveness && rethrow(e)
-                        (e, nothing, false)
+                    catch e_refs
+                        e_refs isa Forgiveness || rethrow(e_refs)
+                        (e_refs, nothing, false)
                     end
                 end
                 ok || throw(group)

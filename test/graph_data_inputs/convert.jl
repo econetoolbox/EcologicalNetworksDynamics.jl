@@ -1,4 +1,5 @@
 struct _Alias end
+Alias = _Alias() # Use as an unambiguous keyword.
 
 @testset "Graph data conversion." begin
 
@@ -16,7 +17,6 @@ struct _Alias end
     @test same_type_value(res, :a)
 
     # .. then shorten subsequent tests.
-    Alias = _Alias()
     function convert(types, input, expected)
         # (reproduce @tographdata macro)
         types = GraphDataInputs.graph_data_list(types, nothing; escape = false)
@@ -78,13 +78,12 @@ struct _Alias end
     # etc.
 
     #---------------------------------------------------------------------------------------
-    # To key-value maps, any iterable of pairs.
-    # HERE: test new input grouping opportunity and new error reports.
+    # To ref-value maps, any iterable of pairs.
 
-    # Index keys.
+    # Index refs.
     @test convert(:(K{Float64}), [1 => 5, (2, 8)], OrderedDict(1 => 5.0, 2 => 8.0))
 
-    # Label keys.
+    # Label refs.
     @test convert(
         :(K{Float64}),
         ["a" => 5, (:b, 8), ['c', 13]],
@@ -93,6 +92,18 @@ struct _Alias end
 
     # Default to symbol index.
     @test convert(:(K{Float64}), [], OrderedDict{Symbol,Float64}())
+
+    # Group refs.
+    @test convert(
+        :(K{Float64}),
+        [("a", :b) => 5, [(:c, 'd'), 8], [:e, 13]],
+        OrderedDict(:a => 5.0, :b => 5.0, :c => 8.0, :d => 8.0, :e => 13.0),
+    )
+    @test convert(
+        :(K{Float64}),
+        [(1, 2) => 5, [(3, 4), 8], [5, 13]],
+        OrderedDict(1 => 5.0, 2 => 5.0, 3 => 8.0, 4 => 8.0, 5 => 13.0),
+    )
 
     # Alias by using the exact same type.
     @test convert(:(K{Float64}), OrderedDict(:a => 5.0, :b => 8.0), Alias)
@@ -109,6 +120,13 @@ struct _Alias end
 
     # Still, use Bool as expected for ternary true/false/miss logic.
     @test convert(:(K{Bool}), [1 => true, 3 => false], OrderedDict([1 => true, 3 => false]))
+
+    # Use boolean mask as grouped refs.
+    @test convert(
+        :(K{Float64}),
+        [Bool[1, 0, 1, 0, 0] => 5, (sparse(Bool[0, 1, 0, 1, 0]), 8), [5, 13]],
+        OrderedDict(1 => 5.0, 2 => 8.0, 3 => 5.0, 4 => 8.0, 5 => 13.0),
+    )
 
     #---------------------------------------------------------------------------------------
     # To adjacency lists, any nested iterable.
@@ -129,6 +147,98 @@ struct _Alias end
             :a => OrderedDict(:b => 50.0, :c => 60.0),
             :b => OrderedDict(:c => 14.0, :a => 16.0),
         ),
+    )
+
+    # Grouping refs and values on either source or target side.
+    @test convert(
+        :(A{Float64}),
+        [
+            # Group source refs.
+            ("a", :b) => [:c => 5, ['d', 6]],
+            # Specify values per-source.
+            [(:a => 7, ('b', 8)), [:e, 'f']],
+            # Group even more within either lhs..
+            (((['a', :b], 9), 'c' => 10), [:g :h]),
+            # .. or lhs.
+            ('a', :b, "c") => [(:i, 'j') => 11, (:k, 12)],
+        ],
+        #! format: off
+        OrderedDict(
+            :a => OrderedDict(
+                :c => 5.0,
+                :d => 6.0,
+                :e => 7.0,
+                :f => 7.0,
+                :g => 9.0,
+                :h => 9.0,
+                :i => 11.0,
+                :j => 11.0,
+                :k => 12.0,
+            ),
+            :b => OrderedDict(
+                :c => 5.0,
+                :d => 6.0,
+                :e => 8.0,
+                :f => 8.0,
+                :g => 9.0,
+                :h => 9.0,
+                :i => 11.0,
+                :j => 11.0,
+                :k => 12.0,
+            ),
+            :c => OrderedDict(
+                :g => 10.0,
+                :h => 10.0,
+                :i => 11.0,
+                :j => 11.0,
+                :k => 12.0,
+            ),
+        ),
+        #! format: on
+    )
+
+    # Same with indices and boolean masks.
+    @test convert(
+        :(A{Float64}),
+        [
+            Bool[1,1,0] => [3 => 50, [4, 60]],
+            [(1 => 70, (2, 80)), sparse(Bool[0,0,0,0,1,1])],
+            ((([1, 2], 90), 3 => 100), Bool[0,0,0,0,0,0,1,1]),
+            Bool[1,1,1] => [(9, 10) => 110, (11, 120)],
+        ],
+        #! format: off
+        OrderedDict(
+            1 => OrderedDict(
+                3  => 50.0,
+                4  => 60.0,
+                5  => 70.0,
+                6  => 70.0,
+                7  => 90.0,
+                8  => 90.0,
+                9  => 110.0,
+                10 => 110.0,
+                11 => 120.0,
+            ),
+            2 => OrderedDict(
+                3  => 50.0,
+                4  => 60.0,
+                5  => 80.0,
+                6  => 80.0,
+                7  => 90.0,
+                8  => 90.0,
+                9  => 110.0,
+                10 => 110.0,
+                11 => 120.0,
+            ),
+            3 => OrderedDict(
+                7  => 100.0,
+                8  => 100.0,
+                9  => 110.0,
+                10 => 110.0,
+                11 => 120.0,
+            ),
+        ),
+        #! format: on
     )
 
     @test convert(:(A{Float64}), [], OrderedDict{Symbol,OrderedDict{Symbol,Float64}}())
@@ -155,7 +265,27 @@ struct _Alias end
         OrderedDict(:a => OrderedSet([:b, :c]), :b => OrderedSet([:c, :a])),
     )
 
-    # Allow singleton keys.
+    @test convert(
+        :(A{:bin}),
+        [(1, 2) => [3], ((2, 3), 1)],
+        OrderedDict(
+            1 => OrderedSet([3]),
+            2 => OrderedSet([3, 1]),
+            3 => OrderedSet([1]),
+        ),
+    )
+
+    @test convert(
+        :(A{:bin}),
+        [("a", :b) => ['c'], (("b", :c), 'a')],
+        OrderedDict(
+            :a => OrderedSet([:c]),
+            :b => OrderedSet([:c, :a]),
+            :c => OrderedSet([:a]),
+        ),
+    )
+
+    # Allow singleton refs.
     @test convert(
         :(A{:bin}),
         ["a" => :b, ("b", 'c')],
@@ -318,7 +448,7 @@ struct _Alias end
     )
     #  @argfails(
     #  gc((@GraphData A{Float64}), [:a => [:b => 8], 'a' => [:c => 9]]), # HERE: now featured!
-    #  "Duplicated key: :a.",
+    #  "Duplicated ref: :a.",
     #  )
     @argfails(
         gc(Adj, [:a => [:b => 8], 'a' => ['b' => 9]]),
@@ -355,7 +485,7 @@ struct _Alias end
          Expected Symbol (or convertible). \
          Received instead at [1][left]: 5 ::$Int.",
     )
-    #  @argfails(gc((@GraphData A{:bin}), [5 => [8], 4 + 1 => [9]]), "Duplicated key: 5.") # HERE: now featured!
+    #  @argfails(gc((@GraphData A{:bin}), [5 => [8], 4 + 1 => [9]]), "Duplicated ref: 5.") # HERE: now featured!
     @argfails(
         gc(BinAdj, [5 => [8], 4 + 1 => [4 * 2]]),
         "Duplicate edge specification 5 → 8 at [2][right][1]: 8 ::$Int."
