@@ -141,6 +141,7 @@ first_ref(p::Parser) =
 
 # Keep track of input access path for reporting.
 Base.push!(p::Parser, ref) = push!(p.path, ref)
+Base.append!(p::Parser, values) = append!(p.path, values)
 Base.pop!(p::Parser) = pop!(p.path)
 update!(p::Parser, ref) = p.path[end] = ref
 bump!(p::Parser) = p.path[end] += 1
@@ -343,7 +344,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
                 input;
                 ExpectedRefType,
                 parser = f,
-                what = (; whole = "grouped references", ref = refwhat),
+                what = (; whole = "group of $(refwhat)s", ref = refwhat),
             )
             merge!(p, f)
             (refs, true)
@@ -406,13 +407,13 @@ function graphdataconvert(
         push!(p, 0)
         while !isnothing(it)
             bump!(p)
-            ref, it = it
+            raw_ref, it = it
 
-            ref = parse_plain_ref!(p, ref, what.ref)
+            ref = parse_plain_ref!(p, raw_ref, what.ref)
             res = result!(p)
             ref in res && forgerr(
                 :duplicate_node,
-                "Duplicated $(what.ref) reference$(report(p, ref)).",
+                "Duplicated $(what.ref) reference$(report(p, raw_ref)).",
             )
             push!(res, ref)
 
@@ -555,15 +556,17 @@ function graphdataconvert(
         while !isnothing(it)
             pair, it = it
 
-            sources, targets = parse_pair(p, pair, "source(s) => target(s)")
+            raw_sources, raw_targets = parse_pair(p, pair, "source(s) => target(s)")
             push!(p, :left)
-            sources = parse_grouped_refs!(p, sources, "source node"; ExpectedRefType)
+            sources = parse_grouped_refs!(p, raw_sources, "source node"; ExpectedRefType)
             update!(p, :right)
-            targets = parse_grouped_refs!(p, targets, "target node"; ExpectedRefType)
+            targets = parse_grouped_refs!(p, raw_targets, "target node"; ExpectedRefType)
             res = result!(p)
             update!(p, :left)
             push!(p, 0)
             pend = (length(p.path)-1):length(p.path)
+            any_source = false
+            any_target = false
             for src in sources
                 bump!(p)
                 sub = if haskey(res, src)
@@ -581,12 +584,19 @@ function graphdataconvert(
                          $(repr(src)) → $(repr(tgt))$(report(p, tgt)).",
                     )
                     push!(sub, tgt)
+                    any_target = true
                 end
-                p.path[pend] .= safe
-                isempty(sub) &&
-                    forgerr(:no_targets, "No target provided for source$(report(p, src)).")
+                pop!(p.path)
+                any_target || forgerr(
+                    :no_targets,
+                    "No target provided for source $(repr(src))$(report(p, raw_targets)).",
+                )
+                pop!(p.path)
+                append!(p, safe)
+                any_source = true
             end
             pop!(p)
+            any_source || forgerr(:no_sources, "No sources provided$(report(p, raw_sources)).")
             pop!(p)
 
             it = iterate(input, it)

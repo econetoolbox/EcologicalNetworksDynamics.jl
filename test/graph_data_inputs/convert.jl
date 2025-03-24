@@ -491,14 +491,14 @@ Alias = _Alias() # Use as an unambiguous keyword.
 
     @argfails( #  :boolean_label
         gc(Map, [:a => 5, Bool[0, 1, 1] => 8], Symbol),
-        "A label-indexed grouped references \
+        "A label-indexed group of nodes \
          cannot be produced from boolean vectors \
          at [2][left]: Bool[0, 1, 1] ::Vector{Bool}."
     )
 
     @argfails( #  :inconsistent_ref_type (bool)
         gc(Map, [:a => 5, Bool[0, 1, 1] => 8]),
-        "The grouped references reference type for this input \
+        "The group of nodes reference type for this input \
          was first inferred to be a label (Symbol) based on the received ':a', \
          but a boolean vector (only yielding indices) \
          is now found at [2][left]: Bool[0, 1, 1] ::Vector{Bool}."
@@ -520,48 +520,161 @@ Alias = _Alias() # Use as an unambiguous keyword.
     # Binary adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     BinAdj = @GraphData Adjacency{:bin}
 
-    # HERE: keep going.
-
-    @argfails(
+    @argfails( #  :not_iterable
         gc(BinAdj, Type),
         "Input for binary adjacency map needs to be iterable.\n\
          Received: Type ::UnionAll.",
     )
 
-    @argfails(
+    @argfails( #  :not_a_pair
         gc(BinAdj, [Type]),
         "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
     )
 
-    @argfails(
-        gc(BinAdj, [5 => [Type]]),
-        "Cannot interpret target node reference as integer index or symbol label: \
-         received at [1][right][1]: Type ::UnionAll.",
+    @argfails( #  :not_a_ref (plain source)
+        gc(BinAdj, [Type => 5]),
+        "Cannot interpret source node reference as integer index or symbol label: \
+         received at [1][left]: Type ::UnionAll.",
     )
 
-    @argfails(
-        gc(BinAdj, [5 => [Type]]),
+    @argfails( #  :not_a_ref (plain target)
+        gc(BinAdj, [5 => Type]),
         "Cannot interpret target node reference as integer index or symbol label: \
-         received at [1][right][1]: Type ::UnionAll.",
+         received at [1][right]: Type ::UnionAll.",
     )
 
-    @argfails(
-        gc(BinAdj, [:a => [5]]),
-        "The target node reference type for this input \
-         was first inferred to be a label (Symbol) based on the received 'a', \
-         but an index ($Int) is now found at [1][right][1]: 5 ::$Int.",
+    @argfails( #  :unexpected_ref_type (plain source)
+        gc(BinAdj, [:a => :b], Int),
+        "Invalid source node reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left]: :a ::Symbol.",
     )
-    @argfails(
-        gc(BinAdj, [5 => 8]; ExpectedRefType = Symbol),
+
+    @argfails( #  :unexpected_ref_type (plain target)
+        gc(BinAdj, [1 => 2], Symbol),
         "Invalid source node reference type. \
          Expected Symbol (or convertible). \
-         Received instead at [1][left]: 5 ::$Int.",
+         Received instead at [1][left]: 1 ::$Int.",
     )
-    #  @argfails(gc((@GraphData A{:bin}), [5 => [8], 4 + 1 => [9]]), "Duplicated ref: 5.") # HERE: now featured!
-    @argfails(
+
+    @argfails( #  :inconsistent_ref_type (plain source)
+        gc(BinAdj, [:a => :b, 2 => :c]),
+        "The source node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][left]: 2 ::$Int.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (plain target)
+        gc(BinAdj, [1 => :b]),
+        "The target node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '1', \
+         but a label (Symbol) is now found at [1][right]: :b ::Symbol.",
+    )
+
+    @argfails( #  :not_a_ref (grouped sources)
+        gc(BinAdj, [2 => 5, [1, Type] => 3]),
+        "Cannot interpret source node reference as integer index or symbol label: \
+         received at [2][left][2]: Type ::UnionAll.",
+    )
+
+    @argfails( #  :not_a_ref (grouped targets)
+        gc(BinAdj, [2 => 5, 1 => [3, Type]]),
+        "Cannot interpret target node reference as integer index or symbol label: \
+         received at [2][right][2]: Type ::UnionAll.",
+    )
+
+    @argfails( #  :unexpected_ref_type (grouped sources)
+        gc(BinAdj, [[:a] => 5], Int),
+        "Invalid source node reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left][1]: :a ::Symbol.",
+    )
+
+    @argfails( #  :unexpected_ref_type (grouped targets)
+        gc(BinAdj, [:a => [:b, :c, 4]], Symbol),
+        "Invalid target node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][right][3]: 4 ::$Int.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (grouped sources)
+        gc(BinAdj, [[1, :b, 3] => 4]),
+        "The source node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '1', \
+         but a label (Symbol) is now found at [1][left][2]: :b ::Symbol.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (grouped targets)
+        gc(BinAdj, [:a => [:b, :c, 4]]),
+        "The target node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [1][right][3]: 4 ::$Int.",
+    )
+
+    @argfails( #  :duplicate_node (grouped sources)
+        gc(BinAdj, [:a => :b, :a => :c, [:b, :c, 'b'] => :a]),
+        "Duplicated source node reference at [3][left][3]: 'b' ::Char.",
+    )
+
+    @argfails( #  :boolean_label (sources)
+        gc(BinAdj, [:a => :b, Bool[1, 1, 0] => :c], Symbol),
+        "A label-indexed group of source nodes cannot be produced from boolean vectors \
+         at [2][left]: Bool[1, 1, 0] ::Vector{Bool}.",
+    )
+
+    @argfails( #  :boolean_label (targets)
+        gc(BinAdj, [:a => :b, :c => Bool[1, 1, 0]], Symbol),
+        "A label-indexed group of target nodes cannot be produced from boolean vectors \
+         at [2][right]: Bool[1, 1, 0] ::Vector{Bool}.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (bool sources)
+        gc(BinAdj, [:a => :b, Bool[1, 1, 0] => :c]),
+        "The group of source nodes reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but a boolean vector (only yielding indices) is now found \
+         at [2][left]: Bool[1, 1, 0] ::Vector{Bool}.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (bool targets)
+        gc(BinAdj, [:a => :b, :c => Bool[1, 1, 0]]),
+        "The group of target nodes reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but a boolean vector (only yielding indices) is now found \
+         at [2][right]: Bool[1, 1, 0] ::Vector{Bool}.",
+    )
+
+    @argfails( #  :duplicate_edge
         gc(BinAdj, [5 => [8], 4 + 1 => [4 * 2]]),
         "Duplicate edge specification 5 → 8 at [2][right][1]: 8 ::$Int."
     )
+
+    @argfails( #  :duplicate_edge
+        gc(BinAdj, [[:a, :b] => [:b], :a => [:c, :b]]),
+        "Duplicate edge specification :a → :b at [2][right][2]: :b ::Symbol."
+    )
+
+    @argfails( #  :no_targets
+        gc(BinAdj, [[1, 2] => []]),
+        "No target provided for source 1 at [1][right]: Any[] ::Vector{Any}."
+    )
+
+    @argfails( #  :no_targets
+        gc(BinAdj, [:a => [:b], :c => ()]),
+        "No target provided for source :c at [2][right]: () ::Tuple{}."
+    )
+
+    @argfails( #  :no_sources
+        gc(BinAdj, [[] => [1, 2]]),
+        "No sources provided at [1][left]: Any[] ::Vector{Any}.",
+    )
+
+    @argfails( #  :boolean_label
+        gc(BinAdj, Bool[1 0 1], Symbol),
+        "A label-indexed binary adjacency list cannot be produced from boolean matrices.",
+    )
+
+    error("HERE: keep going")
 
     # Adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Adj = @GraphData Adjacency{Float64}
