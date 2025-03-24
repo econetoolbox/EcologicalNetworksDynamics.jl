@@ -201,10 +201,10 @@ Alias = _Alias() # Use as an unambiguous keyword.
     @test convert(
         :(A{Float64}),
         [
-            Bool[1,1,0] => [3 => 50, [4, 60]],
-            [(1 => 70, (2, 80)), sparse(Bool[0,0,0,0,1,1])],
-            ((([1, 2], 90), 3 => 100), Bool[0,0,0,0,0,0,1,1]),
-            Bool[1,1,1] => [(9, 10) => 110, (11, 120)],
+            Bool[1, 1, 0] => [3 => 50, [4, 60]],
+            [(1 => 70, (2, 80)), sparse(Bool[0, 0, 0, 0, 1, 1])],
+            ((([1, 2], 90), 3 => 100), Bool[0, 0, 0, 0, 0, 0, 1, 1]),
+            Bool[1, 1, 1] => [(9, 10) => 110, (11, 120)],
         ],
         #! format: off
         OrderedDict(
@@ -268,11 +268,7 @@ Alias = _Alias() # Use as an unambiguous keyword.
     @test convert(
         :(A{:bin}),
         [(1, 2) => [3], ((2, 3), 1)],
-        OrderedDict(
-            1 => OrderedSet([3]),
-            2 => OrderedSet([3, 1]),
-            3 => OrderedSet([1]),
-        ),
+        OrderedDict(1 => OrderedSet([3]), 2 => OrderedSet([3, 1]), 3 => OrderedSet([1])),
     )
 
     @test convert(
@@ -371,56 +367,201 @@ Alias = _Alias() # Use as an unambiguous keyword.
     #---------------------------------------------------------------------------------------
     # More specific failures.
 
-    gc = GraphDataInputs.graphdataconvert # (don't check first error in stacktrace)
-
-    # Maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Map = @GraphData Map{Float64}
-    @argfails(
-        gc(Map, Type),
-        "Input for map needs to be iterable.\nReceived: Type ::UnionAll.",
-    )
-    @argfails(gc(Map, [5]), "Not a 'reference(s) => value' pair at [1]: 5 ::$Int.")
-    @argfails(gc(Map, "abc"), "Not a 'reference(s) => value' pair at [1]: 'a' ::Char.")
-    @argfails(
-        gc(Map, [(Type, "a")]),
-        "Cannot interpret node reference as integer index or symbol label: \
-         received at [1][left]: Type ::UnionAll.",
-    )
-    @argfails(
-        gc(Map, [(5, "a")]),
-        "Expected values of type 'Float64', \
-         received instead at [1][right]: \"a\" ::String.",
-    )
-    @argfails(
-        gc(Map, [(5, 8), (:a, 5)]),
-        "The node reference type for this input \
-         was first inferred to be an index ($Int) based on the received '5', \
-         but a label (Symbol) is now found at [2][left]: :a ::Symbol."
-    )
-    @argfails(
-        gc(Map, [(5, 8), (5, 9)]),
-        "Duplicated node reference at [2][left][1]: 5 ::$Int."
-    )
+    # (don't check first error in stacktrace)
+    gc(type, input, ExpectedRefType = nothing) =
+        GraphDataInputs.graphdataconvert(type, input; ExpectedRefType)
 
     # Binary maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     BinMap = @GraphData Map{:bin}
-    @argfails(
+
+    @argfails( #  :not_iterable
         gc(BinMap, Type),
         "Input for binary map needs to be iterable.\n\
          Received: Type ::UnionAll."
     )
-    @argfails(
+
+    @argfails( #  :not_a_ref
         gc(BinMap, [Type]),
         "Cannot interpret node reference as integer index or symbol label: \
          received at [1]: Type ::UnionAll.",
     )
-    @argfails(
+
+    @argfails( #  :unexpected_ref_type
+        gc(BinMap, [5], Symbol),
+        "Invalid node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1]: 5 ::$Int."
+    )
+
+    @argfails( #  :unexpected_ref_type
+        gc(BinMap, [:label], Int),
+        "Invalid node reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1]: :label ::Symbol."
+    )
+
+    @argfails( #  :inconsistent_ref_type
         gc(BinMap, [5, :a]),
         "The node reference type for this input \
          was first inferred to be an index ($Int) based on the received '5', \
          but a label (Symbol) is now found at [2]: :a ::Symbol.",
     )
+
+    # :duplicate_node
     @argfails(gc(BinMap, [5, 5]), "Duplicated node reference at [2]: 5 ::$Int.")
+
+    # (from boolean masks)
+    @argfails( # :boolean_label
+        gc(BinMap, Bool[0, 0, 1, 0, 1], Symbol),
+        "A label-indexed binary map cannot be produced from boolean vectors."
+    )
+
+    # :unexpected_ref_type for boolean masks is tested when used for parsing grouped refs.
+
+    # Maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    Map = @GraphData Map{Float64}
+
+    @argfails( #  :not_iterable
+        gc(Map, Type),
+        "Input for map needs to be iterable.\nReceived: Type ::UnionAll.",
+    )
+
+    #  :not_a_pair
+    @argfails(gc(Map, [5]), "Not a 'reference(s) => value' pair at [1]: 5 ::$Int.")
+    @argfails(gc(Map, "abc"), "Not a 'reference(s) => value' pair at [1]: 'a' ::Char.")
+
+    @argfails( #  :not_a_ref (plain)
+        gc(Map, [(Type, "a")]),
+        "Cannot interpret node reference as integer index or symbol label: \
+         received at [1][left]: Type ::UnionAll.",
+    )
+
+    @argfails( #  :unexpected_ref_type (plain)
+        gc(Map, [(5, "a")], Symbol),
+        "Invalid node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][left]: 5 ::$Int.",
+    )
+
+    @argfails( #  :unexpected_ref_type (plain)
+        gc(Map, [(:label, "a")], Int),
+        "Invalid node reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left]: :label ::Symbol.",
+    )
+
+    @argfails( #  :inconsistent_ref_type (plain)
+        gc(Map, [(5, 8), (:a, 5)]),
+        "The node reference type for this input \
+         was first inferred to be an index ($Int) based on the received '5', \
+         but a label (Symbol) is now found at [2][left]: :a ::Symbol."
+    )
+
+    @argfails( #  :inconsistent_ref_type (plain)
+        gc(Map, [(:a, 5), (8, 5)]),
+        "The node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][left]: 8 ::$Int."
+    )
+
+    @argfails( #  :not_a_ref (grouped)
+        gc(Map, [[:a, Type] => 5]),
+        "Cannot interpret node reference as integer index or symbol label: \
+         received at [1][left][2]: Type ::UnionAll."
+    )
+
+    @argfails( #  :unexpected_ref_type (grouped)
+        gc(Map, [[5, :b] => 8], Symbol),
+        "Invalid node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][left][1]: 5 ::$Int."
+    )
+
+    @argfails( #  :inconsistent_ref_type (grouped)
+        gc(Map, [:a => 5, [:b, 3] => 8]),
+        "The node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][left][2]: 3 ::$Int."
+    )
+
+    @argfails( #  :duplicate_node (grouped)
+        gc(Map, [[:a, :b, :a] => 5]),
+        "Duplicated node reference at [1][left][3]: :a ::Symbol."
+    )
+
+    @argfails( #  :boolean_label
+        gc(Map, [:a => 5, Bool[0, 1, 1] => 8], Symbol),
+        "A label-indexed grouped references \
+         cannot be produced from boolean vectors \
+         at [2][left]: Bool[0, 1, 1] ::Vector{Bool}."
+    )
+
+    @argfails( #  :inconsistent_ref_type (bool)
+        gc(Map, [:a => 5, Bool[0, 1, 1] => 8]),
+        "The grouped references reference type for this input \
+         was first inferred to be a label (Symbol) based on the received ':a', \
+         but a boolean vector (only yielding indices) \
+         is now found at [2][left]: Bool[0, 1, 1] ::Vector{Bool}."
+    )
+
+    @argfails( #  :not_a_value
+        gc(Map, [(5, "a")]),
+        "Expected values of type 'Float64', \
+         received instead at [1][right]: \"a\" ::String.",
+    )
+
+    @argfails( #  :duplicate_node
+        gc(Map, [[:a, :b] => 5, [:c, :a] => 8]),
+        "Duplicated node reference :\n\
+         Received before: a => 5.0\n\
+         Received now   : a => 8 ::$Int at [2][left][2]: :a ::Symbol."
+    )
+
+    # Binary adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    BinAdj = @GraphData Adjacency{:bin}
+
+    # HERE: keep going.
+
+    @argfails(
+        gc(BinAdj, Type),
+        "Input for binary adjacency map needs to be iterable.\n\
+         Received: Type ::UnionAll.",
+    )
+
+    @argfails(
+        gc(BinAdj, [Type]),
+        "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
+    )
+
+    @argfails(
+        gc(BinAdj, [5 => [Type]]),
+        "Cannot interpret target node reference as integer index or symbol label: \
+         received at [1][right][1]: Type ::UnionAll.",
+    )
+
+    @argfails(
+        gc(BinAdj, [5 => [Type]]),
+        "Cannot interpret target node reference as integer index or symbol label: \
+         received at [1][right][1]: Type ::UnionAll.",
+    )
+
+    @argfails(
+        gc(BinAdj, [:a => [5]]),
+        "The target node reference type for this input \
+         was first inferred to be a label (Symbol) based on the received 'a', \
+         but an index ($Int) is now found at [1][right][1]: 5 ::$Int.",
+    )
+    @argfails(
+        gc(BinAdj, [5 => 8]; ExpectedRefType = Symbol),
+        "Invalid source node reference type. \
+         Expected Symbol (or convertible). \
+         Received instead at [1][left]: 5 ::$Int.",
+    )
+    #  @argfails(gc((@GraphData A{:bin}), [5 => [8], 4 + 1 => [9]]), "Duplicated ref: 5.") # HERE: now featured!
+    @argfails(
+        gc(BinAdj, [5 => [8], 4 + 1 => [4 * 2]]),
+        "Duplicate edge specification 5 → 8 at [2][right][1]: 8 ::$Int."
+    )
 
     # Adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Adj = @GraphData Adjacency{Float64}
@@ -455,40 +596,6 @@ Alias = _Alias() # Use as an unambiguous keyword.
         "Duplicate edge specification:\n\
          Previously received: :a → :b (8.0)\n\
          Now received:        :a → :b (9.0) at [2][right][1]: :b ::Symbol.",
-    )
-
-    # Binary adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    BinAdj = @GraphData Adjacency{:bin}
-    @argfails(
-        gc(BinAdj, Type),
-        "Input for binary adjacency map needs to be iterable.\n\
-         Received: Type ::UnionAll.",
-    )
-    @argfails(
-        gc(BinAdj, [Type]),
-        "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
-    )
-    @argfails(
-        gc(BinAdj, [5 => [Type]]),
-        "Cannot interpret target node reference as integer index or symbol label: \
-         received at [1][right][1]: Type ::UnionAll.",
-    )
-    @argfails(
-        gc(BinAdj, [:a => [5]]),
-        "The target node reference type for this input \
-         was first inferred to be a label (Symbol) based on the received 'a', \
-         but an index ($Int) is now found at [1][right][1]: 5 ::$Int.",
-    )
-    @argfails(
-        gc(BinAdj, [5 => 8]; ExpectedRefType = Symbol),
-        "Invalid source node reference type. \
-         Expected Symbol (or convertible). \
-         Received instead at [1][left]: 5 ::$Int.",
-    )
-    #  @argfails(gc((@GraphData A{:bin}), [5 => [8], 4 + 1 => [9]]), "Duplicated ref: 5.") # HERE: now featured!
-    @argfails(
-        gc(BinAdj, [5 => [8], 4 + 1 => [4 * 2]]),
-        "Duplicate edge specification 5 → 8 at [2][right][1]: 8 ::$Int."
     )
 
     # ======================================================================================
