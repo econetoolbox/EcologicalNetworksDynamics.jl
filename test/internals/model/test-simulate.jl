@@ -42,15 +42,31 @@
     @test_nowarn simulates(params, [0.5, 1e-12], verbose = false)
     @test keys(get_extinct_species(simulates(params, [0.5, 1e-12]; verbose = false))) ==
           Set([2])
-    log_msg =
-        "Species [2] went extinct at time t = 0.1. \n" * "1 out of 2 species are extinct."
-    @test_logs (:info, log_msg) (:info, log_msg) (:info, log_msg) simulates(
-        params,
-        [0.5, 1e-12],
-        verbose = true,
-        tstops = [0.1],
-        compare_rtol = 1e-6,
-    )
+    logger = TestLogger()
+    with_logger(logger) do
+        simulates(params, [0.5, 1e-12]; verbose = true, tstops = [0.1], compare_rtol = 1e-6)
+    end
+    n_info = 0
+    n_warn = 0
+    for log in logger.logs
+        if log.level == Logging.Info
+            @test log.message == "Species [2] went extinct at time t = 0.1. \n\
+                                 1 out of 2 species are extinct."
+            n_info += 1
+        elseif log.level == Logging.Warn
+            # New with Julia 11?
+            # Quick patch to address https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/171
+            # Should be gone as the result of addressing https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/141.
+            @test log.message ==
+                  "Using arrays or dicts to store parameters of different types \
+                   can hurt performance.\nConsider using tuples instead.\n"
+            n_warn += 1
+        else
+            throw("Unexpected log: $log")
+        end
+    end
+    @test n_info == 3
+    @test n_warn == (VERSION >= v"1.11" ? 1 : 0)
     @test keys(
         get_extinct_species(
             simulates(params, [0.5, 1e-12]; verbose = true, tstops = [0.1]),

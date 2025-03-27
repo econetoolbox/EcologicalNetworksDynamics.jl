@@ -362,7 +362,10 @@
     # Invalid uses.
 
     @xargfails((@tographdata 4 + 5 YSV{Bool}), ["Not a variable: :(4 + 5) at"])
-    @failswith((@tographdata nope YSV{Bool}), UndefVarError(:nope))
+    @failswith(
+        (@tographdata nope YSV{Bool}),
+        UndefVarError => (:nope, TestGraphDataInputs),
+    )
     @xargfails(
         (@tographdata input NOPE),
         [

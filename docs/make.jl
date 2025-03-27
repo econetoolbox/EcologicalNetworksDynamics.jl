@@ -45,4 +45,7 @@ makedocs(;
     ],
 )
 
-deploydocs(; repo = "github.com/econetoolbox/EcologicalNetworksDynamics.jl", devbranch = "doc")
+deploydocs(;
+    repo = "github.com/econetoolbox/EcologicalNetworksDynamics.jl",
+    devbranch = "doc",
+)
