@@ -4,7 +4,6 @@
 - Bump requirement from `DiffEqCallbacks v3.4` to `v4.0`.
 - Fix a few tests broken under Julia 11.
 
-
 [#171]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/171
 
 # v0.2.0 First Release
