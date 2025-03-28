@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Analyse the Simulated Dynamics · EcologicalNetworksDynamics.jl</title><meta name="title" content="Analyse the Simulated Dynamics · EcologicalNetworksDynamics.jl"/><meta property="og:title" content="Analyse the Simulated Dynamics · EcologicalNetworksDynamics.jl"/><meta property="twitter:title" content="Analyse the Simulated Dynamics · EcologicalNetworksDynamics.jl"/><meta name="description" content="Documentation for EcologicalNetworksDynamics.jl."/><meta property="og:description" content="Documentation for EcologicalNetworksDynamics.jl."/><meta property="twitter:description" content="Documentation for EcologicalNetworksDynamics.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img class="docs-light-only" src="../../assets/logo.svg" alt="EcologicalNetworksDynamics.jl logo"/><img class="docs-dark-only" src="../../assets/logo-dark.svg" alt="EcologicalNetworksDynamics.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">EcologicalNetworksDynamics.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Welcome</a></li><li><span class="tocitem">Guide</span><ul><li><a class="tocitem" href="../quickstart/">Quick Start</a></li><li><a class="tocitem" href="../foodwebs/">Generate Food Webs</a></li><li><a class="tocitem" href="../simple-models/">Build Simple Models</a></li><li><a class="tocitem" href="../advanced-models/">Build Advanced Models</a></li><li><a class="tocitem" href="../simulate/">Simulate the Community Dynamics</a></li><li class="is-active"><a class="tocitem" href>Analyse the Simulated Dynamics</a></li><li><a class="tocitem" href="../components/">Bonus: The Model and its Components (advanced)</a></li></ul></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../lib/public/">Public</a></li><li><a class="tocitem" href="../../lib/internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Guide</a></li><li class="is-active"><a href>Analyse the Simulated Dynamics</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Analyse the Simulated Dynamics</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/man/output-analysis.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Analyse-the-Simulated-Dynamics"><a class="docs-heading-anchor" href="#Analyse-the-Simulated-Dynamics">Analyse the Simulated Dynamics</a><a id="Analyse-the-Simulated-Dynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Analyse-the-Simulated-Dynamics" title="Permalink"></a></h1><p>Once the dynamics of the community have been simulated, we can analyse the results to better understand the behaviour of the community. To do so, we provide a few functions to compute various properties of the community dynamics.</p><p>Let&#39;s first simulate the dynamics of a species-rich community with the niche model:</p><pre><code class="language-julia hljs">using EcologicalNetworksDynamics, Plots
+
+S = 20 # Number of species.
+C = 0.1 # Connectance.
+foodweb = Foodweb(:niche; S, C)
+m = default_model(foodweb)
+B0 = rand(S) # Vector of initial biomasses.
+t = 100 # Simulation time.
+sol = simulate(m, B0, t)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">retcode: Success
+Interpolation: 3rd order Hermite
+t: 40-element Vector{Float64}:
+   0.0
+   0.08945074273458459
+   0.22851881806937094
+   0.3954554318014164
+   0.6167909464643816
+   0.8960166731830952
+   1.2585054636424038
+   1.731146284569924
+   2.3484389125967655
+   3.0955814944362676
+   ⋮
+  61.56765079586046
+  64.9419636670992
+  69.50805290276949
+  73.89578181620003
+  79.34605925660453
+  84.90464094734831
+  91.40747739514471
+  98.23476874174669
+ 100.0
+u: 40-element Vector{Vector{Float64}}:
+ [0.28644541676747526, 0.6375017032329556, 0.03754550614077934, 0.26386855210524285, 0.5995798383027359, 0.14417331668117195, 0.4799696989862041, 0.9639428664643372, 0.6261710369523673, 0.9132664884901092, 0.3622624745346241, 0.6743236999215242, 0.49093103298483387, 0.6093235205276633, 0.6798568278908822, 0.0765340302872064, 0.67600070011974, 0.5705445731546576, 0.22240148216326738, 0.7271368768878347]
+ [0.29764361972413894, 0.663059842685277, 0.039077602446188214, 0.28046197726896543, 0.6247060721597634, 0.15267030141985985, 0.502069946854166, 1.0024040448824902, 0.6395915064574803, 0.9192508687157327, 0.3508818300134903, 0.5945980607822384, 0.4843932087205044, 0.5953323552950937, 0.6239873917792355, 0.08153961521534146, 0.5771467181472502, 0.5505431695371076, 0.1927069566933532, 0.680523726023324]
+ [0.3122397046035846, 0.6995973935996005, 0.04162979803520421, 0.3026860917293039, 0.6611672434937773, 0.1652215642198997, 0.536319425933336, 1.057313438402145, 0.6602505422092301, 0.9276399685410467, 0.3303295629333977, 0.4973175142000702, 0.46551512911005083, 0.5701489140577424, 0.5393041837319966, 0.0870497187953888, 0.4612860918558472, 0.514661305873597, 0.15813194231415686, 0.6179968114491071]
+ [0.32566798082831516, 0.7379569750431858, 0.04500000887774782, 0.322999690692208, 0.6988073143919561, 0.17907021529173225, 0.5768421545361988, 1.114830220055206, 0.6843703148221303, 0.936372641613366, 0.30382553580517085, 0.41132793052294925, 0.43294077360749955, 0.535784869076159, 0.4475107240424962, 0.09038155207448365, 0.36617296497502305, 0.4698297595531937, 0.12889304404943397, 0.5572182023012837]
+ [0.33773136321017583, 0.7788811006565718, 0.05004366961022599, 0.3404100835373829, 0.7358218225971316, 0.19530267331908985, 0.6287004153887146, 1.1759395792725524, 0.7144114339415097, 0.9459676856502264, 0.269786715549405, 0.3314326923361585, 0.3820655849760765, 0.48612294501380243, 0.3490074690808354, 0.09090106279860204, 0.28722554207912215, 0.41435924159512233, 0.10241637884687411, 0.4964670792001959]
+ [0.3457667848802192, 0.8142581064225936, 0.0574488322819479, 0.3514515495943816, 0.7619049064315939, 0.2126364366047141, 0.6895305447992286, 1.2282737797241858, 0.7476511251841294, 0.9553231054011574, 0.23303810707010628, 0.26527638527119973, 0.31893705746825507, 0.42243713999686894, 0.2612253289135209, 0.08810212746072162, 0.230455193917759, 0.3552475407050488, 0.08023915478658802, 0.44379892853279684]
+ [0.34780422465639, 0.8368053239967299, 0.06902318571999208, 0.3553302745629382, 0.7704037240950748, 0.2310569879793052, 0.7584761126535691, 1.2605955321019908, 0.7808437181878705, 0.9637408330752036, 0.1978554019725742, 0.21316448856668052, 0.2517660891324156, 0.3470969472832473, 0.19003533610941997, 0.08217214277649566, 0.1915617133639928, 0.29556356892364577, 0.06138338046266196, 0.401198789389852]
+ [0.341469604986179, 0.8385661279613948, 0.08798638089797013, 0.35171304397097053, 0.7572387358145647, 0.25043312098815684, 0.8290694293731989, 1.2605450817635828, 0.8061949127194754, 0.9698119205870768, 0.16938691182280163, 0.17614035712078763, 0.1909842619775453, 0.26908501682664704, 0.13660018746275776, 0.07363345512763683, 0.16732419141151905, 0.23877067584952555, 0.04549718192027743, 0.3699080984394323]
+ [0.3248492051953211, 0.8149345638311877, 0.12075976404602771, 0.3409727629489806, 0.721402648590232, 0.2710864612158929, 0.8898746177404937, 1.2205875721543964, 0.8137859553280548, 0.9715013136985894, 0.150603717584698, 0.1534270763348263, 0.14235653574557017, 0.19891449193705005, 0.09774913362660936, 0.06327433602149887, 0.1550349471197469, 0.1869991741211758, 0.032283346756448006, 0.34860347152951615]
+ [0.29926207293047724, 0.7688693751710003, 0.17570943040080814, 0.32548531691862087, 0.6674672302349175, 0.29206159501213247, 0.9262458128760405, 1.1446942883963618, 0.7973636533889803, 0.9662785596050947, 0.14248710774701062, 0.14367290207711322, 0.10822484562315954, 0.14599435717819573, 0.07125064691142112, 0.05280212978721341, 0.1528444930001059, 0.14409421283291288, 0.02217616571071102, 0.33483524782789725]
+ ⋮
+ [0.0004804219552892175, 0.3198927130183826, 1.7164337436840214, 0.3120638948422393, 0.00040189408545495645, 0.3322088641590704, 0.6636075374116793, 0.3207835780148921, 0.005285612280556651, 0.6636075373089225, 0.30483529100703227, 0.3048352909467585, 0.012328765000747356, 7.922328314286652e-5, 3.686497683649751e-5, 0.0008438742838671233, 0.23776695015940483, 1.1258997028504926e-7, 0.0, 0.3310613565420146]
+ [0.00034099269657362704, 0.3199904287493681, 1.7166922648006342, 0.31225165968185403, 0.00027219241898725254, 0.33245073655884644, 0.6636066933773903, 0.3206562685605024, 0.004231950159894765, 0.6636066933873107, 0.30484262781514265, 0.3048426278211897, 0.011877179638944614, 5.367229917260467e-5, 2.480806751986155e-5, 0.0006917230577572821, 0.23777186648129617, 4.9708029758077286e-8, 0.0, 0.3310926005711175]
+ [0.00021404865326096477, 0.3200819534443529, 1.716985092459733, 0.3124455848831973, 0.0001602027585934739, 0.33274567662198806, 0.663606009727172, 0.32053045719627005, 0.0031350054596706424, 0.6636060097262747, 0.3048512509762144, 0.3048512509753237, 0.011325402936918083, 3.1598136040893155e-5, 1.4470799116335031e-5, 0.0005283851924666439, 0.23777737378451755, 1.5946209964030068e-8, 0.0, 0.3311313524856812]
+ [0.00013689184768916356, 0.3201388990925599, 1.7172184377805442, 0.3125830147186699, 9.63186737090564e-5, 0.33299881222894767, 0.6636055935414744, 0.32044577388616713, 0.0023525822420825374, 0.6636055935415454, 0.30485821537527713, 0.3048582153748802, 0.010850436939563553, 1.9000663848909137e-5, 8.625058640323218e-6, 0.00040792789363584776, 0.2377816043279453, 5.376061331661113e-9, 0.0, 0.3311652803290417]
+ [7.836631469989639e-5, 0.32018217101901664, 1.717458309242627, 0.31270658018520203, 5.0998433008262223e-5, 0.33327861258814523, 0.6636052754182084, 0.32037340512789014, 0.0016475563703085663, 0.6636052754170393, 0.3048654821819337, 0.3048654821813783, 0.010324041228792628, 1.0061523612463588e-5, 4.516494522902981e-6, 0.00029567194213537114, 0.2377857191491098, 1.3302384323502395e-9, 0.0, 0.3312035372322726]
+ [4.435753449089162e-5, 0.32020638790906397, 1.717659219664488, 0.312794620494305, 2.665228439845433e-5, 0.3335307016681541, 0.6636051106530211, 0.3203244249568139, 0.0011466263580133295, 0.6636051106539649, 0.3048716625159173, 0.3048716625161562, 0.009848430160955731, 5.258569227348175e-6, 2.3337157035471076e-6, 0.0002129371777326045, 0.23778885121858473, 3.182630302296879e-10, 0.0, 0.33123869757364693]
+ [2.2714069467536967e-5, 0.320219853905233, 1.7178524905133832, 0.3128648998423375, 1.2408259717125882e-5, 0.33379033951420395, 0.6636050477425336, 0.3202868362228308, 0.0007502831198481892, 0.6636050477418438, 0.30487766598264104, 0.3048776659826211, 0.009357317555990502, 2.4482732031991275e-6, 1.0718008678479373e-6, 0.0001449469028537756, 0.2377914856188716, 5.548207585343214e-11, 0.0, 0.3312755721576883]
+ [1.1233237483945477e-5, 0.3202244296236284, 1.7180192729452861, 0.31291345248833036, 5.548414261395341e-6, 0.3340290182807542, 0.6636050780223323, 0.3202613495862814, 0.0004807882613653265, 0.6636050780217724, 0.3048828627369791, 0.30488286273653276, 0.008904645884302361, 1.0947768834508428e-6, 4.723976747521721e-7, 9.67678741913522e-5, 0.2377933840105128, 8.568454662233564e-12, 0.0, 0.3313100861296794]
+ [9.397063707907056e-6, 0.3202246465988968, 1.718057544881624, 0.3129229280115767, 4.530160651447787e-6, 0.3340858031421202, 0.6636050978282221, 0.32025636484234465, 0.0004289445737518948, 0.6636050978281913, 0.30488405213570346, 0.30488405213568154, 0.00879673268968043, 8.938638651435931e-7, 3.843795754921229e-7, 8.722696706157803e-5, 0.23779376246210637, 5.637130229431407e-12, 0.0, 0.33131839849422096]</code></pre><p>When running the dynamics of a rich initial pool of species, we generally observe the extinction of some species. You can access the number of surviving species at the end of the simulation with:</p><pre><code class="language-julia hljs">richness(sol[end]) # Number of surviving species at the end of the simulation.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">19</code></pre><p>You can also get the trajectory of the species richness through time with:</p><pre><code class="language-julia hljs">richness(sol) # Richness at each time step.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">40-element Vector{Int64}:
+ 20
+ 20
+ 20
+ 20
+ 20
+ 20
+ 20
+ 20
+ 20
+ 20
+  ⋮
+ 19
+ 19
+ 19
+ 19
+ 19
+ 19
+ 19
+ 19
+ 19</code></pre><p>Similarly, you can compute the persistence, that is the proportion of species that are present at each time step:</p><pre><code class="language-julia hljs">persistence(sol) # Equivalent to: richness(sol) ./ S</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">40-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ 1.0
+ ⋮
+ 0.95
+ 0.95
+ 0.95
+ 0.95
+ 0.95
+ 0.95
+ 0.95
+ 0.95
+ 0.95</code></pre><p>Or the total biomass of the community:</p><pre><code class="language-julia hljs">total_biomass(sol)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">40-element Vector{Float64}:
+ 10.041779642595612
+  9.852588814821
+  9.605806345088482
+  9.36580287215974
+  9.112994538659775
+  8.863002135447017
+  8.60587777501005
+  8.3303586970215
+  8.019001095526315
+  7.681819443630173
+  ⋮
+  5.526553525550283
+  5.525297035851532
+  5.5240211421630026
+  5.523131228892284
+  5.522341063380142
+  5.5217830459429
+  5.521338095261618
+  5.52102742543682
+  5.520965858064619</code></pre><p>Or the shannon diversity index:</p><pre><code class="language-julia hljs">shannon_diversity(sol)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">40-element Vector{Float64}:
+ 17.131803219151788
+ 17.15574871678623
+ 17.065530930197752
+ 16.820211778416272
+ 16.381115616899823
+ 15.794598730464555
+ 15.12799309431498
+ 14.487457760457156
+ 13.97473985284308
+ 13.677865875254177
+  ⋮
+  8.851916453977777
+  8.835498486525942
+  8.817731646074389
+  8.804387860911593
+  8.791536312500853
+  8.781560315183617
+  8.772720680897036
+  8.76575309346294
+  8.764249305618108</code></pre><p>For example, you can plot how a few of these properties evolve through time:</p><pre><code class="language-julia hljs">time = sol.t
+plot(
+    time,
+    total_biomass(sol);
+    xlabel = &quot;Time&quot;,
+    ylabel = &quot;Observable&quot;,
+    label = &quot;Total biomass&quot;,
+)
+plot!(time, richness(sol); label = &quot;Richness&quot;)
+plot!(time, shannon_diversity(sol); label = &quot;Shannon diversity&quot;)</code></pre><p><img src="../output-analysis.png" alt="Figure of the simulation"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../simulate/">« Simulate the Community Dynamics</a><a class="docs-footer-nextpage" href="../components/">Bonus: The Model and its Components (advanced) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Friday 28 March 2025 17:20">Friday 28 March 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

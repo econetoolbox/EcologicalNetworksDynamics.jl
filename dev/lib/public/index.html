@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Public · EcologicalNetworksDynamics.jl</title><meta name="title" content="Public · EcologicalNetworksDynamics.jl"/><meta property="og:title" content="Public · EcologicalNetworksDynamics.jl"/><meta property="twitter:title" content="Public · EcologicalNetworksDynamics.jl"/><meta name="description" content="Documentation for EcologicalNetworksDynamics.jl."/><meta property="og:description" content="Documentation for EcologicalNetworksDynamics.jl."/><meta property="twitter:description" content="Documentation for EcologicalNetworksDynamics.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img class="docs-light-only" src="../../assets/logo.svg" alt="EcologicalNetworksDynamics.jl logo"/><img class="docs-dark-only" src="../../assets/logo-dark.svg" alt="EcologicalNetworksDynamics.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">EcologicalNetworksDynamics.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Welcome</a></li><li><span class="tocitem">Guide</span><ul><li><a class="tocitem" href="../../man/quickstart/">Quick Start</a></li><li><a class="tocitem" href="../../man/foodwebs/">Generate Food Webs</a></li><li><a class="tocitem" href="../../man/simple-models/">Build Simple Models</a></li><li><a class="tocitem" href="../../man/advanced-models/">Build Advanced Models</a></li><li><a class="tocitem" href="../../man/simulate/">Simulate the Community Dynamics</a></li><li><a class="tocitem" href="../../man/output-analysis/">Analyse the Simulated Dynamics</a></li><li><a class="tocitem" href="../../man/components/">Bonus: The Model and its Components (advanced)</a></li></ul></li><li><span class="tocitem">Library</span><ul><li class="is-active"><a class="tocitem" href>Public</a><ul class="internal"><li><a class="tocitem" href="#Index"><span>Index</span></a></li><li><a class="tocitem" href="#Public-Interface"><span>Public Interface</span></a></li></ul></li><li><a class="tocitem" href="../internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Library</a></li><li class="is-active"><a href>Public</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Public</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/lib/public.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Public-documentation"><a class="docs-heading-anchor" href="#Public-documentation">Public documentation</a><a id="Public-documentation-1"></a><a class="docs-heading-anchor-permalink" href="#Public-documentation" title="Permalink"></a></h1><p>Documentation for EcologicalNetworksDynamics.jl public interface.</p><h2 id="Index"><a class="docs-heading-anchor" href="#Index">Index</a><a id="Index-1"></a><a class="docs-heading-anchor-permalink" href="#Index" title="Permalink"></a></h2><ul><li><a href="#EcologicalNetworksDynamics.Foodweb"><code>EcologicalNetworksDynamics.Foodweb</code></a></li><li><a href="#EcologicalNetworksDynamics.Model"><code>EcologicalNetworksDynamics.Model</code></a></li><li><a href="#EcologicalNetworksDynamics.Species"><code>EcologicalNetworksDynamics.Species</code></a></li><li><a href="#EcologicalNetworksDynamics.default_model-Tuple{Vararg{Union{EcologicalNetworksDynamics.Framework.Blueprint{&lt;inner parms&gt;}, EcologicalNetworksDynamics.Framework.BlueprintSum{&lt;inner parms&gt;}}}}"><code>EcologicalNetworksDynamics.default_model</code></a></li><li><a href="#EcologicalNetworksDynamics.persistence-Tuple{SciMLBase.AbstractODESolution}"><code>EcologicalNetworksDynamics.persistence</code></a></li><li><a href="#EcologicalNetworksDynamics.persistence-Tuple{AbstractVector}"><code>EcologicalNetworksDynamics.persistence</code></a></li><li><a href="#EcologicalNetworksDynamics.richness-Tuple{SciMLBase.AbstractODESolution}"><code>EcologicalNetworksDynamics.richness</code></a></li><li><a href="#EcologicalNetworksDynamics.richness-Tuple{AbstractVector}"><code>EcologicalNetworksDynamics.richness</code></a></li><li><a href="#EcologicalNetworksDynamics.shannon_diversity-Tuple{AbstractVector}"><code>EcologicalNetworksDynamics.shannon_diversity</code></a></li><li><a href="#EcologicalNetworksDynamics.shannon_diversity-Tuple{SciMLBase.AbstractODESolution}"><code>EcologicalNetworksDynamics.shannon_diversity</code></a></li><li><a href="#EcologicalNetworksDynamics.total_biomass-Tuple{SciMLBase.AbstractODESolution}"><code>EcologicalNetworksDynamics.total_biomass</code></a></li><li><a href="#EcologicalNetworksDynamics.total_biomass-Tuple{AbstractVector}"><code>EcologicalNetworksDynamics.total_biomass</code></a></li></ul><h2 id="Public-Interface"><a class="docs-heading-anchor" href="#Public-Interface">Public Interface</a><a id="Public-Interface-1"></a><a class="docs-heading-anchor-permalink" href="#Public-Interface" title="Permalink"></a></h2><h3 id="Functions"><a class="docs-heading-anchor" href="#Functions">Functions</a><a id="Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Functions" title="Permalink"></a></h3><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.default_model-Tuple{Vararg{Union{EcologicalNetworksDynamics.Framework.Blueprint{&lt;inner parms&gt;}, EcologicalNetworksDynamics.Framework.BlueprintSum{&lt;inner parms&gt;}}}}" href="#EcologicalNetworksDynamics.default_model-Tuple{Vararg{Union{EcologicalNetworksDynamics.Framework.Blueprint{&lt;inner parms&gt;}, EcologicalNetworksDynamics.Framework.BlueprintSum{&lt;inner parms&gt;}}}}"><code>EcologicalNetworksDynamics.default_model</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">default_model(
+foodweb::Foodweb;
+kwargs...</code></pre><p>)</p><p>Generate a model from a food web with parameters set to default values.</p><p>Let&#39;s first illustrate the use of <code>default_model</code> with a simple example.</p><pre><code class="language-julia hljs">foodweb = Foodweb([1 =&gt; 2])
+default_model(foodweb)</code></pre><p>In this example, <em>all</em> parameters are set to default values, however for your needs, you can override any of the default parameters. For instance, if you want to override the default metabolic rate, you can do it as follows:</p><pre><code class="language-julia hljs">my_x = [0.0, 1.2] # One value per species.
+default_model(foodweb, Metabolism(my_x))</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/default_model.jl#L7-L32">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.persistence-Tuple{AbstractVector}" href="#EcologicalNetworksDynamics.persistence-Tuple{AbstractVector}"><code>EcologicalNetworksDynamics.persistence</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">persistence(vec::AbstractVector; threshold = 0)</code></pre><p>Fraction of alive species given a biomass vector <code>vec</code>. See <a href="#EcologicalNetworksDynamics.richness-Tuple{AbstractVector}"><code>richness</code></a> for details.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/output-analysis.jl#L81-L86">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.persistence-Tuple{SciMLBase.AbstractODESolution}" href="#EcologicalNetworksDynamics.persistence-Tuple{SciMLBase.AbstractODESolution}"><code>EcologicalNetworksDynamics.persistence</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">persistence(solution::AbstractODESolution; threshold = 0)</code></pre><p>Fraction of alive species at each timestep of the simulation. See <a href="#EcologicalNetworksDynamics.richness-Tuple{AbstractVector}"><code>richness</code></a> for details.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl hljs">julia&gt; S = 20 # Initial number of species.
+       foodweb = Foodweb(:niche; S = 20, C = 0.1)
+       m = default_model(foodweb)
+       B0 = rand(S)
+       sol = simulate(m, B0)
+       all(persistence(sol) .== richness(sol) / S)
+true</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/output-analysis.jl#L59-L76">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.richness-Tuple{AbstractVector}" href="#EcologicalNetworksDynamics.richness-Tuple{AbstractVector}"><code>EcologicalNetworksDynamics.richness</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">richness(vec::AbstractVector; threshold = 0)</code></pre><p>Return the number of alive species given a biomass vector <code>vec</code>. By default, species are considered extinct if their biomass is 0. But, this <code>threshold</code> can be changed using the corresponding keyword argument.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl hljs">julia&gt; foodweb = Foodweb([0 0; 1 0])
+       m = default_model(foodweb)
+       B0 = [0.5, 0.5]
+       sol = simulate(m, B0)
+       richness(sol[end]) # Richness at the end of the simulation.
+2.0</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/output-analysis.jl#L39-L56">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.richness-Tuple{SciMLBase.AbstractODESolution}" href="#EcologicalNetworksDynamics.richness-Tuple{SciMLBase.AbstractODESolution}"><code>EcologicalNetworksDynamics.richness</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><p>richness(solution::Solution; threshold = 0)</p><p>Return the number of alive species at each timestep of the simulation. <code>solution</code> is the output of <a href="@ref"><code>simulate</code></a>. By default, species are considered extinct if their biomass is 0. But, this <code>threshold</code> can be changed using the corresponding keyword argument.</p><p><strong>Examples</strong></p><p>Let&#39;s start with a simple example where the richness remains constant:</p><pre><code class="language-julia-repl hljs">julia&gt; foodweb = Foodweb([0 0; 1 0])
+       m = default_model(foodweb)
+       B0 = [0.5, 0.5]
+       sol = simulate(m, B0)
+       richness_trajectory = richness(sol)
+       all(richness_trajectory .== 2) # At each timestep, there are 2 alive species.
+true</code></pre><p>Now let&#39;s assume that the producer is extinct at the beginning of the simulation, while its consumer is not. We expect to observe a decrease in richness from 1 to 0 over time.</p><pre><code class="language-julia-repl hljs">julia&gt; B0 = [0, 0.5] # The producer is extinct at the beginning.
+       sol = simulate(m, B0)
+       richness_trajectory = richness(sol)
+       richness_trajectory[1] == 1 &amp;&amp; richness_trajectory[end] == 0
+true</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/output-analysis.jl#L3-L36">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.shannon_diversity-Tuple{AbstractVector}" href="#EcologicalNetworksDynamics.shannon_diversity-Tuple{AbstractVector}"><code>EcologicalNetworksDynamics.shannon_diversity</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">shannon_diversity(vec::AbstractVector; threshold = 0)</code></pre><p>Shannon diversitty index given a biomass vector `vec Shannon diversity is a measure of species diversity based on the entropy. According to the Shannon index, for a same number of species, the more evenly the biomass is distributed among them, the higher the diversity.</p><p><strong>Example</strong></p><p>We consider a simple example with 3 species, but different shannon diversity.</p><pre><code class="language-julia-repl hljs">julia&gt; s1 = shannon_diversity([1, 1, 1])
+       s2 = shannon_diversity([1, 1, 0.1])
+       s3 = shannon_diversity([1, 1, 0.01])
+       s1 &gt; s2 &gt; s3
+true</code></pre><p>We observe as we decrease the biomass of the third species, the shannon diversity tends to 2, as we tend towards an effective two-species community.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/output-analysis.jl#L157-L180">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.shannon_diversity-Tuple{SciMLBase.AbstractODESolution}" href="#EcologicalNetworksDynamics.shannon_diversity-Tuple{SciMLBase.AbstractODESolution}"><code>EcologicalNetworksDynamics.shannon_diversity</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">shannon_diversity(solution::AbstractODESolution; threshold = 0)</code></pre><p>Shannon diversity index at each timestep of the simulation. <code>solution</code> is the output of <a href="@ref"><code>simulate</code></a>. Shannon diversity is a measure of species diversity based on the entropy. According to the Shannon index, for a same number of species, the more evenly the biomass is distributed among them, the higher the diversity.</p><p><strong>Example</strong></p><p>We start a simple simulation with even biomass distribution, therefore we expect the Shannon diversity to decrease over time as the biomass of the species diverge from each other.</p><pre><code class="language-julia-repl hljs">julia&gt; foodweb = Foodweb([0 0; 1 0])
+       m = default_model(foodweb)
+       B0 = [0.5, 0.5] # Even biomass, maximal shannon diversity.
+       sol = simulate(m, B0)
+       shannon_trajectory = shannon_diversity(sol)
+       biomass_trajectory[1] &gt; biomass_trajectory[end]
+true</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/output-analysis.jl#L127-L152">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.total_biomass-Tuple{AbstractVector}" href="#EcologicalNetworksDynamics.total_biomass-Tuple{AbstractVector}"><code>EcologicalNetworksDynamics.total_biomass</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">total_biomass(vec::AbstractVector)</code></pre><p>Total biomass of a community given a biomass vector <code>vec</code>.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl hljs">julia&gt; total_biomass([0.5, 1.5]) # 0.5 + 1.5 = 2.0
+2.0</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/output-analysis.jl#L113-L124">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.total_biomass-Tuple{SciMLBase.AbstractODESolution}" href="#EcologicalNetworksDynamics.total_biomass-Tuple{SciMLBase.AbstractODESolution}"><code>EcologicalNetworksDynamics.total_biomass</code></a> — <span class="docstring-category">Method</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">total_biomass(solution::AbstractODESolution)</code></pre><p>Total biomass of a community at each timestep of the simulation. <code>solution</code> is the output of <a href="@ref"><code>simulate</code></a>.</p><p><strong>Example</strong></p><p>Let&#39;s consider a consumer feeding on a producer, and let&#39;s start the simulation with the producer extinction so we can observe the consumer&#39;s biomass decrease over time.</p><pre><code class="language-julia-repl hljs">julia&gt; foodweb = Foodweb([0 0; 1 0])
+       m = default_model(foodweb)
+       B0 = [0, 0.5] # The producer is extinct at the beginning.
+       sol = simulate(m, B0)
+       biomass_trajectory = total_biomass(sol)
+       biomass_trajectory[1] == 0.5 &amp;&amp; biomass_trajectory[end] == 0
+true</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/output-analysis.jl#L89-L110">source</a></section></article><h3 id="Types"><a class="docs-heading-anchor" href="#Types">Types</a><a id="Types-1"></a><a class="docs-heading-anchor-permalink" href="#Types" title="Permalink"></a></h3><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.Foodweb" href="#EcologicalNetworksDynamics.Foodweb"><code>EcologicalNetworksDynamics.Foodweb</code></a> — <span class="docstring-category">Type</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><p>The Foodweb component, aka. &quot;Trophic layer&quot;, adds a set of trophic links connecting species in the model. This is one of the most structuring components.</p><p><strong>Blueprint Creation from Raw Links.</strong></p><p>From an adjacency list:</p><pre><code class="language-julia-repl hljs">julia&gt; fw = Foodweb([:a =&gt; :b, :b =&gt; [:c, :d]])
+blueprint for Foodweb with 2 trophic links:
+  A:
+  :a eats :b
+  :b eats :c and :d
+
+julia&gt; Model(fw) # Automatically brings a &#39;Species&#39; component.
+Model with 2 components:
+  - Species: 4 (:a, :b, :c, :d)
+  - Foodweb: 3 links
+
+julia&gt; Model(Foodweb([4 =&gt; [2, 1], 2 =&gt; 1])) #  From species indices.
+Model with 2 components:
+  - Species: 4 (:s1, :s2, :s3, :s4)
+  - Foodweb: 3 links</code></pre><p>From a matrix:</p><pre><code class="language-julia-repl hljs">julia&gt; fw = Foodweb([0 0 1; 1 0 1; 0 0 0])
+blueprint for Foodweb with 3 trophic links:
+  A: 3×3 SparseArrays.SparseMatrixCSC{Bool, Int64} with 3 stored entries:
+ ⋅  ⋅  1
+ 1  ⋅  1
+ ⋅  ⋅
+
+julia&gt; Model(fw)
+Model with 2 components:
+  - Species: 3 (:s1, :s2, :s3)
+  - Foodweb: 3 links</code></pre><p><strong>Blueprint Creation from Random Models.</strong></p><p><strong>Cascade</strong> model: specify the desired number of species <code>S</code> and connectance <code>C</code>.</p><pre><code class="language-julia-repl hljs">julia&gt; using Random
+       Random.seed!(12)
+       fw = Foodweb(:cascade; S = 5, C = 0.2)
+blueprint for Foodweb with 5 trophic links:
+  A: 5×5 SparseArrays.SparseMatrixCSC{Bool, Int64} with 5 stored entries:
+ ⋅  1  ⋅  1  1
+ ⋅  ⋅  ⋅  ⋅  ⋅
+ ⋅  ⋅  ⋅  1  ⋅
+ ⋅  ⋅  ⋅  ⋅  1
+ ⋅  ⋅  ⋅  ⋅  ⋅</code></pre><p>Random foodwebs are drawn until the desired connectance is obtained, within a tolerance level defaulted to <code>tol_C = 0.1 * C</code>, modifiable as a keyword argument.</p><p><strong>Niche</strong> model: either specify the connectance <code>C</code> or number of links <code>L</code>.</p><pre><code class="language-julia-repl hljs">julia&gt; fw = Foodweb(:niche; S = 5, C = 0.2) #  From connectance.
+blueprint for Foodweb with 5 trophic links:
+  A: 5×5 SparseArrays.SparseMatrixCSC{Bool, Int64} with 5 stored entries:
+ ⋅  ⋅  ⋅  ⋅  ⋅
+ ⋅  ⋅  ⋅  ⋅  ⋅
+ 1  1  ⋅  ⋅  ⋅
+ ⋅  ⋅  1  ⋅  ⋅
+ 1  1  ⋅  ⋅  ⋅
+
+julia&gt; fw = Foodweb(:niche; S = 5, L = 4) #  From number of links.
+blueprint for Foodweb with 4 trophic links:
+  A: 5×5 SparseArrays.SparseMatrixCSC{Bool, Int64} with 4 stored entries:
+ ⋅  ⋅  ⋅  ⋅  ⋅
+ ⋅  ⋅  ⋅  ⋅  ⋅
+ ⋅  ⋅  ⋅  ⋅  ⋅
+ 1  ⋅  ⋅  ⋅  ⋅
+ 1  1  1  ⋅  ⋅</code></pre><p>The default tolerance levels for the niche model are <code>tol_C = 0.1 * C</code> and <code>tol_L = 0.1 * L</code>, modifiable as keyword arguments.</p><p>For either random model, the following keyword arguments can also be specified:</p><ul><li><code>reject_cycles = false</code> (default): raise to forbid trophic cycles.</li><li><code>reject_if_disconnected = true</code> (default): lower to allow disconnected trophic networks.</li><li><code>max_iterations = 10^5</code> (default): give up if no satisfying network can be found after this number of random trials.</li></ul><p><strong>Properties.</strong></p><p>A model <code>m</code> with a <code>Foodweb</code> has the following properties.</p><ul><li><code>m.A</code> or <code>m.trophic_links</code>: a view into the matrix of trophic links.</li><li><code>m.n_trophic_links</code>: the number of trophic links in the model.</li><li><code>m.trophic_levels</code>: calculate the trophic level of every species in the model.</li><li>Distinguishing between <code>producers</code> (species without outgoing trophic links) and <code>consumers</code> (species with outgoing trophic links):<ul><li><code>m.{producers,consumers}_mask</code>: a boolean vector to select either kind of species.</li><li><code>m.n_{producers,consumers}</code>: count number of species of either kind.</li><li><code>is_{producer,consumer}(m, i)</code>: check whether species <code>i</code> (name or index) is of either kind.</li><li><code>m.{producers,consumer}_indices</code>: iterate over either species kind indices.</li><li><code>m.{producers,consumer}_{sparse,dense}_index</code>: obtain a <span>$species\_name \mapsto species\_index$</span> mapping:<ul><li>the <code>sparse</code> index yields indices valid within the whole collection of species.</li><li>the <code>dense</code> index yields indices only valid within the restricted collection of species of either kind.</li></ul></li></ul></li><li>Distinguishing betwen <code>preys</code> (species with incoming trophic links) and <code>tops</code> predators (species without incoming trophic links) works the same way.</li><li><code>m.producers_links</code>: boolean matrix highlighting potential links between producers.</li><li><code>m.herbivorous_links</code>: highlight only consumer-to-producer trophic links.</li><li><code>m.carnivorous_links</code>: highlight only consumer-to-consumer trophic links.</li></ul><pre><code class="language-julia-repl hljs">julia&gt; m = Model(Foodweb([:a =&gt; :b, :b =&gt; [:c, :d], :d =&gt; :e]));
+
+julia&gt; m.n_trophic_links
+4
+
+julia&gt; m.A
+5×5 EcologicalNetworksDynamics.TrophicLinks:
+ 0  1  0  0  0
+ 0  0  1  1  0
+ 0  0  0  0  0
+ 0  0  0  0  1
+ 0  0  0  0  0
+
+julia&gt; m.trophic_levels
+5-element EcologicalNetworksDynamics.TrophicLevels:
+ 3.5
+ 2.5
+ 1.0
+ 2.0
+ 1.0
+
+julia&gt; m.producers_mask
+5-element EcologicalNetworksDynamics.ProducersMask:
+ 0
+ 0
+ 1
+ 0
+ 1
+
+julia&gt; m.preys_mask
+5-element EcologicalNetworksDynamics.PreysMask:
+ 0
+ 1
+ 1
+ 1
+ 1
+
+julia&gt; m.n_producers, m.n_consumers
+(2, 3)
+
+julia&gt; m.n_tops, m.n_preys
+(1, 4)
+
+julia&gt; is_top(m, 1), is_top(m, 2)
+(true, false)
+
+julia&gt; collect(m.consumers_indices)
+3-element Vector{Int64}:
+ 1
+ 2
+ 4
+
+julia&gt; m.producers_sparse_index
+OrderedCollections.OrderedDict{Symbol, Int64} with 2 entries:
+  :c =&gt; 3
+  :e =&gt; 5
+
+julia&gt; m.producers_dense_index
+OrderedCollections.OrderedDict{Symbol, Int64} with 2 entries:
+  :c =&gt; 1
+  :e =&gt; 2
+
+julia&gt; m.producers_links
+5×5 EcologicalNetworksDynamics.ProducersLinks:
+ 0  0  0  0  0
+ 0  0  0  0  0
+ 0  0  1  0  1
+ 0  0  0  0  0
+ 0  0  1  0  1
+
+julia&gt; m.herbivorous_links
+5×5 EcologicalNetworksDynamics.HerbivorousLinks:
+ 0  0  0  0  0
+ 0  0  1  0  0
+ 0  0  0  0  0
+ 0  0  0  0  1
+ 0  0  0  0  0
+
+julia&gt; m.carnivorous_links
+5×5 EcologicalNetworksDynamics.CarnivorousLinks:
+ 0  1  0  0  0
+ 0  0  0  1  0
+ 0  0  0  0  0
+ 0  0  0  0  0
+ 0  0  0  0  0</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/components/foodweb.jl#L8-L216">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.Model" href="#EcologicalNetworksDynamics.Model"><code>EcologicalNetworksDynamics.Model</code></a> — <span class="docstring-category">Type</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><p>Model is the main object that we hand out to user which contains all the information about the underlying ecological model.</p><p><strong>Create a Model</strong></p><p>The most straightforward way to create a model is to use <a href="#EcologicalNetworksDynamics.default_model-Tuple{Vararg{Union{EcologicalNetworksDynamics.Framework.Blueprint{&lt;inner parms&gt;}, EcologicalNetworksDynamics.Framework.BlueprintSum{&lt;inner parms&gt;}}}}"><code>default_model</code></a>. This function only requires you to specify the trophic network.</p><pre><code class="language-julia hljs">fw = [1 =&gt; 2, 2 =&gt; 3]
+model = default_model(fw)</code></pre><p>This function will help you to create a model with ease, however it relies on default values for the parameters, which are not always suitable for your specific case, even though extracted from the literature.</p><p>To create a model with custom parameters, you can pass other arguments to <code>default_model</code>.</p><pre><code class="language-julia hljs">model = default_model(fw, BodyMass(; Z = 100))</code></pre><p>For instance, the above example creates a model with a body mass distribution with a predator-prey mass ratio of 100.</p><p>It is also possible to create a model manually by adding the components one by one. First, create an empty model:</p><pre><code class="language-julia hljs">m = Model()</code></pre><p>Then add your components one by one. Note that you have to add the components in the right order, as some components depend on others. Moreover, some components are mandatory. Specifically, you need to provide a food web, species body masses, a functional response, metabolic rates and a producer growth function.</p><pre><code class="language-julia hljs">m = Model()
+m += Foodweb([3 =&gt; 2, 2 =&gt; 1])
+m += ClassicResponse(; h = 2, M = BodyMass([0.1, 2, 3]))
+m += LogisticGrowth(; r = 1, K = 10)
+m += Metabolism(:Miele2019)
+m += Mortality(0)</code></pre><p><strong>Read and write properties of the model</strong></p><p>First all properties contained in the model can be listed with:</p><pre><code class="language-julia hljs">properties(m) # Where m is a Model.</code></pre><p>Then, the value of a property can be read with <code>get_&lt;X&gt;</code> where <code>X</code> is the name of the property. For instance, to read mortality rates:</p><pre><code class="language-julia hljs">get_mortality(m) # Equivalent to: m.mortality.</code></pre><p>You can also re-write properties of the model using <code>set_&lt;X&gt;!</code>. However, not all properties can be re-written, because some of them are derived from the others. For instance, many parameters are derived from species body masses, therefore changing body masses would make the model inconsistent. However, terminal properties can be re-written, as the species metabolic rate.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/dedicate_framework_to_model.jl#L5-L78">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="EcologicalNetworksDynamics.Species" href="#EcologicalNetworksDynamics.Species"><code>EcologicalNetworksDynamics.Species</code></a> — <span class="docstring-category">Type</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><p>The Species component adds the most basic nodes compartment into the model: species. There is one node per species, and every species is given a unique name and index. The species ordering specified in this compartment is the reference species ordering.</p><pre><code class="language-julia-repl hljs">julia&gt; sp = Species([&quot;hen&quot;, &quot;fox&quot;, &quot;snake&quot;])
+blueprint for Species:
+  names: 3-element Vector{Symbol}:
+ :hen
+ :fox
+ :snake
+
+julia&gt; m = Model(sp)
+Model with 1 component:
+  - Species: 3 (:hen, :fox, :snake)
+
+julia&gt; Model(Species(5)) # Default names generated.
+Model with 1 component:
+  - Species: 5 (:s1, :s2, :s3, :s4, :s5)</code></pre><p>Typically, the species component is implicitly brought by other blueprints.</p><pre><code class="language-julia-repl hljs">julia&gt; Model(Foodweb([:a =&gt; :b]))
+Model with 2 components:
+  - Species: 2 (:a, :b)
+  - Foodweb: 1 link
+
+julia&gt; Model(BodyMass([4, 5, 6]))
+Model with 2 components:
+  - Species: 3 (:s1, :s2, :s3)
+  - Body masses: [4.0, 5.0, 6.0]</code></pre><p>The species component makes the following properties available to a model <code>m</code>:</p><ul><li><code>m.S</code> or <code>m.richness</code> or <code>m.species_richness</code> or <code>m.n_species</code>: number of species in the model.</li><li><code>m.species_names</code>: list of species name in reference order.</li><li><code>m.species_index</code>: get a <span>$species\_name \mapsto species\_index$</span> mapping.</li></ul><pre><code class="language-julia-repl hljs">julia&gt; (m.S, m.richness, m.species_richness, m.n_species) # All aliases for the same thing.
+(3, 3, 3, 3)
+
+julia&gt; m.species_names
+3-element EcologicalNetworksDynamics.SpeciesNames:
+ :hen
+ :fox
+ :snake
+
+julia&gt; m.species_index
+OrderedCollections.OrderedDict{Symbol, Int64} with 3 entries:
+  :hen   =&gt; 1
+  :fox   =&gt; 2
+  :snake =&gt; 3</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/e537efa6df75e6ae34bfc01de5619a9366e34951/src/components/species.jl#L6-L65">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../man/components/">« Bonus: The Model and its Components (advanced)</a><a class="docs-footer-nextpage" href="../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Friday 28 March 2025 17:20">Friday 28 March 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

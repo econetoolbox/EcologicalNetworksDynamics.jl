@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="50mm"
+   height="50mm"
+   viewBox="0 0 50 50"
+   version="1.1"
+   id="svg5"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2">
+    <marker
+       style="overflow:visible"
+       id="Arrow1"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       markerWidth="4.0606599"
+       markerHeight="6.7071061"
+       viewBox="0 0 4.0606602 6.7071068"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1;stroke-linecap:butt"
+         d="M 3,-3 0,0 3,3"
+         id="path5057"
+         transform="rotate(180,0.125,0)" />
+    </marker>
+    <pattern
+       patternUnits="userSpaceOnUse"
+       width="598.54665"
+       height="44.911775"
+       patternTransform="translate(191.72234,75.905925)"
+       id="pattern406">
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:11.2889px;line-height:normal;font-family:Georgia;-inkscape-font-specification:Georgia;text-align:justify;text-decoration-color:#000000;white-space:pre;inline-size:175.725;display:inline;fill:#fefefe;fill-opacity:1;stroke:none;stroke-width:0.7;stroke-linejoin:bevel;stroke-opacity:1;stop-color:#000000"
+         x="111.34816"
+         y="76.977928"
+         id="text1734"
+         transform="matrix(4.0678949,0,0,4.0678949,-457.26724,-278.23736)"><tspan
+           x="111.34816"
+           y="76.977928"
+           id="tspan813"><tspan
+             style="font-family:'Kohinoor Bangla';-inkscape-font-specification:'Kohinoor Bangla'"
+             id="tspan811">EcologicalNetworksDynamics</tspan></tspan></text>
+    </pattern>
+    <rect
+       x="95.031876"
+       y="245.64844"
+       width="775.49597"
+       height="94.135345"
+       id="rect306" />
+  </defs>
+  <g
+     id="layer1">
+    <path
+       style="fill:#008000;stroke:none;stroke-width:0.308586;stroke-linejoin:bevel;stroke-opacity:1;stop-color:#000000"
+       id="path234"
+       d="M 33.666015,14.767377 A 10.568309,10.865669 0 0 1 23.098901,25.633046 10.568309,10.865669 0 0 1 12.529397,14.769835 10.568309,10.865669 0 0 1 23.094119,3.9017083 10.568309,10.865669 0 0 1 33.666014,14.76246 l -10.568308,0.0049 z" />
+    <path
+       style="fill:#800080;stroke:none;stroke-width:0.354473;stroke-linejoin:bevel;stroke-opacity:1;stop-color:#000000"
+       id="path950"
+       d="M 47.182267,34.831615 A 12.309403,12.309402 0 0 1 34.874256,47.141018 12.309403,12.309402 0 0 1 22.563461,34.8344 12.309403,12.309402 0 0 1 34.868686,22.522214 12.309403,12.309402 0 0 1 47.182266,34.826045 l -12.309402,0.0056 z" />
+    <path
+       style="fill:#aa0000;stroke:none;stroke-width:0.258261;stroke-linejoin:bevel;stroke-opacity:1;stop-color:#000000"
+       id="path952"
+       d="m 20.661683,31.873325 a 8.9683361,8.9683352 0 0 1 -8.967321,8.968335 8.9683361,8.9683352 0 0 1 -8.9693509,-8.966306 8.9683361,8.9683352 0 0 1 8.9652919,-8.970363 8.9683361,8.9683352 0 0 1 8.971379,8.964276 l -8.968335,0.0041 z" />
+    <path
+       style="fill:none;stroke:#fcfcfc;stroke-width:1.85689;stroke-linejoin:bevel;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1);stop-color:#000000"
+       d="M 24.398726,9.9583479 C 64.180098,-6.5373689 37.410434,32.763367 37.410434,32.763367"
+       id="path1949" />
+    <path
+       style="fill:none;stroke:#fcfcfc;stroke-width:1.25364;stroke-linejoin:bevel;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1);stop-color:#000000"
+       d="M 22.042679,16.587586 C 4.6675202,12.702077 11.026952,32.541695 11.026952,32.541695"
+       id="path2935" />
+    <path
+       style="fill:#008000;stroke:none;stroke-width:0.308586;stroke-linejoin:bevel;stroke-opacity:1;stop-color:#000000"
+       id="path2941"
+       d="M 33.666015,14.782984 A 10.568309,10.865669 0 0 1 23.098901,25.648653 10.568309,10.865669 0 0 1 12.529397,14.785442 10.568309,10.865669 0 0 1 23.094119,3.9173152 10.568309,10.865669 0 0 1 33.666014,14.778067 l -10.568308,0.0049 z" />
+  </g>
+</svg>

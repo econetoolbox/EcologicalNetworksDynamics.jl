@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Simulate the Community Dynamics · EcologicalNetworksDynamics.jl</title><meta name="title" content="Simulate the Community Dynamics · EcologicalNetworksDynamics.jl"/><meta property="og:title" content="Simulate the Community Dynamics · EcologicalNetworksDynamics.jl"/><meta property="twitter:title" content="Simulate the Community Dynamics · EcologicalNetworksDynamics.jl"/><meta name="description" content="Documentation for EcologicalNetworksDynamics.jl."/><meta property="og:description" content="Documentation for EcologicalNetworksDynamics.jl."/><meta property="twitter:description" content="Documentation for EcologicalNetworksDynamics.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img class="docs-light-only" src="../../assets/logo.svg" alt="EcologicalNetworksDynamics.jl logo"/><img class="docs-dark-only" src="../../assets/logo-dark.svg" alt="EcologicalNetworksDynamics.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">EcologicalNetworksDynamics.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Welcome</a></li><li><span class="tocitem">Guide</span><ul><li><a class="tocitem" href="../quickstart/">Quick Start</a></li><li><a class="tocitem" href="../foodwebs/">Generate Food Webs</a></li><li><a class="tocitem" href="../simple-models/">Build Simple Models</a></li><li><a class="tocitem" href="../advanced-models/">Build Advanced Models</a></li><li class="is-active"><a class="tocitem" href>Simulate the Community Dynamics</a><ul class="internal"><li><a class="tocitem" href="#Basic-Usage"><span>Basic Usage</span></a></li><li><a class="tocitem" href="#Callbacks"><span>Callbacks</span></a></li><li><a class="tocitem" href="#Choose-a-Specific-Solver"><span>Choose a Specific Solver</span></a></li></ul></li><li><a class="tocitem" href="../output-analysis/">Analyse the Simulated Dynamics</a></li><li><a class="tocitem" href="../components/">Bonus: The Model and its Components (advanced)</a></li></ul></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="../../lib/public/">Public</a></li><li><a class="tocitem" href="../../lib/internals/">Internals</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Guide</a></li><li class="is-active"><a href>Simulate the Community Dynamics</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Simulate the Community Dynamics</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/man/simulate.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Simulate-the-Community-Dynamics"><a class="docs-heading-anchor" href="#Simulate-the-Community-Dynamics">Simulate the Community Dynamics</a><a id="Simulate-the-Community-Dynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Simulate-the-Community-Dynamics" title="Permalink"></a></h1><p>Previous sections tackled how to create a model representing the desired ecological community. We now explain how to simulate the dynamics of this community. In short, we provide a function <code>simulate</code> that takes a model and a time interval as input and returns the temporal trajectory of the community. This function uses the <a href="https://docs.sciml.ai/DiffEqDocs/stable/">DifferentialEquations</a> package to solve the system of ordinary differential equations.</p><h2 id="Basic-Usage"><a class="docs-heading-anchor" href="#Basic-Usage">Basic Usage</a><a id="Basic-Usage-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Usage" title="Permalink"></a></h2><p>Let&#39;s first illustrate how to simulate a simple community of three species.</p><pre><code class="language-julia hljs">using EcologicalNetworksDynamics, Plots
+
+foodweb = Foodweb([3 =&gt; 2, 2 =&gt; 1])
+m = default_model(foodweb)
+B0 = rand(3) # Vector of initial biomasses.
+t = 1_000
+sol = simulate(m, B0, t)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">retcode: Success
+Interpolation: 3rd order Hermite
+t: 32-element Vector{Float64}:
+    0.0
+    0.10124076868347129
+    0.33805764142160505
+    0.6329584309662484
+    0.9720131852255167
+    1.3703784842198512
+    1.8528011249526535
+    2.48578497675111
+    3.294661564987528
+    4.1544362701046555
+    ⋮
+   49.20397673101199
+   62.69742544001846
+   74.07329193659848
+   94.3611198353142
+  117.43163144965729
+  160.879378241591
+  237.21802866320826
+  517.3111833334517
+ 1000.0
+u: 32-element Vector{Vector{Float64}}:
+ [0.669129208752793, 0.4480029300544893, 0.830575659745181]
+ [0.6048596503509015, 0.4441656635950405, 0.8521287881741487]
+ [0.48889015448757955, 0.42108581707626885, 0.9024182668220063]
+ [0.40022639705227375, 0.3732608279440915, 0.9597881735897996]
+ [0.34951639461951706, 0.3115658376822471, 1.011230356694429]
+ [0.32930221894649203, 0.24980464321026905, 1.0479862753445304]
+ [0.33405815621941143, 0.1981323799778418, 1.06411355152442]
+ [0.36345227617120196, 0.15975026188065714, 1.0568005195300587]
+ [0.41483362233357285, 0.13884667342576684, 1.026708738751743]
+ [0.4662716127436351, 0.13483119072426117, 0.9879437805920644]
+ ⋮
+ [0.42089451641879244, 0.18743693329835043, 0.6653664564557752]
+ [0.41833202791463947, 0.1883402956808774, 0.656646989861597]
+ [0.4173879273870114, 0.18867437648131655, 0.6534629117875969]
+ [0.41673887988613134, 0.18890591001917728, 0.6512631346270257]
+ [0.4165661455632415, 0.18896729591152034, 0.6506796308797194]
+ [0.41652259231340455, 0.18898286341862516, 0.650532349287538]
+ [0.4165246431524004, 0.18898212979181633, 0.650539264395888]
+ [0.4165242940226559, 0.1889822541699033, 0.6505380861111068]
+ [0.41652434940197686, 0.1889822344192836, 0.6505382733782862]</code></pre><p>We can access the solution of the simulation with the output of the <code>simulate</code> function. We list below some useful properties of the solution:</p><pre><code class="language-julia hljs">sol.t # Time steps.
+sol.u # Biomasses at each time step.
+sol.u[1] # Biomasses of the first time step.
+sol.u[end] # Biomasses of the last time step.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+ 0.41652434940197686
+ 0.1889822344192836
+ 0.6505382733782862</code></pre><p>The solution can be plotted with the <code>plot</code> function from the Plots package.</p><pre><code class="language-julia hljs">plot(sol)</code></pre><p><img src="../simulation.svg" alt="Figure of the simulation"/></p><p>The duration of the simulation can be changed with, for instance to reduce the simulation time to 100 time units:</p><pre><code class="language-julia hljs">smaller_t = 100
+sol = simulate(m, B0, smaller_t)
+sol.t[end] # The last time step.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100.0</code></pre><h2 id="Callbacks"><a class="docs-heading-anchor" href="#Callbacks">Callbacks</a><a id="Callbacks-1"></a><a class="docs-heading-anchor-permalink" href="#Callbacks" title="Permalink"></a></h2><p>We will now go through some advanced features of the <code>simulate</code> function. First, the <code>callback</code> keyword argument allows specifying a function that will be called at each time step of the simulation. We provide a built-in callback <code>extinction_callback</code> which extinguishes the species whose biomass falls below a given threshold. This threshold is set by default to <code>1e-12</code>, but can be changed. Moreover, species extinctions can be printed to the console with the <code>verbose</code> keyword argument.</p><pre><code class="language-julia hljs">foodweb = Foodweb([3 =&gt; 1, 2 =&gt; 1]) # Two predators feeding on one prey.
+m = default_model(foodweb, Metabolism([0, 0.1, 100.0])) # Predator (3) has a too high metabolic rate to survive.
+sol = simulate(m, [1, 1, 1], 100_000; callback = nothing) # No callback.
+sol[end]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+ 0.18898223650461363
+ 0.6897057785564755
+ 5.474600390482506e-175</code></pre><pre><code class="language-julia hljs">callback = extinction_callback(m, 1e-6; verbose = true)
+sol = simulate(m, [1, 1, 1], 100_000; callback) # High extinction threshold.
+sol[end]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+ 0.18894484615604795
+ 0.6897503358890235
+ 0.0</code></pre><pre><code class="language-julia hljs">callback = extinction_callback(m, 1e-12; verbose = true)
+sol = simulate(m, [1, 1, 1], 100_000; callback) # Low extinction threshold.
+sol[end]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+ 0.18898223650461363
+ 0.6897057785564753
+ 0.0</code></pre><p>Other callback functions are available in the <a href="https://docs.sciml.ai/DiffEqCallbacks/stable/">DiffEqCallbacks</a> package, and can be used in the same way.</p><h2 id="Choose-a-Specific-Solver"><a class="docs-heading-anchor" href="#Choose-a-Specific-Solver">Choose a Specific Solver</a><a id="Choose-a-Specific-Solver-1"></a><a class="docs-heading-anchor-permalink" href="#Choose-a-Specific-Solver" title="Permalink"></a></h2><p>Depending on your needs, you may want to choose a specific solver for the simulation. As we use the <code>solve</code> function of the <a href="https://docs.sciml.ai/DiffEqDocs/stable/">DifferentialEquations</a> package, we can pass any solver available in this package (see <a href="https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/">the list of available solvers</a>). Indeed, we allow the user to pass any keyword argument of the <code>solve</code> function to the <code>simulate</code> function.</p><pre><code class="language-julia hljs">import DifferentialEquations: Tsit5
+
+sol = simulate(m, [1, 1, 1], 1_000; alg = Tsit5())
+sol.alg</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Tsit5(; stage_limiter! = trivial_limiter!, step_limiter! = trivial_limiter!, thread = static(false),)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../advanced-models/">« Build Advanced Models</a><a class="docs-footer-nextpage" href="../output-analysis/">Analyse the Simulated Dynamics »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.9.0 on <span class="colophon-date" title="Friday 28 March 2025 17:20">Friday 28 March 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
