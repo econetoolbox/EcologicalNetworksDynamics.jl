@@ -8,8 +8,10 @@ using JuliaFormatter
 root = pkgdir(EcologicalNetworksDynamics)
 
 exclude = [
-    "README.md", # Not formatted according to JuliaFormatter.
-    "CONTRIBUTING.md", # Not formatted according to JuliaFormatter.
+    # Not formatted according to JuliaFormatter.
+    "README.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
     # Wait on https://github.com/JuliaDocs/Documenter.jl/issues/2025 or the end of boost warnings.
     "docs/src/man/boost.md",
     # Wait on https://github.com/JuliaDocs/Documenter.jl/issues/1420.
