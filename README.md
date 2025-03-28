@@ -1,6 +1,6 @@
 <p align="center" width="100%">
-    <img height="150" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/logo-and-name.svg#gh-light-mode-only">
-    <img height="150" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/main/docs/src/assets/logo-and-name-dark.svg#gh-dark-mode-only">
+    <img height="150" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/doc/docs/src/assets/logo-and-name.svg#gh-light-mode-only">
+    <img height="150" src="https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/blob/doc/docs/src/assets/logo-and-name-dark.svg#gh-dark-mode-only">
 </p>
 
 EcologicalNetworksDynamics is a Julia package that simulates species biomass dynamics
@@ -9,7 +9,7 @@ EcologicalNetworksDynamics makes things easy for beginners
 while remaining flexible for adventurous or experienced users
 who would like to tweak the model.
 
-[![docs](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/actions/workflows/docs.yml/badge.svg?branch=main)](https://econetoolbox.github.io/EcologicalNetworksDynamics.jl/)
+[![docs](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/actions/workflows/docs.yml/badge.svg?branch=doc)](https://econetoolbox.github.io/EcologicalNetworksDynamics.jl/)
 [![tests](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/actions/workflows/tests.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14609708.svg)](https://doi.org/10.5281/zenodo.14609708)

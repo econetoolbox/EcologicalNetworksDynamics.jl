@@ -11,12 +11,12 @@ on:
       - synchronize
       - reopened
       - ready_for_review
-    path-ignore:
-      - 'CONTRIBUTING.md'
-      - 'LICENSE'
-      - 'README.md'
-      - 'docs/**'
-      - 'use_cases/**'
+    paths:
+      - Project.toml
+      - src/**
+      - test/**
+      - .JuliaFormatter.toml
+      - .github/workflows/tests.yml
   push:
     branches:
       - main
