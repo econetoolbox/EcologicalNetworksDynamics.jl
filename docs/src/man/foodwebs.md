@@ -50,21 +50,78 @@ but this is mostly useful for simple and small 'toy systems'.
 If you want to work with [`Foodweb`](@ref)s with a large size and a realistic structure,
 it is more suitable to create the [`Foodweb`](@ref) using structural models.
 
-## From a Structural Model
+## Structural Models
 
-You can use the niche, or the cascade model to generate a food web.
-The niche model requires a number of species, and either a connectance `C` or a number of links `L`.
+You can generate a [`Foodweb`](@ref) using either the **niche model** or the **cascade model**.
+
+### Niche Model
+
+The niche model requires:
+
+  - `S`: Number of species.
+  - Either `C` (connectance) **or** `L` (number of links).
 
 ```@example econetd
 fw1 = Foodweb(:niche; S = 5, C = 0.2)
-```
-
-```@example econetd
 fw2 = Foodweb(:niche; S = 5, L = 5)
 ```
 
-The cascade model requires a number of species and a connectance:
+### Cascade Model
+
+The cascade model requires:
+
+  - `S`: Number of species.
+  - `C`: Connectance.
 
 ```@example econetd
 fw3 = Foodweb(:cascade; S = 5, C = 0.2)
+```
+
+### Tolerance and Constraints
+
+By default, the generated [`Foodweb`](@ref) ensures the number of links (`L`) or
+connectance (`C`) falls within a **10% tolerance** of the specified value:
+
+  - If `L = 20`, the output will have **18–22 links**.
+  - If `C` is given, the tolerance is similarly applied to the connectance.
+
+#### Example: Default Tolerance
+
+```@example econetd
+fw4 = Foodweb(:niche; S = 15, L = 15)
+13 <= sum(fw4.A) <= 18  # 15 links ±10% (rounded)  
+```
+
+#### Custom Tolerance
+
+Override defaults with `tol_L` (for `L`) or `tol_C` (for `C`):
+
+```@example econetd
+fw5 = Foodweb(:niche; S = 15, L = 15, tol_L = 0)  # Strictly 15 links  
+sum(fw5.A) == 15
+```
+
+### Advanced Control
+
+#### Trophic Structure Validation
+
+By default, the model:
+
+  - **Rejects disconnected species** (`reject_if_disconnected = true`).
+  - **Allows cycles** (`reject_cycles = false`; e.g., cannibalism).
+
+##### Options:
+
+```@example econetd
+fw6 = Foodweb(:niche; S = 15, L = 15, reject_cycles = false)  # Allow cycles  
+fw7 = Foodweb(:niche; S = 15, L = 15, reject_if_disconnected = false)  # Allow disconnected species  
+```
+
+#### Algorithm Iterations
+
+The default maximum iterations (`10^5`) can be increased for challenging
+parameter combinations (e.g., near boundary conditions or strict tolerances):
+
+```@example econetd
+fw8 = Foodweb(:niche; S = 15, L = 15, max_iterations = 10^6)
 ```
