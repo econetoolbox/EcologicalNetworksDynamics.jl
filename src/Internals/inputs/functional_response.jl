@@ -520,7 +520,9 @@ function (F::FunctionalResponse)(B)
     @check_equal_richness length(B) S
 
     # Fill functional response matrix
-    F_matrix = spzeros(S, S)
+    # F_matrix = spzeros(S, S)
+    F_matrix = Array{Any}(undef, S, S)
+    fill!(F_matrix, 0)
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
         F_matrix[i, j] = F(B, i, j)

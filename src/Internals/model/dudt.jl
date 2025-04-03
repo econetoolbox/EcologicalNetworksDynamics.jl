@@ -37,3 +37,31 @@ function dudt!(du, u, p, _)
         u[sp] = 0.0
     end
 end
+
+function dudt(u, params)
+    S = richness(params)
+    B = Any[B_i for B_i in u[species_indices(params)]]
+    response_matrix = params.functional_response(u[species_indices(params)], params.network)
+    network = params.network
+    growth = Any[0 for _ in 1:S]
+    du = Any[0 for _ in 1:S]
+
+    # Compute species biomass dynamics.
+    for i in species_indices(params)
+        growth[i] = params.producer_growth(i, u, params)
+        eating, being_eaten = consumption(i, B, params, response_matrix)
+        metabolism_loss = metabolic_loss(i, B, params)
+        natural_death = natural_death_loss(i, B, params)
+        net_growth_rate = growth[i] + eating - metabolism_loss
+        net_growth_rate = effect_competition(net_growth_rate, i, B, network)
+        du[i] = net_growth_rate - being_eaten - natural_death
+    end
+
+    # Compute nutrient abundance dynamics.
+    for (i_nutrient, i_u) in enumerate(nutrient_indices(params))
+        n = u[i_u]
+        du[i_u] = nutrient_dynamics(params, B, i_nutrient, n, growth)
+    end
+
+    du
+end
