@@ -3,7 +3,7 @@
 
     # Bioenergetic - default
     p = ModelParameters(foodweb)
-    B = [1, 1, 1]
+    B = [1.0, 1, 1]
     fᵣmatrix = p.functional_response(B)
     eating1, being_eaten1 = Internals.consumption(1, B, p, fᵣmatrix)
     eating2, being_eaten2 = Internals.consumption(2, B, p, fᵣmatrix)
@@ -12,7 +12,7 @@
     @test (eating2 > 0) & (eating3 > 0) # species 2 & 3 eat
     @test being_eaten3 ≈ 0 atol = 1e-5 # species 3 is not eaten
     @test being_eaten1 > being_eaten2 > 0 # species 1 & 2 are eaten
-    B₂ = [2, 1, 1] # increasing producer biomass...
+    B₂ = [2.0, 1, 1] # increasing producer biomass...
     fᵣmatrix₂ = p.functional_response(B₂)
     eating₂1, being_eaten₂1 = Internals.consumption(1, B₂, p, fᵣmatrix₂)
     eating₂2, being_eaten₂2 = Internals.consumption(2, B₂, p, fᵣmatrix₂)
@@ -38,7 +38,7 @@ end
 
     # Classic default
     p = ModelParameters(foodweb; functional_response = ClassicResponse(foodweb; aᵣ = 0.5))
-    B = [1, 1, 1]
+    B = [1.0, 1, 1]
     fᵣmatrix = p.functional_response(B, foodweb)
     eating1, being_eaten1 = Internals.consumption(1, B, p, fᵣmatrix)
     eating2, being_eaten2 = Internals.consumption(2, B, p, fᵣmatrix)
@@ -47,7 +47,7 @@ end
     @test (eating2 > 0) & (eating3 > 0) # species 2 & 3 eat
     @test being_eaten3 ≈ 0 atol = 1e-5 # species 3 is not eaten
     @test being_eaten1 > being_eaten2 > 0 # species 1 & 2 are eaten
-    B₂ = [2, 1, 1] # increasing producer biomass...
+    B₂ = [2.0, 1, 1] # increasing producer biomass...
     fᵣmatrix₂ = p.functional_response(B₂, foodweb)
     eating₂1, being_eaten₂1 = Internals.consumption(1, B₂, p, fᵣmatrix₂)
     eating₂2, being_eaten₂2 = Internals.consumption(2, B₂, p, fᵣmatrix₂)
@@ -75,7 +75,7 @@ end
     multiplex_network = MultiplexNetwork(foodweb) # by default no non-trophic interactions
     response = ClassicResponse(multiplex_network; aᵣ = 0.5)
     p = ModelParameters(multiplex_network; functional_response = response)
-    B = [1, 1, 1]
+    B = [1.0, 1, 1]
     fᵣmatrix = p.functional_response(B, multiplex_network)
     eating1, being_eaten1 = Internals.consumption(1, B, p, fᵣmatrix)
     eating2, being_eaten2 = Internals.consumption(2, B, p, fᵣmatrix)
@@ -84,7 +84,7 @@ end
     @test (eating2 > 0) & (eating3 > 0) # species 2 & 3 eat
     @test being_eaten3 ≈ 0 atol = 1e-5 # species 3 is not eaten
     @test being_eaten1 > being_eaten2 > 0 # species 1 & 2 are eaten
-    B₂ = [2, 1, 1] # increasing producer biomass...
+    B₂ = [2.0, 1, 1] # increasing producer biomass...
     fᵣmatrix₂ = p.functional_response(B₂, multiplex_network)
     eating₂1, being_eaten₂1 = Internals.consumption(1, B₂, p, fᵣmatrix₂)
     eating₂2, being_eaten₂2 = Internals.consumption(2, B₂, p, fᵣmatrix₂)
@@ -138,7 +138,7 @@ end
 
     # Bioenergetic - default
     p = ModelParameters(foodweb; functional_response = LinearResponse(foodweb))
-    B = [1, 1, 1]
+    B = [1.0, 1, 1]
     fᵣmatrix = p.functional_response(B)
     eating1, being_eaten1 = Internals.consumption(1, B, p, fᵣmatrix)
     eating2, being_eaten2 = Internals.consumption(2, B, p, fᵣmatrix)
@@ -150,7 +150,7 @@ end
     @test being_eaten2 == 0.5
     @test being_eaten1 == 1.5
 
-    B₂ = [3, 2, 1] # increasing producer biomass...
+    B₂ = [3.0, 2, 1] # increasing producer biomass...
     fᵣmatrix₂ = p.functional_response(B₂)
     eating1, being_eaten1 = Internals.consumption(1, B₂, p, fᵣmatrix₂)
     eating2, being_eaten2 = Internals.consumption(2, B₂, p, fᵣmatrix₂)

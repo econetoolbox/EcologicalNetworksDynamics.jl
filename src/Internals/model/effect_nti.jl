@@ -7,7 +7,7 @@ function effect_competition(G_net, i, B, network::MultiplexNetwork)
     isproducer(i, network) || return G_net
     c0 = network.layers[:competition].intensity
     competitors = network.layers[:competition].A[:, i] # sp competing for space with sp i
-    δG_net = c0 * sum(competitors .* B)
+    δG_net = c0 * sum(B .* competitors)
     network.layers[:competition].f(G_net, δG_net)
 end
 effect_competition(G_net, _, _, _::FoodWeb) = G_net
@@ -33,7 +33,7 @@ function effect_refuge(aᵣ, B, network::MultiplexNetwork)
     f_refuge = network.layers[:refuge].f
     S = richness(A_refuge)
     prey = preys(aᵣ)
-    aᵣ_refuge = spzeros(Float64, S, S)
+    aᵣ_refuge = zeros(eltype(B), S, S)
     for i in prey
         providing_refuge = A_refuge[:, i] # species providing a refuge to 'prey'
         δaᵣ = r0 * sum(providing_refuge .* B)

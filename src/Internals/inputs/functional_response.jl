@@ -520,7 +520,7 @@ function (F::FunctionalResponse)(B)
     @check_equal_richness length(B) S
 
     # Fill functional response matrix
-    F_matrix = spzeros(S, S)
+    F_matrix = zeros(eltype(B), S, S)
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
         F_matrix[i, j] = F(B, i, j)
@@ -537,7 +537,7 @@ function (F::ClassicResponse)(B, network::FoodWeb)
     @check_equal_richness length(B) S
 
     # Fill functional response matrix
-    F_matrix = spzeros(S, S)
+    F_matrix = zeros(eltype(B), S, S)
     M = network.M
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
@@ -556,7 +556,7 @@ function (F::ClassicResponse)(B, network::MultiplexNetwork)
     aᵣ = effect_refuge(F.aᵣ, B, network)
 
     # Fill functional response matrix
-    F_matrix = spzeros(S, S)
+    F_matrix = zeros(eltype(B), S, S)
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
         F_matrix[i, j] = F(B, i, j, aᵣ, network)
