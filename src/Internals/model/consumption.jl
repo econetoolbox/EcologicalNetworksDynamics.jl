@@ -20,8 +20,13 @@ function consumption(::BioenergeticResponse, i, B, params::ModelParameters, fᵣ
     e = params.biorates.e # assimilation efficiency
 
     # Compute consumption terms
-    eating = x[i] * y[i] * B[i] * sum(fᵣmatrix[i, prey])
-    being_eaten = sum(x[pred] .* y[pred] .* B[pred] .* fᵣmatrix[pred, i] ./ e[pred, i])
+    f_prey = fᵣmatrix[i, prey]
+    eating = isempty(f_prey) ? 0 : x[i] * y[i] * B[i] * sum(f_prey)
+    being_eaten = 0
+    for sp in pred
+        being_eaten += x[sp] * y[sp] * B[sp] * fᵣmatrix[sp, i] / e[sp, i]
+    end
+    # being_eaten = sum(x[pred] .* y[pred] .* B[pred] .* fᵣmatrix[pred, i] ./ e[pred, i])
     eating, being_eaten
 end
 
@@ -128,8 +133,8 @@ function consumption(
     e = params.biorates.e
 
     # Compute consumption terms
-    eating = B[i] * sum(e[i, prey] .* fᵣmatrix[i, prey])
-    being_eaten = sum(B[pred] .* fᵣmatrix[pred, i])
+    eating = isempty(prey) ? 0 : B[i] * sum([e[i, sp] * fᵣmatrix[i, sp] for sp in prey])
+    being_eaten = isempty(pred) ? 0 : sum([B[sp] * fᵣmatrix[sp, i] for sp in pred])
     eating, being_eaten
 end
 # Code generation version(s) (raw) (↑ ↑ ↑ DUPLICATED FROM ABOVE ↑ ↑ ↑).
