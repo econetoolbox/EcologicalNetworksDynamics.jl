@@ -20,6 +20,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - Project.toml
+      - src/**
+      - test/**
+      - .JuliaFormatter.toml
+      - .github/workflows/tests.yml
 
 # https://github.com/julia-actions/julia-runtest
 permissions:
