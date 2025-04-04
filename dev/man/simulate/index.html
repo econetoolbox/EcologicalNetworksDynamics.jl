@@ -7,54 +7,54 @@ B0 = rand(3) # Vector of initial biomasses.
 t = 1_000
 sol = simulate(m, B0, t)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">retcode: Success
 Interpolation: 3rd order Hermite
-t: 32-element Vector{Float64}:
+t: 37-element Vector{Float64}:
     0.0
-    0.12055811591670786
-    0.3991221333920072
-    0.7926323958305388
-    1.403130230665747
-    1.9800612409455605
-    2.75183840196567
-    3.618139278890615
-    4.640043812334788
-    5.799451337197605
+    0.0893046973306578
+    0.2543704634170648
+    0.4476808040190955
+    0.7042126611131245
+    1.0676040579400243
+    1.4702212250092703
+    2.0118295421563563
+    2.6446883425854306
+    3.4216185585320815
     ⋮
-   56.53524701352957
-   64.32616568038257
-   75.61298016650902
-   92.3862001867837
-  119.36107476352576
-  175.6084936621361
-  302.12118144647684
-  674.776812128089
+   62.559735580999835
+   71.76384003148556
+   84.684292420364
+  104.61272123657251
+  131.22029689272821
+  176.4814202424337
+  276.2957519171365
+  608.6933300828676
  1000.0
-u: 32-element Vector{Vector{Float64}}:
- [0.20717317365338728, 0.3386314846228249, 0.7653214520467042]
- [0.20883724750544513, 0.3139287108842623, 0.7781354676222406]
- [0.21686191516948292, 0.26566952056461474, 0.7999871216488541]
- [0.23571277590333417, 0.2160622788318625, 0.815497673665392]
- [0.2765619490561895, 0.1700464501576508, 0.8163149885599358]
- [0.3223051708168747, 0.14814067688661844, 0.8035618350938051]
- [0.3843124867065084, 0.13781597078387395, 0.778944771259831]
- [0.44084207750963894, 0.1414674622205067, 0.7507386033767389]
- [0.4757526830021017, 0.15631476237284672, 0.7243563340950598]
- [0.4759596429944772, 0.1753972740118515, 0.7075271470313683]
+u: 37-element Vector{Vector{Float64}}:
+ [0.4118674060453822, 0.6756183990877278, 0.12941553786801596]
+ [0.36155935086621527, 0.6898338370808441, 0.13433746541862487]
+ [0.29082195770590513, 0.703376194332363, 0.14411474947493375]
+ [0.2362938711828531, 0.702604703103685, 0.1565709976746376]
+ [0.1933498872912498, 0.6836733226857434, 0.17455486060402628]
+ [0.16255064384872228, 0.6380610846414618, 0.202340328476311]
+ [0.14823091416187184, 0.5759580771496242, 0.23523155681755573]
+ [0.14494722427585843, 0.4878561277676562, 0.2800314183904344]
+ [0.15432081074357984, 0.39263174530766715, 0.3271974873966053]
+ [0.17903534213015768, 0.3012586878446336, 0.3693261586090291]
  ⋮
- [0.41749581961885157, 0.18867952162095938, 0.6530853492053703]
- [0.4169190227737256, 0.18882987104777735, 0.652141439422244]
- [0.4167743655514945, 0.18889950113000212, 0.6512947825994897]
- [0.41659277311187676, 0.1889549276576681, 0.6507907066791581]
- [0.4165344891115207, 0.18897928002797276, 0.65057063411203]
- [0.41652330093804685, 0.18898256806230485, 0.65053455656597]
- [0.41652456498470364, 0.18898215649625225, 0.6505390229772481]
- [0.4165243117193159, 0.18898224791663149, 0.6505381456911176]
- [0.4165243484252027, 0.18898223476698087, 0.6505382700727373]</code></pre><p>We can access the solution of the simulation with the output of the <code>simulate</code> function. We list below some useful properties of the solution:</p><pre><code class="language-julia hljs">sol.t # Time steps.
+ [0.41372697591971, 0.18991973008133906, 0.6413924482499089]
+ [0.41503658077116484, 0.18953805814992727, 0.6454071940707571]
+ [0.4158659192159939, 0.18921037738806587, 0.6483310838636664]
+ [0.4163561894380674, 0.18904360436960285, 0.6499707380502244]
+ [0.4165018070715581, 0.18899020171135178, 0.6504605824459283]
+ [0.41652552230295314, 0.18898179562890235, 0.6505424873271627]
+ [0.41652409796000167, 0.1889823264028421, 0.650537414781329]
+ [0.41652438089029553, 0.18898222316008392, 0.6505383797589629]
+ [0.4165243384772354, 0.18898223831677236, 0.6505382364339435]</code></pre><p>We can access the solution of the simulation with the output of the <code>simulate</code> function. We list below some useful properties of the solution:</p><pre><code class="language-julia hljs">sol.t # Time steps.
 sol.u # Biomasses at each time step.
 sol.u[1] # Biomasses of the first time step.
 sol.u[end] # Biomasses of the last time step.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
- 0.4165243484252027
- 0.18898223476698087
- 0.6505382700727373</code></pre><p>The solution can be plotted with the <code>plot</code> function from the Plots package.</p><pre><code class="language-julia hljs">plot(sol)</code></pre><p><img src="../simulation.svg" alt="Figure of the simulation"/></p><p>The duration of the simulation can be changed with, for instance to reduce the simulation time to 100 time units:</p><pre><code class="language-julia hljs">smaller_t = 100
+ 0.4165243384772354
+ 0.18898223831677236
+ 0.6505382364339435</code></pre><p>The solution can be plotted with the <code>plot</code> function from the Plots package.</p><pre><code class="language-julia hljs">plot(sol)</code></pre><p><img src="../simulation.svg" alt="Figure of the simulation"/></p><p>The duration of the simulation can be changed with, for instance to reduce the simulation time to 100 time units:</p><pre><code class="language-julia hljs">smaller_t = 100
 sol = simulate(m, B0, smaller_t)
 sol.t[end] # The last time step.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100.0</code></pre><h2 id="Callbacks"><a class="docs-heading-anchor" href="#Callbacks">Callbacks</a><a id="Callbacks-1"></a><a class="docs-heading-anchor-permalink" href="#Callbacks" title="Permalink"></a></h2><p>We will now go through some advanced features of the <code>simulate</code> function. First, the <code>callback</code> keyword argument allows specifying a function that will be called at each time step of the simulation. We provide a built-in callback <code>extinction_callback</code> which extinguishes the species whose biomass falls below a given threshold. This threshold is set by default to <code>1e-12</code>, but can be changed.</p><pre><code class="language-julia hljs">foodweb = Foodweb([3 =&gt; 1, 2 =&gt; 1]) # Two predators feeding on one prey.
 m = default_model(foodweb, Metabolism([0, 0.1, 100.0])) # Predator (3) has a too high metabolic rate to survive.
@@ -75,4 +75,4 @@ sol[end]</code></pre><pre class="documenter-example-output"><code class="nohighl
  0.0</code></pre><p>Other callback functions are available in the <a href="https://docs.sciml.ai/DiffEqCallbacks/stable/">DiffEqCallbacks</a> package, and can be used in the same way.</p><h2 id="Choose-a-Specific-Solver"><a class="docs-heading-anchor" href="#Choose-a-Specific-Solver">Choose a Specific Solver</a><a id="Choose-a-Specific-Solver-1"></a><a class="docs-heading-anchor-permalink" href="#Choose-a-Specific-Solver" title="Permalink"></a></h2><p>Depending on your needs, you may want to choose a specific solver for the simulation. As we use the <code>solve</code> function of the <a href="https://docs.sciml.ai/DiffEqDocs/stable/">DifferentialEquations</a> package, we can pass any solver available in this package (see <a href="https://docs.sciml.ai/DiffEqDocs/stable/solvers/ode_solve/">the list of available solvers</a>). Indeed, we allow the user to pass any keyword argument of the <code>solve</code> function to the <code>simulate</code> function.</p><pre><code class="language-julia hljs">import DifferentialEquations: Tsit5
 
 sol = simulate(m, [1, 1, 1], 1_000; alg = Tsit5())
-sol.alg</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Tsit5(; stage_limiter! = trivial_limiter!, step_limiter! = trivial_limiter!, thread = static(false),)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../advanced-models/">« Build Advanced Models</a><a class="docs-footer-nextpage" href="../output-analysis/">Analyse the Simulated Dynamics »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.1 on <span class="colophon-date" title="Friday 4 April 2025 09:56">Friday 4 April 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+sol.alg</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Tsit5(; stage_limiter! = trivial_limiter!, step_limiter! = trivial_limiter!, thread = static(false),)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../advanced-models/">« Build Advanced Models</a><a class="docs-footer-nextpage" href="../output-analysis/">Analyse the Simulated Dynamics »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.1 on <span class="colophon-date" title="Friday 4 April 2025 10:06">Friday 4 April 2025</span>. Using Julia version 1.11.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
