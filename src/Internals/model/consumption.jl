@@ -133,10 +133,8 @@ function consumption(
     e = params.biorates.e
 
     # Compute consumption terms
-    f_prey = fᵣmatrix[i, prey]
-    eating = isempty(f_prey) ? 0 : B[i] * sum(e[i, prey] .* fᵣmatrix[i, prey])
-    f_pred = fᵣmatrix[pred, i]
-    being_eaten = isempty(f_pred) ? 0 : sum(B[pred] .* f_pred)
+    eating = isempty(prey) ? 0 : B[i] * sum([e[i, sp] * fᵣmatrix[i, sp] for sp in prey])
+    being_eaten = isempty(pred) ? 0 : sum([B[sp] * fᵣmatrix[sp, i] for sp in pred])
     eating, being_eaten
 end
 # Code generation version(s) (raw) (↑ ↑ ↑ DUPLICATED FROM ABOVE ↑ ↑ ↑).

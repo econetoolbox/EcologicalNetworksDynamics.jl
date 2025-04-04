@@ -539,7 +539,8 @@ function (F::ClassicResponse)(B, network::FoodWeb)
     @check_equal_richness length(B) S
 
     # Fill functional response matrix
-    F_matrix = spzeros(S, S)
+    F_matrix = Array{Any}(undef, S, S)
+    fill!(F_matrix, 0)
     M = network.M
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
