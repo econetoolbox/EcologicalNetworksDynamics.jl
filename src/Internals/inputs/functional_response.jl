@@ -379,8 +379,11 @@ end
 function (F::ClassicResponse)(B, i, j, aᵣ, network::MultiplexNetwork)
     # Compute numerator and denominator.
     num = F.ω[i, j] * aᵣ[i, j] * abs(B[j])^F.h
+    S = size(aᵣ, 1)
     denom =
-        1 + (F.c[i] * B[i]) + sum(aᵣ[i, :] .* F.hₜ[i, :] .* F.ω[i, :] .* (abs.(B) .^ F.h))
+        1 +
+        (F.c[i] * B[i]) +
+        sum(aᵣ[i, j] * F.hₜ[i, j] * F.ω[i, j] * (abs(B[j])^F.h) for j in 1:S)
 
     # Add interspecific predator interference to denominator.
     A_interference = network.layers[:interference].A
@@ -559,7 +562,8 @@ function (F::ClassicResponse)(B, network::MultiplexNetwork)
     aᵣ = effect_refuge(F.aᵣ, B, network)
 
     # Fill functional response matrix
-    F_matrix = spzeros(S, S)
+    F_matrix = Array{Any}(undef, S, S)
+    fill!(F_matrix, 0)
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
         F_matrix[i, j] = F(B, i, j, aᵣ, network)
