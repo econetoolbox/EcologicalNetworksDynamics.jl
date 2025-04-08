@@ -39,7 +39,7 @@ function dudt!(du, u, p, _)
 end
 
 function dudt(u, params)
-    S = richness(params)
+    S = total_richness(params)
     B = Any[B_i for B_i in u[species_indices(params)]]
     response_matrix = params.functional_response(u[species_indices(params)], params.network)
     network = params.network
