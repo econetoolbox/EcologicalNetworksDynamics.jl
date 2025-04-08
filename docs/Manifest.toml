@@ -2,7 +2,7 @@
 
 julia_version = "1.11.4"
 manifest_format = "2.0"
-project_hash = "8f8d822ad04600a8c29954224e1e024b8555a744"
+project_hash = "06ea1de64cb97ca1285e9e107096d31b070f2b48"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -686,11 +686,19 @@ git-tree-sha1 = "e3290f2d49e661fbd94046d7e3726ffcb2d41053"
 uuid = "5ae413db-bbd1-5e63-b57d-d24a61df00f5"
 version = "2.2.4+0"
 
+[[deps.EcoNetDynOutputs]]
+deps = ["EcologicalNetworksDynamics", "ForwardDiff", "LinearAlgebra"]
+git-tree-sha1 = "8ad3bab1a52c90a8d75a768ba090df6629d779b7"
+repo-rev = "dev"
+repo-url = "https://github.com/econetoolbox/EcoNetDynOutputs.jl"
+uuid = "9b7c96af-00f4-4809-8f3b-e928a99f2955"
+version = "0.1.0"
+
 [[deps.EcologicalNetworksDynamics]]
 deps = ["Crayons", "Decimals", "DiffEqBase", "DiffEqCallbacks", "DifferentialEquations", "Distributions", "Documenter", "Graphs", "LinearAlgebra", "MacroTools", "Mangal", "OrderedCollections", "SciMLBase", "SparseArrays", "Statistics", "StringCases"]
 path = ".."
 uuid = "2fd9189a-c387-4076-88b7-22b33b5a4388"
-version = "0.2.1"
+version = "0.3.0"
 
 [[deps.EnumX]]
 git-tree-sha1 = "bddad79635af6aec424f53ed8aad5d7555dc6f00"
