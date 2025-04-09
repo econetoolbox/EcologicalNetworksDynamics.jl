@@ -65,3 +65,5 @@ function dudt(u, params)
 
     du
 end
+
+dudt_per_capita(u, params) = dudt(u, params) ./ u
