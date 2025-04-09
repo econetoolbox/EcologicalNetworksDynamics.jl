@@ -28,6 +28,7 @@ makedocs(;
             "Build Advanced Models" => "man/advanced-models.md",
             "Simulate the Community Dynamics" => "man/simulate.md",
             "Analyse the Simulated Dynamics" => "man/output-analysis.md",
+            "Stability Analysis" => "man/stability.md",
         ],
         #  "Tutorials" => [
         #  "Paradox of enrichment" => "example/paradox_enrichment.md",
