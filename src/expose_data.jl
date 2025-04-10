@@ -395,13 +395,13 @@ macro expose_data(
         # Pick correct supertype.
 
         Sup = if nodes && write
-            NodesWriteView
+            sparse ? SparseNodesWriteView : NodesWriteView
         elseif edges && write
-            EdgesWriteView
+            sparse ? SparseEdgesWriteView : EdgesWriteView
         elseif nodes
-            NodesView
+            sparse ? SparseNodesView : NodesView
         elseif edges
-            EdgesView
+            sparse ? SparseEdgesView : EdgesView
         else
             throw("Unreachable.")
         end

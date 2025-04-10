@@ -11,6 +11,7 @@ module ProducersCompetition_
 include("blueprint_modules.jl")
 include("blueprint_modules_identifiers.jl")
 import .EN: Foodweb, _Foodweb
+import .EN: Topologies as G
 
 #-------------------------------------------------------------------------------------------
 mutable struct Raw <: Blueprint
@@ -30,7 +31,23 @@ function F.late_check(raw, bp::Raw)
 end
 
 F.expand!(raw, bp::Raw) = expand!(raw, bp.alpha)
-expand!(raw, alpha) = raw._scratch[:producers_competition] = alpha
+function expand!(raw, alpha)
+    # Only add trophic edges where there are non-*missing* values (not *non-zero*).
+    # This way, user can modify zero values later if they were non-missing.
+    # HERE: keep fixing grawview display so this subtelty appears to users.
+    # TODO: generalize this logic to other NTI.
+    sources, targets, _ = findnz(alpha)
+    mask = spzeros(Bool, size(alpha))
+    for (src, tgt) in zip(sources, targets)
+        mask[src, tgt] = true
+    end
+    raw._scratch[:producers_competition] = alpha
+    raw._scratch[:producers_competition_mask] = mask
+    g = raw._topology
+    ety = :producers_competition
+    G.add_edge_type!(g, ety)
+    G.add_edges_within_node_type!(g, :species, ety, mask)
+end
 
 #-------------------------------------------------------------------------------------------
 mutable struct Flat <: Blueprint
@@ -139,6 +156,7 @@ function (::_ProducersCompetition)(alpha = nothing; kwargs...)
 end
 
 @expose_data edges begin
+    # HERE: expose the mask and use it for checking.
     property(producers.competition)
     depends(ProducersCompetition)
     @species_index
