@@ -2,6 +2,7 @@
 module TestExposedData
 
 using EcologicalNetworksDynamics
+using SparseArrays
 using Test
 
 Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
@@ -22,10 +23,10 @@ const EN = EcologicalNetworksDynamics
     # Nodes view.
 
     # Access with either indices or labels.
-    @test m.producers.mask[1] == false
-    @test m.producers.mask[:a] == false
-    @test m.producers.mask['a'] == false
-    @test m.producers.mask["a"] == false
+    @test m.producers.mask[3]
+    @test m.producers.mask[:c]
+    @test m.producers.mask['c']
+    @test m.producers.mask["c"]
 
     # Access ranges, masks, etc.
     @test m.producers.mask[2:3] == Bool[0, 1]
@@ -313,7 +314,7 @@ end
         EF,
         "Invalid trophic link labels [:b, :a] ([2, 1]) to write edge data. \
          Valid indices must comply to the following template:\n\
-         4×4 SparseArrays.SparseMatrixCSC{Bool, Int64} with 4 stored entries:\n \
+         4×4 $SparseMatrixCSC{Bool, Int64} with 4 stored entries:\n \
           ⋅  1  1  ⋅\n \
           ⋅  ⋅  1  1\n \
           ⋅  ⋅  ⋅  ⋅\n \
@@ -324,7 +325,7 @@ end
         EF,
         "Invalid trophic link index [2, 2] to write edge data. \
          Valid indices must comply to the following template:\n\
-         4×4 SparseArrays.SparseMatrixCSC{Bool, Int64} with 4 stored entries:\n \
+         4×4 $SparseMatrixCSC{Bool, Int64} with 4 stored entries:\n \
           ⋅  1  1  ⋅\n \
           ⋅  ⋅  1  1\n \
           ⋅  ⋅  ⋅  ⋅\n \

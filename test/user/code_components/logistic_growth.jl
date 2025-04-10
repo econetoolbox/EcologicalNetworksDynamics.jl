@@ -18,7 +18,7 @@
     m = base + lg
     @test m.r == [0, 0, 0, 1, 1]
     @test m.K == [0, 0, 0, 1, 1]
-    @test m.producers.competition == [
+    @test m.producers.competition.matrix == [
         0 0 0 0 0
         0 0 0 0 0
         0 0 0 0 0
@@ -36,7 +36,7 @@
     m = base + lg
     @test m.r == [0, 0, 0, 1, 1]
     @test m.K == [0, 0, 0, 1, 1]
-    @test m.producers.competition == [
+    @test m.producers.competition.matrix == [
         0 0 0 0 0
         0 0 0 0 0
         0 0 0 0 0

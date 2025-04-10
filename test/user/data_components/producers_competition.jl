@@ -14,16 +14,21 @@
         0 2 4
     ])
     m = base + pc
-    @test m.producers.competition == [
+    @test m.producers.competition.matrix == [
         0 0 0
         0 1 3
         0 2 4
+    ]
+    @test m.producers.competition.mask == [
+        0 0 0
+        0 1 1
+        0 1 1
     ]
     @test typeof(pc) === ProducersCompetition.Raw
 
     # Adjacency list.
     m = base + ProducersCompetition([:b => [:b => 1, :c => 3], :c => [:c => 4]])
-    @test m.producers.competition == [
+    @test m.producers.competition.matrix == [
         0 0 0
         0 1 3
         0 0 4
@@ -33,7 +38,7 @@
     # Scalar.
     pc = ProducersCompetition(2)
     m = base + pc
-    @test m.producers.competition == [
+    @test m.producers.competition.matrix == [
         0 0 0
         0 2 2
         0 2 2
@@ -45,7 +50,7 @@
 
     pc = ProducersCompetition(; diag = 1, off = 2)
     m = base + pc
-    @test m.producers.competition == [
+    @test m.producers.competition.matrix == [
         0 0 0
         0 1 2
         0 2 1
