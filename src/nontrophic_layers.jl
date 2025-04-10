@@ -27,6 +27,9 @@ nontrophic_layers(; kwargs...) = nontrophic_layers(kwargs)
 export nontrophic_layers
 
 # Output a blueprint sum for consistency as arguments to default_model.
+# TODO: make NontrophicLayers(facilitation_A = [:s1 => :s2]) work
+# with graphdataconvert.
+# This will require some `extra_converters` in `parse_2D_arguments`.
 NontrophicLayers(; kwargs...) =
     sum(values(nontrophic_layers(kwargs)); init = BlueprintSum())
 export NontrophicLayers
