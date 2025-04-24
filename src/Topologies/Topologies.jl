@@ -321,7 +321,7 @@ function pruned_adjacency_matrix(g::Topology, s::Int, e::Int, t::Int, transpose:
     prn, prm = transpose ? (pre_n_target, pre_n_source) : (pre_n_source, pre_n_target)
     n, m = transpose ? (post_n_target, post_n_source) : (post_n_source, post_n_target)
 
-    # One pass nodes to prepare a pre -> index mapping.
+    # One pass over nodes to prepare a pre -> index mapping.
     (i_map, j_map) = map([(prn, line), (prm, col)]) do (prn, type)
         map = []
         skips = 0

@@ -95,11 +95,11 @@ See [`topology`](@ref).
   - ⚠ : Assumes consistent indices from the same model: will be removed in a future version.
 """
 isolated_producers(raw::Internal; kwargs...) =
-    isolated_producers(get_topology(raw; kwargs...), raw.producers_indices)
+    isolated_producers(get_topology(raw; kwargs...), @ref raw.producers.indices)
 @method isolated_producers depends(Foodweb) read_as(producers.isolated)
 
 isolated_producers(sol::Solution; kwargs...) =
-    isolated_producers(get_topology(sol; kwargs...), get_model(sol).producers_indices)
+    isolated_producers(get_topology(sol; kwargs...), get_model(sol).producers.indices)
 export isolated_producers
 
 # Unexposed underlying primitive: assumes that indices are consistent within the topology.
@@ -108,12 +108,14 @@ function isolated_producers(g::Topology, producers_indices)
     abs(i_rel) = U.node_abs_index(g, T.Rel(i_rel), sp)
     unwrap(i) = i.abs
     imap(unwrap, ifilter(imap(abs, producers_indices)) do i_prod
-        inc = g.incoming[i_prod.abs]
+        self = i_prod.abs
+        inc = g.incoming[self]
         inc isa T.Tombstone && return false
-        any(!isempty, inc) && return false
-        out = g.outgoing[i_prod.abs]
-        any(!isempty, out) && return false
-        true
+        out = g.outgoing[self]
+        # Selfing nodes are still disconnected
+        # if they have no neighbours other than themselves.
+        disconnected(n) = isempty(n) || (length(n) == 1 && first(n) == self)
+        all(disconnected, inc) && all(disconnected, out)
     end)
 end
 

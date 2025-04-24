@@ -8,6 +8,8 @@
 
 - Improved display for sparse graph data views.
 
+- Fix topology bug: isolated producers with selfing edges are still isolated.
+
 # v0.3.0 Upgrade Blueprint/Components Framework
 
 ## Breaking changes (minor)
