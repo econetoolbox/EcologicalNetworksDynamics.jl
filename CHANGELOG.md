@@ -10,6 +10,14 @@
 
 - Fix topology bug: isolated producers with selfing edges are still isolated.
 
+- The new `./compat/` folder contains and documents all the logic associated
+  with the dependencies handling for the project.
+  Introduce three flavours for testing:
+  - `lower`: test with the lowest compatibility bounds claimed by `[compat]`.
+  - `pinned`: test within the frozen environment wherein tests passed once.
+  - `latest`: test with latest compatible versions,
+              checking for latest incompatible versions.
+
 # v0.3.0 Upgrade Blueprint/Components Framework
 
 ## Breaking changes (minor)
