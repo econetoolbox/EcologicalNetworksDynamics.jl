@@ -1,3 +1,8 @@
+# Pick correct test environment.
+if "pinned" in ARGS
+    include("../compat/to_pinned.jl")
+end
+
 using Crayons
 bold = crayon"bold"
 blue = crayon"blue"
