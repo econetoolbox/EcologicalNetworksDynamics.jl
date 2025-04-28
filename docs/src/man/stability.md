@@ -2,7 +2,7 @@
 
 This section covers how to analyse the stability of a community once simulated.
 
-To begin we need to utility functions from the companion package.
+To begin we need to import utility functions from the companion package.
 
 ```@example econetd
 using EcoNetDynOutputs # Companion package - stability functions.

@@ -377,13 +377,11 @@ function (F::ClassicResponse)(parms, ::Symbol)
 end
 
 function (F::ClassicResponse)(B, i, j, aᵣ, network::MultiplexNetwork)
+    B = convert(AbstractVector{Float64}, B)
     # Compute numerator and denominator.
     num = F.ω[i, j] * aᵣ[i, j] * abs(B[j])^F.h
-    S = size(aᵣ, 1)
     denom =
-        1 +
-        (F.c[i] * B[i]) +
-        sum(aᵣ[i, j] * F.hₜ[i, j] * F.ω[i, j] * (abs(B[j])^F.h) for j in 1:S)
+        1 + (F.c[i] * B[i]) + sum(aᵣ[i, :] .* F.hₜ[i, :] .* F.ω[i, :] .* (abs.(B) .^ F.h))
 
     # Add interspecific predator interference to denominator.
     A_interference = network.layers[:interference].A
@@ -521,11 +519,10 @@ function (F::FunctionalResponse)(B)
     S = size(F.ω, 1) #! Care: your functional response should have a parameter ω
     isa(B, AbstractVector) || (B = fill(B, S))
     @check_equal_richness length(B) S
+    B = convert(Vector{Float64}, B) # For user comfort.
 
     # Fill functional response matrix
-    # F_matrix = spzeros(S, S)
-    F_matrix = Array{Any}(undef, S, S)
-    fill!(F_matrix, 0)
+    F_matrix = zeros(eltype(B), S, S)
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
         F_matrix[i, j] = F(B, i, j)
@@ -540,10 +537,10 @@ function (F::ClassicResponse)(B, network::FoodWeb)
     S = richness(network)
     isa(B, AbstractVector) || (B = fill(B, S))
     @check_equal_richness length(B) S
+    B = convert(Vector{Float64}, B) # For user comfort.
 
     # Fill functional response matrix
-    F_matrix = Array{Any}(undef, S, S)
-    fill!(F_matrix, 0)
+    F_matrix = zeros(eltype(B), S, S)
     M = network.M
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
@@ -557,13 +554,13 @@ function (F::ClassicResponse)(B, network::MultiplexNetwork)
     S = richness(network)
     isa(B, AbstractVector) || (B = fill(B, S))
     @check_equal_richness length(B) S
+    B = convert(Vector{Float64}, B) # For user comfort.
 
     # Effect of refuge on the attack rate
     aᵣ = effect_refuge(F.aᵣ, B, network)
 
     # Fill functional response matrix
-    F_matrix = Array{Any}(undef, S, S)
-    fill!(F_matrix, 0)
+    F_matrix = zeros(eltype(B), S, S)
     consumer, resource = findnz(F.ω)
     for (i, j) in zip(consumer, resource)
         F_matrix[i, j] = F(B, i, j, aᵣ, network)
