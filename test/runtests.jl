@@ -1,8 +1,13 @@
 # Pick correct test environment.
-if "pinned" in ARGS
+if ["pinned"] == ARGS
     include("../compat/to_pinned.jl")
+elseif ["lower"] == ARGS
+    include("../compat/to_lower.jl")
+elseif !isempty(ARGS)
+    error("Invalid test arguments: $ARGS")
 end
 
+import CompatHelperLocal
 using Crayons
 bold = crayon"bold"
 blue = crayon"blue"
@@ -35,3 +40,6 @@ sep("Run doctests (DEACTIVATED while migrating api from 'Internals').")
 
 sep("Check source code formatting.")
 include("./formatting.jl")
+
+sep("Check compatibility entries.")
+CompatHelperLocal.@check()

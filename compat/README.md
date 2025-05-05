@@ -66,7 +66,13 @@ Note that this also excludes:
 
 ### Compatibility
 
+HERE: write and setup CI
+- `to_lower.jl` to check lower bounds.
+- `CompatHelperLocal` to check upper bounds.
+
 ### Reproducibility
+
+- `to_pinned` to check against pinned environments.
 
 [test/Project.toml]: https://pkgdocs.julialang.org/v1/creating-packages/#Alternative-approach:-test/Project.toml-file-test-specific-dependencies
 [workspace]: https://pkgdocs.julialang.org/dev/toml-files/#The-%5Bworkspace%5D-section
