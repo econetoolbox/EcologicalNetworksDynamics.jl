@@ -377,7 +377,7 @@ function (F::ClassicResponse)(parms, ::Symbol)
 end
 
 function (F::ClassicResponse)(B, i, j, aᵣ, network::MultiplexNetwork)
-    B = convert(AbstractVector{Float64}, B)
+    B = convert(Vector{Float64}, B)
     # Compute numerator and denominator.
     num = F.ω[i, j] * aᵣ[i, j] * abs(B[j])^F.h
     denom =

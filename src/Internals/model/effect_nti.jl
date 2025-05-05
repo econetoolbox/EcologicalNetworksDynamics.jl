@@ -7,8 +7,7 @@ function effect_competition(G_net, i, B, network::MultiplexNetwork)
     isproducer(i, network) || return G_net
     c0 = network.layers[:competition].intensity
     competitors = network.layers[:competition].A[:, i] # sp competing for space with sp i
-    # B_comp = B[competitors]
-    δG_net = c0 * sum(B .* competitors) # isempty(B_comp) ? 0 : c0 * sum(B_comp)
+    δG_net = c0 * sum(B .* competitors)
     network.layers[:competition].f(G_net, δG_net)
 end
 effect_competition(G_net, _, _, _::FoodWeb) = G_net
