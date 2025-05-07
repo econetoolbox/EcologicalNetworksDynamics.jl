@@ -38,6 +38,9 @@ function dudt!(du, u, p, _)
     end
 end
 
+# ==========================================================================================
+# For downstream consumer 'EcoNetDynOutputs.jl'.
+
 function dudt(u, m)
     S = total_richness(m)
     du = zeros(eltype(u), S)
