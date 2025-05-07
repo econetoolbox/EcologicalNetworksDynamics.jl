@@ -33,7 +33,6 @@ function effect_refuge(aᵣ, B, network::MultiplexNetwork)
     f_refuge = network.layers[:refuge].f
     S = richness(A_refuge)
     prey = preys(aᵣ)
-    B = convert(Vector{Float64}, B) # For user comfort.
     aᵣ_refuge = zeros(eltype(B), S, S)
     for i in prey
         providing_refuge = A_refuge[:, i] # species providing a refuge to 'prey'

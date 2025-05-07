@@ -377,7 +377,6 @@ function (F::ClassicResponse)(parms, ::Symbol)
 end
 
 function (F::ClassicResponse)(B, i, j, aᵣ, network::MultiplexNetwork)
-    B = convert(Vector{Float64}, B)
     # Compute numerator and denominator.
     num = F.ω[i, j] * aᵣ[i, j] * abs(B[j])^F.h
     denom =
@@ -519,7 +518,6 @@ function (F::FunctionalResponse)(B)
     S = size(F.ω, 1) #! Care: your functional response should have a parameter ω
     isa(B, AbstractVector) || (B = fill(B, S))
     @check_equal_richness length(B) S
-    B = convert(Vector{Float64}, B) # For user comfort.
 
     # Fill functional response matrix
     F_matrix = zeros(eltype(B), S, S)
@@ -537,7 +535,6 @@ function (F::ClassicResponse)(B, network::FoodWeb)
     S = richness(network)
     isa(B, AbstractVector) || (B = fill(B, S))
     @check_equal_richness length(B) S
-    B = convert(Vector{Float64}, B) # For user comfort.
 
     # Fill functional response matrix
     F_matrix = zeros(eltype(B), S, S)
@@ -554,7 +551,6 @@ function (F::ClassicResponse)(B, network::MultiplexNetwork)
     S = richness(network)
     isa(B, AbstractVector) || (B = fill(B, S))
     @check_equal_richness length(B) S
-    B = convert(Vector{Float64}, B) # For user comfort.
 
     # Effect of refuge on the attack rate
     aᵣ = effect_refuge(F.aᵣ, B, network)
