@@ -1,0 +1,4 @@
+[deps]
+EcologicalNetworksDynamics = "2fd9189a-c387-4076-88b7-22b33b5a4388"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+TestEnv = "1e6cf692-eddd-4d53-88a5-2d735e33781b"

@@ -7,7 +7,7 @@
     end
 
     multi_net = MultiplexNetwork(foodweb; C_competition = 1.0)
-    B = [2, 1, 1]
+    B = [2.0, 1, 1]
     for G_net in 1:10
         # Low intensity
         for c0 in [0.1, 0.2, 0.3]
@@ -35,7 +35,7 @@
 
     # Custom functional form
     multi_net.layers[:competition].f = (x, δx) -> x * (1 - δx^2)
-    B = [2, 1, 1]
+    B = [2.0, 1, 1]
     for G in 1:10
         for c0 in [0.1, 0.2, 0.3]
             multi_net.layers[:competition].intensity = c0
@@ -75,7 +75,7 @@ end
 @testset "Effect of refuge on attack rate" begin
 
     # 1 refuge link
-    B = [1, 1, 1]
+    B = [1.0, 1, 1]
     for aᵣ in [0.1, 0.2, 0.3, 0.4, 0.5], r0 in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
         net_refuge.layers[:refuge].intensity = r0
         aᵣ_matrix = sparse([0 0 0; aᵣ 0 0; aᵣ aᵣ 0])
@@ -87,7 +87,7 @@ end
     A_refuge = sparse(Bool[0 1 1 0; 1 0 1 0; 0 0 0 0; 0 0 0 0])
     foodweb = FoodWeb(niche_model, 4; C = 0.3)
     net = MultiplexNetwork(foodweb; A_refuge = A_refuge)
-    B = [1, 2, 3, 4]
+    B = [1.0, 2, 3, 4]
     for aᵣ in [0.1, 0.2, 0.3, 0.4, 0.5], r0 in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
         net.layers[:refuge].intensity = r0
         aᵣ_matrix = sparse([0 0 0 0; 0 0 0 0; aᵣ 0 0 0; aᵣ aᵣ aᵣ 0])

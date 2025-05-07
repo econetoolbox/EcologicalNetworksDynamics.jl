@@ -1,3 +1,15 @@
+# v0.x.0
+
+- Producers competition links are reified as edges.
+  - Breaking (minor): `producers.competition`
+    is now split into `.matrix` and `.mask`.
+  - Breaking (minor): producers competition rates
+    cannot be modified anymore outside the edges mask.
+
+- Improved display for sparse graph data views.
+
+- Fix topology bug: isolated producers with selfing edges are still isolated.
+
 # v0.3.0 Upgrade Blueprint/Components Framework
 
 ## Breaking changes (minor)

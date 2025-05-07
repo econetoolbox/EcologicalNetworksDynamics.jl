@@ -91,7 +91,7 @@ macro expose_data(
     #     Fail with `writefails` in case the rhs value is found to be invalid.
     #
     #   template(function) or template(raw -> <body>)
-    #     Generates a `._template` method for the view if sparse,
+    #     Generates a `._template` field for the view if sparse,
     #     initialized with the given function and useful to check the setindex! accesses.
     #
     #   index(function) or index(raw -> <body>)
@@ -395,13 +395,13 @@ macro expose_data(
         # Pick correct supertype.
 
         Sup = if nodes && write
-            NodesWriteView
+            sparse ? SparseNodesWriteView : NodesWriteView
         elseif edges && write
-            EdgesWriteView
+            sparse ? SparseEdgesWriteView : EdgesWriteView
         elseif nodes
-            NodesView
+            sparse ? SparseNodesView : NodesView
         elseif edges
-            EdgesView
+            sparse ? SparseEdgesView : EdgesView
         else
             throw("Unreachable.")
         end

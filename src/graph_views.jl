@@ -63,58 +63,84 @@ Ref = Union{Int,Label}
 
 # All views must behave like regular arrays.
 abstract type AbstractGraphDataView{T,N} <: AbstractArray{T,N} end
+abstract type AbstractSparseGraphDataView{T,N} <: AbstractSparseArray{T,Int,N} end
 
 # Either 1D (for nodes data) or 2D (for edges data).
 const AbstractNodesView{T} = AbstractGraphDataView{T,1}
 const AbstractEdgesView{T} = AbstractGraphDataView{T,2}
+const AbstractSparseNodesView{T} = AbstractSparseGraphDataView{T,1}
+const AbstractSparseEdgesView{T} = AbstractSparseGraphDataView{T,2}
 
 # Read-only or read/write versions (orthogonal to the above)
-abstract type AbstractGraphDataReadOnlyView{T,N} <: AbstractGraphDataView{T,N} end
-abstract type AbstractGraphDataReadWriteView{T,N} <: AbstractGraphDataView{T,N} end
+abstract type GraphDataReadOnlyView{T,N} <: AbstractGraphDataView{T,N} end
+abstract type GraphDataReadWriteView{T,N} <: AbstractGraphDataView{T,N} end
+abstract type SparseGraphDataReadOnlyView{T,N} <: AbstractSparseGraphDataView{T,N} end
+abstract type SparseGraphDataReadWriteView{T,N} <: AbstractSparseGraphDataView{T,N} end
 
 # Cartesian product of the above two pairs.
-# TODO: split again between sparse and dense, to get better display.
-abstract type NodesView{T} <: AbstractGraphDataReadOnlyView{T,1} end
-abstract type NodesWriteView{T} <: AbstractGraphDataReadWriteView{T,1} end
-abstract type EdgesView{T} <: AbstractGraphDataReadOnlyView{T,2} end
-abstract type EdgesWriteView{T} <: AbstractGraphDataReadWriteView{T,2} end
+abstract type NodesView{T} <: GraphDataReadOnlyView{T,1} end
+abstract type NodesWriteView{T} <: GraphDataReadWriteView{T,1} end
+abstract type EdgesView{T} <: GraphDataReadOnlyView{T,2} end
+abstract type EdgesWriteView{T} <: GraphDataReadWriteView{T,2} end
+abstract type SparseNodesView{T} <: SparseGraphDataReadOnlyView{T,1} end
+abstract type SparseNodesWriteView{T} <: SparseGraphDataReadWriteView{T,1} end
+abstract type SparseEdgesView{T} <: SparseGraphDataReadOnlyView{T,2} end
+abstract type SparseEdgesWriteView{T} <: SparseGraphDataReadWriteView{T,2} end
 export NodesView
 export NodesWriteView
 export EdgesView
 export EdgesWriteView
+export SparseNodesView
+export SparseNodesWriteView
+export SparseEdgesView
+export SparseEdgesWriteView
+
+# Avoid methods dense/edge duplications.
+const EitherAbstract{T,N} =
+    Union{<:AbstractGraphDataView{T,N},<:AbstractSparseGraphDataView{T,N}}
+const EitherNodes{T} = Union{<:AbstractNodesView{T},<:AbstractSparseNodesView{T}}
+const EitherEdges{T} = Union{<:AbstractEdgesView{T},<:AbstractSparseEdgesView{T}}
+const EitherReadOnly{T} = Union{<:GraphDataReadOnlyView{T},<:SparseGraphDataReadOnlyView{T}}
+const EitherReadWrite{T} =
+    Union{<:GraphDataReadWriteView{T},<:SparseGraphDataReadWriteView{T}}
+const EitherReadNodes{T} = Union{<:NodesView{T},<:SparseNodesView{T}}
+const EitherWriteNodes{T} = Union{<:NodesWriteView{T},<:SparseNodesWriteView{T}}
+const EitherReadEdges{T} = Union{<:EdgesView{T},<:SparseEdgesView{T}}
+const EitherWriteEdges{T} = Union{<:EdgesWriteView{T},<:SparseEdgesWriteView{T}}
 
 # ==========================================================================================
 # Defer base implementation to the ._ref field.
 
-Base.size(v::AbstractGraphDataView) = size(v._ref)
-SparseArrays.findnz(m::AbstractGraphDataView) = findnz(m._ref)
-Base.:(==)(a::AbstractGraphDataView, b::AbstractGraphDataView) = a._ref == b._ref
+Base.size(v::EitherAbstract) = size(v._ref)
+Base.:(==)(a::EitherAbstract, b::EitherAbstract) = a._ref == b._ref
+SparseArrays.findnz(m::AbstractSparseGraphDataView) = findnz(m._ref)
+SparseArrays.nonzeroinds(m::AbstractSparseGraphDataView) = SparseArrays.nonzeroinds(m._ref)
+SparseArrays.nonzeros(m::AbstractSparseGraphDataView) = SparseArrays.nonzeros(m._ref)
 
 # ==========================================================================================
 # Checked access.
 
 # Always valid for reading with indices (or we break AbstractArray contract).
-function Base.getindex(v::AbstractGraphDataView, index::Int...)
+function Base.getindex(v::EitherAbstract, index::Int...)
     check_access_dim(v, index...)
     check_dense_access(v, nothing, index) # Always do to harmonize error messages.
     getindex(v._ref, index...)
 end
 
 # Always checked for labelled access.
-function Base.getindex(v::AbstractGraphDataView, access::Label...)
+function Base.getindex(v::EitherAbstract, access::Label...)
     check_access_dim(v, access...)
     index = to_checked_index(v, access...)
     getindex(v._ref, index...)
 end
-Base.getindex(v::AbstractGraphDataView) = check_access_dim(v) # (trigger correct error)
+Base.getindex(v::EitherAbstract) = check_access_dim(v) # (trigger correct error)
 
 # Only allow writes for writeable views.
-Base.setindex!(v::AbstractGraphDataReadWriteView, rhs, access::Ref...) =
-    setindex!(v, rhs, access)
-Base.setindex!(v::AbstractGraphDataReadOnlyView, args...) =
+Base.setindex!(v::EitherReadWrite, rhs, access::Ref...) = setindex!(v, rhs, access)
+Base.setindex!(v::EitherReadOnly, args...) =
     throw(ViewError(typeof(v), "This view into graph $(level_name(v))s data is read-only."))
 
-function setindex!(v::AbstractGraphDataReadWriteView, rhs, access)
+function setindex!(v::EitherReadWrite, rhs, access)
     check_access_dim(v, access...)
     index = to_checked_index(v, access...)
     rhs = write!(v._graph, typeof(v), rhs, index)
@@ -127,33 +153,33 @@ inline(access::Tuple, ::Tuple{Vararg{Int}}) = inline(access)
 inline_size(access::Tuple) = "($(inline_(access)))"
 inline_size(access::Tuple{Int64}) = "$(inline_(access))"
 
-function to_checked_index(v::AbstractGraphDataView, index::Int...)
+function to_checked_index(v::EitherAbstract, index::Int...)
     check_access(v, nothing, index)
     index
 end
 
-function to_checked_index(v::AbstractGraphDataView, labels::Label...)
+function to_checked_index(v::EitherAbstract, labels::Label...)
     index = to_index(v, labels...)
     check_access(v, labels, index)
     index
 end
 
 # Extension points for implementors.
-check_access(v::AbstractGraphDataView, _...) = throw("Unimplemented for $(typeof(v)).")
-check_label(v::AbstractGraphDataView, _...) = throw("Unimplemented for $(typeof(v)).")
+check_access(v::EitherAbstract, _...) = throw("Unimplemented for $(typeof(v)).")
+check_label(v::EitherAbstract, _...) = throw("Unimplemented for $(typeof(v)).")
 
 # Check the value to be written prior to underlying call to `Base.setindex!`,
 # and take this opportunity to possibly update other values within model besides ._ref.
 # Returns the actual value to be passed to `setindex!`.
-write!(::Internal, T::Type{<:NodesWriteView}, rhs, index) = rhs
+write!(::Internal, T::Type{<:EitherWriteNodes}, rhs, index) = rhs
 
 # Name of the thing indexed, useful to improve errors.
-item_name(::Type{<:AbstractGraphDataView}) = "item"
-item_name(v::AbstractGraphDataView) = item_name(typeof(v))
+item_name(::Type{<:EitherAbstract}) = "item"
+item_name(v::EitherAbstract) = item_name(typeof(v))
 
-level_name(::Type{<:AbstractNodesView}) = "node"
-level_name(::Type{<:AbstractEdgesView}) = "edge"
-level_name(v::AbstractGraphDataView) = level_name(typeof(v))
+level_name(::Type{<:EitherNodes}) = "node"
+level_name(::Type{<:EitherEdges}) = "edge"
+level_name(v::EitherAbstract) = level_name(typeof(v))
 
 # ==========================================================================================
 # All possible variants of additional index checking in implementors.
@@ -161,7 +187,7 @@ level_name(v::AbstractGraphDataView) = level_name(typeof(v))
 #-------------------------------------------------------------------------------------------
 # Basic bound checks for dense views.
 
-function check_dense_access(v::AbstractGraphDataView, ::Any, index::Tuple{Vararg{Int}})
+function check_dense_access(v::EitherAbstract, ::Any, index::Tuple{Vararg{Int}})
     all(0 .< index .<= size(v)) && return
     item = uppercasefirst(item_name(v))
     level = level_name(v)
@@ -180,7 +206,7 @@ plural(n) = n > 1 ? "s" : ""
 
 # Nodes.
 function check_sparse_access(
-    v::AbstractGraphDataView,
+    v::EitherAbstract,
     labels::Option{Tuple{Vararg{Label}}}, # Remember if given as labels.
     index::Tuple{Vararg{Int}},
 )
@@ -225,8 +251,8 @@ vref(::Nothing) = "index"
 vrefs(::Nothing) = "indices"
 vref(::Any) = "label"
 vrefs(::Any) = "labels"
-valid_refs(_, template::AbstractVector, ::Nothing) = findnz(template)[1]
-valid_refs(_, template::AbstractMatrix, ::Nothing) = zip(findnz(template)[1:2]...)
+valid_refs(_, template::AbstractSparseVector, ::Nothing) = findnz(template)[1]
+valid_refs(_, template::AbstractSparseMatrix, ::Nothing) = zip(findnz(template)[1:2]...)
 function valid_refs(v, template::AbstractVector, ::Any)
     valids = Set(valid_refs(v, template, nothing))
     (l for (l, i) in v._index if i in valids)
@@ -236,7 +262,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Convert labels to indexes (a mapping is available as `._index`).
 
-function to_index(v::AbstractNodesView, s::Label)
+function to_index(v::EitherNodes, s::Label)
     if !hasfield(typeof(v), :_index)
         item = item_name(v)
         throw(ViewError(typeof(v), "No index to interpret $item node label $(repr(s))."))
@@ -256,7 +282,7 @@ function to_index(v::AbstractNodesView, s::Label)
     (i,)
 end
 
-function to_index(v::AbstractEdgesView, s::Label, t::Label)
+function to_index(v::EitherEdges, s::Label, t::Label)
     verr(mess) = throw(ViewError(typeof(v), mess))
     rows, cols = (v._row_index, v._col_index)
     y = Symbol(s)
@@ -296,32 +322,45 @@ function dimerr(reftype, v, level, exp, labs)
 end
 laberr(args...) = dimerr(n -> n > 1 ? "labels" : "label", args...)
 inderr(args...) = dimerr(n -> n > 1 ? "indices" : "index", args...)
-check_access_dim(v::AbstractNodesView) = inderr(v, "Nodes", 1, ())
-check_access_dim(v::AbstractEdgesView) = inderr(v, "Edges", 2, ())
-check_access_dim(v::AbstractNodesView, i::Int...) = inderr(v, "Nodes", 1, i)
-check_access_dim(v::AbstractEdgesView, i::Int...) = inderr(v, "Edges", 2, i)
-check_access_dim(::AbstractNodesView, ::Int) = nothing
-check_access_dim(::AbstractEdgesView, ::Int, ::Int) = nothing
-check_access_dim(v::AbstractNodesView, labels::Label...) = laberr(v, "Nodes", 1, labels)
-check_access_dim(v::AbstractEdgesView, labels::Label...) = laberr(v, "Edges", 2, labels)
-check_access_dim(::AbstractNodesView, ::Label) = nothing
-check_access_dim(::AbstractEdgesView, ::Label, ::Label) = nothing
-# Requesting vector[1, 1, 1, 1] is actuall valid in julia.
+check_access_dim(v::EitherNodes) = inderr(v, "Nodes", 1, ())
+check_access_dim(v::EitherEdges) = inderr(v, "Edges", 2, ())
+check_access_dim(v::EitherNodes, i::Int...) = inderr(v, "Nodes", 1, i)
+check_access_dim(v::EitherEdges, i::Int...) = inderr(v, "Edges", 2, i)
+check_access_dim(::EitherNodes, ::Int) = nothing
+check_access_dim(::EitherEdges, ::Int, ::Int) = nothing
+check_access_dim(v::EitherNodes, labels::Label...) = laberr(v, "Nodes", 1, labels)
+check_access_dim(v::EitherEdges, labels::Label...) = laberr(v, "Edges", 2, labels)
+check_access_dim(::EitherNodes, ::Label) = nothing
+check_access_dim(::EitherEdges, ::Label, ::Label) = nothing
+# Requesting vector[1, 1, 1, 1] is actually valid in julia.
 # Only trigger the error out of this very strict 1-situation.
-check_access_dim(v::AbstractNodesView, i::Int, index::Int...) =
+check_access_dim(v::EitherNodes, i::Int, index::Int...) =
     all(==(1), index) || inderr(v, "Nodes", 1, (i, index...))
-check_access_dim(v::AbstractEdgesView, i::Int, j::Int, index::Int...) =
+check_access_dim(v::EitherEdges, i::Int, j::Int, index::Int...) =
     all(==(1), index) || inderr(v, "Edges", 2, (i, j, index...))
 
 # Accessing non-indexed views with labels.
-no_labels(v::AbstractNodesView, s::Label) = throw(
+no_labels(v::EitherNodes, s::Label) = throw(
     ViewError(typeof(v), "No index to interpret $(item_name(v)) node label $(repr(s))."),
 )
-no_labels(v::AbstractEdgesView, s::Label, t::Label) = throw(
+no_labels(v::EitherEdges, s::Label, t::Label) = throw(
     ViewError(
         typeof(v),
         "No index to interpret $(item_name(v)) edge labels $(repr.((s, t))).",
     ),
 )
+
+# ==========================================================================================
+# Display.
+
+# TODO: any way to avoid the intermediate allocation?
+function Base.show(io::IO, ::MIME"text/plain", v::AbstractSparseGraphDataView)
+    orig = repr(MIME("text/plain"), v._ref)
+    replace(io, orig, repr(typeof(v._ref)) => repr(typeof(v)))
+end
+function Base.show(io::IO, v::AbstractSparseGraphDataView)
+    orig = repr(v._ref)
+    replace(io, orig, "sparse" => repr(typeof(v)))
+end
 
 end

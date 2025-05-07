@@ -12,7 +12,7 @@ function dudt!(du, u, p, _)
     B = u[species_indices(params)]
     response_matrix = params.functional_response(B, params.network)
     network = params.network
-    growth = fill(0.0, S) # Vector of producer growths.
+    growth = zeros(eltype(u), S) # Vector of producer growths.
 
     # Compute species biomass dynamics.
     for i in species_indices(params)
@@ -37,3 +37,16 @@ function dudt!(du, u, p, _)
         u[sp] = 0.0
     end
 end
+
+# ==========================================================================================
+# For downstream consumer 'EcoNetDynOutputs.jl'.
+
+function dudt(u, m)
+    S = total_richness(m)
+    du = zeros(eltype(u), S)
+    p = (m, Dict())
+    dudt!(du, u, p, nothing)
+    du
+end
+
+dudt_per_capita(u, params) = dudt(u, params) ./ u
