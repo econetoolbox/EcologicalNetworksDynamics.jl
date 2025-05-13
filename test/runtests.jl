@@ -3,7 +3,9 @@ if ["pinned"] == ARGS
     include("../compat/to_pinned.jl")
 elseif ["lower"] == ARGS
     include("../compat/to_lower.jl")
-elseif !isempty(ARGS)
+elseif ["latest"] == ARGS || isempty(ARGS)
+    # Regular testing with latest compatible versions.
+else
     error("Invalid test arguments: $ARGS")
 end
 
