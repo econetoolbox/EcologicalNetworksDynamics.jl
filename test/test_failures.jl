@@ -85,7 +85,7 @@ function failswith(src, mod, xp, exception_pattern, expect_expansion_failure)
                 rethrow($e)
             end
         else
-            $error($"Unexpected success at $loc\nWas expecting: $exception_pattern")
+            $error($"Unexpected success at $loc\nWas expecting: $exception_pattern", throw)
         end
     end)
 end
@@ -140,7 +140,7 @@ struct FailedFailure <: Exception
 end
 Base.showerror(io::IO, e::FailedFailure) = print(io, "Failed failure test: $(e.message)")
 # Local override.
-error(mess) = rethrow(FailedFailure(mess))
+error(mess, throw = rethrow) = throw(FailedFailure(mess))
 
 #-------------------------------------------------------------------------------------------
 # Convenience message checking utils.

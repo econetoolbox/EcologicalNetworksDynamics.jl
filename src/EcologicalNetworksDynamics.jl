@@ -84,10 +84,10 @@ using .KwargsHelpers
 include("./GraphDataInputs/GraphDataInputs.jl")
 using .GraphDataInputs
 
-#  # Encapsulated views into internal arrays or pseudo-arrays.
-#  include("./dedicate_framework_to_model.jl")
-#  include("./graph_views.jl")
-#  using .GraphViews
+# Encapsulated views into internal arrays or pseudo-arrays.
+include("./dedicate_framework_to_model.jl")
+include("./graph_views.jl")
+using .GraphViews
 
 #  # Convenience macro to wire this all together.
 #  include("./expose_data.jl")

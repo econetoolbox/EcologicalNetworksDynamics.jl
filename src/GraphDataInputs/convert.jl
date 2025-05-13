@@ -61,7 +61,7 @@ end
 # Map/Adjacency conversions.
 #
 # Any kind of input is allowed, making these "parsers" very non-type-stable.
-# (call it "parsing" but input is really *julia values*)
+# (call it "parsing" although input is *julia values*, not strings)
 # Input is an(y) iterable of (ref, value) pairs for maps,
 # with values elided in the binary case.
 # References may be grouped together, as an iterable of references instead.
@@ -104,6 +104,7 @@ mutable struct Parser
 
     # Only fill after checking for consistency, duplications etc.
     result::Union{Nothing,Map,BinMap,Adjacency,BinAdjacency}
+
     Parser(T, R, target_type) = new(T, R, target_type, false, nothing, [], nothing)
 
     # Useful to fork into a sub-parser, "asking forgiveness" in case it fails.
@@ -147,9 +148,10 @@ update!(p::Parser, ref) = p.path[end] = ref
 bump!(p::Parser) = p.path[end] += 1
 path(p::Parser) = "[$(join(p.path, "]["))]"
 
+report(p::Parser) = isempty(p.path) ? "" : " at $(path(p))"
 # /!\ possibly long: only include at the end of messages.
 function report(p::Parser, input)
-    at = isempty(p.path) ? "" : " at $(path(p))"
+    at = report(p)
     "$at: $(repr(input)) ::$(typeof(input))"
 end
 report(::Nothing, _) = ""
@@ -186,29 +188,13 @@ struct Forgiveness <: Exception
     err::ArgumentError
 end
 forgerr(tag, mess, raise = throw) = raise(Forgiveness(tag, ArgumentError(mess)))
-# Priorize reports.
-reports_priorities = [
-    :unexpected_ref_type
-    :boolean_label
-    :duplicate_edge
-    :duplicate_node
-    :inconsistent_ref_type
-    :no_sources
-    :no_targets
-    :no_value
-    :not_a_pair
-    :not_a_ref
-    :not_a_value
-    :not_iterable
-    :two_values
-]
-reports_priorities = Dict(s => i for (i, s) in enumerate(reports_priorities))
-# Pick the one with highest priority,
+
+# Pick the report with highest priority,
 # with subtle special-cased tweaks in case of ex-aequo.
 # The first given error is found while parsing a plain item, the other a grouped item.
-pick(plain::Forgiveness, group::Forgiveness) =
+pick(plain::Forgiveness, group::Forgiveness, priorities::Dict{Symbol,Int64}) =
     try
-        pp, pg = reports_priorities[plain.tag], reports_priorities[group.tag]
+        pp, pg = priorities[plain.tag], priorities[group.tag]
         if pp == pg
             (plain.tag == group.tag == :not_a_ref) && return group # More detailed.
             plain # More user-friendly in general.
@@ -217,10 +203,14 @@ pick(plain::Forgiveness, group::Forgiveness) =
         else
             group
         end
-    catch
+    catch e
+        e isa KeyError || throw("Unexpected pick failure.")
         throw("Either :$(plain.tag) or :$(group.tag) has no priority. \
                This is a bug in the package.")
     end
+
+# Construct report priorities from a sorted vector, highest priority first.
+priorities(v::Vector{Symbol}) = Dict(s => i for (i, s) in enumerate(v))
 
 # Upgrade into argument error if bubbling up to user call.
 forgive(f, parser) =
@@ -245,6 +235,8 @@ parse_value(p::Parser, input) =
         )
     end
 
+# HERE: forbid pairs as iterables to alleviate
+# https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/182
 parse_iterable(p::Parser, input, what) =
     try
         iterate(input)
@@ -269,7 +261,7 @@ parse_pair(p::Parser, input, what) =
             isnothing(e) && rethrow("more than 2 values in pair parsing input")
         end
         return lhs, rhs
-    catch
+    catch _
         forgerr(:not_a_pair, "Not a '$what' pair$(report(p, input)).", rethrow)
     end
 
@@ -350,12 +342,27 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
             (refs, true)
         catch group_error
             group_error isa Forgiveness || rethrow(group_error)
-            (pick(plain_error, group_error), false)
+            (pick(plain_error, group_error, parse_grouped_refs_priorities), false)
         end
     end
     ok || throw(refs)
     refs
 end
+parse_grouped_refs_priorities = priorities([
+    :unexpected_ref_type,
+    :inconsistent_ref_type,
+    :duplicate_node,
+    :duplicate_edge,
+    :boolean_label,
+    :not_a_ref,
+    :not_iterable,
+    :no_targets,
+    :no_sources,
+    :no_values,
+    :not_a_value,
+    :two_values,
+    :not_a_pair,
+])
 
 # If plain, normalize to grouped.
 function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
@@ -380,12 +387,27 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
             (pairs, true)
         catch group_error
             group_error isa Forgiveness || rethrow(group_error)
-            (pick(plain_error, group_error), false)
+            (pick(plain_error, group_error, parse_grouped_pairs_priorities), false)
         end
     end
     ok || throw(pairs)
     pairs
 end
+parse_grouped_pairs_priorities = priorities([
+    :unexpected_ref_type,
+    :inconsistent_ref_type,
+    :duplicate_node,
+    :duplicate_edge,
+    :boolean_label,
+    :not_a_value,
+    :not_a_ref,
+    :no_targets,
+    :no_sources,
+    :no_values,
+    :two_values,
+    :not_a_pair,
+    :not_iterable,
+])
 
 #-------------------------------------------------------------------------------------------
 # Parse binary maps.
@@ -589,14 +611,14 @@ function graphdataconvert(
                 pop!(p.path)
                 any_target || forgerr(
                     :no_targets,
-                    "No target provided for source $(repr(src))$(report(p, raw_targets)).",
+                    "No target provided for source $(repr(src))$(report(p)).",
                 )
                 pop!(p.path)
                 append!(p, safe)
                 any_source = true
             end
             pop!(p)
-            any_source || forgerr(:no_sources, "No sources provided$(report(p, raw_sources)).")
+            any_source || forgerr(:no_sources, "No sources provided$(report(p)).")
             pop!(p)
 
             it = iterate(input, it)
@@ -687,7 +709,7 @@ function graphdataconvert(
                         (parse_grouped_refs!(p, side, refwhat; ExpectedRefType), false, true)
                     catch e_refs
                         e_refs isa Forgiveness || rethrow(e_refs)
-                        (e_refs, nothing, false)
+                        (pick(e_pairs, e_refs, adjacency_map_priorities), nothing, false)
                     end
                 end
                 ok || throw(group)
@@ -745,11 +767,11 @@ function graphdataconvert(
                     e = lhs_has_values ? "source" : "target"
                     forgerr(
                         :no_targets,
-                        "No target provided for `$e => value` pair$(report(p, value)).",
+                        "No target provided for `$e => value` pair$(report(p)).",
                     )
                 end
             end
-            any || forgerr(:no_sources, "No sources provided$(report(p, lhs)).")
+            any || forgerr(:no_sources, "No sources provided$(report(p)).")
             pop!(p)
             pop!(p)
 
@@ -760,6 +782,21 @@ function graphdataconvert(
 
     end
 end
+adjacency_map_priorities = priorities([
+    :unexpected_ref_type,
+    :inconsistent_ref_type,
+    :duplicate_node,
+    :duplicate_edge,
+    :boolean_label,
+    :not_a_value,
+    :not_a_ref,
+    :not_a_pair,
+    :no_targets,
+    :no_sources,
+    :no_values,
+    :two_values,
+    :not_iterable,
+])
 
 #-------------------------------------------------------------------------------------------
 # Alias if types matches exactly.

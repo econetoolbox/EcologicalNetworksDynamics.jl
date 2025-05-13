@@ -656,17 +656,17 @@ Alias = _Alias() # Use as an unambiguous keyword.
 
     @argfails( #  :no_targets
         gc(BinAdj, [[1, 2] => []]),
-        "No target provided for source 1 at [1][right]: Any[] ::Vector{Any}."
+        "No target provided for source 1 at [1][right]."
     )
 
     @argfails( #  :no_targets
         gc(BinAdj, [:a => [:b], :c => ()]),
-        "No target provided for source :c at [2][right]: () ::Tuple{}."
+        "No target provided for source :c at [2][right]."
     )
 
     @argfails( #  :no_sources
         gc(BinAdj, [[] => [1, 2]]),
-        "No sources provided at [1][left]: Any[] ::Vector{Any}.",
+        "No sources provided at [1][left].",
     )
 
     @argfails( #  :boolean_label
@@ -674,41 +674,206 @@ Alias = _Alias() # Use as an unambiguous keyword.
         "A label-indexed binary adjacency list cannot be produced from boolean matrices.",
     )
 
-    error("HERE: keep going")
-
     # Adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Adj = @GraphData Adjacency{Float64}
-    @argfails(
+
+    @argfails( #  :not_iterable
         gc(Adj, Type),
         "Input for adjacency map needs to be iterable.\n\
-         Received: Type ::UnionAll."
+         Received: Type ::UnionAll.",
     )
-    @argfails(
+
+    @argfails( #  :not_a_pair
         gc(Adj, [Type]),
         "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
     )
-    @argfails(gc(Adj, [5 => 8]), "Not a 'target => value' pair at [1][right]: 8 ::$Int.",)
-    @argfails(
-        gc(Adj, [5 => [:a => 8]]),
-        "The target reference type for this input \
-         was first inferred to be an index ($Int) based on the received '5', \
-         but a label (Symbol) is now found at [1][right][1][left]: :a ::Symbol.",
+
+
+    @argfails( #  :not_a_pair (plain sources) : pick :not_a_ref
+        gc(Adj, [Type => 5]),
+        "Cannot interpret source reference as integer index or symbol label: \
+         received at [1][left]: $Type ::$UnionAll.",
     )
-    @argfails(
-        gc(Adj, ['a' => 8]; ExpectedRefType = Int),
+
+    @argfails( #  :unexpected_ref_type (plain source)
+        gc(Adj, [:a => 5], Int),
         "Invalid source reference type. \
          Expected $Int (or convertible). \
-         Received instead at [1][left]: 'a' ::Char.",
+         Received instead at [1][left]: :a ::Symbol.",
     )
-    #  @argfails(
-    #  gc((@GraphData A{Float64}), [:a => [:b => 8], 'a' => [:c => 9]]), # HERE: now featured!
-    #  "Duplicated ref: :a.",
-    #  )
-    @argfails(
-        gc(Adj, [:a => [:b => 8], 'a' => ['b' => 9]]),
+
+    @argfails( # :inconsistent_ref_type (plain source)
+        gc(Adj, [(:a => 5) => :b, (1 => 8) => :c]),
+        "The source reference type for this input \
+         was first inferred to be a label ($Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][left][left]: 1 ::$Int.",
+    )
+
+    @argfails( # :not_a_value (plain source)
+        gc(Adj, [(:a => 5im) => :b]),
+        "Expected values of type '$Float64', \
+         received instead at [1][left][right]: 0 + 5im ::$Complex{$Int}.",
+    )
+
+    @argfails( # :not_a_pair (map source) : pick :not_a_ref
+        gc(Adj, [[Type] => 5]),
+        "Cannot interpret source reference as integer index or symbol label: \
+         received at [1][left][1]: $Type ::$UnionAll.",
+    )
+
+    @argfails( # :unexpected_ref_type (map source)
+        gc(Adj, [[5] => 8], Symbol),
+        "Invalid source reference type. \
+         Expected $Symbol (or convertible). \
+         Received instead at [1][left][1]: 5 ::$Int.",
+    )
+
+    @argfails( # :inconsistent_ref_type (map source)
+        gc(Adj, [[5, :a] => 8]),
+        "The source reference type for this input \
+         was first inferred to be an index ($Int) \
+         based on the received '5', \
+         but a label ($Symbol) is now found at [1][left][2]: :a ::$Symbol.",
+    )
+
+    @argfails( # :duplicate_node (map source)
+        gc(Adj, [[:a => 5, :a => 8] => :b]),
+        "Duplicated source reference :\n\
+         Received before: a => 5.0\n\
+         Received now   : a => 8 ::$Int at [1][left][2][left][1]: :a ::$Symbol.",
+    )
+
+    @argfails( # :duplicate_node (map source)
+        gc(Adj, [[:a => 5, [:b, :b] => 8] => :c]),
+        "Duplicated source reference at [1][left][2][left][2]: :b ::$Symbol.",
+    )
+
+    @argfails( # :duplicate_node (map source)
+        gc(Adj, [[:a, :a] => 8]),
+        "Duplicated source reference at [1][left][2]: :a ::$Symbol.",
+    )
+
+    @argfails( # :boolean_label (map source)
+        gc(Adj, [Bool[0, 1, 1, 0] => (2 => 10)], Symbol),
+        "A label-indexed group of sources cannot be produced from boolean vectors \
+         at [1][left]: $Bool[0, 1, 1, 0] ::$Vector{$Bool}.",
+    )
+
+    @argfails( # :inconsistent_ref_type (map source)
+        gc(Adj, [:a => (:b => 5), Bool[0, 1, 1, 0] => (2 => 10)]),
+        "The group of sources reference type for this input \
+         was first inferred to be a label ($Symbol) based on the received ':a', \
+         but a boolean vector (only yielding indices) \
+         is now found at [2][left]: $Bool[0, 1, 1, 0] ::$Vector{$Bool}.",
+    )
+
+    @argfails( # :not_a_value (plain source)
+        gc(Adj, [[:a => 5im] => :b]),
+        "Expected values of type '$Float64', \
+         received instead at [1][left][1][right]: 0 + 5im ::$Complex{$Int}.",
+    )
+
+    # TODO: better explain that the duplication comes from the boolean?
+    # (although this really is a weird input)
+    @argfails( # :duplicate_node (map source)
+        gc(Adj, [[1 => 5, 2 => 8, Bool[0, 1, 1] => 9] => 3]),
+        "Duplicated source reference :\n\
+         Received before: 2 => 8.0\n\
+         Received now   : 2 => 9 ::$Int at [1][left][3][left][1]: 2 ::$Int.",
+    )
+
+    # # # ≈ same on the target side # # #
+    # TODO: I am having a hard time making sure that all error paths are covered.
+    # Design a more systematic way?
+
+    @argfails( #  :not_a_pair (plain targets) : pick :not_a_ref
+        gc(Adj, [5 => Type]),
+        "Cannot interpret target reference as integer index or symbol label: \
+         received at [1][right]: $Type ::$UnionAll.",
+    )
+
+    @argfails( #  :unexpected_ref_type (plain target)
+        gc(Adj, [1 => (:a => 5)], Int),
+        "Invalid target reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][right][left]: :a ::Symbol.",
+    )
+
+    @argfails( # :inconsistent_ref_type (plain target)
+        gc(Adj, [:a => (:b => 5), :c => (3 => 8)]),
+        "The target reference type for this input \
+         was first inferred to be a label ($Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [2][right][left]: 3 ::$Int.",
+    )
+
+    @argfails( # :not_a_value (plain target)
+        gc(Adj, [:a => (:b => 5im)]),
+        "Expected values of type '$Float64', \
+         received instead at [1][right][right]: 0 + 5im ::$Complex{$Int}.",
+    )
+
+    @argfails( # :not_a_pair (map target) : pick :not_a_ref
+        gc(Adj, [5 => [Type]]),
+        "Cannot interpret target reference as integer index or symbol label: \
+         received at [1][right][1]: $Type ::$UnionAll.",
+    )
+
+    @argfails( # :unexpected_ref_type (map target)
+        gc(Adj, [:a => [2]], Symbol),
+        "Invalid target reference type. \
+         Expected $Symbol (or convertible). \
+         Received instead at [1][right][1]: 2 ::$Int.",
+    )
+
+    @argfails( # :duplicate_node (map target)
+        gc(Adj, [:a => [:b => 5, :b => 8]]),
+        "Duplicated target reference :\n\
+         Received before: b => 5.0\n\
+         Received now   : b => 8 ::$Int at [1][right][2][left][1]: :b ::$Symbol.",
+    )
+
+    @argfails( # :duplicate_node (map target)
+        gc(Adj, [:a => [:b => 5, [:c, :c] => 8]]),
+        "Duplicated target reference at [1][right][2][left][2]: :c ::$Symbol.",
+    )
+
+    @argfails( # :not_a_value (plain target)
+        gc(Adj, [:a => [:b => 5im]]),
+        "Expected values of type '$Float64', \
+         received instead at [1][right][1][right]: 0 + 5im ::$Complex{$Int}.",
+    )
+
+    # # # Specific to Adjacency maps # # #
+
+    @argfails( # :two_values
+        gc(Adj, [(:a => 5) => [:b => 8]]),
+        "Cannot associate values to both source and target ends of edges at [1]:\n\
+         Received LHS: ((:a, 5.0),)\n\
+         Received RHS: $OrderedDict(:b => 8.0).",
+    )
+
+    @argfails( # :no_value
+        gc(Adj, [:a => [:b, :c]]),
+        "No values found for either source or target end of edges at [1]:\n\
+         Received LHS: (:a,)\n\
+         Received RHS: $OrderedSet{$Symbol}([:b, :c])."
+    )
+
+    @argfails( # :duplicate_edge
+        gc(Adj, [:a => [:b => 5, :c => 8], [:a => 13] => [:c, :d]]),
         "Duplicate edge specification:\n\
-         Previously received: :a → :b (8.0)\n\
-         Now received:        :a → :b (9.0) at [2][right][1]: :b ::Symbol.",
+         Previously received: :a → :c (8.0)\n\
+         Now received:        :a → :c (13.0) at [2][right][1]: :c ::$Symbol."
+    )
+
+    @argfails( # :no_targets
+        gc(Adj, [:a => []]),
+        "No target provided for `target => value` pair at [1][left][1].",
+    )
+
+    @argfails( # :no_sources
+        gc(Adj, [[] => :b]),
+        "No sources provided at [1][left][0].",
     )
 
     # ======================================================================================
