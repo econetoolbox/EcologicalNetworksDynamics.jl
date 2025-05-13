@@ -1,0 +1,129 @@
+parse_iterable:
+    :not_iterable
+
+parse_plain_ref:
+    :not_a_ref
+    :unexpected_ref_type
+    :inconsistent_ref_type
+
+parse_pair:
+    :not_a_pair
+
+parse_plain_pair:
+    parse_pair
+    parse_plain_ref
+    parse_value
+
+parse_grouped_refs:
+    parse_plain_ref
+    BinMap:
+    BinMap{Bool}
+
+parse_grouped_pairs:
+    parse_plain_pair
+    Map
+    Map{Bool}
+
+
+parse_value:
+    :not_a_value
+
+BinMap: ✓
+    parse_iterable ✓
+        :not_iterable ✓
+    (for each ref)
+        parse_plain_ref
+            :not_a_ref ✓
+            :unexpected_ref_type ✓
+            :inconsistent_ref_type ✓
+        :duplicate_node ✓
+
+BinMap{Bool}: ✓
+    :boolean_label ✓
+    :inconsistent_ref_type 🗙(only from above)
+
+Map: ✓
+    parse_iterable ✓
+        :not_iterable ✓
+    (for each pair)
+        parse_pair ✓
+            :not_a_pair ✓
+        parse_grouped_refs ✓
+            parse_plain_ref ✓
+                :not_a_ref ✓
+                :unexpected_ref_type ✓
+                :inconsistent_ref_type ✓
+            BinMap ✓
+                parse_iterable ✓
+                    :not_iterable 🗙(pick :not_a_ref)
+                (for each ref)
+                    parse_plain_ref ✓
+                        :not_a_ref ✓
+                        :unexpected_ref_type ✓
+                        :inconsistent_ref_type ✓
+                    :duplicate_node ✓
+            BinMap{Bool}: ✓
+                :boolean_label ✓
+                :inconsistent_ref_type ✓
+        parse_value ✓
+            :not_a_value ✓
+        :duplicate_node ✓
+
+BinAdj: ✓
+    parse_iterable ✓
+        :not_iterable  ✓
+    (for each pair)
+        parse_pair ✓
+            :not_a_pair ✓
+        (for [sources, targets])
+            parse_grouped_refs ✓
+                parse_plain_ref ✓
+                    :not_a_ref ✓
+                    :unexpected_ref_type ✓
+                    :inconsistent_ref_type ✓
+                BinMap ✓
+                    parse_iterable ✓
+                        :not_iterable 🗙(pick: not_a_ref)
+                    (for each ref)
+                        parse_plain_ref ✓
+                            :not_a_ref ✓
+                            :unexpected_ref_type ✓
+                            :inconsistent_ref_type ✓
+                        :duplicate_node ✓
+                BinMap{Bool} ✓
+                    :boolean_label ✓
+                    :inconsistent_ref_type ✓
+        :duplicate_edge ✓
+        :no_targets ✓
+        :no_sources ✓
+
+BinAdj{Bool}: ✓
+    :boolean_label ✓
+    :inconsistent_ref_type 🗙 (only from above.. or.. not even possible?)
+
+# HERE: expand and check 1 by 1 like above.
+Adjacency:
+    parse_iterable: ✓
+        :not_iterable ✓
+    (for each pair)
+        parse_pair: ✓
+            :not_a_pair ✓
+        (for (sources (ම), targets (ම)))
+            parse_grouped_pairs: ම
+              | parse_plain_pair: ම
+                    parse_pair: ✓
+                        :not_a_pair ✓
+                    parse_plain_ref: ම
+                        :not_a_ref ම
+                        :unexpected_ref_type ම
+                        :inconsistent_ref_type ම
+                    parse_value: ම
+                        :not_a_value ම
+              | Map
+              | Map{Bool}
+            parse_grouped_refs
+            :two_values
+            :no_value
+            :duplicate_edge
+            :no_targets
+            :no_sources
