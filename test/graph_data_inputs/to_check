@@ -103,11 +103,24 @@ BinAdj{Bool}: ✓
 
 # HERE: expand and check 1 by 1 like above.
 Adjacency:
-    parse_iterable
-    for each pair:
-        parse_pair
-        for (sources, targets):
-            parse_grouped_pairs
+    parse_iterable: ✓
+        :not_iterable ✓
+    (for each pair)
+        parse_pair: ✓
+            :not_a_pair ✓
+        (for (sources (ම), targets (ම)))
+            parse_grouped_pairs: ම
+              | parse_plain_pair: ම
+                    parse_pair: ✓
+                        :not_a_pair ✓
+                    parse_plain_ref: ම
+                        :not_a_ref ම
+                        :unexpected_ref_type ම
+                        :inconsistent_ref_type ම
+                    parse_value: ම
+                        :not_a_value ම
+              | Map
+              | Map{Bool}
             parse_grouped_refs
             :two_values
             :no_value

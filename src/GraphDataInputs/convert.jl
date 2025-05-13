@@ -350,9 +350,12 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
             (refs, true)
         catch group_error
             group_error isa Forgiveness || rethrow(group_error)
+            println("refs plain_error.tag: $(plain_error.tag)")
+            println("refs group_error.tag: $(group_error.tag)")
             (pick(plain_error, group_error), false)
         end
     end
+    ok || println("win: $(refs.tag) ($input)")
     ok || throw(refs)
     refs
 end
@@ -380,9 +383,12 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
             (pairs, true)
         catch group_error
             group_error isa Forgiveness || rethrow(group_error)
+            println("pairs plain_error.tag: $(plain_error.tag)")
+            println("pairs group_error.tag: $(group_error.tag)")
             (pick(plain_error, group_error), false)
         end
     end
+    ok || println("win: $(pairs.tag) ($input)")
     ok || throw(pairs)
     pairs
 end
@@ -687,9 +693,12 @@ function graphdataconvert(
                         (parse_grouped_refs!(p, side, refwhat; ExpectedRefType), false, true)
                     catch e_refs
                         e_refs isa Forgiveness || rethrow(e_refs)
-                        (e_refs, nothing, false)
+                        println("group e_pairs.tag: $(e_pairs.tag)")
+                        println("group e_refs.tag: $(e_refs.tag)")
+                        (pick(e_pairs, e_refs), nothing, false)
                     end
                 end
+                ok || println("win: $(group.tag) ($input)")
                 ok || throw(group)
                 pop!(p)
                 (group, has_values)

@@ -674,10 +674,57 @@ Alias = _Alias() # Use as an unambiguous keyword.
         "A label-indexed binary adjacency list cannot be produced from boolean matrices.",
     )
 
-    error("HERE: keep going")
-
     # Adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Adj = @GraphData Adjacency{Float64}
+
+    @argfails( #  :not_iterable
+        gc(Adj, Type),
+        "Input for adjacency map needs to be iterable.\n\
+         Received: Type ::UnionAll.",
+    )
+
+    @argfails( #  :not_a_pair
+        gc(Adj, [Type]),
+        "Not a 'source(s) => target(s)' pair at [1]: Type ::UnionAll.",
+    )
+
+    # HERE: do the following two imply inconsistent 'pick' priorities?
+    # Careful look at both logs: it seems that priorities
+    # actually depend on the parsing context: how to best fix that?
+    @argfails( #  :not_a_pair (sources)
+        gc(Adj, [Type => 5]),
+        "Not a 'source => value' pair at [1][left]: Type ::UnionAll.",
+    )
+    @argfails( #  :not_a_ref (sources)
+        gc(Adj, [(Type, 5) => 8]),
+        "Cannot interpret source reference \
+         as integer index or symbol label: \
+         received at [1][left][1]: Type ::UnionAll.",
+    )
+
+    @argfails( #  :unexpected_ref_type (source)
+        gc(Adj, [(:a, 5) => 8], Int),
+        "Invalid source reference type. \
+         Expected $Int (or convertible). \
+         Received instead at [1][left][1]: :a ::Symbol.",
+    )
+
+    @argfails( # :inconsistent_ref_type (source)
+        gc(Adj, [[(:a, 5), (6, 7)] => 8]),
+        "The source reference type for this input \
+         was first inferred to be a label ($Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [1][left][2][left]: 6 ::Int64.",
+    )
+
+    @argfails( # :not_a_value (source)
+        gc(Adj, [[(:a, 5), (6, 7)] => 8]),
+        "The source reference type for this input \
+         was first inferred to be a label ($Symbol) based on the received ':a', \
+         but an index ($Int) is now found at [1][left][2][left]: 6 ::Int64.",
+    )
+
+    error("HERE: keep going")
+
     @argfails(
         gc(Adj, Type),
         "Input for adjacency map needs to be iterable.\n\
