@@ -43,6 +43,7 @@ end
 
 
 function allee_death_loss(i, B, params::ModelParameters)
+    d_i = params.biorates.d[i]
     β = params.allee_effect.β
     μ = params.allee_effect.μ
     Mᵢ = params.network.M[i]
@@ -50,7 +51,7 @@ function allee_death_loss(i, B, params::ModelParameters)
     Bᵢ = B[i]
     Nᵢ = Bᵢ / (Mᵢ ^ expo)
 
-    Bᵢ * ((μ * β) / (β + Nᵢ))
+    (Bᵢ * ((μ * β) / (β + Nᵢ))) + (d_i * Bᵢ)
 end
 
 function stoch_metabolic_loss(i, B, params::ModelParameters)

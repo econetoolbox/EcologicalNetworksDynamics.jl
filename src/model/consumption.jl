@@ -263,3 +263,22 @@ function stoch_consumption(::BioenergeticResponse, i, B, params::ModelParameters
     eating, being_eaten
 end
 
+
+function stoch_consumption(
+    ::Union{ClassicResponse,LinearResponse},
+    i,
+    B,
+    params::ModelParameters,
+    fᵣmatrix,
+)
+    # Set up
+    net = params.network
+    prey = preys_of(i, net)
+    pred = predators_of(i, net)
+    e = params.biorates.e
+
+    # Compute consumption terms
+    eating = B[i] * sum(e[i, prey] .* fᵣmatrix[i, prey])
+    being_eaten = sum(B[pred] .* fᵣmatrix[pred, i])
+    eating, being_eaten
+end # literally same as deterministic

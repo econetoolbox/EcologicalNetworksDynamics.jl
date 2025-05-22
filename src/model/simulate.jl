@@ -200,6 +200,7 @@ function simulate(
             alg;
             callback = callback,
             isoutofdomain = (u, p, t) -> any(x -> x < 0, u),
+            dt = dt,
             kwargs...,
         )
     else
