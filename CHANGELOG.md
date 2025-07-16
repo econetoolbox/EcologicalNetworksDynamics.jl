@@ -1,14 +1,67 @@
 # v0.x.0
 
+## New feature:
+
+Edges adjacency specifications could already grouped by targets:
+```julia
+Foodweb([:a => (:b, :c)]) # ":a eats :b and :c"
+```
+Now they can also be grouped by *sources*:
+```julia
+Foodweb([(:a, :b) => :c]) # ":a and :b eat :c"
+```
+You can mix and match both styles, grouping any kind of iterable:
+```julia
+Foodweb([
+  (:a, :b) => :c,       # ":a and :b eat :c" (group with a tuple)
+  :c => [:d, :e, :f],   # ":c eats :d, :e and :f" (group with a vector)
+  [:f, :g] => [:a, :b], # ":f and :g eat :a and :b"
+])
+```
+This also works when edges carry *values*:
+```julia-repl
+julia> Model(
+         Species([Symbol(c) for c in "abcdefghij"]),
+         Foodweb([]),
+         ProducersCompetition([
+           # Bulk setting with values grouped on the target side.
+           :a => [(:b, :c) => 0.5, :d => 0.7],
+           # Group with values on the source side and without values on the target side.
+           [:e => 0.1, (:f, :g) => 0.9] => [:h, :i, :j],
+           # Final tweaks.
+           :e => (:b => 0.4), # Value on the target side.
+           (:h => 0.8) => :a, # Value on the source side.
+         ]),
+       ).producers.competition.matrix
+10×10 EcologicalNetworksDynamics.ProducersCompetitionMatrix with 12 stored entries:
+  ⋅   0.5  0.5  0.7   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+  ⋅    0.4  ⋅    ⋅    ⋅    ⋅    ⋅   0.1  0.1  0.1
+  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅   0.9  0.9  0.9
+  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅   0.9  0.9  0.9
+  0.8  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+```
+
+## Improvements
+
 - Producers competition links are reified as edges.
-  - Breaking (minor): `producers.competition`
+  - __Breaking (minor)__: `producers.competition`
     is now split into `.matrix` and `.mask`.
-  - Breaking (minor): producers competition rates
-    cannot be modified anymore outside the edges mask.
+  - __Breaking (minor)__: producers competition rates
+    cannot be modified anymore outside the corresponding edges mask.
 
-- Improved display for sparse graph data views.
+- Improved display for sparse graph data views (see example above).
 
-- Fix topology bug: isolated producers with selfing edges are still isolated.
+## Fix
+
+Topology bug: isolated producers with selfing edges were not considered
+isolated. Now they are.
+
+## Internal improvement
 
 - The new `./compat/` folder contains and documents all the logic associated
   with the dependencies handling for the project.
