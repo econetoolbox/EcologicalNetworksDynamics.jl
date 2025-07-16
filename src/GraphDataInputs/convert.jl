@@ -235,8 +235,6 @@ parse_value(p::Parser, input) =
         )
     end
 
-# HERE: forbid pairs as iterables to alleviate
-# https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/182
 parse_iterable(p::Parser, input, what) =
     try
         iterate(input)
@@ -249,6 +247,17 @@ parse_iterable(p::Parser, input, what) =
         )
         rethrow(e)
     end
+# Forbid pairs as iterables to alleviate
+# https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/182
+function parse_iterable(p::Parser, input::Pair, _)
+    a, b = input
+    forgerr(
+        :pair_as_iterable,
+        "The pair at $(path(p)) is just considered an iterable in this context, \
+         which may be confusing. \
+         Consider using an explicit vector instead like [$(repr(a)), $(repr(b))].",
+    )
+end
 
 parse_pair(p::Parser, input, what) =
     try
@@ -354,6 +363,7 @@ parse_grouped_refs_priorities = priorities([
     :duplicate_node,
     :duplicate_edge,
     :boolean_label,
+    :pair_as_iterable,
     :not_a_ref,
     :not_iterable,
     :no_targets,
@@ -406,6 +416,7 @@ parse_grouped_pairs_priorities = priorities([
     :no_values,
     :two_values,
     :not_a_pair,
+    :pair_as_iterable,
     :not_iterable,
 ])
 
@@ -795,6 +806,7 @@ adjacency_map_priorities = priorities([
     :no_sources,
     :no_values,
     :two_values,
+    :pair_as_iterable,
     :not_iterable,
 ])
 

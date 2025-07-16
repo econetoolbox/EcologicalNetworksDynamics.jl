@@ -380,6 +380,13 @@ Alias = _Alias() # Use as an unambiguous keyword.
          Received: Type ::UnionAll."
     )
 
+    @argfails( #  :pair_as_iterable
+        gc(BinMap, :a => :b),
+        "The pair at [] is just considered an iterable in this context, \
+         which may be confusing. \
+         Consider using an explicit vector instead like [:a, :b]."
+    )
+
     @argfails( #  :not_a_ref
         gc(BinMap, [Type]),
         "Cannot interpret node reference as integer index or symbol label: \
@@ -595,6 +602,20 @@ Alias = _Alias() # Use as an unambiguous keyword.
         "Invalid target node reference type. \
          Expected Symbol (or convertible). \
          Received instead at [1][right][3]: 4 ::$Int.",
+    )
+
+    @argfails( #   :pair_as_iterable (grouped sources)
+        gc(BinAdj, [(:a => :b) => :c], Symbol),
+        "The pair at [1][left] is just considered an iterable in this context, \
+         which may be confusing. \
+         Consider using an explicit vector instead like [:a, :b].",
+    )
+
+    @argfails( #   :pair_as_iterable (grouped targets)
+        gc(BinAdj, [:a => :b => :c], Symbol),
+        "The pair at [1][right] is just considered an iterable in this context, \
+         which may be confusing. \
+         Consider using an explicit vector instead like [:b, :c].",
     )
 
     @argfails( #  :inconsistent_ref_type (grouped sources)
