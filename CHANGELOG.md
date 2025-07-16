@@ -1,22 +1,103 @@
-# v0.x.0
+# v0.3.1
 
-- Producers competition links are reified as edges.
-  - Breaking (minor): `producers.competition`
-    is now split into `.matrix` and `.mask`.
-  - Breaking (minor): producers competition rates
-    cannot be modified anymore outside the edges mask.
+## New feature
 
-- Improved display for sparse graph data views.
+Edges adjacency specifications could already be grouped by targets:
+```julia
+Foodweb([:a => (:b, :c)]) # ":a eats :b and :c"
+```
+Now they can also be grouped by *sources*: [#167]
+```julia
+Foodweb([(:a, :b) => :c]) # ":a and :b eat :c"
+```
+You can mix and match both styles, grouping any kind of iterable:
+```julia
+Foodweb([
+  (:a, :b) => :c,       # ":a and :b eat :c" (group with a tuple)
+  :c => [:d, :e, :f],   # ":c eats :d, :e and :f" (group with a vector)
+  [:f, :g] => [:a, :b], # ":f and :g eat :a and :b"
+])
+```
+This also works when edges carry *values*:
+```julia
+Model(
+  Species([Symbol(c) for c in "abcdefghij"]),
+  Foodweb([]),
+  ProducersCompetition([
+    # Bulk setting with values grouped on the target side.
+    :a => [(:b, :c) => 0.5, :d => 0.7],
+    # Group with values on the source side and without values on the target side.
+    [:e => 0.1, (:f, :g) => 0.9] => [:h, :i, :j],
+    # Final tweaks.
+    :e => (:b => 0.4), # Value on the target side.
+    (:h => 0.8) => :a, # Value on the source side.
+  ]),
+).producers.competition.matrix
+# 10×10 EcologicalNetworksDynamics.ProducersCompetitionMatrix with 12 stored entries:
+#   ⋅   0.5  0.5  0.7   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+#   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+#   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+#   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+#   ⋅    0.4  ⋅    ⋅    ⋅    ⋅    ⋅   0.1  0.1  0.1
+#   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅   0.9  0.9  0.9
+#   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅   0.9  0.9  0.9
+#   0.8  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+#   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+#   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+```
 
-- Fix topology bug: isolated producers with selfing edges are still isolated.
+## Improvements
+
+- Improved display for sparse graph data views (see example above).
+
+- Producers competition links are now reified as edges ([#180]).
+  This has two minor breaking consequences:
+  - __Breaking (minor)__: `producers.competition`
+    is now split into `.matrix` and `.mask` (see example above).
+  - __Breaking (minor)__: producers competition rates
+    cannot be modified anymore outside the corresponding edges mask
+    (*i.e.* dots in the above example will remain 'zeros' forever
+     once added to the model).
+
+## Bugfixes
+
+- Topology: isolated producers with selfing edges were not considered isolated.
+  Now they are: [#180].
+
+- Following hint in [#182],
+  forbid the use of pairs as grouping iterables in adjacency input.
+  The following now is an error:
+  ```julia-repl
+  julia> Foodweb([:a => :b => :c]) # /!\ Confusing.
+  ERROR: ...
+  caused by: ArgumentError: The pair at [1][right] is just considered an
+  iterable in this context, which may be confusing. Consider using an explicit
+  vector instead like [:b, :c].
+
+  julia> Foodweb([:a => (:b, :c)]) # Equivalent but less confusing.
+  julia> Foodweb([:a => :b, :b => :c]) # What you were possibly meaning.
+  ```
+  Although this is technically __breaking__, we consider it a semantic bugfix.
+
+## Internal improvements
 
 - The new `./compat/` folder contains and documents all the logic associated
-  with the dependencies handling for the project.
+  with the dependencies handling for the project ([#172]).
   Introduce three flavours for testing:
   - `lower`: test with the lowest compatibility bounds claimed by `[compat]`.
   - `pinned`: test within the frozen environment wherein tests passed once.
   - `latest`: test with latest compatible versions,
               checking for latest incompatible versions.
+
+- Internals have been made compatible with Jacobian computation with autograd
+  for companion package [EcoNetPostProcessing.jl]: [#179].
+
+[#167]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/pull/167
+[#172]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/pull/172
+[#179]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/pull/179
+[#180]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/180
+[#182]: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/182
+[EcoNetPostProcessing.jl]: https://econetoolbox.github.io/EcoNetPostProcessing.jl/dev/
 
 # v0.3.0 Upgrade Blueprint/Components Framework
 
