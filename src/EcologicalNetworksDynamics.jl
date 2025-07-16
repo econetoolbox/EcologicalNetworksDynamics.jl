@@ -89,19 +89,19 @@ include("./dedicate_framework_to_model.jl")
 include("./graph_views.jl")
 using .GraphViews
 
-#  # Convenience macro to wire this all together.
-#  include("./expose_data.jl")
+# Convenience macro to wire this all together.
+include("./expose_data.jl")
 
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
-#  include("./components/main.jl")
+include("./components/main.jl")
 
-#  # Additional exposed utils built on top of components and methods.
-#  include("./default_model.jl")
-#  include("./nontrophic_layers.jl")
-#  include("./simulate.jl")
-#  include("./topology.jl")
-#  include("./diversity.jl")
+# Additional exposed utils built on top of components and methods.
+include("./default_model.jl")
+include("./nontrophic_layers.jl")
+include("./simulate.jl")
+include("./topology.jl")
+include("./diversity.jl")
 
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true
