@@ -1,3 +1,9 @@
+module TestRefuge
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 # Copied and adapted from competition layer.
 @testset "Refuge layer." begin
 
@@ -260,5 +266,7 @@
     # Special-cased unimpliable topology.
     rl.topology = Refuge.Topology
     @sysfails(base + rl, Add(CannotImplyConstruct, Refuge.Topology, [Refuge.Layer.Pack]),)
+
+end
 
 end

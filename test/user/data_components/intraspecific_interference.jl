@@ -1,3 +1,9 @@
+module TestIntraspecificInterference
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Intra-specific interference component." begin
 
     # Mostly duplicated from HalfSaturationDensity.
@@ -92,5 +98,7 @@
             -2,
         ),
     )
+
+end
 
 end

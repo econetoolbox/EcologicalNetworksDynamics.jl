@@ -1,3 +1,9 @@
+module Simulate
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using Logging
+
 @testset "Simulate" begin
 
     # Set up.
@@ -114,4 +120,6 @@ end
     out_d = simulates(params_d, [1])
     out_x = simulates(params_x, [1])
     @test out_xd.u[end] ≈ out_x.u[end] ≈ out_d.u[end]
+end
+
 end

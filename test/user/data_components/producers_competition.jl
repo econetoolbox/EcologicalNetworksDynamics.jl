@@ -1,3 +1,9 @@
+module TestProducersCompetition
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "ProducersCompetition component." begin
 
     # Mostly duplicated from Efficiency.
@@ -163,5 +169,7 @@
              Valid edges target labels for source [:b] in this template are:\n  [:b, :c]",
         )
     )
+
+end
 
 end

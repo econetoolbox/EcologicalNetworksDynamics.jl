@@ -1,3 +1,9 @@
+module TestMetabolism
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Metabolism component." begin
 
     # Mostly duplicated from Mortality.
@@ -154,5 +160,7 @@
         (m.metabolism[3] = -2),
         WriteError("Not a positive value: x[3] = -2.", :metabolism, (3,), -2),
     )
+
+end
 
 end

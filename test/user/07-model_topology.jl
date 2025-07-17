@@ -1,7 +1,7 @@
 module TestModelTopology
 
 using EcologicalNetworksDynamics
-import Main.TestTopologies: check_display
+import Main: check_display
 using Test
 using Random
 

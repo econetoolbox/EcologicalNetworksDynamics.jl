@@ -1,3 +1,8 @@
+module Productivity
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 @testset "LogisticGrowth functor" begin
 
     foodweb_to_test = [
@@ -66,5 +71,7 @@
         sol = simulates(model, u0; verbose = false)
         @test sol[1:2, end] ≈ [1, 1]
     end
+
+end
 
 end

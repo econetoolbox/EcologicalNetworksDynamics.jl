@@ -1,3 +1,9 @@
+module TestMaximumConsumption
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "MaximumConsumption component." begin
 
     # Mostly duplicated from CarryingCapacity.
@@ -129,5 +135,7 @@
         (m.maximum_consumption[1] = -2),
         WriteError("Not a positive value: y[1] = -2.", :maximum_consumption, (1,), -2),
     )
+
+end
 
 end

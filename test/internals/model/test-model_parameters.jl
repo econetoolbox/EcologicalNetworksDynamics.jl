@@ -1,3 +1,9 @@
+module TestModelParameters
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using SparseArrays
+
 @testset "Model parameters" begin
     A = [0 0 0; 1 0 0; 1 1 0]
     foodweb = FoodWeb(A)
@@ -48,4 +54,6 @@
         functional_response = bresp,
     )
     @test_nowarn ModelParameters(multiplex_network, functional_response = cresp)
+end
+
 end

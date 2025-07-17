@@ -1,3 +1,9 @@
+module Functioning
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using SparseArrays
+
 @testset "Extraction of living species" begin
 
     foodweb = FoodWeb([0 0; 1 0])
@@ -255,4 +261,6 @@ end
         evennan([1, 1]; threshold = 1),
     ]
     @test all(evennan_check)
+end
+
 end

@@ -1,3 +1,9 @@
+module TestClassicResponse
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Classic response component." begin
 
     Random.seed!(12)
@@ -92,5 +98,7 @@
     # In this situation, just stop bringing.
     m = base + BodyMass(3) + ClassicResponse(; M = nothing) # (which happens to be the default here)
     @test m.M == [3, 3, 3, 3, 3]
+
+end
 
 end

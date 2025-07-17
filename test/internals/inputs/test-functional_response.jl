@@ -1,3 +1,9 @@
+module FunctionalResponse
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using SparseArrays
+
 @testset "Assimilation efficiency" begin
     foodweb = FoodWeb([0 0 0; 1 0 0; 1 1 0])
     e_expect = sparse([0 0 0; 1 0 0; 1 2 0])
@@ -339,4 +345,6 @@ end
     @test handling_time(foodweb |> MultiplexNetwork) ≈ ht_expected
     @test attack_rate(foodweb) ≈ ar_expected
     @test attack_rate(foodweb |> MultiplexNetwork) ≈ ar_expected
+end
+
 end

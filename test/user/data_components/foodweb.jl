@@ -1,3 +1,9 @@
+module TestFoodweb
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Foodweb component." begin
     # Very structuring, the foodweb does provide a lot of properties.
 
@@ -169,5 +175,7 @@
     )
 
     # Input tests on the `Foodweb` constructor itself live in "../01-input.jl".
+
+end
 
 end

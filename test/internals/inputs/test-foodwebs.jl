@@ -1,3 +1,8 @@
+module FoodWebs
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 @testset "Foodwebs from adjacency list." begin
     function test_on_iterable_pair(
         pair_tuple,
@@ -110,4 +115,6 @@ end
     # Test when the FoodWeb is generated with a structural model.
     @test_logs (:warn,) FoodWeb(niche_model, 10; C = 0.0, check_disconnected = false)
     @test_logs FoodWeb(niche_model, 10; C = 0.0, check_disconnected = false, quiet = true)
+end
+
 end

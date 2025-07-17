@@ -1,3 +1,9 @@
+module TestBodyMass
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Body mass component." begin
 
     base = Model()
@@ -118,5 +124,7 @@
     )
 
     # Graphview-related tests live in "../02-graphviews.jl".
+
+end
 
 end

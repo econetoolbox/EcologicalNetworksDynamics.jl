@@ -1,3 +1,9 @@
+module TestCarryingCapacity
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Carrying capacity component." begin
 
     # Mostly duplicated from Growth.
@@ -132,5 +138,7 @@
         (m.carrying_capacity[3] = -2),
         WriteError("Not a positive value: K[3] = -2.", :carrying_capacity, (3,), -2),
     )
+
+end
 
 end

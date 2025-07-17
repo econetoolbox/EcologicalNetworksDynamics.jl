@@ -1,3 +1,9 @@
+module Stability
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using Statistics
+
 @testset "temporal stability as CV" begin
 
     # Matrix with 0 columns and 0 rows to checks that functions can handle
@@ -82,5 +88,7 @@
 
     cv_one_sp2 = coefficient_of_variation(one_sp; idxs = 2, last = 10)
     @test all(isnan.(values(cv_one_sp2)))
+
+end
 
 end

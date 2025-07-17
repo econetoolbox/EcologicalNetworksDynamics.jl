@@ -1,3 +1,9 @@
+module TestSpecies
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Species components." begin
 
     base = Model()
@@ -62,5 +68,7 @@
         Model().richness,
         Property(richness, "Component $(EN._Species) is required to read this property."),
     )
+
+end
 
 end

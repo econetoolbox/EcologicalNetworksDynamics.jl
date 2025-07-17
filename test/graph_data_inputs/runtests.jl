@@ -3,16 +3,18 @@ module TestGraphDataInputs
 using SparseArrays
 using OrderedCollections
 
-using EcologicalNetworksDynamics.GraphDataInputs
 using ..TestFailures
-using Test
 
 import EcologicalNetworksDynamics: SparseMatrix, Framework
 import .Framework: CheckError
 
-include("./types.jl")
-include("./convert.jl")
-include("./check.jl")
-include("./expand.jl")
+#! format: off
+Main.run_tests([
+    "types.jl",
+    "convert.jl",
+    "check.jl",
+    "expand.jl",
+]; parallel = false, prefix = "graph_data_inputs")
+#! format: on
 
 end

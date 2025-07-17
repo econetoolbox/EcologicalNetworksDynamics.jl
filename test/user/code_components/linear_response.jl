@@ -1,3 +1,9 @@
+module TestLinearResponse
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Linear response component." begin
 
     Random.seed!(12)
@@ -55,5 +61,7 @@
         0 0 0 0 0
         0 0 0 0 0
     ]
+
+end
 
 end

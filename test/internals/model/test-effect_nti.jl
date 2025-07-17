@@ -1,3 +1,9 @@
+module EffectNti
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using SparseArrays
+
 @testset "Effect of competition on net growth rate" begin
     foodweb = FoodWeb([0 0 0; 0 0 0; 1 1 0])
 
@@ -74,6 +80,12 @@ end
 
 @testset "Effect of refuge on attack rate" begin
 
+    # COPIED from functional response test
+    A_3sp = [0 0 0; 1 0 0; 1 1 0] # 2 eats 1; 3 eats 1 & 2
+    foodweb_3sp = FoodWeb(A_3sp)
+    net_refuge =
+        MultiplexNetwork(foodweb_3sp; C_ref = 1.0, intensity = (c = 0, f = 0, i = 0, r = 0))
+
     # 1 refuge link
     B = [1.0, 1, 1]
     for aᵣ in [0.1, 0.2, 0.3, 0.4, 0.5], r0 in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
@@ -98,4 +110,6 @@ end
         aᵣ_refuge_matrix = sparse([0 0 0 0; 0 0 0 0; aᵣ31 0 0 0; aᵣ41 aᵣ42 aᵣ43 0])
         @test Internals.effect_refuge(aᵣ_matrix, B, net) == aᵣ_refuge_matrix
     end
+end
+
 end

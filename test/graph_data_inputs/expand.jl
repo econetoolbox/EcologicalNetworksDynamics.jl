@@ -1,3 +1,9 @@
+module Expand
+using Test
+using SparseArrays
+using EcologicalNetworksDynamics.GraphDataInputs
+using Main.TestFailures
+
 @testset "Graph data expansion." begin
 
     # ======================================================================================
@@ -377,5 +383,7 @@
     input = "not a map"
     @to_dense_matrix_if_adjacency input small large
     @test input == "not a map"
+
+end
 
 end

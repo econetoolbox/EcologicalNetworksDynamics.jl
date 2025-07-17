@@ -1,3 +1,9 @@
+module TestLogisticGrowth
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Logistic growth component." begin
 
     Random.seed!(12)
@@ -63,5 +69,7 @@
         base + LogisticGrowth(; r = nothing),
         Missing(GrowthRate, LogisticGrowth, [LogisticGrowth.Blueprint], nothing),
     )
+
+end
 
 end

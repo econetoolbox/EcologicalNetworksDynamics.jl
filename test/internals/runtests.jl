@@ -4,10 +4,7 @@ using Crayons
 using EcologicalNetworksDynamics.Internals
 using Logging
 using Random
-using SparseArrays
-using Statistics
 using SyntaxTree
-using Test
 
 # Set and print seed
 seed = rand(1:100000)
@@ -79,6 +76,7 @@ function simulates(parms, B0; compare_atol = nothing, compare_rtol = nothing, kw
 
     g
 end
+export simulates
 
 function compare_generic_vs_specialized(g, s, style, atol, rtol)
     kwargs = Dict()
@@ -113,18 +111,12 @@ end
 simulate(args...; kwargs...) =
     throw(AssertionError("Don't use `simulate()` in tests, use `simulates()` instead \
                           so that all simulation flavours are tested together at once."))
+export simulate
 
-# Set up text formatting
-highlight = crayon"negative"
-bold = crayon"bold"
-green = crayon"green"
-reset = crayon"reset"
-
-for test in test_files
-    println("$(highlight)$(test)$(reset)")
-    include(test)
-    println("$(bold)$(green)PASSED$(reset)")
-    println("------------------------------------------")
-end
+Main.run_tests(
+    test_files;
+    parallel = false, # Mostly redundant compilation otherwise :(
+    prefix = "internals",
+)
 
 end

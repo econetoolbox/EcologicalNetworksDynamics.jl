@@ -1,3 +1,9 @@
+module TestCompetition
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Competition layer." begin
 
     base = Model(Foodweb([:a => [:b, :c, :d]]))
@@ -270,5 +276,7 @@
         base + cl,
         Add(CannotImplyConstruct, Competition.Topology, [Competition.Layer.Pack]),
     )
+
+end
 
 end

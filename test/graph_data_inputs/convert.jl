@@ -1,3 +1,10 @@
+module Convert
+using Test
+using SparseArrays
+using OrderedCollections
+using EcologicalNetworksDynamics.GraphDataInputs
+using Main.TestFailures
+
 struct _Alias end
 Alias = _Alias() # Use as an unambiguous keyword.
 
@@ -903,7 +910,7 @@ Alias = _Alias() # Use as an unambiguous keyword.
     @failswith((@tographdata 4 + 5 YSV{Bool}), MethodError, expansion)
     @failswith(
         (@tographdata nope YSV{Bool}),
-        UndefVarError => (:nope, TestGraphDataInputs),
+        UndefVarError => (:nope, Convert),
     )
     @xargfails(
         (@tographdata input NOPE),
@@ -1260,5 +1267,7 @@ end
     input = @tographdata input Adjacency{Float64}
     result = @tographdata input Adjacency{:bin}
     @test result == OrderedDict([:a => OrderedSet([:b, :d]), :c => OrderedSet([:a])])
+
+end
 
 end

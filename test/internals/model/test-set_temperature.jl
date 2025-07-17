@@ -1,3 +1,8 @@
+module Temperature
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 A = [0 0 0; 1 0 0; 0 1 0]
 foodweb = FoodWeb(A)
 foodweb.metabolic_class = ["producer", "invertebrate", "ectotherm vertebrate"]
@@ -53,4 +58,6 @@ end
     @test p.temperature_response.aᵣ == exp_ba_attack_rate()
     @test p.temperature_response.hₜ == exp_ba_handling_time()
     @test typeof(p.temperature_response) == ExponentialBA
+end
+
 end

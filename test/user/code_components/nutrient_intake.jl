@@ -1,3 +1,9 @@
+module TestNutrientIntake
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Nutrient intake component." begin
 
     N = Nutrients
@@ -93,5 +99,7 @@
             "Invalid size for parameter 't': expected (1,), got (2,).",
         )
     )
+
+end
 
 end

@@ -1,3 +1,9 @@
+module TestFacilitation
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 # Copied and adapted from competition layer.
 @testset "Facilitation layer." begin
 
@@ -277,5 +283,7 @@
         base + fl,
         Add(CannotImplyConstruct, Facilitation.Topology, [Facilitation.Layer.Pack]),
     )
+
+end
 
 end

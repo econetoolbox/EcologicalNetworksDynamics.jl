@@ -1,3 +1,9 @@
+module TestEfficiency
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Efficiency component." begin
 
     base = Model(Foodweb([:a => [:b, :c], :b => :c]))
@@ -134,5 +140,7 @@
              Valid edges target labels for source [:b] in this template are:\n  [:c]",
         )
     )
+
+end
 
 end

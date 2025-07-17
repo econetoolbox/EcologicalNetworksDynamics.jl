@@ -1,3 +1,9 @@
+module TestHalfSaturationDensity
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Half-saturation density component." begin
 
     # Mostly duplicated from MaximumConsumption.
@@ -83,5 +89,7 @@
         (m.half_saturation_density[1] = -2),
         WriteError("Not a positive value: B0[1] = -2.", :half_saturation_density, (1,), -2),
     )
+
+end
 
 end

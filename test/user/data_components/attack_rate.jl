@@ -1,3 +1,9 @@
+module TestAttackRate
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Attack rate component." begin
 
     # Mostly duplicated from HandlingTime.
@@ -157,5 +163,7 @@
              Valid edges target labels for source [:b] in this template are:\n  [:c]",
         )
     )
+
+end
 
 end

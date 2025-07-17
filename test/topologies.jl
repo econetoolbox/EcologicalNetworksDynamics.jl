@@ -2,15 +2,7 @@ module TestTopologies
 
 using EcologicalNetworksDynamics.Topologies
 using Test
-import ..Main: @argfails
-
-# Having correct 'show'/display implies that numerous internals are working correctly.
-function check_display(top, short, long)
-    @test "$top" == short
-    io = IOBuffer()
-    show(IOContext(io, :limit => true, :displaysize => (20, 40)), "text/plain", top)
-    @test String(take!(io)) == long
-end
+import ..Main: @argfails, check_display
 
 @testset "Topology primitives" begin
 

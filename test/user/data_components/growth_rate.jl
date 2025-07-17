@@ -1,3 +1,9 @@
+module TestGrowthRate
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "GrowthRate component." begin
 
     base = Model(Foodweb([:a => [:b, :c], :b => :c]))
@@ -168,5 +174,7 @@
         (m.growth_rate[3] = -2),
         WriteError("Not a positive value: r[3] = -2.", :growth_rate, (3,), -2),
     )
+
+end
 
 end

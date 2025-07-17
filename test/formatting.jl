@@ -6,8 +6,6 @@ using Crayons
 
 @info "Checking source code formatting..\n"
 
-root = pkgdir(EcologicalNetworksDynamics)
-
 exclude = [
     # Not formatted according to JuliaFormatter.
     "README.md",
@@ -24,23 +22,12 @@ exclude = [
     # TODO: stop excluding the above when possible.
 ]
 
-function strip_root(path::Vector{String})
-    proot = splitpath(root)
-    for (i, (p, r)) in enumerate(zip(path, proot))
-        if p != r
-            return path[i:end]
-        end
-    end
-    path[length(proot)+1:end]
-end
-strip_root(path::String) = joinpath(strip_root(splitpath(path)))
-
 any_wrong = Ref(false)
 textwidth = 80
-for (folder, _, files) in walkdir(root)
+for (folder, _, files) in walkdir(Main.root)
     for file in files
         path = joinpath(folder, file)
-        display_path = strip_root(path)
+        display_path = Main.strip_root(path)
         if display_path in exclude
             continue
         end
@@ -52,7 +39,7 @@ for (folder, _, files) in walkdir(root)
         if !format(path; overwrite = false, format_markdown = true)
             config_path = joinpath(basename(dirname(abspath(".."))), ".JuliaFormatter.toml")
             dev_path = escape_string(abspath(path))
-            short_path = chopprefix(dev_path, abspath(root) * '/')
+            short_path = chopprefix(dev_path, abspath(Main.root) * '/')
             b = crayon"blue"
             r = crayon"reset"
             println()

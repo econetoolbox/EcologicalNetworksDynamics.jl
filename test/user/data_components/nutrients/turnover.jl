@@ -1,3 +1,9 @@
+module TestNutrientTurnover
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Nutrients turnover component." begin
 
     # Mostly duplicated from BodyMass.
@@ -100,5 +106,7 @@
             -20.0,
         )
     )
+
+end
 
 end

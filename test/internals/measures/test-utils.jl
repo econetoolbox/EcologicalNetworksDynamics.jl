@@ -1,3 +1,8 @@
+module Utils
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 @testset "filtering simulation" begin
 
     # Set up
@@ -114,5 +119,7 @@ end
     )
     sol = simulates(params, [0.25, 0.25]; tmax = 500, callback = nothing, t0 = 0)
     @test isnothing(Internals.check_last_extinction(sol; last = 1))
+
+end
 
 end

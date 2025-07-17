@@ -1,3 +1,9 @@
+module TestNutrientIntake
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using SparseArrays
+
 @testset "NutrientIntake: build struct." begin
 
     foodweb = FoodWeb([0 0 0; 0 0 0; 1 1 0])
@@ -129,4 +135,6 @@ end
     N0 = ones(2)
     sol = simulates(model, B0; N0)
     @test sol.u[end][1] > sol.u[end][2]
+end
+
 end

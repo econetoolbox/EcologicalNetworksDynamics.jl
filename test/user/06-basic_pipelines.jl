@@ -1,7 +1,11 @@
+module Pipelines
+using Test
+using Random
+using EcologicalNetworksDynamics
+
 # Check the most simple uses of the package.
 # Stability desired.
 
-using Random
 Random.seed!(12)
 
 rtol = 1e-3 # We don't guarantee more yet.
@@ -213,5 +217,7 @@ end
         ];
         rtol,
     )
+
+end
 
 end

@@ -1,3 +1,8 @@
+module Structure
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 @testset "Extended methods from Graphs.jl" begin
     expectations = [
         (A = [0 0; 1 0], cyclic = 0, connected = 1),
@@ -12,4 +17,6 @@
         @test expected_cyclic == Internals.is_cyclic(fw)
         @test expected_connected == Internals.is_connected(fw)
     end
+end
+
 end

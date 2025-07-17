@@ -1,3 +1,9 @@
+module TestNutrientSupply
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Nutrients supply component." begin
 
     # Mostly duplicated from Nutrients.Turnover.
@@ -95,5 +101,7 @@
         (m.nutrients.supply[2:3] *= -10),
         WriteError("Not a positive value: s[2] = -20.0.", :(nutrients.supply), (2,), -20.0)
     )
+
+end
 
 end

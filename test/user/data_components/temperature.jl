@@ -1,3 +1,9 @@
+module TestTemperature
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Temperature component." begin
 
     m = Model(Temperature())
@@ -14,5 +20,7 @@
     @sysfails(Model(Temperature(-4)), Check(early, [Temperature.Raw], "$mess -4.0."))
 
     @failswith((m.T = -1), WriteError("$mess -1.", :temperature, nothing, -1))
+
+end
 
 end

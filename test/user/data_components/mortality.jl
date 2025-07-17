@@ -1,3 +1,9 @@
+module TestMortality
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Mortality component." begin
 
     # Mostly duplicated from Growth.
@@ -137,5 +143,7 @@
         (m.mortality[3] = -2),
         WriteError("Not a positive value: d[3] = -2.", :mortality, (3,), -2),
     )
+
+end
 
 end

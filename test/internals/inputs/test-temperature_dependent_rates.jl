@@ -1,3 +1,9 @@
+module TemperatureDependentRates
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using SparseArrays
+
 A = [0 0 0 0; 0 0 0 0; 1 0 0 0; 0 1 0 0]
 foodweb = FoodWeb(A)
 foodweb.metabolic_class = ["producer", "producer", "invertebrate", "ectotherm vertebrate"]
@@ -172,4 +178,6 @@ end
     )
     @test exp_ba_carrying_capacity(; aₚ = 10, bᵢ = 0.5) ==
           ExponentialBAParams(10.0, nothing, nothing, 0.28, 0.28, 0.5, 0.0, 0.0, 0.0, 0.71)
+end
+
 end

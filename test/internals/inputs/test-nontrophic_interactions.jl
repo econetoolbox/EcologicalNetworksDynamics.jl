@@ -1,3 +1,9 @@
+module NonTrophicInteractions
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using SparseArrays
+
 @testset "Non-trophic Interactions: build MultiplexNetwork." begin
 
     # Basic structure.
@@ -256,4 +262,6 @@ end
     subset = Set([(row[i], col[i]) for i in 1:length(row)])
     @test length(A.nzval) == 6
     @test subset ⊆ Set(potential_links)
+end
+
 end

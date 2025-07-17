@@ -1,3 +1,9 @@
+module TestNutrientNodes
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Nutrients nodes component." begin
 
     # Mostly duplicated from Species.
@@ -55,5 +61,7 @@
         Model(Nutrients.Nodes([:a, :b])).nutrients.label(3),
         "Invalid index (3) when there are 2 nutrient names."
     )
+
+end
 
 end

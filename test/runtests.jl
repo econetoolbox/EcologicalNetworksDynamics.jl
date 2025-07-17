@@ -4,19 +4,13 @@ if ["pinned"] == ARGS
 elseif ["lower"] == ARGS
     include("../compat/to_lower.jl")
 elseif ["latest"] == ARGS || isempty(ARGS)
-    # Regular testing with latest compatible versions.
+    using EcologicalNetworksDynamics
 else
     error("Invalid test arguments: $ARGS")
 end
 
-import CompatHelperLocal
-using Crayons
-bold = crayon"bold"
-blue = crayon"blue"
-reset = crayon"reset"
-sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$reset")
-
 # Testing utils.
+include("./utils.jl")
 include("./test_failures.jl")
 include("./dedicated_test_failures.jl")
 
@@ -29,9 +23,13 @@ sep("Test System/Blueprints/Components framework.")
 include("./framework/runtests.jl")
 
 sep("Test API utils.")
-include("./topologies.jl")
-include("./aliasing_dicts.jl")
-include("./multiplex_api.jl")
+#! format: off
+run_tests([
+    "./topologies.jl"
+    "./aliasing_dicts.jl"
+    "./multiplex_api.jl"
+]; parallel = false)
+#! format: on
 include("./graph_data_inputs/runtests.jl")
 
 sep("Test user-facing behaviour.")

@@ -1,3 +1,9 @@
+module TestHalfSaturation
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Nutrients half-saturation component." begin
 
     # Mostly duplicated from Concentration.
@@ -146,5 +152,7 @@
              Expected either :b or :c, got instead: [:a] (5.0).",
         )
     )
+
+end
 
 end

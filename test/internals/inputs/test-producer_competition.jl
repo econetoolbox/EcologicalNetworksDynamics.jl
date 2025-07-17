@@ -1,3 +1,8 @@
+module ProducerCompetition
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 @testset "Build LogisticGrowth with producer competition" begin
     foodweb = FoodWeb([0 0 0; 0 0 0; 0 1 0]; quiet = true)
 
@@ -33,4 +38,6 @@
         a = [1.0 0.0; 1.0 0.0; 0.0 0.0],
     )
     @test_throws AssertionError(message) LogisticGrowth(foodweb, a = [1.0 0.0; 1.0 0.0])
+end
+
 end

@@ -1,3 +1,10 @@
+module Check
+using Test
+using SparseArrays
+using EcologicalNetworksDynamics.GraphDataInputs
+using Main.TestFailures
+import EcologicalNetworksDynamics.Framework: CheckError
+
 @testset "Graph data checking." begin
 
     # ======================================================================================
@@ -30,10 +37,7 @@
     )
 
     # Incorrect use.
-    @failswith(
-        (@check_symbol nope (a, b, c)),
-        UndefVarError => (:nope, TestGraphDataInputs),
-    )
+    @failswith((@check_symbol nope (a, b, c)), UndefVarError => (:nope, Check),)
     @failswith((@check_symbol 4 + 5 (a, b, c)), MethodError, expansion)
     @xargfails(
         (@check_symbol input (4 + 5)),
@@ -89,8 +93,8 @@
     )
 
     # Invalid uses.
-    @failswith((@check_size nope (Any, 3)), UndefVarError => (:nope, TestGraphDataInputs))
-    @failswith((@check_size input nope), UndefVarError => (:nope, TestGraphDataInputs))
+    @failswith((@check_size nope (Any, 3)), UndefVarError => (:nope, Check))
+    @failswith((@check_size input nope), UndefVarError => (:nope, Check))
     @failswith(
         (@check_size input "nope"), # TODO: not a super-satifsying error, but good enough.
         CheckError("Invalid size for parameter 'input': \
@@ -194,14 +198,8 @@
     #---------------------------------------------------------------------------------------
     # Invalid uses.
 
-    @failswith(
-        (@check_template nope template :item),
-        UndefVarError => (:nope, TestGraphDataInputs),
-    )
-    @failswith(
-        (@check_template a nope :item),
-        UndefVarError => (:nope, TestGraphDataInputs),
-    )
+    @failswith((@check_template nope template :item), UndefVarError => (:nope, Check),)
+    @failswith((@check_template a nope :item), UndefVarError => (:nope, Check),)
     # TODO: improve the following errors?
     @failswith((@check_template a 4 + 5 :item), MethodError)
     @failswith((@check_template 4 + 5 template :item), MethodError, expansion)
@@ -581,5 +579,7 @@
     @test !@check_refs_if_list input :item (0, 0)
     input = "[5, 8]"
     @test !@check_refs_if_list input :item (0, 0)
+
+end
 
 end

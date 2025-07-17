@@ -1,3 +1,9 @@
+module TestMetabolicClass
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Metabolic class component." begin
 
     base = Model(Foodweb([:a => :b, :b => :c]))
@@ -132,5 +138,7 @@
             :i,
         ),
     )
+
+end
 
 end

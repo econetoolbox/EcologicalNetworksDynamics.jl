@@ -1,3 +1,9 @@
+module TestConsumptionRate
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Consumption rate component." begin
 
     # Mostly duplicated from HalfSaturationDensity.
@@ -83,5 +89,7 @@
         (m.consumption_rate[1] = -2),
         WriteError("Not a positive value: alpha[1] = -2.", :consumption_rate, (1,), -2),
     )
+
+end
 
 end

@@ -1,3 +1,8 @@
+module Consumption
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 @testset "Consumption: bioenergetic" begin
     foodweb = FoodWeb([0 0 0; 1 0 0; 1 1 0])
 
@@ -161,4 +166,6 @@ end
     @test being_eaten3 ≈ 0 atol = 1e-5 # species 3 is not eaten
     @test being_eaten2 == 0.5 * 2
     @test being_eaten1 == 3 * (0.5 + 2)
+end
+
 end

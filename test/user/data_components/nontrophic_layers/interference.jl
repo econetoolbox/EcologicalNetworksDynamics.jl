@@ -1,3 +1,9 @@
+module TestInterference
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 # Copied and adapted from competition layer.
 @testset "Interference layer." begin
 
@@ -237,5 +243,7 @@
         base + il,
         Add(CannotImplyConstruct, Interference.Topology, [Interference.Layer.Pack]),
     )
+
+end
 
 end

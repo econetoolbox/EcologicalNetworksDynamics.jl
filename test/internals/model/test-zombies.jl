@@ -1,3 +1,9 @@
+module Zombies
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+using Logging
+
 # Test inspired by this issue:
 # https://discourse.julialang.org/t/zombies-in-biological-ode-why-is-my-solver-not-sticking-to-zero/90409
 @testset "No zombies, extinction are handled correctly." begin
@@ -113,4 +119,6 @@ end
     for log in logger.logs
         log.level == Logging.Info && @test !(occursin("[]", log.message))
     end
+end
+
 end

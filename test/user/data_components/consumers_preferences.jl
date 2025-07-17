@@ -1,3 +1,9 @@
+module TestConsumersPreferences
+using Test
+using EcologicalNetworksDynamics
+using Main.TestFailures
+using Main.TestUser
+
 @testset "Consumers preferences component." begin
 
     # Mostly duplicated from ConsumersPreferences.
@@ -138,5 +144,7 @@
              Valid edges target labels for source [:b] in this template are:\n  [:c]",
         )
     )
+
+end
 
 end

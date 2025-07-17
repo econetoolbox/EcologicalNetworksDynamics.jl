@@ -1,3 +1,8 @@
+module TestUtils
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 #### Set up food webs for tests ####
 foodweb_2links = FoodWeb([0 0 0 0; 0 0 0 0; 1 0 0 0; 0 1 0 0]; quiet = true)
 foodweb_3links = FoodWeb([0 0 0 0; 0 0 0 0; 1 1 0 0; 0 0 1 0])
@@ -89,4 +94,6 @@ end
     @test Internals.number_of_resource(foodweb_2links) == [0, 0, 1, 1]
     @test Internals.number_of_resource(foodweb_3links) == [0, 0, 2, 1]
     @test Internals.number_of_resource(foodweb_5links) == [0, 1, 3, 1]
+end
+
 end

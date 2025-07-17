@@ -1,3 +1,9 @@
+module Types
+using Test
+using EcologicalNetworksDynamics.GraphDataInputs
+using Main.TestFailures
+using OrderedCollections
+
 @testset "Graph data input types." begin
 
     # ======================================================================================
@@ -97,5 +103,7 @@
             "Expected @GraphData {aliases...}{Type}. Got :nope.",
         ],
     )
+
+end
 
 end

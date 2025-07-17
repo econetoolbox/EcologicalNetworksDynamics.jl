@@ -1,3 +1,8 @@
+module BiologicalRates
+using Test
+using EcologicalNetworksDynamics.Internals
+using Main.TestInternals
+
 A = [0 0 0 0; 0 0 0 0; 1 0 0 0; 0 1 0 0]
 foodweb = FoodWeb(A; quiet = true)
 foodweb.metabolic_class = ["producer", "producer", "invertebrate", "ectotherm vertebrate"]
@@ -32,4 +37,6 @@ end
     expected_paramsvec = (a = [1, 1, 2, 3], b = [11, 11, 12, 13])
     allometricparams = AllometricParams(1, 3, 2, 11, 13, 12)
     @test Internals.allometricparams_to_vec(foodweb, allometricparams) == expected_paramsvec
+end
+
 end
