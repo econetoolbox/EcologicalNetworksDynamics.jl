@@ -76,7 +76,7 @@ and issue:
 
 ```julia
 using Pkg
-Pkg.test(; test_args = ["lowest"])
+Pkg.test(; test_args = ["lower"])
 ```
 
 We will try to only bump these lower bounds when necessary,
