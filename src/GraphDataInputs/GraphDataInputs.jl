@@ -287,7 +287,7 @@ macro defloc()
 end
 @macroexpand @defloc
 
-const Option{T} = Union{Nothing, T}
+const Option{T} = Union{Nothing,T}
 
 include("./types.jl")
 include("./convert.jl")

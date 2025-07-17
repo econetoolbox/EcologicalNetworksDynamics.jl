@@ -13,6 +13,7 @@ exclude = [
     "README.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
+    "compat/README.md",
     # Wait on https://github.com/JuliaDocs/Documenter.jl/issues/2025 or the end of boost warnings.
     "docs/src/man/boost.md",
     # Wait on https://github.com/JuliaDocs/Documenter.jl/issues/1420.
