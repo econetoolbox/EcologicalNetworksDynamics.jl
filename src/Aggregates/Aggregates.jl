@@ -196,6 +196,22 @@ reassign!(::View{T}, new::O) where {T,O} =
 #Display.
 
 function Base.show(io::IO, a::Aggregate)
+    print(io, "Aggregate({")
+    entries = fields(a)
+    first = true
+    for (name, e) in entries
+        (; n_aggregates, value) = e.field
+        n = nagg(n_aggregates)
+        if !first
+            print(io, ", ")
+        end
+        print(io, "$name$n: $(value)")
+        first = false
+    end
+    print(io, "})")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", a::Aggregate)
     print(io, "Aggregate")
     entries = fields(a)
     if isempty(entries)
@@ -205,7 +221,8 @@ function Base.show(io::IO, a::Aggregate)
         for (name, e) in entries
             (; n_aggregates, value) = e.field
             println(io)
-            print(io, "  $name[$(n_aggregates)]: $(value)")
+            n = nagg(n_aggregates)
+            print(io, "  $name$n: $(value)")
         end
     end
 end
@@ -213,7 +230,11 @@ end
 function Base.show(io::IO, v::View)
     e = entry(v)
     (; n_aggregates, value) = e.field
-    print(io, "View[$n_aggregates]($value)")
+    n = nagg(n_aggregates)
+    print(io, "View$n($value)")
 end
+
+# Elide number of aggregates if non-shared.
+nagg(n) = n == 1 ? "" : "<$n>" # (display if zero though 'cause it's a bug)
 
 end
