@@ -1,8 +1,10 @@
 # At the heart of the package *data* is a flat aggregate of various 'fields',
 # added and modified by the various high-level 'components', but never removed.
 # As they are often supposed to be shared and only partly mutated,
-# protect the fields with a Copy-On-Write (COW) pattern,
-# and best-attempt to make it thread-safe.
+# protect the fields with a Copy-On-Write (COW) pattern.
+# /!\ Protecting this against concurrency would require Read-Write Locks
+# but there is no such thing in Julia yet.
+# This makes the whole data structure unsuitable for shared memory.
 
 module Aggregates
 
@@ -13,18 +15,16 @@ module Aggregates
 # currently relying on a field's value.
 mutable struct Field{T}
     value::T
-    @atomic n_aggregates::UInt64
+    n_aggregates::UInt64
     Field{T}(v) where {T} = new(v, 1) # Always created for exactly 1 aggregate.
 end
 Base.eltype(::Field{T}) where {T} = T
 
-# Indirect connect to field
+# Indirection between an aggregate and its field
 # so as to easily update it when COW happens.
-# Protect with a mutex.
 mutable struct Entry{T}
     field::Field{T}
-    mutex::ReentrantLock
-    Entry{T}(field::Field{T}) where {T} = new(field, ReentrantLock())
+    Entry{T}(field::Field{T}) where {T} = new(field)
 end
 Base.eltype(::Entry{T}) where {T} = T
 
@@ -32,14 +32,13 @@ Base.eltype(::Entry{T}) where {T} = T
 # Type-unstable.
 mutable struct Aggregate
     entries::Dict{Symbol,Entry}
-    mutex::ReentrantLock
-    Aggregate() = finalizer(drop!, new(Dict(), ReentrantLock()))
-    Aggregate(entries) = finalizer(drop!, new(entries, ReentrantLock()))
+    Aggregate() = finalizer(drop!, new(Dict()))
+    Aggregate(entries) = finalizer(drop!, new(entries))
 end
 export Aggregate
 
 # A protected view into one field of one aggregate.
-# Responsible for mutex accesses, and COW enforcement on mutation.
+# Responsible COW enforcement on mutation.
 struct View{T}
     entry::Entry{T}
     aggregate::Aggregate # For aggregates to avoid GC when only views of them remain.
@@ -64,17 +63,9 @@ Base.copy(v::View) = v # There is no use in a copy.
 # Insert new value into the aggregate.
 function add_field!(a::Aggregate, name::Symbol, value::T) where {T}
     hasmethod(deepcopy, (T,)) || throw("Can't add non-deepcopy field.")
-    m = mutex(a)
     entries = fields(a)
-    # Create entry upfront, assuming key errors are a bug.
-    entry = Entry{T}(Field{T}(value))
-    lock(m)
-    try
-        haskey(entries, name) && throw("Aggregate already contains field :$name.")
-        entries[name] = entry
-    finally
-        unlock(m)
-    end
+    haskey(entries, name) && throw("Aggregate already contains field :$name.")
+    entries[name] = Entry{T}(Field{T}(value))
     nothing
 end
 export add_field!
@@ -82,51 +73,31 @@ export add_field!
 # Fork the model, reusing all its field values,
 # by incrementing their counts instead of copying.
 function Base.copy(a::Aggregate)
-    m = mutex(a)
     entries = fields(a)
-    lock(m)
-    Aggregate(try
-        new_entries = Dict{Symbol,Entry}()
-        for (name, entry) in entries
-            lock(entry.mutex)
-            new = try
-                f = entry.field
-                @atomic f.n_aggregates += 1
-                Entry{eltype(f)}(f)
-            finally
-                unlock(entry.mutex)
-            end
-            new_entries[name] = new
-        end
-        new_entries
-    finally
-        unlock(m)
-    end)
+    new_entries = Dict{Symbol,Entry}()
+    for (name, entry) in entries
+        f = entry.field
+        f.n_aggregates += 1
+        new = Entry{eltype(f)}(f)
+        new_entries[name] = new
+    end
+    Aggregate(new_entries)
 end
 
 # Drop the model, reducing field counts.
-function drop!(a::Aggregate)
-    # If we are being garbage-collected,
-    # then we have exclusive access: don't need to lock.
+drop!(a::Aggregate) =
     for entry in values(fields(a))
-        @atomic entry.field.n_aggregates -= 1
+        entry.field.n_aggregates -= 1
     end
-end
 
 # Get a view into one model field.
 function view(a::Aggregate, name::Symbol)
-    m = mutex(a)
     entries = fields(a)
-    entry = begin
-        lock(m)
-        try
-            entries[name]
-        catch err
-            err isa KeyError && rethrow("Aggregate has no field :$name.")
-            rethrow(err)
-        finally
-            unlock(m)
-        end
+    entry = try
+        entries[name]
+    catch err
+        err isa KeyError && rethrow("Aggregate has no field :$name.")
+        rethrow(err)
     end
     View{eltype(entry)}(entry, a)
 end
@@ -136,12 +107,7 @@ export view
 # /!\ Do not mutate or leak reference to the value received.
 function scan(f, v::View)
     e = entry(v)
-    lock(e.mutex)
-    try
-        f(e.field.value)
-    finally
-        unlock(e.mutex)
-    end
+    f(e.field.value)
 end
 export scan
 
@@ -149,21 +115,16 @@ export scan
 # /!\ Do not leak reference to the value received.
 function mutate!(f!, v::View{T}) where {T}
     e = entry(v)
-    lock(e.mutex)
-    try
-        if (@atomic e.field.n_aggregates) == 1
-            # The field is not shared: just mutate.
-            f!(e.field.value)
-        else
-            # The field is shared: clone on write!
-            clone = deepcopy(e.field.value)
-            @atomic e.field.n_aggregates -= 1 # Detach from original.
-            res = f!(clone)
-            e.field = Field{T}(clone)
-            res
-        end
-    finally
-        unlock(e.mutex)
+    if e.field.n_aggregates == 1
+        # The field is not shared: just mutate.
+        f!(e.field.value)
+    else
+        # The field is shared: clone on write!
+        clone = deepcopy(e.field.value)
+        e.field.n_aggregates -= 1 # Detach from original.
+        res = f!(clone)
+        e.field = Field{T}(clone)
+        res
     end
 end
 export mutate!
@@ -171,16 +132,11 @@ export mutate!
 # Reassign whole field through a view.
 function reassign!(v::View{T}, new::T) where {T}
     e = entry(v)
-    lock(e.mutex)
-    try
-        if (@atomic e.field.n_aggregates) == 1
-            e.field.value = new
-        else
-            @atomic e.field.n_aggregates -= 1
-            e.field = Field{T}(new)
-        end
-    finally
-        unlock(e.mutex)
+    if e.field.n_aggregates == 1
+        e.field.value = new
+    else
+        e.field.n_aggregates -= 1
+        e.field = Field{T}(new)
     end
     nothing
 end
@@ -216,41 +172,23 @@ Base.:!(v::View) = scan(v -> !v, v)
 
 function Base.show(io::IO, a::Aggregate)
     print(io, "Aggregate")
-    m = mutex(a)
-    lock(m)
-    try
-        entries = fields(a)
-        if isempty(entries)
-            print(io, " with no fields.")
-        else
-            print(io, ":")
-            for (name, e) in entries
-                lock(e.mutex)
-                try
-                    (; n_aggregates, value) = e.field
-                    println(io)
-                    print(io, "  $name[$(n_aggregates)]: $(value)")
-                finally
-                    unlock(e.mutex)
-                end
-            end
+    entries = fields(a)
+    if isempty(entries)
+        print(io, " with no fields.")
+    else
+        print(io, ":")
+        for (name, e) in entries
+            (; n_aggregates, value) = e.field
+            println(io)
+            print(io, "  $name[$(n_aggregates)]: $(value)")
         end
-    finally
-        unlock(m)
     end
 end
 
 function Base.show(io::IO, v::View)
     e = entry(v)
-    print(io, "View[")
-    lock(e.mutex)
-    try
-        (; n_aggregates, value) = e.field
-        print(io, "$n_aggregates]($value")
-    finally
-        unlock(e.mutex)
-    end
-    print(io, ")")
+    (; n_aggregates, value) = e.field
+    print(io, "View[$n_aggregates]($value)")
 end
 
 end
