@@ -15,7 +15,13 @@ export eprint, eprintln
 # Compare actual vs expected raw console display, "snapshot-testing" style,
 # with helful summary in case of mismatch.
 is_repr(x, expected) = cmp_strings(repr(x), expected)
-export is_repr
+function is_disp(x, expected)
+    io = IOBuffer()
+    actual = show(IOContext(io, :limit => true, :displaysize => (20, 40)), "text/plain", x)
+    actual = String(take!(io))
+    cmp_strings(actual, expected)
+end
+export is_repr, is_disp
 
 function cmp_strings(actual, expected)
     same = actual == expected
