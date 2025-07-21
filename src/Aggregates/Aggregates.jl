@@ -208,4 +208,43 @@ mutate!(v::View, f!, args...; kwargs...) =
 Base.getindex(v::View, x, i...) = scan(v -> getindex(v, x, i...), v)
 Base.setindex!(v::View, x, i...) = mutate!(v -> setindex!(v, x, i...), v)
 
+function Base.show(io::IO, a::Aggregate)
+    print(io, "Aggregate")
+    m = mutex(a)
+    lock(m)
+    try
+        entries = fields(a)
+        if isempty(entries)
+            print(io, " with no fields.")
+        else
+            print(io, ":")
+            for (name, e) in entries
+                lock(e.mutex)
+                try
+                    (; n_aggregates, value) = e.field
+                    println(io)
+                    print(io, "  $name[$(n_aggregates)]: $(value)")
+                finally
+                    unlock(e.mutex)
+                end
+            end
+        end
+    finally
+        unlock(m)
+    end
+end
+
+function Base.show(io::IO, v::View)
+    e = entry(v)
+    print(io, "View[")
+    lock(e.mutex)
+    try
+        (; n_aggregates, value) = e.field
+        print(io, "$n_aggregates]($value")
+    finally
+        unlock(e.mutex)
+    end
+    print(io, ")")
+end
+
 end
