@@ -78,4 +78,56 @@ using Test
 
 end
 
+@testset "Aggregate views aliasing." begin
+
+    x = Aggregate()
+    add_field!(x, :a, Int[])
+
+    # Two views, same value.
+    u = x.a
+    v = x.a
+    @test is_repr(u, "View[1]($Int[])")
+    @test is_repr(v, "View[1]($Int[])")
+
+    # Mutate through one, see through the other.
+    mutate!(u, push!, 5)
+    @test is_repr(u, "View[1]([5])")
+    @test is_repr(v, "View[1]([5])")
+
+    # Reassign, see through either.
+    x.a = [8]
+    @test is_repr(u, "View[1]([8])")
+    @test is_repr(v, "View[1]([8])")
+
+    # Edit field from numerous views.
+    add_field!(x, :b, Char[])
+    for letter in 'a':'z'
+        mutate!(x.b, push!, letter)
+    end
+    @test x.b == collect('a':'z')
+
+    # Edit field in multiple copies.
+    add_field!(x, :c, [])
+    for _ in 1:10
+        y = copy(x)
+        mutate!(y.c, push!, 1)
+        @test y.c == [1]
+    end
+    @test scan(x.c, isempty) # Unchanged.
+
+    # Same, but every copy forks from the previous one.
+    previous = [x]
+    for i in 1:10
+        y = copy(first(previous))
+        mutate!(y.c, push!, 1)
+        @test y.c == repeat([1], i) # Each time longer.
+        previous[1] = y
+    end
+    @test scan(x.c, isempty) # Still unchanged.
+
+    # Clears temporary views/aggregates just fine.
+    GC.gc()
+
+end
+
 end
