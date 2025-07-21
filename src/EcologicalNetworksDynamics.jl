@@ -1,5 +1,7 @@
 module EcologicalNetworksDynamics
 
+include("Aggregates/Aggregates.jl")
+
 #= Silent all this during internals refactoring.
 
 using Crayons
