@@ -1,5 +1,7 @@
 module EcologicalNetworksDynamics
 
+#= Silent all this during internals refactoring.
+
 using Crayons
 using MacroTools
 using OrderedCollections
@@ -106,4 +108,5 @@ include("./diversity.jl")
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true
 
+=#
 end
