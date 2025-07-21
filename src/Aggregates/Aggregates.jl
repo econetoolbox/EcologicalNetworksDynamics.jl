@@ -163,12 +163,37 @@ mutate!(v::View, f!, args...; kwargs...) =
 # Forward basic operators to views.
 Base.getindex(v::View, x, i...) = scan(v -> getindex(v, x, i...), v)
 Base.setindex!(v::View, x, i...) = mutate!(v -> setindex!(v, x, i...), v)
-Base.:+(v::View, o) = scan(v -> v + o, v)
-Base.:-(v::View, o) = scan(v -> v - o, v)
-Base.:*(v::View, o) = scan(v -> v * o, v)
-Base.:/(v::View, o) = scan(v -> v / o, v)
-Base.:%(v::View, o) = scan(v -> v % o, v)
+
+macro binop(op)
+    quote
+        Base.$op(lhs::View, rhs) = scan(v -> $op(v, rhs), lhs)
+        Base.$op(lhs, rhs::View) = scan(v -> $op(lhs, v), rhs)
+        Base.$op(lhs::View, rhs::View) = scan(v -> $op(v, rhs), lhs)
+    end
+end
+@binop +
+@binop -
+@binop *
+@binop /
+@binop %
+@binop ==
+@binop >=
+@binop <=
+@binop >
+@binop <
+@binop ≈
 Base.:!(v::View) = scan(v -> !v, v)
+Base.length(v::View) = scan(v, length)
+Base.size(v::View) = scan(v, size)
+Base.iterate(v::View, args...) = scan(v, iterate, args...)
+
+#-------------------------------------------------------------------------------------------
+# Errors.
+reassign!(::View{T}, new::O) where {T,O} =
+    throw(ArgumentError("Cannot assign to field of type $T:\n$new ::$(O)"))
+
+#-------------------------------------------------------------------------------------------
+#Display.
 
 function Base.show(io::IO, a::Aggregate)
     print(io, "Aggregate")
