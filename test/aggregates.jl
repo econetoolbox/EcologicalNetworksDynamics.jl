@@ -11,11 +11,11 @@ using Test
     add_field!(x, :b, 8)
     add_field!(x, :v, Int[1, 2, 3])
 
-    @test is_repr(x, strip("""
+    @test is_disp(x, strip("""
         Aggregate:
-          a[1]: 5
-          b[1]: 8
-          v[1]: [1, 2, 3]
+          a: 5
+          b: 8
+          v: [1, 2, 3]
         """))
 
     # Read.
@@ -28,11 +28,11 @@ using Test
     # Mutate.
     x.v[2] *= 10
 
-    @test is_repr(x, strip("""
+    @test is_disp(x, strip("""
         Aggregate:
-          a[1]: 8
-          b[1]: 13
-          v[1]: [1, 20, 3]
+          a: 8
+          b: 13
+          v: [1, 20, 3]
         """))
 
     # Fork.
@@ -41,11 +41,11 @@ using Test
     # This only increases fields counts..
     either = strip("""
        Aggregate:
-         a[2]: 8
-         b[2]: 13
-         v[2]: [1, 20, 3]
+         a<2>: 8
+         b<2>: 13
+         v<2>: [1, 20, 3]
        """)
-    @test is_repr(x, either) && is_repr(y, either)
+    @test is_disp(x, either) && is_disp(y, either)
 
     # .. and is underlying aliasing..
     field(v) = Aggregates.entry(v).field # /!\ Private. Only used here for testing.
@@ -58,17 +58,17 @@ using Test
     y.a *= 10
     mutate!(x.v, push!, 100)
 
-    @test is_repr(x, strip("""
+    @test is_disp(x, strip("""
         Aggregate:
-          a[1]: 8
-          b[2]: 13
-          v[1]: [1, 20, 3, 100]
+          a: 8
+          b<2>: 13
+          v: [1, 20, 3, 100]
         """))
-    @test is_repr(y, strip("""
+    @test is_disp(y, strip("""
         Aggregate:
-          a[1]: 80
-          b[2]: 13
-          v[1]: [1, 20, 3]
+          a: 80
+          b<2>: 13
+          v: [1, 20, 3]
         """))
 
     @test !(field(y.a) === field(x.a))
@@ -86,18 +86,18 @@ end
     # Two views, same value.
     u = x.a
     v = x.a
-    @test is_repr(u, "View[1]($Int[])")
-    @test is_repr(v, "View[1]($Int[])")
+    @test is_repr(u, "View($Int[])")
+    @test is_repr(v, "View($Int[])")
 
     # Mutate through one, see through the other.
     mutate!(u, push!, 5)
-    @test is_repr(u, "View[1]([5])")
-    @test is_repr(v, "View[1]([5])")
+    @test is_repr(u, "View([5])")
+    @test is_repr(v, "View([5])")
 
     # Reassign, see through either.
     x.a = [8]
-    @test is_repr(u, "View[1]([8])")
-    @test is_repr(v, "View[1]([8])")
+    @test is_repr(u, "View([8])")
+    @test is_repr(v, "View([8])")
 
     # Edit field from numerous views.
     add_field!(x, :b, Char[])
