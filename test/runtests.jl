@@ -10,14 +10,13 @@ else
 end
 
 import CompatHelperLocal
-using Crayons
-bold = crayon"bold"
-blue = crayon"blue"
-reset = crayon"reset"
-sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$reset")
 
 # Testing utils.
+include("./utils.jl")
 include("./test_failures.jl")
+
+include("./aggregates.jl")
+
 #= Silent all this during internals refactoring.
 include("./dedicated_test_failures.jl")
 

@@ -207,6 +207,12 @@ mutate!(v::View, f!, args...; kwargs...) =
 # Forward basic operators to views.
 Base.getindex(v::View, x, i...) = scan(v -> getindex(v, x, i...), v)
 Base.setindex!(v::View, x, i...) = mutate!(v -> setindex!(v, x, i...), v)
+Base.:+(v::View, o) = scan(v -> v + o, v)
+Base.:-(v::View, o) = scan(v -> v - o, v)
+Base.:*(v::View, o) = scan(v -> v * o, v)
+Base.:/(v::View, o) = scan(v -> v / o, v)
+Base.:%(v::View, o) = scan(v -> v % o, v)
+Base.:!(v::View) = scan(v -> !v, v)
 
 function Base.show(io::IO, a::Aggregate)
     print(io, "Aggregate")
