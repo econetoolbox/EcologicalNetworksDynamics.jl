@@ -72,4 +72,10 @@ This pattern is implemented with three levels of indirection:
 
 module Networks
 
+include("./data.jl")
+include("./class.jl")   # <- HERE: define & implement.
+include("./web.jl")     # <- HERE: define & implement.
+include("./network.jl") # <- HERE: define & implement.
+include("./cow.jl")     # <- HERE: Import 'Aggregate.jl' primitives.
+
 end
