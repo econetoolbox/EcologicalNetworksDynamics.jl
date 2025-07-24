@@ -76,10 +76,11 @@ This pattern is implemented with three levels of indirection:
 module Networks
 
 using OrderedCollections
+import .Iterators as I
 
 const Option{T} = Union{Nothing,T}
-const imap = Iterators.map
-const ifilter = Iterators.filter
+const Index = OrderedDict{Symbol,Int}
+
 argerr(mess) = throw(ArgumentError(mess))
 
 include("./data.jl")
@@ -87,6 +88,7 @@ include("./restrictions.jl")
 include("./class.jl")
 include("./web.jl")
 include("./network.jl")
+include("./views.jl")
 include("./primitives.jl")
 
 end

@@ -6,23 +6,37 @@ and holding associated data: only vectors whose size match the class size.
 struct Class{R<:Restriction}
     name::Symbol
     parent::Option{Class}
-    restriction::R
-    index::OrderedDict{Symbol,Int}
+    restriction::Entry{R}
+    index::Entry{Index}
     data::Dict{Symbol,Entry{<:Vector}}
 end
+restrict_type(::Class{R}) where {R} = R
+Class(c::Class) = fork(c)
 
 """
 Construct root class.
 """
-Class(name) = Class(name, nothing, Full(0), OrderedDict(), Dict())
+Class(name) = Class(name, nothing, Entry{Full}(Full(0)), Entry{Index}{Index()}, Dict())
 
 """
 Construct a subclass.
 """
 function Class(name, parent::Class, r::Restriction)
-    index = OrderedDict(label => i for (label, i) in parent.index)
-    Class(name, parent, r, index, Dict())
+    R = typeof(r)
+    index = Index(label => i for (label, i) in parent.index)
+    Class(name, parent, Entry{R}(r), Entry{Index}(index), Dict())
 end
+
+"""
+Fork class, called when COW-pying the whole network.
+"""
+function fork(c::Class)
+    (; name, parent, restriction, index, data) = c
+    Class(name, parent, fork(restriction), fork(index), fork(data))
+end
+
+# Visit all entries.
+entries(c::Class) = I.flatten((c.restriction, c.index), values(c.data))
 
 #-------------------------------------------------------------------------------------------
 # Base queries.
