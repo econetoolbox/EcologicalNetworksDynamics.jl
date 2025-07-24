@@ -75,15 +75,18 @@ This pattern is implemented with three levels of indirection:
 
 module Networks
 
+using OrderedCollections
+
 const Option{T} = Union{Nothing,T}
 const imap = Iterators.map
 const ifilter = Iterators.filter
+argerr(mess) = throw(ArgumentError(mess))
 
 include("./data.jl")
 include("./restrictions.jl")
 include("./class.jl")
-#  include("./web.jl")     # <- HERE: define & implement.
-#  include("./network.jl") # <- HERE: define & implement.
-include("./cow.jl")     # <- HERE: Import 'Aggregate.jl' primitives.
+include("./web.jl")
+include("./network.jl")
+include("./primitives.jl")
 
 end
