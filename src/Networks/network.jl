@@ -19,20 +19,36 @@ export Network
 """
 Construct empty network.
 """
-Network() = Network(Class(:root), Dict(), Dict(), Dict())
-
-#-------------------------------------------------------------------------------------------
+Network() = finalizer(drop!, Network(Class(:root), Dict(), Dict(), Dict()))
 
 """
-Introduce a new class of nodes.
+Fork the network to obtain a cheap COW-py.
 """
-function add_class!(n::Network, parent::Symbol, name::Symbol, r::Restriction)
-    (; classes) = n
-    name in keys(classes) && argerr("There is already a class named :$name.")
-    parent = classes[parent]
-    classes[name] = Class(name, parent, r)
+function fork(n::Network)
+    (; root, classes, webs, data) = n
+    Network(
+        fork(root),
+        Dict(n => fork(c) for (n, c) in classes),
+        Dict(n => fork(w) for (n, w) in webs),
+        fork(data),
+    )
 end
-add_class!(n::Network, p::Symbol, c::Symbol, r::Range{Int}) = add_class!(n, p, c, Range(r))
-add_class!(n::Network, p::Symbol, c::Symbol, mask) =
-    add_class!(n, p, c, sparse_from_mask(mask))
-export add_class!
+Base.copy(n::Network) = fork(n)
+Base.deepcopy(::Network) = throw("Deepcopying the network would break its COW logic.")
+
+# Decrease fields ref-counting prior to garbage-collection.
+# Registered as a finalizer for the network: don't call manually.
+drop!(n::Network) =
+    for entry in entries(n)
+        entry.field.n_aggregates -= 1
+    end
+
+function entries(n::Network)
+    (; root, classes, webs, data) = n
+    I.flatten(
+        entries(root),
+        I.flatten(entries(e) for e in values(classes)),
+        I.flatten(entries(e) for e in values(webs)),
+        values(data),
+    )
+end

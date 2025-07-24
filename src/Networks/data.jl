@@ -21,3 +21,17 @@ end
 
 Base.eltype(::Field{T}) where {T} = T
 Base.eltype(::Entry{T}) where {T} = T
+
+#-------------------------------------------------------------------------------------------
+
+"""
+Increment underlying field count when copying,
+call when COW-pying the whole network.
+"""
+function fork(e::Entry)
+    f = e.field
+    f.n_networks += 1
+    T = eltype(f)
+    Entry{T}(f)
+end
+fork(d::Dict{Symbol,Entry}) = Dict(k => fork(e) for (k, e) in d) # (typical)
