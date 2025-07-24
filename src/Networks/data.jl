@@ -16,6 +16,8 @@ mutable struct Entry{T}
     field::Field{T}
     Entry{T}(field::Field{T}) where {T} = new(field)
 end
+
+#-------------------------------------------------------------------------------------------
+
 Base.eltype(::Field{T}) where {T} = T
 Base.eltype(::Entry{T}) where {T} = T
-

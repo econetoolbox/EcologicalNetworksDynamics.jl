@@ -30,6 +30,9 @@ identifiers and labels cannot change,
 nodes ordering cannot change,
 nodes cannot be added to a class or removed from a class,
 edges cannot be added to a web or removed from a web.
+One exception is that nodes can be *appended* to the root class,
+so as to introduce new subclasses,
+but without reordering or reindexing existing nodes.
 
 In addition to classes and webs,
 the network also holds *mutable* associated 'data'
@@ -72,10 +75,15 @@ This pattern is implemented with three levels of indirection:
 
 module Networks
 
+const Option{T} = Union{Nothing,T}
+const imap = Iterators.map
+const ifilter = Iterators.filter
+
 include("./data.jl")
-include("./class.jl")   # <- HERE: define & implement.
-include("./web.jl")     # <- HERE: define & implement.
-include("./network.jl") # <- HERE: define & implement.
+include("./restrictions.jl")
+include("./class.jl")
+#  include("./web.jl")     # <- HERE: define & implement.
+#  include("./network.jl") # <- HERE: define & implement.
 include("./cow.jl")     # <- HERE: Import 'Aggregate.jl' primitives.
 
 end
