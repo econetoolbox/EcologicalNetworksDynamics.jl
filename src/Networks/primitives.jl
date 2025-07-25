@@ -2,19 +2,54 @@
 # Expanding topology.
 
 """
-Introduce a new class of nodes.
+Introduce new nodes in the network by extending the root class.
+The class produced is a direct children of the root class.
 """
-function add_class!(n::Network, parent::Symbol, name::Symbol, r::Restriction)
+function add_class!(n::Network, name::Symbol, labels)
+    (; classes) = n
+    name in keys(classes) && argerr("There is already a class named :$name.")
+    root = classes[:root]
+
+    # Collect new labels.
+    n_before = n_nodes(n)
+    n_new = mutate!(root.index) do index
+        n_new = 0
+        for label in labels
+            label = Symbol(label)
+            label in keys(index) && argerr("There is alread a node labeled :$label.")
+            n_new += 1
+            index[label] = n_before + n_new
+        end
+        n_new
+    end
+
+    # Increase root class size.
+    full = root.restriction
+    mutate!(full) do full
+        full.n += n_new
+    end
+
+    # Construct new base class.
+    classes[name] = Class(name, root, Range(n_before .+ (1:n_new)))
+
+    nothing
+end
+export add_class!
+
+"""
+Introduce a new subclass of nodes.
+"""
+function add_subclass!(n::Network, parent::Symbol, name::Symbol, r::Restriction)
     (; classes) = n
     name in keys(classes) && argerr("There is already a class named :$name.")
     parent = classes[parent]
     classes[name] = Class(name, parent, r)
     nothing
 end
-add_class!(n::Network, p::Symbol, c::Symbol, r::Range) = add_class!(n, p, c, Range(r))
-add_class!(n::Network, p::Symbol, c::Symbol, mask) =
-    add_class!(n, p, c, sparse_from_mask(mask))
-export add_class!
+add_subclass!(n::Network, p::Symbol, c::Symbol, r::Range) = add_subclass!(n, p, c, Range(r))
+add_subclass!(n::Network, p::Symbol, c::Symbol, mask) =
+    add_subclass!(n, p, c, sparse_from_mask(mask))
+export add_subclass!
 
 #-------------------------------------------------------------------------------------------
 # Adding data.
@@ -41,11 +76,13 @@ function add_field!(c::Class, fname::Symbol, v::Vector)
     check_value(v)
     (; name, data) = c
     fname in keys(data) && argerr("Class :$name already contains a field :$fname.")
-    (nv, nc) = length((v, c))
+    (nv, nc) = length.((v, c))
     nv == nc || argerr("The given vector (size $nv) does not match the class size ($nc).")
-    data[name] = Entry(v)
+    data[fname] = Entry(v)
     nothing
 end
+add_field!(n::Network, cname::Symbol, fname::Symbol, v::Vector) =
+    add_field!(n.classes[cname], fname, v)
 export add_field!
 
 # All network data must be meaningfully copyable for COW to make sense.

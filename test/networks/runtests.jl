@@ -2,3 +2,4 @@
 
 include("./cow.jl")
 include("./restrictions.jl")
+include("./nodes.jl")

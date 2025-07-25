@@ -22,7 +22,17 @@ Construct a subclass.
 """
 function Class(name, parent::Class, r::Restriction)
     R = typeof(r)
-    index = Index(label => i for (label, i) in parent.index)
+    # Construct local index.
+    index = read(parent.index) do index
+        loc = Index()
+        i_local = 0
+        for (label, i_parent) in index
+            i_parent in r || continue
+            i_local += 1
+            loc[label] = i_local
+        end
+        loc
+    end
     Class{R}(name, parent, Entry(r), Entry(index), Dict())
 end
 
@@ -44,7 +54,7 @@ entries(c::Class) = I.flatten(((c.restriction, c.index), values(c.data)))
 """
 Number of nodes in the class.
 """
-n_nodes(c::Class) = scan(length, c.restriction)
+n_nodes(c::Class) = read(length, c.restriction)
 Base.length(c::Class) = n_nodes(c)
 
 """

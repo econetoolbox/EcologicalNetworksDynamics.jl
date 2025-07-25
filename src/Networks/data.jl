@@ -54,9 +54,8 @@ providing closure called with secure access to underlying value.
 This might seem cumbersome,
 but it is expected to make it possible to make the network thread-safe in the future.
 """
-scan(f, e::Entry) = f(value(field(e)))
-scan(e::Entry, f, args...; kwargs...) = scan(e -> f(e, args...; kwargs...), e)
-export scan
+Base.read(f, e::Entry) = f(value(field(e)))
+Base.read(e::Entry, f, args...; kwargs...) = read(e -> f(e, args...; kwargs...), e)
 
 """
 Write through an entry,

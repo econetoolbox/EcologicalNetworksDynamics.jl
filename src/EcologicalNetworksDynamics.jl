@@ -1,5 +1,8 @@
 module EcologicalNetworksDynamics
 
+# Common display utils.
+include("./display.jl")
+
 include("Networks/Networks.jl")
 
 #= Silent all this during internals refactoring.
@@ -18,10 +21,6 @@ iid(it) = imap(identity, it) # Useful to not leak refs.
 # Shared API internals.
 # Most of these should move to the dedicated components files
 # once the internals have been refactored to not depend on them.
-
-# Common display utils.
-include("./display.jl")
-using .Display
 
 # Common error to throw on user input error.
 argerr(mess, raise = throw) = raise(ArgumentError(mess))
