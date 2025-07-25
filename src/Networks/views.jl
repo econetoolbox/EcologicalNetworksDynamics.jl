@@ -3,13 +3,23 @@ A view into network graph, node or edge data,
 responsible for enforcing the COW pattern.
 """
 abstract type View{T} end
-eltype(::View{T}) where {T} = T
+Base.eltype(::View{T}) where {T} = T
+
+"""
+Graph-level view.
+"""
+struct GraphView{T} <: View{T}
+    network::Network # Prevent from garbage-collection as long as the view is live.
+    entry::Entry{T}
+end
+network(v::GraphView) = getfield(v, :network)
+entry(v::GraphView) = getfield(v, :entry)
 
 """
 Node-level view.
 """
 struct NodesView{T,R<:Restriction} <: View{T}
-    class::Class{R}
+    class::Class{R} # Prevent from garbage collection as long as the view is live.
     entry::Entry{Vector{T}}
 end
 class(v::NodesView) = getfield(v, :class)
@@ -24,73 +34,26 @@ Base.setproperty!(::View, ::Symbol, _) = throw("View fields are private.")
 Base.deepcopy(::View) = throw("Deepcopying the view would break its logic.")
 Base.copy(v::View) = v # There is no use in a copy.
 
-"""
-Read through a view,
-providing closure called with secure access to underlying value.
-⚠ Do not mutate or leak references into the value received.
-This might seem cumbersome,
-but it is expected to make it possible to make the network thread-safe in the future.
-"""
-function Base.read(f, v::View)
-    e = entry(v)
-    f(e.field.value)
-end
-Base.read(v::View, f, args...; kwargs...) = read(v -> f(v, args...; kwargs...), v)
-
-"""
-Write through a view,
-providing closure called with secure access to underlying value.
-⚠ Do not leak references into the value received.
-This might seem cumbersome,
-but it is expected to make it possible to make the network thread-safe in the future.
-"""
-function mutate!(f!, v::View)
-    e = entry(v)
-    if e.field.n_aggregates == 1
-        # The field is not shared: just mutate.
-        f!(e.field.value)
-    else
-        # The field is shared: Clone-On-Write!
-        clone = deepcopy(e.field.value)
-        res = f!(clone)
-        e.field.n_aggregates -= 1 # Detach from original.
-        T = eltype(v)
-        e.field = Field{T}(clone)
-        res
-    end
-end
-mutate!(v::View, f!, args...; kwargs...) = mutate!(v -> f!(v, args...; kwargs...), v)
-export mutate!
-
-"""
-Reassign the whole field through a view.
-"""
-function reassign!(v::View{T}, new::T) where {T}
-    e = entry(v)
-    if e.field.n_aggregates == 1
-        e.field.value = new
-    else
-        e.field.n_aggregates -= 1
-        e.field = Field{T}(new)
-    end
-    v
-end
-reassign!(::View{T}, new::O) where {T,O} =
-    argerr("Cannot assign to field of type $T:\n$new ::$(O)")
-export reassign!
+# Forward to underlying entry.
+scan(v::View, args...; kwargs...) = scan(entry(v), args...; kwargs...)
+mutate!(v::View, args...; kwargs...) = mutate!(entry(v), args...; kwargs...)
+reassign!(v::View, args...; kwargs...) = reassign!(entry(v), args...; kwargs...)
+scan(f, v::View) = scan(f, entry(v))
+mutate!(f!, v::View) = mutate!(f!, entry(v))
+n_networks(v::View) = n_networks(entry(v))
 
 #-------------------------------------------------------------------------------------------
 # Ergonomics.
 
 # Forward basic operators to views.
-Base.getindex(v::View, x, i...) = read(v, getindex, x, i...)
+Base.getindex(v::View, x, i...) = scan(v, getindex, x, i...)
 Base.setindex!(v::View, x, i...) = mutate!(v, setindex!, x, i...)
 
 macro binop(op)
     quote
-        Base.$op(lhs::View, rhs) = read(v -> $op(v, rhs), lhs)
-        Base.$op(lhs, rhs::View) = read(v -> $op(lhs, v), rhs)
-        Base.$op(lhs::View, rhs::View) = read(v -> $op(v, rhs), lhs)
+        Base.$op(lhs::View, rhs) = scan(v -> $op(v, rhs), lhs)
+        Base.$op(lhs, rhs::View) = scan(v -> $op(lhs, v), rhs)
+        Base.$op(lhs::View, rhs::View) = scan(v -> $op(v, rhs), lhs)
     end
 end
 @binop +
@@ -104,21 +67,18 @@ end
 @binop >
 @binop <
 @binop ≈
-Base.:!(v::View) = read(v -> !v, v)
-Base.length(v::View) = read(v, length)
-Base.size(v::View) = read(v, size)
-Base.iterate(v::View, args...) = read(v, iterate, args...)
+Base.:!(v::View) = scan(v -> !v, v)
+Base.length(v::View) = scan(v, length)
+Base.size(v::View) = scan(v, size)
+Base.iterate(v::View, args...) = scan(v, iterate, args...)
 
 #-------------------------------------------------------------------------------------------
 # Display.
 
 function Base.show(io::IO, v::View)
-    e = entry(v)
-    (; n_networks, value) = e.field
-    n = nnet(n_networks)
     V = typeof(v)
-    print(io, "$V$n($value)")
+    n = nnet(n_networks(v))
+    scan(v) do value
+        print(io, "$(nameof(V))$n($value)")
+    end
 end
-
-# Elide number of aggregates if non-shared.
-nnet(n) = n == 1 ? "" : "<$n>" # (display if zero though 'cause it's a bug)

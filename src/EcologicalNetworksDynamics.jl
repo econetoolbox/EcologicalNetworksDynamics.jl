@@ -1,6 +1,5 @@
 module EcologicalNetworksDynamics
 
-include("Aggregates/Aggregates.jl")
 include("Networks/Networks.jl")
 
 #= Silent all this during internals refactoring.
