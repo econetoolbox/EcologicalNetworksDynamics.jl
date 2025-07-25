@@ -11,12 +11,11 @@ struct Class{R<:Restriction}
     data::Dict{Symbol,Entry{<:Vector}}
 end
 restrict_type(::Class{R}) where {R} = R
-Class(c::Class) = fork(c)
 
 """
 Construct root class.
 """
-Class(name) = Class(name, nothing, Entry{Full}(Full(0)), Entry{Index}{Index()}, Dict())
+Class(name) = Class{Full}(name, nothing, Entry(Full(0)), Entry(Index()), Dict())
 
 """
 Construct a subclass.
@@ -24,19 +23,20 @@ Construct a subclass.
 function Class(name, parent::Class, r::Restriction)
     R = typeof(r)
     index = Index(label => i for (label, i) in parent.index)
-    Class(name, parent, Entry{R}(r), Entry{Index}(index), Dict())
+    Class{R}(name, parent, Entry(r), Entry(index), Dict())
 end
 
 """
 Fork class, called when COW-pying the whole network.
 """
 function fork(c::Class)
+    R = restrict_type(c)
     (; name, parent, restriction, index, data) = c
-    Class(name, parent, fork(restriction), fork(index), fork(data))
+    Class{R}(name, parent, fork(restriction), fork(index), fork(data))
 end
 
 # Visit all entries.
-entries(c::Class) = I.flatten((c.restriction, c.index), values(c.data))
+entries(c::Class) = I.flatten(((c.restriction, c.index), values(c.data)))
 
 #-------------------------------------------------------------------------------------------
 # Base queries.
@@ -44,7 +44,8 @@ entries(c::Class) = I.flatten((c.restriction, c.index), values(c.data))
 """
 Number of nodes in the class.
 """
-Base.length(c::Class) = length(c.restriction)
+n_nodes(c::Class) = scan(length, c.restriction)
+Base.length(c::Class) = n_nodes(c)
 
 """
 Parent of the class (or itself if root class).
@@ -60,3 +61,8 @@ node_labels(c::Class) = keys(c.index)
 Obtain iterable through all node indices of the class, in its parent scope.
 """
 node_indices(c::Class) = indices(c.restriction)
+
+"""
+Number of fields in the class.
+"""
+n_fields(c::Class) = length(c.data)

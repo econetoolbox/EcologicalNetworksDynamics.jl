@@ -14,8 +14,9 @@ import CompatHelperLocal
 # Testing utils.
 include("./utils.jl")
 include("./test_failures.jl")
+using .TestUtils
 
-include("./aggregates.jl")
+include("./networks/runtests.jl")
 
 #= Silent all this during internals refactoring.
 include("./dedicated_test_failures.jl")
