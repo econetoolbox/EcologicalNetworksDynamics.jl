@@ -19,7 +19,7 @@ const N = Networks
 
     @test is_disp(n, strip("""
         Network with 0 node and 3 fields:
-          Graph-level data:
+          Graph:
             a: 5
             b: 8
             v: [1, 2, 3]
@@ -27,7 +27,7 @@ const N = Networks
 
     # Read.
     v = graph_view(n, :v)
-    @test scan(v, sum) == 6
+    @test read(v, sum) == 6
 
     # Reassign.
     reassign!(graph_view(n, :a), 8)
@@ -38,7 +38,7 @@ const N = Networks
 
     @test is_disp(n, strip("""
         Network with 0 node and 3 fields:
-          Graph-level data:
+          Graph:
             a: 8
             b: 13
             v: [1, 20, 3]
@@ -50,7 +50,7 @@ const N = Networks
     # This only increases fields counts..
     either = strip("""
       Network with 0 node and 3 fields:
-        Graph-level data:
+        Graph:
           a<2>: 8
           b<2>: 13
           v<2>: [1, 20, 3]
@@ -72,7 +72,7 @@ const N = Networks
 
     @test is_disp(n, strip("""
         Network with 0 node and 3 fields:
-          Graph-level data:
+          Graph:
             a: 8
             b<2>: 13
             v: [1, 20, 3, 100]
@@ -80,7 +80,7 @@ const N = Networks
 
     @test is_disp(m, strip("""
         Network with 0 node and 3 fields:
-          Graph-level data:
+          Graph:
             a: 80
             b<2>: 13
             v: [1, 20, 3]
@@ -133,7 +133,7 @@ end
         @test mc == [1]
     end
     nc = graph_view(n, :c)
-    @test scan(nc, isempty) # Unchanged.
+    @test read(nc, isempty) # Unchanged.
 
     # Same, but every copy forks from the previous one.
     previous = [n]
@@ -144,7 +144,7 @@ end
         @test mc == repeat([1], i) # Each time longer.
         previous[1] = m
     end
-    @test scan(nc, isempty) # Still unchanged.
+    @test read(nc, isempty) # Still unchanged.
 
     # Clears temporary views/aggregates just fine.
     GC.gc()

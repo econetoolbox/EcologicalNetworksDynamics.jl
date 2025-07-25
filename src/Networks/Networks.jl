@@ -78,6 +78,8 @@ module Networks
 using OrderedCollections
 import .Iterators as I
 
+using ..Display
+
 const Option{T} = Union{Nothing,T}
 const Index = OrderedDict{Symbol,Int}
 

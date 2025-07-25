@@ -59,7 +59,7 @@ end
 """
 Total number of nodes in the network.
 """
-n_nodes(n::Network) = sum((n_nodes(c) for c in values(n.classes)); init = 0)
+n_nodes(n::Network) = n_nodes(n.classes[:root])
 export n_nodes
 
 """
@@ -97,15 +97,16 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
         print(io, ":")
     end
 
+    prefix(i) = print(io, "\n" * "  "^i)
+
     ngd = length(net.data)
     if ngd > 0
-        prefix(i) = print(io, "\n" * "  "^i)
         prefix(1)
-        print(io, "Graph-level data:")
+        print(io, "Graph:")
         for (name, entry) in net.data
             prefix(2)
             nnt = nnet(n_networks(entry))
-            scan(entry) do value
+            read(entry) do value
                 print(io, "$name$nnt: $value")
             end
         end
@@ -113,11 +114,34 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
 
     if nn > 0
         prefix(1)
-        print(io, "Node-level data:")
-        for class in values(net.classes)
-            (; name) = class
+        print(io, "Nodes:")
+        sorted = sort(collect(keys(net.classes))) # Consistent output for snapshot-testing.
+        for name in sorted
+            class = net.classes[name]
             prefix(2)
-            print(io, "Class :$name:")
+            print(io, "$name")
+            if name != :root
+                n = n_nodes(class)
+                labels = read(class.index) do index
+                    sort(collect(keys(index)))
+                end
+                labels = join_elided(labels, ", ")
+                print(io, " ($n): [$labels]")
+            else
+                print(io, ":")
+                if length(class.data) == 0
+                    print(io, " <no data>")
+                end
+            end
+            dsorted = sort(collect(keys(class.data)))
+            for name in dsorted
+                entry = class.data[name]
+                prefix(3)
+                print(io, "$name: ")
+                read(entry) do e
+                    print(io, e)
+                end
+            end
         end
     end
 
