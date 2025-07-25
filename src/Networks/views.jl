@@ -35,10 +35,10 @@ Base.deepcopy(::View) = throw("Deepcopying the view would break its logic.")
 Base.copy(v::View) = v # There is no use in a copy.
 
 # Forward to underlying entry.
-scan(v::View, args...; kwargs...) = scan(entry(v), args...; kwargs...)
+Base.read(v::View, args...; kwargs...) = read(entry(v), args...; kwargs...)
 mutate!(v::View, args...; kwargs...) = mutate!(entry(v), args...; kwargs...)
 reassign!(v::View, args...; kwargs...) = reassign!(entry(v), args...; kwargs...)
-scan(f, v::View) = scan(f, entry(v))
+Base.read(f, v::View) = read(f, entry(v))
 mutate!(f!, v::View) = mutate!(f!, entry(v))
 n_networks(v::View) = n_networks(entry(v))
 
@@ -46,14 +46,14 @@ n_networks(v::View) = n_networks(entry(v))
 # Ergonomics.
 
 # Forward basic operators to views.
-Base.getindex(v::View, x, i...) = scan(v, getindex, x, i...)
+Base.getindex(v::View, x, i...) = read(v, getindex, x, i...)
 Base.setindex!(v::View, x, i...) = mutate!(v, setindex!, x, i...)
 
 macro binop(op)
     quote
-        Base.$op(lhs::View, rhs) = scan(v -> $op(v, rhs), lhs)
-        Base.$op(lhs, rhs::View) = scan(v -> $op(lhs, v), rhs)
-        Base.$op(lhs::View, rhs::View) = scan(v -> $op(v, rhs), lhs)
+        Base.$op(lhs::View, rhs) = read(v -> $op(v, rhs), lhs)
+        Base.$op(lhs, rhs::View) = read(v -> $op(lhs, v), rhs)
+        Base.$op(lhs::View, rhs::View) = read(v -> $op(v, rhs), lhs)
     end
 end
 @binop +
@@ -67,10 +67,10 @@ end
 @binop >
 @binop <
 @binop ≈
-Base.:!(v::View) = scan(v -> !v, v)
-Base.length(v::View) = scan(v, length)
-Base.size(v::View) = scan(v, size)
-Base.iterate(v::View, args...) = scan(v, iterate, args...)
+Base.:!(v::View) = read(v -> !v, v)
+Base.length(v::View) = read(v, length)
+Base.size(v::View) = read(v, size)
+Base.iterate(v::View, args...) = read(v, iterate, args...)
 
 #-------------------------------------------------------------------------------------------
 # Display.
@@ -78,7 +78,7 @@ Base.iterate(v::View, args...) = scan(v, iterate, args...)
 function Base.show(io::IO, v::View)
     V = typeof(v)
     n = nnet(n_networks(v))
-    scan(v) do value
+    read(v) do value
         print(io, "$(nameof(V))$n($value)")
     end
 end
