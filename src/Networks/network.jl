@@ -6,7 +6,7 @@ See module documentation for detail.
 mutable struct Network
     # Node-level data.
     root::Class{Full} # Entry point.
-    classes::Dict{Symbol,Class{Union{Range,Sparse}}} # Only subclasses.
+    classes::Dict{Symbol,Class}
 
     # Edge-level data.
     webs::Dict{Symbol,Web}
@@ -19,19 +19,18 @@ export Network
 """
 Construct empty network.
 """
-Network() = finalizer(drop!, Network(Class(:root), Dict(), Dict(), Dict()))
+function Network()
+    root = Class(:root)
+    finalizer(drop!, Network(root, Dict(:root => root), Dict(), Dict()))
+end
 
 """
 Fork the network to obtain a cheap COW-py.
 """
 function fork(n::Network)
-    (; root, classes, webs, data) = n
-    Network(
-        fork(root),
-        Dict(n => fork(c) for (n, c) in classes),
-        Dict(n => fork(w) for (n, w) in webs),
-        fork(data),
-    )
+    (; classes, webs, data) = n
+    classes, webs, data = fork.((classes, webs, data))
+    Network(classes[:root], classes, webs, data)
 end
 Base.copy(n::Network) = fork(n)
 Base.deepcopy(::Network) = throw("Deepcopying the network would break its COW logic.")
@@ -46,9 +45,8 @@ drop!(n::Network) =
     end
 
 function entries(n::Network)
-    (; root, classes, webs, data) = n
+    (; classes, webs, data) = n
     I.flatten((
-        entries(root),
         I.flatten(entries(e) for e in values(classes)),
         I.flatten(entries(e) for e in values(webs)),
         values(data),
@@ -61,15 +59,13 @@ end
 """
 Total number of nodes in the network.
 """
-n_nodes(n::Network) =
-    n_nodes(n.root) + sum((n_nodes(c) for c in values(n.classes)); init = 0)
+n_nodes(n::Network) = sum((n_nodes(c) for c in values(n.classes)); init = 0)
 export n_nodes
 
 """
 Total number of fields in the network.
 """
 n_fields(n::Network) =
-    n_fields(n.root) +
     sum(n_fields(c) for c in values(n.classes); init = 0) +
     sum(n_fields(w) for w in values(n.webs); init = 0) +
     length(n.data)
@@ -118,7 +114,7 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
     if nn > 0
         prefix(1)
         print(io, "Node-level data:")
-        for class in I.flatten(((net.root,), values(net.classes)))
+        for class in values(net.classes)
             (; name) = class
             prefix(2)
             print(io, "Class :$name:")
