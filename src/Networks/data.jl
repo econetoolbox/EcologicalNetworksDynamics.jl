@@ -56,6 +56,7 @@ but it is expected to make it possible to make the network thread-safe in the fu
 """
 Base.read(f, e::Entry) = f(value(field(e)))
 Base.read(e::Entry, f, args...; kwargs...) = read(e -> f(e, args...; kwargs...), e)
+Base.read(f, e::Entry, more::Entry...) = f(value.(field.((e, more...))))
 
 """
 Write through an entry,
@@ -96,5 +97,5 @@ function reassign!(e::Entry{T}, new::T) where {T}
     e
 end
 reassign!(::Entry{T}, new::O) where {T,O} =
-    argerr("Cannot assign to field of type $T:\n$new ::$(O)")
+    err("Cannot assign to field of type $T:\n$new ::$(O)")
 export reassign!

@@ -7,7 +7,7 @@ The class produced is a direct children of the root class.
 """
 function add_class!(n::Network, name::Symbol, labels)
     (; classes) = n
-    name in keys(classes) && argerr("There is already a class named :$name.")
+    name in keys(classes) && err("There is already a class named :$name.")
     root = classes[:root]
 
     # Collect new labels.
@@ -16,7 +16,7 @@ function add_class!(n::Network, name::Symbol, labels)
         n_new = 0
         for label in labels
             label = Symbol(label)
-            label in keys(index) && argerr("There is alread a node labeled :$label.")
+            label in keys(index) && err("There is alread a node labeled :$label.")
             n_new += 1
             index[label] = n_before + n_new
         end
@@ -41,7 +41,7 @@ Introduce a new subclass of nodes.
 """
 function add_subclass!(n::Network, parent::Symbol, name::Symbol, r::Restriction)
     (; classes) = n
-    name in keys(classes) && argerr("There is already a class named :$name.")
+    name in keys(classes) && err("There is already a class named :$name.")
     parent = classes[parent]
     classes[name] = Class(name, parent, r)
     nothing
@@ -61,7 +61,7 @@ don't keep reference around or leak them to end users.
 """
 function add_field!(n::Network, fname::Symbol, v)
     check_value(v)
-    fname in keys(n.data) && argerr("Network already contains a field :$fname.")
+    fname in keys(n.data) && err("Network already contains a field :$fname.")
     n.data[fname] = Entry(v)
     nothing
 end
@@ -75,9 +75,9 @@ don't keep reference around or leak them to end users.
 function add_field!(c::Class, fname::Symbol, v::Vector)
     check_value(v)
     (; name, data) = c
-    fname in keys(data) && argerr("Class :$name already contains a field :$fname.")
+    fname in keys(data) && err("Class :$name already contains a field :$fname.")
     (nv, nc) = length.((v, c))
-    nv == nc || argerr("The given vector (size $nv) does not match the class size ($nc).")
+    nv == nc || err("The given vector (size $nv) does not match the class size ($nc).")
     data[fname] = Entry(v)
     nothing
 end
@@ -88,7 +88,7 @@ export add_field!
 # All network data must be meaningfully copyable for COW to make sense.
 function check_value(value)
     T = typeof(value)
-    hasmethod(deepcopy, (T,)) || argerr("Cannot add non-deepcopy field:\n$value ::$T")
+    hasmethod(deepcopy, (T,)) || err("Cannot add non-deepcopy field:\n$value ::$T")
 end
 
 #-------------------------------------------------------------------------------------------
@@ -98,7 +98,7 @@ end
 Get a graph-level view into network data.
 """
 function graph_view(n::Network, data::Symbol)
-    data in keys(n.data) || argerr("There is no data :$data in network.")
+    data in keys(n.data) || err("There is no data :$data in network.")
     entry = n.data[data]
     T = eltype(entry)
     GraphView{T}(n, entry)
@@ -110,10 +110,10 @@ Get a node-level view into network data.
 """
 function nodes_view(n::Network, class::Symbol, data::Symbol)
     (; classes) = n
-    class in keys(classes) || argerr("There is no class :$class in the network.")
+    class in keys(classes) || err("There is no class :$class in the network.")
     c = classes[class]
 
-    data in keys(c.data) || argerr("There is no data :$data in class :$class.")
+    data in keys(c.data) || err("There is no data :$data in class :$class.")
     entry = c.data[data]
 
     R = restrict_type(c)
