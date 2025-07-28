@@ -97,5 +97,5 @@ function reassign!(e::Entry{T}, new::T) where {T}
     e
 end
 reassign!(::Entry{T}, new::O) where {T,O} =
-    err("Cannot assign to field of type $T:\n$new ::$(O)")
+    err("Cannot assign to field of type $T:\n$(repr(new)) ::$(O)")
 export reassign!

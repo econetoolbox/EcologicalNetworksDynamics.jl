@@ -2,8 +2,10 @@ module NetworkCOW
 
 using Test
 using Main.TestUtils
+using Main.TestNetworksUtils
 using EcologicalNetworksDynamics.Networks
 const N = Networks
+
 
 @testset "Basic network COW." begin
 
@@ -16,6 +18,7 @@ const N = Networks
     add_field!(n, :a, 5)
     add_field!(n, :b, 8)
     add_field!(n, :v, Int[1, 2, 3])
+    @netfails add_field!(n, :v, nothing) "Network already contains a field :v."
 
     @test is_disp(n, strip("""
         Network with 0 node and 3 fields:
@@ -32,6 +35,11 @@ const N = Networks
     # Reassign.
     reassign!(graph_view(n, :a), 8)
     reassign!(graph_view(n, :b), 13)
+    @netfails(
+        reassign!(graph_view(n, :a), "a"),
+        "Cannot assign to field of type $Int:\n\
+         \"a\" ::String"
+    )
 
     # Mutate.
     v[2] *= 10
@@ -90,6 +98,8 @@ const N = Networks
     @test field(mb) === field(nb)
     @test !(field(mv) === field(nv))
     @test !(N.value(field(mv)) === N.value(field(nv)))
+
+    @netfails(graph_view(n, :bok), "There is no data :bok in the network.")
 
 end
 
