@@ -106,8 +106,9 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
         for (name, entry) in net.data
             prefix(2)
             nnt = nnet(n_networks(entry))
+            print(io, "$name$nnt: ")
             read(entry) do value
-                print(io, "$name$nnt: $value")
+                print(io, value)
             end
         end
     end
@@ -137,7 +138,8 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
             for name in dsorted
                 entry = class.data[name]
                 prefix(3)
-                print(io, "$name: ")
+                nnt = nnet(n_networks(entry))
+                print(io, "$name$nnt: ")
                 read(entry) do e
                     print(io, e)
                 end
@@ -148,7 +150,7 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
 end
 
 # Elide number of aggregates if non-shared.
-nnet(n) = n == 1 ? "" : "<$n>" # (display if zero though 'cause it's a bug)
+nnet(n) = n == 1 ? "" : "'$n" # (display if zero though 'cause it's a bug)
 
 # Basic plural.
 ns(n) = (n, n > 1 ? "s" : "")

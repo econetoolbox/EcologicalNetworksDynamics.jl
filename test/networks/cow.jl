@@ -51,9 +51,9 @@ const N = Networks
     either = strip("""
       Network with 0 node and 3 fields:
         Graph:
-          a<2>: 8
-          b<2>: 13
-          v<2>: [1, 20, 3]
+          a'2: 8
+          b'2: 13
+          v'2: [1, 20, 3]
       """)
     @test is_disp(n, either) && is_disp(m, either)
 
@@ -74,7 +74,7 @@ const N = Networks
         Network with 0 node and 3 fields:
           Graph:
             a: 8
-            b<2>: 13
+            b'2: 13
             v: [1, 20, 3, 100]
         """))
 
@@ -82,7 +82,7 @@ const N = Networks
         Network with 0 node and 3 fields:
           Graph:
             a: 80
-            b<2>: 13
+            b'2: 13
             v: [1, 20, 3]
         """))
 
