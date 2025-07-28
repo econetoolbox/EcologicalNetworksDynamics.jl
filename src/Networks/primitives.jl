@@ -117,7 +117,8 @@ function nodes_view(n::Network, class::Symbol, data::Symbol)
     entry = c.data[data]
 
     R = restrict_type(c)
-    T = eltype(entry)
+    V = eltype(entry)
+    T = eltype(V)
     NodesView{T,R}(c, entry)
 end
 export nodes_view

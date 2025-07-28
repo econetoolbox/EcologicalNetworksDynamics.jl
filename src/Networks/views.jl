@@ -1,30 +1,28 @@
 """
-A view into network graph, node or edge data,
-responsible for enforcing the COW pattern.
+A view into graph-level data.
 """
-abstract type View{T} end
-Base.eltype(::View{T}) where {T} = T
-
-"""
-Graph-level view.
-"""
-struct GraphView{T} <: View{T}
+struct GraphView{T}
     network::Network # Prevent from garbage-collection as long as the view is live.
     entry::Entry{T}
 end
 network(v::GraphView) = getfield(v, :network)
-entry(v::GraphView) = getfield(v, :entry)
 
 """
-Node-level view.
+A view into node-level data.
 """
-struct NodesView{T,R<:Restriction} <: View{T}
+struct NodesView{T,R<:Restriction} <: AbstractVector{T}
     class::Class{R} # Prevent from garbage collection as long as the view is live.
     entry::Entry{Vector{T}}
 end
 class(v::NodesView) = getfield(v, :class)
-entry(v::NodesView) = getfield(v, :entry)
 restrict_type(::NodesView{T,R}) where {T,R} = R
+
+struct EdgesView{T} <: AbstractVector{T} end
+
+# Abstract over levels.
+const View{T} = Union{GraphView{T},NodesView{T},EdgesView{T}}
+entry(v::View) = getfield(v, :entry)
+Base.eltype(::View{T}) where {T} = T
 
 #-------------------------------------------------------------------------------------------
 
@@ -43,12 +41,29 @@ mutate!(f!, v::View) = mutate!(f!, entry(v))
 n_networks(v::View) = n_networks(entry(v))
 
 #-------------------------------------------------------------------------------------------
+# Indexing with integers or labels.
+
+const ArrayView{T} = Union{GraphView{<:AbstractVector{T}},NodesView{T},EdgesView{T}}
+Base.size(v::ArrayView) = read(v, size)
+Base.getindex(v::ArrayView, i) = read(v, getindex, i)
+Base.setindex!(v::ArrayView, x, i) = mutate!(v, setindex!, x, i)
+
+function Base.getindex(v::NodesView, label::Symbol)
+    c, e = class(v), entry(v)
+    i = read(c.index, getindex, label)
+    read(e, getindex, i)
+end
+
+function Base.setindex!(v::NodesView, new, label::Symbol)
+    c, e = class(v), entry(v)
+    i = read(c.index, getindex, label)
+    mutate!(e, setindex!, new, i)
+end
+
+#-------------------------------------------------------------------------------------------
 # Ergonomics.
 
 # Forward basic operators to views.
-Base.getindex(v::View, x, i...) = read(v, getindex, x, i...)
-Base.setindex!(v::View, x, i...) = mutate!(v, setindex!, x, i...)
-
 macro binop(op)
     quote
         Base.$op(lhs::View, rhs) = read(v -> $op(v, rhs), lhs)
@@ -68,8 +83,6 @@ end
 @binop <
 @binop ≈
 Base.:!(v::View) = read(v -> !v, v)
-Base.length(v::View) = read(v, length)
-Base.size(v::View) = read(v, size)
 Base.iterate(v::View, args...) = read(v, iterate, args...)
 
 #-------------------------------------------------------------------------------------------

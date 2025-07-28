@@ -7,9 +7,9 @@ mutable struct Field{T}
     n_networks::UInt64
     Field(v) = new{typeof(v)}(v, 1) # Always created for exactly 1 network.
 end
-Base.eltype(f::Field) = typeof(value(f))
 value(f::Field) = getfield(f, :value)
 n_networks(f::Field) = getfield(f, :n_networks)
+Base.eltype(f::Field) = typeof(value(f))
 incref(f::Field) = setfield!(f, :n_networks, n_networks(f) + 1)
 decref(f::Field) = setfield!(f, :n_networks, n_networks(f) - 1)
 
@@ -22,8 +22,8 @@ mutable struct Entry{T}
     Entry(f::Field) = new{eltype(f)}(f)
     Entry(v) = new{typeof(v)}(Field(v))
 end
-Base.eltype(e::Entry) = eltype(field(e))
 field(e::Entry) = getfield(e, :field)
+Base.eltype(e::Entry) = eltype(field(e))
 n_networks(e::Entry) = n_networks(field(e))
 
 # Protect from misuse.
@@ -75,7 +75,6 @@ function mutate!(f!, e::Entry)
         clone = deepcopy(v)
         res = f!(clone)
         decref(field) # Detach from original.
-        T = eltype(e)
         setfield!(e, :field, Field(clone))
         res
     end
