@@ -35,7 +35,7 @@ function to_sparse(v::NodesView, parent_name::Symbol)
         parent.name == parent_name && break
         parent = parent.parent
         isnothing(parent) &&
-            err("Node class :$parent_name does not superclass $(class.name).")
+            err("Node class :$parent_name does not superclass :$(class.name).")
     end
     # Use it to fill the result.
     res = spzeros(T, n_nodes(parent))
