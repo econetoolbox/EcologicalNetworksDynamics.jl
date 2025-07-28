@@ -10,12 +10,11 @@ network(v::GraphView) = getfield(v, :network)
 """
 A view into node-level data.
 """
-struct NodesView{T,R<:Restriction} <: AbstractVector{T}
-    class::Class{R} # Prevent from garbage collection as long as the view is live.
+struct NodesView{T} <: AbstractVector{T}
+    class::Class # Prevent from garbage collection as long as the view is live.
     entry::Entry{Vector{T}}
 end
 class(v::NodesView) = getfield(v, :class)
-restrict_type(::NodesView{T,R}) where {T,R} = R
 
 struct EdgesView{T} <: AbstractVector{T} end
 

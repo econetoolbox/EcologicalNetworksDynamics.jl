@@ -5,7 +5,7 @@ See module documentation for detail.
 """
 mutable struct Network
     # Node-level data.
-    root::Class{Full} # Entry point.
+    root::Class # Entry point.
     classes::Dict{Symbol,Class}
 
     # Edge-level data.
