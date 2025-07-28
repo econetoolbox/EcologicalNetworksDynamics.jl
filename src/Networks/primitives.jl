@@ -99,7 +99,7 @@ end
 Get a graph-level view into network data.
 """
 function graph_view(n::Network, data::Symbol)
-    data in keys(n.data) || err("There is no data :$data in network.")
+    data in keys(n.data) || err("There is no data :$data in the network.")
     entry = n.data[data]
     T = eltype(entry)
     GraphView{T}(n, entry)
@@ -117,9 +117,8 @@ function nodes_view(n::Network, class::Symbol, data::Symbol)
     data in keys(c.data) || err("There is no data :$data in class :$class.")
     entry = c.data[data]
 
-    R = restrict_type(c)
     V = eltype(entry)
     T = eltype(V)
-    NodesView{T,R}(c, entry)
+    NodesView{T}(c, entry)
 end
 export nodes_view

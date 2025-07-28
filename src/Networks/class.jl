@@ -3,25 +3,23 @@ One class in the classes hierarchy trees,
 specifying how it restricts nodes from its parents class,
 and holding associated data: only vectors whose size match the class size.
 """
-struct Class{R<:Restriction}
+struct Class
     name::Symbol
     parent::Option{Class}
-    restriction::Entry{R}
+    restriction::Entry{<:Restriction}
     index::Entry{Index}
     data::Dict{Symbol,Entry{<:Vector}}
 end
-restrict_type(::Class{R}) where {R} = R
 
 """
 Construct root class.
 """
-Class(name) = Class{Full}(name, nothing, Entry(Full(0)), Entry(Index()), Dict())
+Class(name) = Class(name, nothing, Entry(Full(0)), Entry(Index()), Dict())
 
 """
 Construct a subclass.
 """
 function Class(name, parent::Class, r::Restriction)
-    R = typeof(r)
     # Construct local index.
     index = read(parent.index) do index
         loc = Index()
@@ -33,16 +31,15 @@ function Class(name, parent::Class, r::Restriction)
         end
         loc
     end
-    Class{R}(name, parent, Entry(r), Entry(index), Dict())
+    Class(name, parent, Entry(r), Entry(index), Dict())
 end
 
 """
 Fork class, called when COW-pying the whole network.
 """
 function fork(c::Class)
-    R = restrict_type(c)
     (; name, parent, restriction, index, data) = c
-    Class{R}(name, parent, fork(restriction), fork(index), fork(data))
+    Class(name, parent, fork(restriction), fork(index), fork(data))
 end
 
 # Visit all entries.
