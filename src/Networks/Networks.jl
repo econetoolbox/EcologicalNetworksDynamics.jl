@@ -76,6 +76,7 @@ This pattern is implemented with three levels of indirection:
 module Networks
 
 using OrderedCollections
+using SparseArrays
 import .Iterators as I
 
 using ..Display
@@ -83,7 +84,11 @@ using ..Display
 const Option{T} = Union{Nothing,T}
 const Index = OrderedDict{Symbol,Int}
 
-argerr(mess) = throw(ArgumentError(mess))
+struct NetworkError <: Exception
+    mess::String
+end
+err(mess) = throw(NetworkError(mess))
+Base.showerror(io::IO, e::NetworkError) = print(io, "Network error: $(e.mess)")
 
 include("./data.jl")
 include("./restrictions.jl")
@@ -91,6 +96,7 @@ include("./class.jl")
 include("./web.jl")
 include("./network.jl")
 include("./views.jl")
+include("./nodes_exports.jl")
 include("./primitives.jl")
 
 end
