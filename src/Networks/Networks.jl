@@ -79,6 +79,9 @@ using OrderedCollections
 using SparseArrays
 import .Iterators as I
 
+# Useful addition to iterators provided the closure returns Union{Some,Nothing}.
+filter_map(f, v) = I.map(something, I.filter(!isnothing, I.map(f, v)))
+
 using ..Display
 
 const Option{T} = Union{Nothing,T}
@@ -92,6 +95,7 @@ Base.showerror(io::IO, e::NetworkError) = print(io, "Network error: $(e.mess)")
 
 include("./data.jl")
 include("./restrictions.jl")
+include("./topologies.jl")
 include("./class.jl")
 include("./web.jl")
 include("./network.jl")
