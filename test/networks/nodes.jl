@@ -4,6 +4,7 @@ using Test
 using SparseArrays
 using OrderedCollections
 using Main.TestUtils
+using Main.TestNetworksUtils
 using EcologicalNetworksDynamics.Networks
 
 @testset "Nodes classes hierarchy." begin
@@ -111,6 +112,29 @@ using EcologicalNetworksDynamics.Networks
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
 
+    @netfails(add_class!(n, :species, "xyz"), "There is already a class named :species.")
+    @netfails(add_class!(n, :consumers, "abc"), "There is already a node labeled :a.")
+    @netfails(
+        add_subclass!(n, :species, :producers, Bool[]),
+        "There is already a class named :producers."
+    )
+
+    add_field!(n, :top, collect(reverse(1:5)))
+    @netfails(
+        add_field!(n, :top, collect(reverse(1:5))),
+        "Network already contains a field :top."
+    )
+
+    @netfails(
+        add_field!(n, :producers, :growth, []),
+        "Class :producers already contains a field :growth."
+    )
+
+    @netfails(
+        add_field!(n, :producers, :spin, [1, 2]),
+        "The given vector (size 2) does not match the :producers class size (3)."
+    )
+
 end
 
 @testset "Nodes views." begin
@@ -188,6 +212,9 @@ end
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
 
+    @netfails(nodes_view(n, :bak, :growth), "There is no class :bak in the network.")
+    @netfails(nodes_view(n, :producers, :bok), "There is no data :bok in class :producers.")
+
 end
 
 @testset "Nodes exports." begin
@@ -245,6 +272,17 @@ end
     s = to_sparse(r, :root)
     @test typeof(s) === SparseVector{Int,Int}
     @test s == sparse([0, 10, 0, 0, 50])
+
+    # Meaningless sparsity.
+    add_field!(n, :root, :top, collect(reverse(1:5)))
+    @netfails(
+        to_sparse(nodes_view(n, :root, :top)),
+        "The root nodes class is not sparse within another."
+    )
+    @netfails(
+        to_sparse(nodes_view(n, :mineral_bound, :consumption_rate), :alien),
+        "Node class :alien does not superclass :mineral_bound."
+    )
 
 end
 

@@ -16,7 +16,7 @@ function add_class!(n::Network, name::Symbol, labels)
         n_new = 0
         for label in labels
             label = Symbol(label)
-            label in keys(index) && err("There is alread a node labeled :$label.")
+            label in keys(index) && err("There is already a node labeled :$label.")
             n_new += 1
             index[label] = n_before + n_new
         end
@@ -77,7 +77,8 @@ function add_field!(c::Class, fname::Symbol, v::Vector)
     (; name, data) = c
     fname in keys(data) && err("Class :$name already contains a field :$fname.")
     (nv, nc) = length.((v, c))
-    nv == nc || err("The given vector (size $nv) does not match the class size ($nc).")
+    nv == nc ||
+        err("The given vector (size $nv) does not match the :$name class size ($nc).")
     data[fname] = Entry(v)
     nothing
 end

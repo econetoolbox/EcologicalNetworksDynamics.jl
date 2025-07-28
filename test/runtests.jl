@@ -15,6 +15,7 @@ import CompatHelperLocal
 include("./utils.jl")
 include("./test_failures.jl")
 using .TestUtils
+using .TestFailures
 
 include("./networks/runtests.jl")
 
