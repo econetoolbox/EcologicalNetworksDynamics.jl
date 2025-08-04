@@ -16,7 +16,7 @@ Regarding incident classes:
   - Symmetric: reflexive + edges are undirected ('a' points to 'b' => 'b' points to 'a').
     In this *bidirectional* situation: the number of edges
     is the number of conceptual *undirected* edges,
-    And their order is the row-wise lower triangular only: (source <= target) pairs.
+    And their order is the row-wise lower triangular only: (source >= target) pairs.
 
 Regarding edges density:
 
@@ -82,7 +82,7 @@ export edges
 """
 Obtain a nested iterable over edges:
 first level are sources, second level are their incident targets and edges.
-Collecting the two levels yields [(source, [(target, edge), ..]), ..]
+Collecting the two levels yields [(source, [(target, edge), ..]), ..].
 Raise flag to skip over sources with no targets.
 """
 forward(::Topology; skip = false) = throw("unimplemented")
@@ -91,11 +91,46 @@ export forward
 """
 Obtain a nested iterable over edges:
 first level are targets, second level are their incident sources and edges.
-Collecting the two levels yields [(target, [(source, edge), ..]), ..]
+Collecting the two levels yields [(target, [(source, edge), ..]), ..].
 Raise flag to skip over targets with no sources.
 """
 backward(::Topology; skip = false) = throw("unimplemented")
 export backward
+
+#-------------------------------------------------------------------------------------------
+# Extend interface for constrained topologies.
+"""
+A 'square' topology within one class, both source and target of the web.
+"""
+abstract type ReflexiveTopology <: Topology end
+"""
+A 'bidirectional' reflexive topology:
+if a targets b then b targets a, and this only counts for one edge.
+"""
+abstract type SymmetricTopology <: ReflexiveTopology end
+
+"""
+Obtain the number of nodes in the topology.
+"""
+n_nodes(::ReflexiveTopology) = throw("unimplemented")
+export n_nodes
+
+"""
+Obtain neighbours in a symmetric topology, neither/both targets or/and sources.
+"""
+neighbours(::SymmetricTopology, ::Int) = throw("unimplemented")
+neighbours_nodes(::SymmetricTopology, ::Int) = throw("unimplemented")
+neighbours_edges(::SymmetricTopology, ::Int) = throw("unimplemented")
+n_neighbours(::SymmetricTopology, ::Int) = throw("unimplemented")
+export neighbours, neighbour_nodes, neighbour_edges, n_neighbours
+
+"""
+Obtain a nested iterable over neighbours and edges like 'forward' or 'backward'.
+Lower 'upper' flag to skip over duplicate edges and yield only lower-triangular ones,
+with (source >= target).
+"""
+adjacency(::SymmetricTopology; skip = false, upper = true) = throw("unimplemented")
+export adjacency
 
 Map = OrderedDict{Int,Int} # Used by the sparse variants.
 vecmap(n::Int) = [Map() for _ in 1:n]
@@ -181,7 +216,7 @@ function SparseForeign(m::AbstractMatrix{Bool})
 end
 
 # ==========================================================================================
-struct SparseReflexive <: Topology
+struct SparseReflexive <: ReflexiveTopology
     # [node: ({source: edge}, {target: edge})]
     nodes::Vector{Tuple{Map,Map}}
     n_edges::Int
@@ -220,10 +255,8 @@ backward(s::S; skip = false) =
         end))
     end
 
-#-------------------------------------------------------------------------------------------
-# Extra dedicated interface.
+# Duties to ReflexiveTopology.
 n_nodes(s::S) = length(s.nodes)
-export n_nodes
 
 #-------------------------------------------------------------------------------------------
 # Construct.
@@ -266,7 +299,7 @@ function SparseReflexive(m::AbstractMatrix{Bool})
 end
 
 # ==========================================================================================
-struct SparseSymmetric <: Topology
+struct SparseSymmetric <: SymmetricTopology
     nodes::Vector{Map} # [node: {neighbour: edge}]
     n_edges::Int
 end
@@ -293,9 +326,10 @@ edges(s::S) =
 forward(s::S; skip = false) = adjacency(s; skip)
 backward(s::S; skip = false) = adjacency(s; skip)
 
-#-------------------------------------------------------------------------------------------
-# Extra dedicated interface.
+# Duties to ReflexiveTopology.
 n_nodes(s::S) = length(s.nodes)
+
+# Duties to SymmetricTopology.
 neighbours(s::S, src::Int) = I.map(p -> (first(p), last(p)), s.nodes[src])
 neighbour_nodes(s::S, src::Int) = I.map(first, neighbours(s, src))
 neighbour_edges(s::S, src::Int) = I.map(last, neighbours(s, src))
@@ -312,7 +346,6 @@ adjacency(s::S; skip = false, upper = true) =
             end,
         ))
     end
-export neighbours, neighbour_nodes, neighbour_edges, n_neighbours, adjacency
 
 #-------------------------------------------------------------------------------------------
 # Construct.
@@ -351,3 +384,34 @@ function SparseSymmetric(m::AbstractMatrix{Bool})
     end
     SparseSymmetric(nodes, n_edges)
 end
+
+# ==========================================================================================
+struct FullForeign <: Topology
+    n_sources::Int
+    n_targets::Int
+end
+export FullForeign
+
+S = FullForeign # "Self"
+n_sources(s::S) = s.n_sources
+n_targets(s::S) = s.n_targets
+targets(s::S, ::Int) = 1:n_targets(s)
+sources(s::S, ::Int) = 1:n_sources(s)
+n_sources(s::S, ::Int) = n_sources(s)
+n_targets(s::S, ::Int) = n_targets(s)
+is_edge(::S, ::Int, ::Int) = true # Assuming correct input.
+n_edges(s::S) = n_sources(s) * n_targets(s)
+edge(s::S, src::Int, tgt::Int) = (src - 1) * n_targets(s) + tgt
+edges(s::S) = ((src, tgt) for src in 1:n_sources(s) for tgt in 1:n_targets(s))
+forward(s::S; skip = false) =
+    I.map(1:n_sources(s)) do src
+        (src, I.map(1:n_targets(s)) do tgt
+            (tgt, edge(s, src, tgt))
+        end)
+    end
+backward(s::S; skip = false) =
+    I.map(1:n_targets(s)) do tgt
+        (tgt, I.map(1:n_sources(s)) do src
+            (src, edge(s, src, tgt))
+        end)
+    end
