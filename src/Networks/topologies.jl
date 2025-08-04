@@ -14,6 +14,9 @@ Regarding incident classes:
   - Foreign: the two classes differ.
   - Reflexive: source class and target class are the same class.
   - Symmetric: reflexive + edges are undirected ('a' points to 'b' => 'b' points to 'a').
+    In this *bidirectional* situation: the number of edges
+    is the number of conceptual *undirected* edges,
+    And their order is the row-wise lower triangular only: (source <= target) pairs.
 
 Regarding edges density:
 
@@ -94,10 +97,13 @@ Raise flag to skip over targets with no sources.
 backward(::Topology; skip = false) = throw("unimplemented")
 export backward
 
+Map = OrderedDict{Int,Int} # Used by the sparse variants.
+vecmap(n::Int) = [Map() for _ in 1:n]
+
 # ==========================================================================================
 struct SparseForeign <: Topology
-    forward::Vector{OrderedDict{Int,Int}} # [source: {target: edge}]
-    backward::Vector{OrderedDict{Int,Int}} # [target: {source: edge}]
+    forward::Vector{Map} # [source: {target: edge}]
+    backward::Vector{Map} # [target: {source: edge}]
     n_edges::Int
 end
 export SparseForeign
@@ -114,11 +120,12 @@ n_targets(s::S, src::Int) = length(s.forward[src])
 is_edge(s::S, src::Int, tgt::Int) = haskey(s.forward[src], tgt)
 n_edges(s::S) = s.n_edges
 edge(s::S, src::Int, tgt::Int) = s.forward[src][tgt]
-edges(s::S) = I.flatten(I.map(enumerate(s.forward)) do (src, targets)
-    I.map(keys(targets)) do tgt
-        (src, tgt)
+edges(s::S) =
+    I.flatmap(enumerate(s.forward)) do (src, targets)
+        I.map(keys(targets)) do tgt
+            (src, tgt)
+        end
     end
-end)
 forward(s::S; skip = false) =
     filter_map(enumerate(s.forward)) do (src, targets)
         (skip && isempty(targets)) ? nothing : Some((src, I.map(targets) do (tgt, edge)
@@ -140,29 +147,29 @@ Construct from non-empty entries in a sparse matrix (disregarding values).
 """
 function SparseForeign(m::AbstractSparseMatrix)
     n_sources, n_targets = size(m)
-    (sources, targets, _) = findnz(m)
-    n_edges = length(sources)
-    # Restore row-wise ordering.
-    o = sortperm(sources)
-    sources, targets = sources[o], targets[o]
-    D = OrderedDict{Int,Int}
-    forward = [D() for _ in 1:n_sources]
-    backward = [D() for _ in 1:n_targets]
+    (sources, targets, n_edges) = rowwise(m)
+    (forward, backward) = vecmap.((n_sources, n_targets))
     for (edge, (source, target)) in enumerate(zip(sources, targets))
         forward[source][target] = edge
         backward[target][source] = edge
     end
     SparseForeign(forward, backward, n_edges)
 end
+# Extract data from sparse matrix with *row-wise* ordering.
+function rowwise(m::AbstractSparseMatrix)
+    (sources, targets, _) = findnz(m)
+    n_edges = length(sources)
+    o = sortperm(sources)
+    (sources[o], targets[o], n_edges)
+end
+
 
 """
 Construct from lit entries in a dense boolean matrix.
 """
 function SparseForeign(m::AbstractMatrix{Bool})
     n_sources, n_targets = size(m)
-    D = OrderedDict{Int,Int}
-    forward = [D() for _ in 1:n_sources]
-    backward = [D() for _ in 1:n_targets]
+    (forward, backward) = vecmap.((n_sources, n_targets))
     n_edges = 0
     for source in 1:n_sources, target in 1:n_targets
         m[source, target] || continue
@@ -176,7 +183,7 @@ end
 # ==========================================================================================
 struct SparseReflexive <: Topology
     # [node: ({source: edge}, {target: edge})]
-    nodes::Vector{Tuple{OrderedDict{Int,Int},OrderedDict{Int,Int}}}
+    nodes::Vector{Tuple{Map,Map}}
     n_edges::Int
 end
 export SparseReflexive
@@ -186,19 +193,20 @@ export SparseReflexive
 S = SparseReflexive
 targets(s::S, src::Int) = I.map(p -> (first(p), last(p)), s.nodes[src][2])
 sources(s::S, tgt::Int) = I.map(p -> (first(p), last(p)), s.nodes[tgt][1])
-n_sources(s::S) = length(s.nodes)
-n_targets(s::S) = n_sources(s)
+n_sources(s::S) = n_nodes(s)
+n_targets(s::S) = n_nodes(s)
 n_sources(s::S, tgt::Int) = length(s.nodes[tgt][1])
 n_targets(s::S, src::Int) = length(s.nodes[src][2])
 is_edge(s::S, src::Int, tgt::Int) = haskey(s.nodes[src][2], tgt)
 n_edges(s::S) = s.n_edges
 edge(s::S, src::Int, tgt::Int) = s.nodes[src][2][tgt]
-edges(s::S) = I.flatten(I.map(enumerate(s.nodes)) do (src, neighbours)
-    (_, targets) = neighbours
-    I.map(keys(targets)) do tgt
-        (src, tgt)
+edges(s::S) =
+    I.flatmap(enumerate(s.nodes)) do (src, neighbours)
+        (_, targets) = neighbours
+        I.map(keys(targets)) do tgt
+            (src, tgt)
+        end
     end
-end)
 forward(s::S; skip = false) =
     filter_map(enumerate(s.nodes)) do (src, (_, targets))
         (skip && isempty(targets)) ? nothing : Some((src, I.map(targets) do (tgt, edge)
@@ -213,6 +221,11 @@ backward(s::S; skip = false) =
     end
 
 #-------------------------------------------------------------------------------------------
+# Extra dedicated interface.
+n_nodes(s::S) = length(s.nodes)
+export n_nodes
+
+#-------------------------------------------------------------------------------------------
 # Construct.
 
 """
@@ -220,13 +233,8 @@ Construct from non-empty entries in a sparse matrix (disregarding values).
 """
 function SparseReflexive(m::AbstractSparseMatrix)
     n_nodes = check_square(m)
-    (sources, targets, _) = findnz(m)
-    n_edges = length(sources)
-    # Restore row-wise ordering.
-    o = sortperm(sources)
-    sources, targets = sources[o], targets[o]
-    D = OrderedDict{Int,Int}
-    nodes = [(D(), D()) for _ in 1:n_nodes]
+    (sources, targets, n_edges) = rowwise(m)
+    nodes = [(Map(), Map()) for _ in 1:n_nodes]
     for (edge, (source, target)) in enumerate(zip(sources, targets))
         nodes[source][2][target] = edge
         nodes[target][1][source] = edge
@@ -246,8 +254,7 @@ Construct from lit entries in a dense boolean matrix.
 """
 function SparseReflexive(m::AbstractMatrix{Bool})
     n_nodes = check_square(m)
-    D = OrderedDict{Int,Int}
-    nodes = [(D(), D()) for _ in 1:n_nodes]
+    nodes = [(Map(), Map()) for _ in 1:n_nodes]
     n_edges = 0
     for source in 1:n_nodes, target in 1:n_nodes
         m[source, target] || continue
@@ -256,4 +263,91 @@ function SparseReflexive(m::AbstractMatrix{Bool})
         nodes[target][1][source] = n_edges
     end
     SparseReflexive(nodes, n_edges)
+end
+
+# ==========================================================================================
+struct SparseSymmetric <: Topology
+    nodes::Vector{Map} # [node: {neighbour: edge}]
+    n_edges::Int
+end
+export SparseSymmetric
+
+#-------------------------------------------------------------------------------------------
+# Duties to Topology.
+S = SparseSymmetric # "Self"
+targets(s::S, src::Int) = I.map(p -> (first(p), last(p)), s.nodes[src])
+sources(s::S, tgt::Int) = targets(s, tgt)
+n_sources(s::S) = n_nodes(s)
+n_targets(s::S) = n_nodes(s)
+n_sources(s::S, tgt::Int) = n_neighbours(s, tgt)
+n_targets(s::S, src::Int) = n_neighbours(s, src)
+is_edge(s::S, src::Int, tgt::Int) = haskey(s.nodes[src], tgt) # Accept both directions.
+n_edges(s::S) = s.n_edges
+edge(s::S, src::Int, tgt::Int) = s.nodes[src][tgt]
+edges(s::S) =
+    I.flatmap(enumerate(s.nodes)) do (src, targets)
+        I.map(stopwhen(>(src), keys(targets))) do tgt
+            (src, tgt)
+        end
+    end
+forward(s::S; skip = false) = adjacency(s; skip)
+backward(s::S; skip = false) = adjacency(s; skip)
+
+#-------------------------------------------------------------------------------------------
+# Extra dedicated interface.
+n_nodes(s::S) = length(s.nodes)
+neighbours(s::S, src::Int) = I.map(p -> (first(p), last(p)), s.nodes[src])
+neighbour_nodes(s::S, src::Int) = I.map(first, neighbours(s, src))
+neighbour_edges(s::S, src::Int) = I.map(last, neighbours(s, src))
+n_neighbours(s::S, n::Int) = length(s.nodes[n])
+# Lower the 'upper' flag to only get lower triangle and have every edge yielded only once.
+adjacency(s::S; skip = false, upper = true) =
+    filter_map(enumerate(s.nodes)) do (src, neighbours)
+        (skip && (isempty(neighbours) || !upper && first(keys(neighbours)) > src)) ?
+        nothing :
+        Some((
+            src,
+            I.map(stopwhen(((tgt, _),) -> !upper && tgt > src, neighbours)) do (ngb, edge)
+                (ngb, edge)
+            end,
+        ))
+    end
+export neighbours, neighbour_nodes, neighbour_edges, n_neighbours, adjacency
+
+#-------------------------------------------------------------------------------------------
+# Construct.
+
+"""
+Construct from non-empty entries in a lower-triangular sparse matrix
+(disregarding values and upper triangle).
+"""
+function SparseSymmetric(m::AbstractSparseMatrix)
+    n_nodes = check_square(m)
+    (sources, targets, _) = rowwise(m)
+    nodes = vecmap(n_nodes)
+    n_edges = 0
+    for (source, target) in zip(sources, targets)
+        source < target && continue # Dismiss upper triangle.
+        n_edges += 1
+        nodes[source][target] = n_edges
+        nodes[target][source] = n_edges
+    end
+    SparseSymmetric(nodes, n_edges)
+end
+
+"""
+Construct from lit entries in a lower-triangular dense boolean matrix
+(disregarding upper triangle).
+"""
+function SparseSymmetric(m::AbstractMatrix{Bool})
+    n_nodes = check_square(m)
+    nodes = vecmap(n_nodes)
+    n_edges = 0
+    for source in 1:n_nodes, target in 1:source # Triangular iteration.
+        m[source, target] || continue
+        n_edges += 1
+        nodes[source][target] = n_edges
+        nodes[target][source] = n_edges
+    end
+    SparseSymmetric(nodes, n_edges)
 end
