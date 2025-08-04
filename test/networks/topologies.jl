@@ -344,7 +344,7 @@ end
     @test collect(edges(ff)) == [(s, t) for s in 1:4 for t in 1:5]
 
     # Nested iterators.
-    for skip in [true, false] # (should be indifferent)
+    for skip in [true, false] # (indifferent)
         check_nested(
             forward(ff; skip),
             [
@@ -362,6 +362,80 @@ end
                 3 => [(1, 3), (2, 8), (3, 13), (4, 18)],
                 4 => [(1, 4), (2, 9), (3, 14), (4, 19)],
                 5 => [(1, 5), (2, 10), (3, 15), (4, 20)],
+            ],
+        )
+    end
+
+end
+
+@testset "Full reflexive topology" begin
+
+    fr = FullReflective(4)
+    @test n_nodes(fr) == n_sources(fr) == n_targets(fr) == 4
+    @test n_edges(fr) == 4^2
+
+    # Forward.
+    @test all(check_targets(fr, src, 1:4) for src in 1:4)
+    @test all(check_sources(fr, tgt, 1:4) for tgt in 1:4)
+    @test all(is_edge(fr, s, t) for s in 1:4 for t in 1:4)
+    @test collect(edges(fr)) == [(s, t) for s in 1:4 for t in 1:4]
+
+    # Nested iterators.
+    for skip in [true, false] # (indifferent)
+        check_nested(
+            forward(fr; skip),
+            [
+                1 => [(1, 1), (2, 2), (3, 3), (4, 4)],
+                2 => [(1, 5), (2, 6), (3, 7), (4, 8)],
+                3 => [(1, 9), (2, 10), (3, 11), (4, 12)],
+                4 => [(1, 13), (2, 14), (3, 15), (4, 16)],
+            ],
+        )
+        check_nested(
+            backward(fr; skip),
+            [
+                1 => [(1, 1), (2, 5), (3, 9), (4, 13)],
+                2 => [(1, 2), (2, 6), (3, 10), (4, 14)],
+                3 => [(1, 3), (2, 7), (3, 11), (4, 15)],
+                4 => [(1, 4), (2, 8), (3, 12), (4, 16)],
+            ],
+        )
+    end
+
+end
+
+@testset "Full symmetric topology" begin
+
+    fs = FullSymmetric(4)
+    @test n_nodes(fs) == n_sources(fs) == n_targets(fs) == 4
+    @test n_edges(fs) == 1 + 2 + 3 + 4
+
+    # Forward.
+    @test all(check_targets(fs, src, 1:4) for src in 1:4)
+    @test all(check_sources(fs, tgt, 1:4) for tgt in 1:4)
+    @test all(is_edge(fs, s, t) for s in 1:4 for t in 1:4)
+    @test collect(edges(fs)) == [(s, t) for s in 1:4 for t in 1:4]
+
+    # Nested iterators.
+    for skip in [true, false], nested in (forward, backward, adjacency) # (indifferent)
+        check_nested(
+            nested(fs; skip),
+            [
+                1 => [(1, 1), (2, 2), (3, 4), (4, 7)],
+                2 => [(1, 2), (2, 3), (3, 5), (4, 8)],
+                3 => [(1, 4), (2, 5), (3, 6), (4, 9)],
+                4 => [(1, 7), (2, 8), (3, 9), (4, 10)],
+            ],
+        )
+        # Additional option to only yield lower edges directions
+        # so that every edge is only yielded once.
+        check_nested(
+            adjacency(fs; skip, upper = false),
+            [
+                1 => [(1, 1)],
+                2 => [(1, 2), (2, 3)],
+                3 => [(1, 4), (2, 5), (3, 6)],
+                4 => [(1, 7), (2, 8), (3, 9), (4, 10)],
             ],
         )
     end

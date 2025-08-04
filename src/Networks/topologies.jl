@@ -32,51 +32,51 @@ export Topology
 """
 Obtain general nodes counts.
 """
-n_targets(::Topology) = throw("unimplemented")
-n_sources(::Topology) = throw("unimplemented")
+function n_targets end
+function n_sources end
 export n_targets, n_sources
 
 """
 Obtain iterable over target neighbours as (target, edge).
 """
-targets(::Topology, ::Int) = throw("unimplemented")
+function targets end
+function n_targets end
 target_nodes(g::Topology, s::Int) = I.map(first, targets(g, s))
 target_edges(g::Topology, s::Int) = I.map(last, targets(g, s))
-n_targets(::Topology, ::Int) = throw("unimplemented")
 export targets, target_nodes, target_edges, n_targets
 
 """
 Obtain iterable over source neighbours as (source, edge).
 """
-sources(::Topology, ::Int) = throw("unimplemented")
+function sources end
+function n_sources end
 source_nodes(g::Topology, t::Int) = I.map(first, sources(g, t))
 source_edges(g::Topology, t::Int) = I.map(last, sources(g, t))
-n_sources(::Topology, ::Int) = throw("unimplemented")
 export sources, source_nodes, source_edges, n_sources
 
 """
 Check whether there is an edge between these two nodes,
 assuming they are valid indices.
 """
-is_edge(::Topology, ::Int, ::Int) = throw("unimplemented")
+function is_edge end
 export is_edge
 
 """
 Total number of edges in the topology.
 """
-n_edges(::Topology) = throw("unimplemented")
+function n_edges end
 export n_edges
 
 """
 Get edge index, assuming it exists.
 """
-edge(::Topology, ::Int, ::Int) = throw("unimplemented")
+function edge end
 export edge
 
 """
 Obtain an iterable over edges as (source, target), in canonical edge order.
 """
-edges(::Topology) = throw("unimplemented")
+function edges end
 export edges
 
 """
@@ -85,7 +85,7 @@ first level are sources, second level are their incident targets and edges.
 Collecting the two levels yields [(source, [(target, edge), ..]), ..].
 Raise flag to skip over sources with no targets.
 """
-forward(::Topology; skip = false) = throw("unimplemented")
+function forward end
 export forward
 
 """
@@ -94,7 +94,7 @@ first level are targets, second level are their incident sources and edges.
 Collecting the two levels yields [(target, [(source, edge), ..]), ..].
 Raise flag to skip over targets with no sources.
 """
-backward(::Topology; skip = false) = throw("unimplemented")
+function backward end
 export backward
 
 #-------------------------------------------------------------------------------------------
@@ -103,6 +103,7 @@ export backward
 A 'square' topology within one class, both source and target of the web.
 """
 abstract type ReflexiveTopology <: Topology end
+
 """
 A 'bidirectional' reflexive topology:
 if a targets b then b targets a, and this only counts for one edge.
@@ -112,24 +113,24 @@ abstract type SymmetricTopology <: ReflexiveTopology end
 """
 Obtain the number of nodes in the topology.
 """
-n_nodes(::ReflexiveTopology) = throw("unimplemented")
+function n_nodes end
 export n_nodes
 
 """
 Obtain neighbours in a symmetric topology, neither/both targets or/and sources.
 """
-neighbours(::SymmetricTopology, ::Int) = throw("unimplemented")
-neighbours_nodes(::SymmetricTopology, ::Int) = throw("unimplemented")
-neighbours_edges(::SymmetricTopology, ::Int) = throw("unimplemented")
-n_neighbours(::SymmetricTopology, ::Int) = throw("unimplemented")
+function neighbours end
+function n_neighbours end
+neighbours_nodes(s::SymmetricTopology, n::Int) = I.map(first, neighbours(s, n))
+neighbours_edges(s::SymmetricTopology, n::Int) = I.map(last, neighbours(s, n))
 export neighbours, neighbour_nodes, neighbour_edges, n_neighbours
 
 """
 Obtain a nested iterable over neighbours and edges like 'forward' or 'backward'.
-Lower 'upper' flag to skip over duplicate edges and yield only lower-triangular ones,
-with (source >= target).
+Lower 'upper' flag in the symmetric case to skip over duplicate edges
+and yield only lower-triangular ones, with (source >= target).
 """
-adjacency(::SymmetricTopology; skip = false, upper = true) = throw("unimplemented")
+function adjacency end
 export adjacency
 
 Map = OrderedDict{Int,Int} # Used by the sparse variants.
@@ -146,8 +147,8 @@ export SparseForeign
 #-------------------------------------------------------------------------------------------
 # Duties to Topology.
 S = SparseForeign # "Self"
-targets(s::S, src::Int) = I.map(p -> (first(p), last(p)), s.forward[src])
-sources(s::S, tgt::Int) = I.map(p -> (first(p), last(p)), s.backward[tgt])
+targets(s::S, src::Int) = ((t, e) for (t, e) in s.forward[src])
+sources(s::S, tgt::Int) = ((s, e) for (s, e) in s.backward[tgt])
 n_sources(s::S) = length(s.forward)
 n_targets(s::S) = length(s.backward)
 n_sources(s::S, tgt::Int) = length(s.backward[tgt])
@@ -156,23 +157,15 @@ is_edge(s::S, src::Int, tgt::Int) = haskey(s.forward[src], tgt)
 n_edges(s::S) = s.n_edges
 edge(s::S, src::Int, tgt::Int) = s.forward[src][tgt]
 edges(s::S) =
-    I.flatmap(enumerate(s.forward)) do (src, targets)
-        I.map(keys(targets)) do tgt
-            (src, tgt)
-        end
-    end
-forward(s::S; skip = false) =
-    filter_map(enumerate(s.forward)) do (src, targets)
-        (skip && isempty(targets)) ? nothing : Some((src, I.map(targets) do (tgt, edge)
-            (tgt, edge)
-        end))
-    end
-backward(s::S; skip = false) =
-    filter_map(enumerate(s.backward)) do (tgt, sources)
-        (skip && isempty(sources)) ? nothing : Some((tgt, I.map(sources) do (src, edge)
-            (src, edge)
-        end))
-    end
+    ((src, tgt) for (src, targets) in enumerate(s.forward) for tgt in keys(targets))
+forward(s::S; skip = false) = (
+    (src, (tgt, edge) for (tgt, edge) in targets) for
+    (src, targets) in enumerate(s.forward) if !(skip && isempty(targets))
+)
+backward(s::S; skip = false) = (
+    (tgt, (src, edge) for (src, edge) in sources) for
+    (tgt, sources) in enumerate(s.backward) if !(skip && isempty(sources))
+)
 
 #-------------------------------------------------------------------------------------------
 # Construct.
@@ -226,8 +219,8 @@ export SparseReflexive
 #-------------------------------------------------------------------------------------------
 # Duties to Topology.
 S = SparseReflexive
-targets(s::S, src::Int) = I.map(p -> (first(p), last(p)), s.nodes[src][2])
-sources(s::S, tgt::Int) = I.map(p -> (first(p), last(p)), s.nodes[tgt][1])
+targets(s::S, src::Int) = ((t, e) for (t, e) in s.nodes[src][2])
+sources(s::S, tgt::Int) = ((s, e) for (s, e) in s.nodes[tgt][1])
 n_sources(s::S) = n_nodes(s)
 n_targets(s::S) = n_nodes(s)
 n_sources(s::S, tgt::Int) = length(s.nodes[tgt][1])
@@ -236,24 +229,15 @@ is_edge(s::S, src::Int, tgt::Int) = haskey(s.nodes[src][2], tgt)
 n_edges(s::S) = s.n_edges
 edge(s::S, src::Int, tgt::Int) = s.nodes[src][2][tgt]
 edges(s::S) =
-    I.flatmap(enumerate(s.nodes)) do (src, neighbours)
-        (_, targets) = neighbours
-        I.map(keys(targets)) do tgt
-            (src, tgt)
-        end
-    end
-forward(s::S; skip = false) =
-    filter_map(enumerate(s.nodes)) do (src, (_, targets))
-        (skip && isempty(targets)) ? nothing : Some((src, I.map(targets) do (tgt, edge)
-            (tgt, edge)
-        end))
-    end
-backward(s::S; skip = false) =
-    filter_map(enumerate(s.nodes)) do (tgt, (sources, _))
-        (skip && isempty(sources)) ? nothing : Some((tgt, I.map(sources) do (tgt, edge)
-            (tgt, edge)
-        end))
-    end
+    ((src, tgt) for (src, (_, targets)) in enumerate(s.nodes) for (tgt, _) in targets)
+forward(s::S; skip = false) = (
+    (src, ((tgt, edge) for (tgt, edge) in targets)) for
+    (src, (_, targets)) in enumerate(s.nodes) if !(skip && isempty(targets))
+)
+backward(s::S; skip = false) = (
+    (tgt, ((src, edge) for (src, edge) in sources)) for
+    (tgt, (sources, _)) in enumerate(s.nodes) if !(skip && isempty(sources))
+)
 
 # Duties to ReflexiveTopology.
 n_nodes(s::S) = length(s.nodes)
@@ -308,8 +292,8 @@ export SparseSymmetric
 #-------------------------------------------------------------------------------------------
 # Duties to Topology.
 S = SparseSymmetric # "Self"
-targets(s::S, src::Int) = I.map(p -> (first(p), last(p)), s.nodes[src])
-sources(s::S, tgt::Int) = targets(s, tgt)
+targets(s::S, src::Int) = neighbours(s, src)
+sources(s::S, tgt::Int) = neighbours(s, tgt)
 n_sources(s::S) = n_nodes(s)
 n_targets(s::S) = n_nodes(s)
 n_sources(s::S, tgt::Int) = n_neighbours(s, tgt)
@@ -317,12 +301,10 @@ n_targets(s::S, src::Int) = n_neighbours(s, src)
 is_edge(s::S, src::Int, tgt::Int) = haskey(s.nodes[src], tgt) # Accept both directions.
 n_edges(s::S) = s.n_edges
 edge(s::S, src::Int, tgt::Int) = s.nodes[src][tgt]
-edges(s::S) =
-    I.flatmap(enumerate(s.nodes)) do (src, targets)
-        I.map(stopwhen(>(src), keys(targets))) do tgt
-            (src, tgt)
-        end
-    end
+edges(s::S) = (
+    (src, tgt) for (src, targets) in enumerate(s.nodes) for
+    tgt in stopwhen(>(src), keys(targets))
+)
 forward(s::S; skip = false) = adjacency(s; skip)
 backward(s::S; skip = false) = adjacency(s; skip)
 
@@ -330,22 +312,18 @@ backward(s::S; skip = false) = adjacency(s; skip)
 n_nodes(s::S) = length(s.nodes)
 
 # Duties to SymmetricTopology.
-neighbours(s::S, src::Int) = I.map(p -> (first(p), last(p)), s.nodes[src])
-neighbour_nodes(s::S, src::Int) = I.map(first, neighbours(s, src))
-neighbour_edges(s::S, src::Int) = I.map(last, neighbours(s, src))
+neighbours(s::S, src::Int) = ((n, e) for (n, e) in s.nodes[src])
 n_neighbours(s::S, n::Int) = length(s.nodes[n])
-# Lower the 'upper' flag to only get lower triangle and have every edge yielded only once.
-adjacency(s::S; skip = false, upper = true) =
-    filter_map(enumerate(s.nodes)) do (src, neighbours)
-        (skip && (isempty(neighbours) || !upper && first(keys(neighbours)) > src)) ?
-        nothing :
-        Some((
-            src,
-            I.map(stopwhen(((tgt, _),) -> !upper && tgt > src, neighbours)) do (ngb, edge)
-                (ngb, edge)
-            end,
-        ))
-    end
+adjacency(s::S; skip = false, upper = true) = (
+    (
+        src,
+        (
+            (ngb, edge) for
+            (ngb, edge) in stopwhen(((tgt, _),) -> !upper && tgt > src, neighbours)
+        ),
+    ) for (src, neighbours) in enumerate(s.nodes) if
+    !(skip && (isempty(neighbours) || !upper && first(keys(neighbours)) > src))
+)
 
 #-------------------------------------------------------------------------------------------
 # Construct.
@@ -386,32 +364,58 @@ function SparseSymmetric(m::AbstractMatrix{Bool})
 end
 
 # ==========================================================================================
+# Full topologies.
+
 struct FullForeign <: Topology
     n_sources::Int
     n_targets::Int
 end
-export FullForeign
+struct FullReflective <: ReflexiveTopology
+    n_nodes::Int
+end
+struct FullSymmetric <: SymmetricTopology
+    n_nodes::Int
+end
+export FullForeign, FullReflective, FullSymmetric
 
-S = FullForeign # "Self"
+# Density of these topologies makes their interface straightforward and mostly shared.
+S = FullForeign
 n_sources(s::S) = s.n_sources
 n_targets(s::S) = s.n_targets
-targets(s::S, ::Int) = 1:n_targets(s)
-sources(s::S, ::Int) = 1:n_sources(s)
+
+S = Union{FullReflective,FullSymmetric}
+n_nodes(s::S) = s.n_nodes
+n_sources(s::S) = n_nodes(s)
+n_targets(s::S) = n_nodes(s)
+
+S = Union{FullForeign,FullReflective,FullSymmetric}
+is_edge(::S, ::Int, ::Int) = true # Assuming correct input.
+targets(s::S, src::Int) = ((tgt, edge(s, src, tgt)) for tgt in 1:n_targets(s))
+sources(s::S, tgt::Int) = ((src, edge(s, src, tgt)) for src in 1:n_sources(s))
+edges(s::S) = ((src, tgt) for src in 1:n_sources(s) for tgt in 1:n_targets(s))
 n_sources(s::S, ::Int) = n_sources(s)
 n_targets(s::S, ::Int) = n_targets(s)
-is_edge(::S, ::Int, ::Int) = true # Assuming correct input.
-n_edges(s::S) = n_sources(s) * n_targets(s)
+
+S = Union{FullForeign,FullReflective}
 edge(s::S, src::Int, tgt::Int) = (src - 1) * n_targets(s) + tgt
-edges(s::S) = ((src, tgt) for src in 1:n_sources(s) for tgt in 1:n_targets(s))
+n_edges(s::S) = n_sources(s) * n_targets(s)
 forward(s::S; skip = false) =
-    I.map(1:n_sources(s)) do src
-        (src, I.map(1:n_targets(s)) do tgt
-            (tgt, edge(s, src, tgt))
-        end)
-    end
+    ((src, ((tgt, edge(s, src, tgt)) for tgt in 1:n_targets(s))) for src in 1:n_sources(s))
 backward(s::S; skip = false) =
-    I.map(1:n_targets(s)) do tgt
-        (tgt, I.map(1:n_sources(s)) do src
-            (src, edge(s, src, tgt))
-        end)
-    end
+    ((tgt, ((src, edge(s, src, tgt)) for src in 1:n_sources(s))) for tgt in 1:n_targets(s))
+
+S = FullSymmetric
+triangular(n) = (n * (n + 1)) ÷ 2
+n_edges(s::S) = triangular(n_nodes(s))
+function edge(::S, src::Int, tgt::Int)
+    i, j = minmax(src, tgt)
+    triangular(j - 1) + i
+end
+neighbours(s::S, n::Int) = targets(s, n)
+n_neighbours(s::S, n::Int) = n_targets(s, n)
+adjacency(s::S; skip = false, upper = true) = (
+    (src, ((tgt, edge(s, src, tgt)) for tgt in (upper ? (1:n_nodes(s)) : (1:src)))) for
+    src in 1:n_nodes(s)
+)
+forward(s::S; skip = false) = adjacency(s; skip)
+backward(s::S; skip = false) = adjacency(s; skip)
