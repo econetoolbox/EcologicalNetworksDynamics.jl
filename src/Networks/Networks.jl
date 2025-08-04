@@ -77,21 +77,14 @@ module Networks
 
 using OrderedCollections
 using SparseArrays
-import .Iterators as I
-
-# Useful addition to iterators provided the closure returns Union{Some,Nothing}.
-filter_map(f, v) = I.map(something, I.filter(!isnothing, I.map(f, v)))
 
 using ..Display
 
 const Option{T} = Union{Nothing,T}
 const Index = OrderedDict{Symbol,Int}
 
-struct NetworkError <: Exception
-    mess::String
-end
-err(mess) = throw(NetworkError(mess))
-Base.showerror(io::IO, e::NetworkError) = print(io, "Network error: $(e.mess)")
+include("./iterators.jl")
+include("./errors.jl")
 
 include("./data.jl")
 include("./restrictions.jl")
