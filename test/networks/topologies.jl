@@ -8,6 +8,7 @@ function check_adjacent(top, (nodes, nb), n, expected)
     actual = collect(nodes(top, n))
     @test length(actual) == nb(top, n)
     @test expected == actual
+    true
 end
 
 check_targets(top, src, exp) = check_adjacent(top, (target_nodes, n_targets), src, exp)
@@ -327,6 +328,44 @@ end
         )
 
     end
+end
+
+@testset "Full foreign topology." begin
+
+    ff = FullForeign(4, 5)
+    @test n_sources(ff) == 4
+    @test n_targets(ff) == 5
+    @test n_edges(ff) == 4 * 5
+
+    # Uniform edges: all inside.
+    @test all(check_targets(ff, s, 1:5) for s in 1:4)
+    @test all(check_sources(ff, t, 1:4) for t in 1:5)
+    @test all(is_edge(ff, s, t) for s in 1:4 for t in 1:5)
+    @test collect(edges(ff)) == [(s, t) for s in 1:4 for t in 1:5]
+
+    # Nested iterators.
+    for skip in [true, false] # (should be indifferent)
+        check_nested(
+            forward(ff; skip),
+            [
+                1 => [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)],
+                2 => [(1, 6), (2, 7), (3, 8), (4, 9), (5, 10)],
+                3 => [(1, 11), (2, 12), (3, 13), (4, 14), (5, 15)],
+                4 => [(1, 16), (2, 17), (3, 18), (4, 19), (5, 20)],
+            ],
+        )
+        check_nested(
+            backward(ff; skip),
+            [
+                1 => [(1, 1), (2, 6), (3, 11), (4, 16)],
+                2 => [(1, 2), (2, 7), (3, 12), (4, 17)],
+                3 => [(1, 3), (2, 8), (3, 13), (4, 18)],
+                4 => [(1, 4), (2, 9), (3, 14), (4, 19)],
+                5 => [(1, 5), (2, 10), (3, 15), (4, 20)],
+            ],
+        )
+    end
+
 end
 
 end
