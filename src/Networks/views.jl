@@ -37,11 +37,6 @@ Base.deepcopy(::View) = throw("Deepcopying the view would break its logic.")
 Base.copy(v::View) = v # There is no use in a copy.
 
 # Forward to underlying entry.
-Base.read(v::View, args...; kwargs...) = read(entry(v), args...; kwargs...)
-mutate!(v::View, args...; kwargs...) = mutate!(entry(v), args...; kwargs...)
-reassign!(v::View, args...; kwargs...) = reassign!(entry(v), args...; kwargs...)
-Base.read(f, v::View) = read(f, entry(v))
-mutate!(f!, v::View) = mutate!(f!, entry(v))
 n_networks(v::View) = n_networks(entry(v))
 
 #-------------------------------------------------------------------------------------------
@@ -54,14 +49,18 @@ Base.setindex!(v::ArrayView, x, i) = mutate!(v, setindex!, x, i)
 
 function Base.getindex(v::NodesView, label::Symbol)
     c, e = class(v), entry(v)
-    i = read(c.index, getindex, label)
-    read(e, getindex, i)
+    read(e, c.index) do array, index
+        i = index[label]
+        array[i]
+    end
 end
 
 function Base.setindex!(v::NodesView, new, label::Symbol)
     c, e = class(v), entry(v)
-    i = read(c.index, getindex, label)
-    mutate!(e, setindex!, new, i)
+    mix!(e, c.index) do array, index
+        i = index[label]
+        array[i] = new
+    end
 end
 
 #-------------------------------------------------------------------------------------------
