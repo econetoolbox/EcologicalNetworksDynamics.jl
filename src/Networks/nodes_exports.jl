@@ -17,7 +17,8 @@ function to_sparse(v::NodesView)
     T = eltype(v)
     class = Networks.class(v)
     isnothing(class.parent) && err("The root nodes class is not sparse within another.")
-    res = spzeros(T, n_nodes(class.parent))
+    parent = network(v).classes[class.parent]
+    res = spzeros(T, n_nodes(parent))
     read(entry(v), class.restriction) do (v, r)
         for (i_local, i_parent) in enumerate(indices(r))
             res[i_parent] = v[i_local]
@@ -30,12 +31,13 @@ function to_sparse(v::NodesView, parent_name::Symbol)
     class = Networks.class(v)
     isnothing(class.parent) && err("The root nodes class is not sparse within another.")
     # Find adequate parent class.
-    parent = class.parent
+    n = network(v)
+    parent = n.classes[class.parent]
     while true
         parent.name == parent_name && break
-        parent = parent.parent
-        isnothing(parent) &&
+        isnothing(parent.parent) &&
             err("Node class :$parent_name does not superclass :$(class.name).")
+        parent = n.classes[parent.parent]
     end
     # Use it to fill the result.
     res = spzeros(T, n_nodes(parent))

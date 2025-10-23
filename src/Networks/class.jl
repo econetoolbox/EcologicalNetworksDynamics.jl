@@ -5,7 +5,7 @@ and holding associated data: only vectors whose size match the class size.
 """
 struct Class
     name::Symbol
-    parent::Option{Class}
+    parent::Option{Symbol}
     restriction::Entry{<:Restriction}
     index::Entry{Index}
     data::Dict{Symbol,Entry{<:Vector}}
@@ -31,7 +31,7 @@ function Class(name, parent::Class, r::Restriction)
         end
         loc
     end
-    Class(name, parent, Entry(r), Entry(index), Dict())
+    Class(name, parent.name, Entry(r), Entry(index), Dict())
 end
 
 """
@@ -39,7 +39,6 @@ Fork class, called when COW-pying the whole network.
 """
 function fork(c::Class)
     (; name, parent, restriction, index, data) = c
-    # REV: should the `parent` not be reassigned to the new fork or something?
     Class(name, parent, fork(restriction), fork(index), fork(data))
 end
 
@@ -54,11 +53,6 @@ Number of nodes in the class.
 """
 n_nodes(c::Class) = read(length, c.restriction)
 Base.length(c::Class) = n_nodes(c)
-
-"""
-Parent of the class (or itself if root class).
-"""
-Base.parent(c::Class) = isnothing(c.parent) ? c : c.parent
 
 """
 Obtain iterable through all nodes labels in the class, in order.

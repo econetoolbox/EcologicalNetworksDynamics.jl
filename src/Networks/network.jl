@@ -29,7 +29,7 @@ Fork the network to obtain a cheap COW-py.
 """
 function fork(n::Network)
     (; classes, webs, data) = n
-    classes, webs, data = fork.((classes, webs, data)) # REV: new classes point to old parents!
+    classes, webs, data = fork.((classes, webs, data))
     Network(classes[:root], classes, webs, data)
 end
 Base.copy(n::Network) = fork(n)
