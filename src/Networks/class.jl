@@ -39,6 +39,7 @@ Fork class, called when COW-pying the whole network.
 """
 function fork(c::Class)
     (; name, parent, restriction, index, data) = c
+    # REV: should the `parent` not be reassigned to the new fork or something?
     Class(name, parent, fork(restriction), fork(index), fork(data))
 end
 

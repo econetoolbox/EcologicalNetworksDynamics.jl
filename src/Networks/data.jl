@@ -53,6 +53,8 @@ providing closure called with secure access to underlying value.
 ⚠ Do not mutate or leak references into the value received.
 This might seem cumbersome,
 but it is expected to make it possible to make the network thread-safe in the future.
+REV: drop that. Too unergonomic. Not even clear that it would make it possible
+without a hell swamp of deadlocks.
 """
 Base.read(f, e::Entry) = f(value(field(e)))
 Base.read(e::Entry, f, args...; kwargs...) = read(e -> f(e, args...; kwargs...), e)
@@ -60,6 +62,7 @@ Base.read(f, e::Entry, more::Entry...) = f(value.(field.((e, more...))))
 
 """
 Write through an entry,
+triggering COW if required.
 providing closure called with secure access to underlying value.
 ⚠ Do not leak references into the value received.
 This might seem cumbersome,
@@ -84,7 +87,8 @@ mutate!(e::Entry, f!, args...; kwargs...) = mutate!(e -> f!(e, args...; kwargs..
 export mutate!
 
 """
-Reassign the whole field through an entry.
+Reassign the whole field through an entry,
+impacting reference counts.
 """
 function reassign!(e::Entry{T}, new::T) where {T}
     field = Networks.field(e)

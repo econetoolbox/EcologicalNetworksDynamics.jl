@@ -2,7 +2,7 @@
 A view into graph-level data.
 """
 struct GraphView{T}
-    network::Network # Prevent from garbage-collection as long as the view is live.
+    network::Network # Protect from garbage-collection as long as the view is live.
     entry::Entry{T}
 end
 network(v::GraphView) = getfield(v, :network)
@@ -11,7 +11,7 @@ network(v::GraphView) = getfield(v, :network)
 A view into node-level data.
 """
 struct NodesView{T} <: AbstractVector{T}
-    class::Class # Prevent from garbage collection as long as the view is live.
+    class::Class # Protect from garbage collection as long as the view is live.
     entry::Entry{Vector{T}}
 end
 class(v::NodesView) = getfield(v, :class)
@@ -19,6 +19,7 @@ class(v::NodesView) = getfield(v, :class)
 struct EdgesView{T} <: AbstractVector{T} end
 
 # Abstract over levels.
+# (cannot use abstract type View{T} because of AbstractVector{T} subtyping already)
 const View{T} = Union{GraphView{T},NodesView{T},EdgesView{T}}
 entry(v::View) = getfield(v, :entry)
 Base.eltype(::View{T}) where {T} = T

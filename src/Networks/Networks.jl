@@ -38,8 +38,8 @@ In addition to classes and webs,
 the network also holds *mutable* associated 'data'
 structured in 3 different 'levels':
 - At 'graph' level: scalar data whose scope encompasses the whole network.
-- At 'node' level: vector data whose scope is bound to one class.
-- At 'edge' level: matrix data whose scope is bound to one web.
+- At 'node' level: vector data whose scope is bound to one class: one value per node.
+- At 'edge' level: matrix data whose scope is bound to one web: one value per edge.
 
 Both the network topology and associated mutable data
 are protected by a ["Copy-On-Write"][COW] pattern,
@@ -54,8 +54,8 @@ This pattern is implemented with three levels of indirection:
 
 - `Fields` (unexposed) protect raw data
    and keep track of the current number of networks they are involved in,
-   effectively ["Reference counting"][RC] the data for networks.
-   The counter is decreased whenever an owning network is garbage-collected.
+   effectively ["Reference-counting"][RC] the data for networks.
+   The counter is decreased whenever an owner network is garbage-collected.
 
 - `Entries` (unexposed) protect fields
   by [Boxing] them behind a reassignable reference
@@ -64,7 +64,7 @@ This pattern is implemented with three levels of indirection:
 
 - `Views` (exposed) protect the pattern
   by referencing entries to ensure that copying
-  happens prior to mutation,
+  happens prior to mutation if needed,
   and by referencing the network itself
   to prevent garbage collection as they are live.
 
