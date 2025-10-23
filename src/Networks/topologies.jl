@@ -1,5 +1,5 @@
 """
-The topology descripts edges within a web,
+The topology specifies edges within a web,
 and the neighbouring relation among source and target nodes in incident classes.
 Source and target classes are only described by their number of nodes.
 Edges are ordered so they can be contiguously indexed by a number.
@@ -40,7 +40,6 @@ export n_targets, n_sources
 Obtain iterable over target neighbours as (target, edge).
 """
 function targets end
-function n_targets end
 target_nodes(g::Topology, s::Int) = I.map(first, targets(g, s))
 target_edges(g::Topology, s::Int) = I.map(last, targets(g, s))
 export targets, target_nodes, target_edges, n_targets
@@ -49,7 +48,6 @@ export targets, target_nodes, target_edges, n_targets
 Obtain iterable over source neighbours as (source, edge).
 """
 function sources end
-function n_sources end
 source_nodes(g::Topology, t::Int) = I.map(first, sources(g, t))
 source_edges(g::Topology, t::Int) = I.map(last, sources(g, t))
 export sources, source_nodes, source_edges, n_sources
@@ -121,8 +119,8 @@ Obtain neighbours in a symmetric topology, neither/both targets or/and sources.
 """
 function neighbours end
 function n_neighbours end
-neighbours_nodes(s::SymmetricTopology, n::Int) = I.map(first, neighbours(s, n))
-neighbours_edges(s::SymmetricTopology, n::Int) = I.map(last, neighbours(s, n))
+neighbour_nodes(s::SymmetricTopology, n::Int) = I.map(first, neighbours(s, n))
+neighbour_edges(s::SymmetricTopology, n::Int) = I.map(last, neighbours(s, n))
 export neighbours, neighbour_nodes, neighbour_edges, n_neighbours
 
 """
@@ -171,7 +169,8 @@ backward(s::S; skip = false) = (
 # Construct.
 
 """
-Construct from non-empty entries in a sparse matrix (disregarding values).
+Construct from non-empty entries in a sparse matrix
+(disregarding values: a `0`-valued entry counts as non-empty).
 """
 function SparseForeign(m::AbstractSparseMatrix)
     n_sources, n_targets = size(m)

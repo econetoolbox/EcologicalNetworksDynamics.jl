@@ -29,7 +29,7 @@ Fork the network to obtain a cheap COW-py.
 """
 function fork(n::Network)
     (; classes, webs, data) = n
-    classes, webs, data = fork.((classes, webs, data))
+    classes, webs, data = fork.((classes, webs, data)) # REV: new classes point to old parents!
     Network(classes[:root], classes, webs, data)
 end
 Base.copy(n::Network) = fork(n)
@@ -47,8 +47,8 @@ drop!(n::Network) =
 function entries(n::Network)
     (; classes, webs, data) = n
     I.flatten((
-        I.flatten(entries(e) for e in values(classes)),
-        I.flatten(entries(e) for e in values(webs)),
+        I.flatten(entries(c) for c in values(classes)),
+        I.flatten(entries(w) for w in values(webs)),
         values(data),
     ))
 end
@@ -59,13 +59,14 @@ end
 """
 Total number of nodes in the network.
 """
-n_nodes(n::Network) = n_nodes(n.classes[:root])
+n_nodes(n::Network) = n_nodes(n.root)
 export n_nodes
 
 """
 Total number of fields in the network.
 """
 n_fields(n::Network) =
+# https://julialang.zulipchat.com/#narrow/channel/137791-general/topic/type.20inference.20in.20.60sum.60/near/546657153
     sum(n_fields(c) for c in values(n.classes); init = 0) +
     sum(n_fields(w) for w in values(n.webs); init = 0) +
     length(n.data)
@@ -149,7 +150,7 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
 
 end
 
-# Elide number of aggregates if non-shared.
+# Elide number of networks if non-shared.
 nnet(n) = n == 1 ? "" : "'$n" # (display if zero though 'cause it's a bug)
 
 # Basic plural.
