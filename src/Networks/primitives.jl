@@ -119,6 +119,6 @@ function nodes_view(n::Network, class::Symbol, data::Symbol)
 
     V = eltype(entry)
     T = eltype(V)
-    NodesView{T}(c, entry)
+    NodesView{T}(n, c, entry)
 end
 export nodes_view

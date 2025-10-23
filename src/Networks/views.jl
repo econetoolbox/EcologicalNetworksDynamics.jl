@@ -5,13 +5,16 @@ struct GraphView{T}
     network::Network # Protect from garbage-collection as long as the view is live.
     entry::Entry{T}
 end
-network(v::GraphView) = getfield(v, :network)
 
 """
 A view into node-level data.
 """
 struct NodesView{T} <: AbstractVector{T}
-    class::Class # Protect from garbage collection as long as the view is live.
+    # Protect from garbage collection as long as the view is live.
+    # Useful to retrieve parents/grandparent classes when exporting nodes.
+    network::Network
+    # Direct acces without indexing network classes.
+    class::Class
     entry::Entry{Vector{T}}
 end
 class(v::NodesView) = getfield(v, :class)
@@ -22,6 +25,7 @@ struct EdgesView{T} <: AbstractVector{T} end
 # (cannot use abstract type View{T} because of AbstractVector{T} subtyping already)
 const View{T} = Union{GraphView{T},NodesView{T},EdgesView{T}}
 entry(v::View) = getfield(v, :entry)
+network(v::View) = getfield(v, :network)
 Base.eltype(::View{T}) where {T} = T
 
 #-------------------------------------------------------------------------------------------
