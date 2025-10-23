@@ -33,7 +33,7 @@ function is_disp(x, expected)
     actual = String(take!(io))
     actual == expected && return true
     eprintln("$(bold)CHECK FAILED:$reset The two console display differ:\n\
-              $expected\n$bold---- ^^^ expected | actual vvv ----$reset\n$actual")
+              $expected\n$bold---- ^^^ expected ^^^ | vvv actual vvv ----$reset\n$actual")
     a_it, e_it = eachsplit.((actual, expected), '\n')
     a_next = iterate(a_it)
     e_next = iterate(e_it)
@@ -54,7 +54,7 @@ function is_disp(x, expected)
         if exp != act
             println("$(bold)First differing lines:$reset\n\
                      $blue$exp$reset\n\
-                     $bold---- ^^^ expected | actual vvv----$reset\n\
+                     $bold---- ^^^ expected ^^^ | vvv actual vvv----$reset\n\
                      $red$act$reset")
             break
         end
