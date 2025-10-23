@@ -10,9 +10,9 @@ function add_class!(n::Network, name::Symbol, labels)
     name in keys(classes) && err("There is already a class named :$name.")
     root = classes[:root]
 
-    # Collect new labels.
     n_before = n_nodes(n)
-    n_new = mutate!(root.index) do index
+    n_new = mutate!(root.index, root.restriction) do index, full
+        # Collect new labels.
         n_new = 0
         for label in labels
             label = Symbol(label)
@@ -20,13 +20,9 @@ function add_class!(n::Network, name::Symbol, labels)
             n_new += 1
             index[label] = n_before + n_new
         end
-        n_new
-    end
-
-    # Increase root class size.
-    full = root.restriction
-    mutate!(full) do full
+        # Increase root class size.
         full.n += n_new
+        n_new
     end
 
     # Construct new base class.

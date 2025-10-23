@@ -19,7 +19,7 @@ function to_sparse(v::NodesView)
     isnothing(class.parent) && err("The root nodes class is not sparse within another.")
     parent = network(v).classes[class.parent]
     res = spzeros(T, n_nodes(parent))
-    read(entry(v), class.restriction) do (v, r)
+    read(entry(v), class.restriction) do v, r
         for (i_local, i_parent) in enumerate(indices(r))
             res[i_parent] = v[i_local]
         end
@@ -41,7 +41,7 @@ function to_sparse(v::NodesView, parent_name::Symbol)
     end
     # Use it to fill the result.
     res = spzeros(T, n_nodes(parent))
-    read(entry(v), class.index, parent.index) do (v, local_index, parent_index)
+    read(entry(v), class.index, parent.index) do v, local_index, parent_index
         for (label, i_local) in local_index
             i_parent = parent_index[label]
             res[i_parent] = v[i_local]
@@ -58,7 +58,7 @@ function to_map(v::NodesView)
     T = eltype(v)
     class = Networks.class(v)
     res = OrderedDict{Symbol,T}()
-    read(entry(v), class.index) do (v, index)
+    read(entry(v), class.index) do v, index
         for (label, i) in index
             res[label] = v[i]
         end

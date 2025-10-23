@@ -34,7 +34,8 @@ Base.setproperty!(::Entry, ::Symbol, _) = throw("Don't access entries directly."
 Base.deepcopy(::Field) = throw("Deepcopying the field would break its logic.")
 Base.deepcopy(::Entry) = throw("Deepcopying the entry would break its logic.")
 
-#-------------------------------------------------------------------------------------------
+# ==========================================================================================
+# Basic transactional API for COW + concurrence control.
 
 """
 Increment underlying field count when copying,
@@ -48,47 +49,31 @@ end
 fork(d::Dict) = Dict(k => fork(e) for (k, e) in d) # (typical)
 
 """
-Read through an entry,
-providing closure called with secure access to underlying value.
-⚠ Do not mutate or leak references into the value received.
-This might seem cumbersome,
-but it is expected to make it possible to make the network thread-safe in the future.
-REV: drop that. Too unergonomic. Not even clear that it would make it possible
-without a hell swamp of deadlocks.
+Extract a reference to underlying entry data for read-only access during transaction.
 """
-Base.read(f, e::Entry) = f(value(field(e)))
-Base.read(e::Entry, f, args...; kwargs...) = read(e -> f(e, args...; kwargs...), e)
-Base.read(f, e::Entry, more::Entry...) = f(value.(field.((e, more...))))
+ref_for_reading(e::Entry) = value(field(e))
 
 """
-Write through an entry,
-triggering COW if required.
-providing closure called with secure access to underlying value.
-⚠ Do not leak references into the value received.
-This might seem cumbersome,
-but it is expected to make it possible to make the network thread-safe in the future.
+Extract a reference to underlying entry data for mutable access during transaction.
+Triggers COW if needed.
 """
-function mutate!(f!, e::Entry)
+function ref_for_mutating(e::Entry)
     field = Networks.field(e)
     v = value(field)
     if n_networks(field) == 1
-        # The field is not shared: just mutate.
-        f!(v)
+        v # The field is not shared: just extract.
     else
         # The field is shared: Clone-On-Write!
         clone = deepcopy(v)
-        res = f!(clone)
         decref(field) # Detach from original.
         setfield!(e, :field, Field(clone))
-        res
+        clone
     end
 end
-mutate!(e::Entry, f!, args...; kwargs...) = mutate!(e -> f!(e, args...; kwargs...), e)
-export mutate!
 
 """
-Reassign the whole field through an entry,
-impacting reference counts.
+Basic transactional reassignment through an entry, triggering COW if needed.
+(See module-level doc.)
 """
 function reassign!(e::Entry{T}, new::T) where {T}
     field = Networks.field(e)
@@ -103,3 +88,42 @@ end
 reassign!(::Entry{T}, new::O) where {T,O} =
     err("Cannot assign to field of type $T:\n$(repr(new)) ::$(O)")
 export reassign!
+
+"""
+Complex transactional operation,
+mixing read-only, mutation and reassignmnent through the entries passed as tuples.
+(See module-level doc.)
+
+The closure passed receives two corresponding tuples of references `(writes, reads)`
+as arguments to work on.
+The data accessible through `reads` must not be mutated.
+The references obtained or any projection into them must not escape the closure.
+The closure must return `(res, news)`
+with `res` an arbitrary return value for the caller,
+and `news` the tuple of new values to reassign the entries passed as `assign` to.
+
+Alternate transactional methods like `read`, `mutate!`, `modify!` or `readassign!`.
+are just ergonomic wrappers around `mix!`.
+"""
+Entries = Tuple{Vararg{Entry}}
+function mix!(f!, write::Entries, read::Entries, assign::Entries)
+    # Extract values from the fields,
+    # accounting for COW + possible concurrent accesses in the future.
+    read = map(ref_for_reading, read)
+    write = map(ref_for_mutating, write)
+
+    # Execute user code,
+    # trusting that no mutation via `read`
+    # and no references leaks occurs in there.
+    res, new = f!(write, read)
+
+    # Reassign entries to the values produced.
+    na, nw = length.((assign, new))
+    length(assign) == length(new) || throw("Received $na entries to reassign, \
+                                            but the closure produced $nw values.")
+    map(reassign!, zip(assign, new))
+
+    # Return the desired result.
+    res
+end
+export mix!

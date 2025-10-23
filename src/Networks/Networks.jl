@@ -68,6 +68,17 @@ This pattern is implemented with three levels of indirection:
   and by referencing the network itself
   to prevent garbage collection as they are live.
 
+In an attempt to ease a future path towards thread-safe networks,
+access to the data protected by fields is guarded
+with a closure-based *transactional* API,
+where users are required to declare the fields
+they need to `read`, `write!` or `reassign!` prior to executing their operation.
+See also `mix!`, `modify!` and `readassign!` methods.
+/!\\ Be careful not to leak references to the data passed as arguments
+to the closures used in the API, as it would collapse its logic.
+Julia unfortunately has no straightforward mechanism
+to automatically enforce that it cannot happen.
+
 [COW]: https://en.wikipedia.org/wiki/Copy-on-write
 [RC]: https://en.wikipedia.org/wiki/Reference_counting
 [Boxing]: https://en.wikipedia.org/wiki/Boxing_(computer_programming)
@@ -93,6 +104,7 @@ include("./class.jl")
 include("./web.jl")
 include("./network.jl")
 include("./views.jl")
+include("./ergonomic_transactions.jl")
 include("./nodes_exports.jl")
 include("./primitives.jl")
 
