@@ -1,5 +1,5 @@
 """
-One class in the classes hierarchy trees,
+One class of nodes in the classes hierarchy trees,
 specifying how it restricts nodes from its parents class,
 and holding associated data: only vectors whose size match the class size.
 """

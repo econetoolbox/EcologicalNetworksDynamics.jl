@@ -105,6 +105,7 @@ include("./web.jl")
 include("./network.jl")
 include("./views.jl")
 include("./ergonomic_transactions.jl")
+include("./edges_imports.jl")
 include("./nodes_exports.jl")
 include("./primitives.jl")
 

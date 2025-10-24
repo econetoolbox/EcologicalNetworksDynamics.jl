@@ -370,7 +370,7 @@ end
 
 @testset "Full reflexive topology" begin
 
-    fr = FullReflective(4)
+    fr = FullReflexive(4)
     @test n_nodes(fr) == n_sources(fr) == n_targets(fr) == 4
     @test n_edges(fr) == 4^2
 

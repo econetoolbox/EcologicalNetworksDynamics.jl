@@ -63,6 +63,12 @@ n_nodes(n::Network) = n_nodes(n.root)
 export n_nodes
 
 """
+Total number of edges in the network.
+"""
+n_edges(n::Network) = sum(n_edges(web.topology) for web in values(n.webs); init = 0)
+export n_edges
+
+"""
 Total number of fields in the network.
 """
 n_fields(n::Network) =
@@ -85,17 +91,29 @@ function Base.show(io::IO, net::Network)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", net::Network)
-    print(io, "Network with ")
+    with = []
     nn, s = ns(n_nodes(net))
-    print(io, "$nn node$s")
-    nf, s = ns(n_fields(net))
-    print(io, " and $nf field$s")
+    if nn > 0
+        push!(with, "$nn node$s")
+    end
 
-    if nn + nf == 0
-        print(io, ".")
+    ne, s = ns(n_edges(net))
+    if ne > 0
+        push!(with, "$ne edge$s")
+    end
+    nf, s = ns(n_fields(net))
+    if nf > 0
+        push!(with, "$nf field$s")
+    end
+
+    nc = length(net.classes)
+    nw = length(net.webs)
+
+    if nc + nw + nf == 1 # Only the root class?
+        print(io, "Empty network.")
         return
     else
-        print(io, ":")
+        print(io, "Network with $(join(with, ", ", " and ")):")
     end
 
     prefix(i) = print(io, "\n" * "  "^i)
@@ -114,10 +132,24 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
         end
     end
 
+    print_data(data) = begin
+        dsorted = sort(collect(keys(data)))
+        for name in dsorted
+            entry = data[name]
+            prefix(3)
+            nnt = nnet(n_networks(entry))
+            print(io, "$name$nnt: ")
+            read(entry) do e
+                print(io, e)
+            end
+        end
+    end
+
     if nn > 0
         prefix(1)
         print(io, "Nodes:")
-        sorted = sort(collect(keys(net.classes))) # Consistent output for snapshot-testing.
+        sorted = [:root]
+        sorted = append!(sorted, sort(collect(k for k in keys(net.classes) if k != :root)))
         for name in sorted
             class = net.classes[name]
             prefix(2)
@@ -132,19 +164,33 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
             else
                 print(io, ":")
                 if length(class.data) == 0
-                    print(io, " <no data>")
+                    print(io, " -")
                 end
             end
-            dsorted = sort(collect(keys(class.data)))
-            for name in dsorted
-                entry = class.data[name]
-                prefix(3)
-                nnt = nnet(n_networks(entry))
-                print(io, "$name$nnt: ")
-                read(entry) do e
-                    print(io, e)
-                end
+            print_data(class.data)
+        end
+    end
+
+    if ne > 0
+        prefix(1)
+        print(io, "Edges:")
+        sorted = sort(collect(keys(net.webs)))
+        for name in sorted
+            web = net.webs[name]
+            prefix(2)
+            n = n_edges(web)
+            props = ["$n"]
+            if web.topology isa SymmetricTopology
+                push!(props, "symmetric")
             end
+            if web.topology isa SparseTopology
+                push!(props, "sparse")
+            else
+                push!(props, "full")
+            end
+            src, tgt = web.source, web.target
+            print(io, "$name: $src => $tgt ($(join(props, ", ")))")
+            print_data(web.data)
         end
     end
 
@@ -154,4 +200,4 @@ end
 nnet(n) = n == 1 ? "" : "'$n" # (display if zero though 'cause it's a bug)
 
 # Basic plural.
-ns(n) = (n, n > 1 ? "s" : "")
+ns(n) = (n, n == 1 ? "" : "s")
