@@ -13,9 +13,9 @@ using EcologicalNetworksDynamics.Networks
     add_class!(n, :species, "abcde")
 
     @test is_disp(n, strip("""
-             Network with 5 nodes and 0 field:
+             Network with 5 nodes:
                Nodes:
-                 root: <no data>
+                 root: -
                  species (5): [:a, :b, :c, :d, :e]
              """))
 
@@ -25,7 +25,7 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 5 nodes and 2 fields:
                Nodes:
-                 root: <no data>
+                 root: -
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -35,8 +35,8 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 5 nodes and 2 fields:
                Nodes:
+                 root: -
                  producers (3): [:b, :c, :e]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -46,9 +46,9 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
+                 root: -
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -58,10 +58,10 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 8 nodes and 3 fields:
                Nodes:
+                 root: -
                  nutrients (3): [:u, :v, :w]
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -71,11 +71,11 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 8 nodes and 4 fields:
                Nodes:
+                 root: -
                  nutrients (3): [:u, :v, :w]
                    turnover: [4, 5, 6]
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -85,12 +85,12 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 8 nodes and 4 fields:
                Nodes:
+                 root: -
                  mineral_bound (2): [:b, :e]
                  nutrients (3): [:u, :v, :w]
                    turnover: [4, 5, 6]
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -100,13 +100,13 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 8 nodes and 5 fields:
                Nodes:
+                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [10, 50]
                  nutrients (3): [:u, :v, :w]
                    turnover: [4, 5, 6]
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -149,11 +149,11 @@ end
     @test is_disp(n, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
+                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [10, 50]
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
@@ -192,22 +192,22 @@ end
     @test is_disp(n, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
+                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [2, 20]
                  producers (3): [:b, :c, :e]
                    growth'2: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    mortality: [1.0, 1.0, 0.3, 0.4, -0.5]
              """))
     @test is_disp(f, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
+                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [10, 50]
                  producers (3): [:b, :c, :e]
                    growth'2: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
@@ -229,11 +229,11 @@ end
     @test is_disp(n, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
+                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [10, 50]
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
-                 root: <no data>
                  species (5): [:a, :b, :c, :d, :e]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
