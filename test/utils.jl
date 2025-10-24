@@ -52,10 +52,10 @@ function is_disp(x, expected)
         exp, e_state = e_next
         act, a_state = a_next
         if exp != act
-            println("$(bold)First differing lines:$reset\n\
+            println("$(bold)First differing lines: vvv expected vvv$reset\n\
                      $blue$exp$reset\n\
-                     $bold---- ^^^ expected ^^^ | vvv actual vvv----$reset\n\
-                     $red$act$reset")
+                     $red$act$reset\n\
+                     $bold                       ^^^  actual  ^^^$reset")
             break
         end
         a_next = iterate(a_it, a_state)

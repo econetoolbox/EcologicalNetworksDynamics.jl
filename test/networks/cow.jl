@@ -12,7 +12,7 @@ const N = Networks
     n = Network()
 
     @test is_disp(n, strip("""
-        Network with 0 node and 0 field.
+        Empty network.
         """))
 
     add_field!(n, :a, 5)
@@ -21,7 +21,7 @@ const N = Networks
     @netfails add_field!(n, :v, nothing) "Network already contains a field :v."
 
     @test is_disp(n, strip("""
-        Network with 0 node and 3 fields:
+        Network with 3 fields:
           Graph:
             a: 5
             b: 8
@@ -45,7 +45,7 @@ const N = Networks
     v[2] *= 10
 
     @test is_disp(n, strip("""
-        Network with 0 node and 3 fields:
+        Network with 3 fields:
           Graph:
             a: 8
             b: 13
@@ -57,7 +57,7 @@ const N = Networks
 
     # This only increases fields counts..
     either = strip("""
-      Network with 0 node and 3 fields:
+      Network with 3 fields:
         Graph:
           a'2: 8
           b'2: 13
@@ -79,7 +79,7 @@ const N = Networks
     mutate!(nv, push!, 100)
 
     @test is_disp(n, strip("""
-        Network with 0 node and 3 fields:
+        Network with 3 fields:
           Graph:
             a: 8
             b'2: 13
@@ -87,7 +87,7 @@ const N = Networks
         """))
 
     @test is_disp(m, strip("""
-        Network with 0 node and 3 fields:
+        Network with 3 fields:
           Graph:
             a: 80
             b'2: 13

@@ -362,6 +362,10 @@ function SparseSymmetric(m::AbstractMatrix{Bool})
     SparseSymmetric(nodes, n_edges)
 end
 
+# Property orthogonal to the strict type hierarchy.
+const SparseTopology = Union{SparseForeign,SparseReflexive,SparseSymmetric}
+export SparseTopology
+
 # ==========================================================================================
 # Full topologies.
 
@@ -369,25 +373,25 @@ struct FullForeign <: Topology
     n_sources::Int
     n_targets::Int
 end
-struct FullReflective <: ReflexiveTopology
+struct FullReflexive <: ReflexiveTopology
     n_nodes::Int
 end
 struct FullSymmetric <: SymmetricTopology
     n_nodes::Int
 end
-export FullForeign, FullReflective, FullSymmetric
+export FullForeign, FullReflexive, FullSymmetric
 
 # Density of these topologies makes their interface straightforward and mostly shared.
 S = FullForeign
 n_sources(s::S) = s.n_sources
 n_targets(s::S) = s.n_targets
 
-S = Union{FullReflective,FullSymmetric}
+S = Union{FullReflexive,FullSymmetric}
 n_nodes(s::S) = s.n_nodes
 n_sources(s::S) = n_nodes(s)
 n_targets(s::S) = n_nodes(s)
 
-S = Union{FullForeign,FullReflective,FullSymmetric}
+S = Union{FullForeign,FullReflexive,FullSymmetric}
 is_edge(::S, ::Int, ::Int) = true # Assuming correct input.
 targets(s::S, src::Int) = ((tgt, edge(s, src, tgt)) for tgt in 1:n_targets(s))
 sources(s::S, tgt::Int) = ((src, edge(s, src, tgt)) for src in 1:n_sources(s))
@@ -395,7 +399,7 @@ edges(s::S) = ((src, tgt) for src in 1:n_sources(s) for tgt in 1:n_targets(s))
 n_sources(s::S, ::Int) = n_sources(s)
 n_targets(s::S, ::Int) = n_targets(s)
 
-S = Union{FullForeign,FullReflective}
+S = Union{FullForeign,FullReflexive}
 edge(s::S, src::Int, tgt::Int) = (src - 1) * n_targets(s) + tgt
 n_edges(s::S) = n_sources(s) * n_targets(s)
 forward(s::S; skip = false) =
@@ -418,3 +422,17 @@ adjacency(s::S; skip = false, upper = true) = (
 )
 forward(s::S; skip = false) = adjacency(s; skip)
 backward(s::S; skip = false) = adjacency(s; skip)
+
+# Trivial-construct from matrix dimensions.
+FullForeign(m::AbstractMatrix) = FullForeign(size(m)...)
+function FullReflexive(m::AbstractMatrix)
+    check_square(m)
+    FullReflexive(size(m, 1))
+end
+function FullSymmetric(m::AbstractMatrix)
+    check_square(m)
+    FullSymmetric(size(m, 1))
+end
+
+const FullTopology = Union{FullForeign,FullReflexive,FullSymmetric}
+export FullTopology
