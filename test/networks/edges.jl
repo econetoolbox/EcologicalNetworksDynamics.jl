@@ -6,6 +6,7 @@ using OrderedCollections
 using Main.TestUtils
 using Main.TestNetworksUtils
 using EcologicalNetworksDynamics.Networks
+const N = Networks
 
 @testset "Setting webs and data." begin
 
@@ -250,6 +251,49 @@ end
         compete: species => species (7, symmetric, sparse)
           intensity: [5, 4, 6, 2, 1, 8, 3]
     """))
+
+end
+
+@testset "Edges exports" begin
+
+    n = Network()
+    add_class!(n, :species, "abcde")
+    add_class!(n, :nutrients, "uvw")
+    m = sparse([
+        0 9 9 9 9
+        0 5 9 9 9
+        4 0 6 9 9
+        0 0 2 1 9
+        0 8 0 3 0
+    ])
+    comp = SparseSymmetric(m)
+    add_web!(n, :compete, (:species, :species), comp)
+    add_field!(n, :compete, :intensity, edges_vec(comp, m))
+    c = edges_view(n, :compete, :intensity)
+
+    v = to_vec(c)
+    @test typeof(v) === Vector{Int}
+    @test v == [5, 4, 6, 2, 1, 8, 3]
+
+    m = to_mat(c)
+    @test typeof(m) === Matrix{Int}
+    @test m == [ # Symmetry worked ;)
+        0 0 4 0 0
+        0 5 0 0 8
+        4 0 6 2 0
+        0 0 2 1 3
+        0 8 0 3 0
+    ]
+
+    m = to_sparse(c)
+    @test typeof(m) === N.SparseMatrix{Int}
+    @test m == sparse([
+        0 0 4 0 0
+        0 5 0 0 8
+        4 0 6 2 0
+        0 0 2 1 3
+        0 8 0 3 0
+    ])
 
 end
 
