@@ -137,7 +137,7 @@ using EcologicalNetworksDynamics.Networks
         2 4 2
         8 5 5
     ]
-    paths = FullForeign(m)
+    paths = FullReflexive(m)
     add_web!(n, :trade, (:nutrients, :nutrients), paths)
     add_field!(n, :trade, :rate, edges_vec(paths, m))
     @test is_disp(n, strip("""
@@ -171,6 +171,84 @@ using EcologicalNetworksDynamics.Networks
       Edges:
         paths: nutrients => nutrients (6, symmetric, full)
           distance: [1, 2, 4, 8, 5, 5]
+    """))
+
+end
+
+@testset "Edges Views" begin
+
+    n = Network()
+    add_class!(n, :species, "abcde")
+    add_class!(n, :nutrients, "uvw")
+
+    m = sparse([
+        0 9 9 9 9
+        0 5 9 9 9
+        4 0 6 9 9
+        0 0 2 1 9
+        0 8 0 3 0
+    ])
+    comp = SparseSymmetric(m)
+    add_web!(n, :compete, (:species, :species), comp)
+    add_field!(n, :compete, :intensity, edges_vec(comp, m))
+
+    @test is_disp(n, strip("""
+    Network with 8 nodes, 7 edges and 1 field:
+      Nodes:
+        root: -
+        nutrients (3): [:u, :v, :w]
+        species (5): [:a, :b, :c, :d, :e]
+      Edges:
+        compete: species => species (7, symmetric, sparse)
+          intensity: [5, 4, 6, 2, 1, 8, 3]
+    """))
+    f = copy(n)
+
+    # View into base web node data.
+    c = edges_view(n, :compete, :intensity)
+    @test is_repr(c, "EdgesView'2([5, 4, 6, 2, 1, 8, 3])")
+
+    # Index view.
+    @test c[1] == c[(2, 2)] == c[(:b, :b)] == 5
+    @test c[4] == c[(4, 3)] == c[(:d, :c)] == 2
+    @test c[end] == c[(5, 4)] == c[(:e, :d)] == 3
+
+    # Symmetry reflected.
+    @test c[(4, 3)] == c[(3, 4)]
+    @test c[(2, 5)] == c[(5, 2)]
+
+    # Can't index outside topology.
+    @netfails(c[(9, 2)], "Not an index for web :compete with 5 sources: 9.")
+    @netfails(c[(1, 2)], "Not an edge in web :compete: (1, 2).")
+    @netfails(c[(:a, :b)], "Not an edge in web :compete: (1, 2).")
+
+    # Mutate.
+    c[1] *= 2
+    c[(4, 3)] += 2
+    c[(:e, :d)] -= 2
+
+    @test is_repr(c, "EdgesView([10, 4, 6, 4, 1, 8, 1])")
+
+    # Check COW aliasing/mutation.
+    @test is_disp(n, strip("""
+    Network with 8 nodes, 7 edges and 1 field:
+      Nodes:
+        root: -
+        nutrients (3): [:u, :v, :w]
+        species (5): [:a, :b, :c, :d, :e]
+      Edges:
+        compete: species => species (7, symmetric, sparse)
+          intensity: [10, 4, 6, 4, 1, 8, 1]
+    """))
+    @test is_disp(f, strip("""
+    Network with 8 nodes, 7 edges and 1 field:
+      Nodes:
+        root: -
+        nutrients (3): [:u, :v, :w]
+        species (5): [:a, :b, :c, :d, :e]
+      Edges:
+        compete: species => species (7, symmetric, sparse)
+          intensity: [5, 4, 6, 2, 1, 8, 3]
     """))
 
 end
