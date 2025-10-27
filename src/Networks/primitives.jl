@@ -169,7 +169,7 @@ Get an edge-level view into network data.
 function edges_view(n::Network, web::Symbol, data::Symbol)
     (; webs) = n
     web in keys(webs) || err("There is no web :$web in the network.")
-    w = web[class]
+    w = webs[web]
 
     data in keys(w.data) || err("There is no data :$data in web :$web.")
     entry = w.data[data]

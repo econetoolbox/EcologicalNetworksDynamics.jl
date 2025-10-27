@@ -19,7 +19,12 @@ struct NodesView{T} <: AbstractVector{T}
 end
 class(v::NodesView) = getfield(v, :class)
 
-struct EdgesView{T} <: AbstractVector{T} end
+struct EdgesView{T} <: AbstractVector{T}
+    network::Network
+    web::Web
+    entry::Entry{Vector{T}}
+end
+web(v::EdgesView) = getfield(v, :web)
 
 # Abstract over levels.
 # (cannot use abstract type View{T} because of AbstractVector{T} subtyping already)
@@ -64,6 +69,46 @@ function Base.setindex!(v::NodesView, new, label::Symbol)
 end
 
 #-------------------------------------------------------------------------------------------
+# Index edge views with two dimensions with tuples.
+# Don't splat the tuples for julia not to mistake these views for matrices.
+
+function to_linear(v::EdgesView, i::Int, j::Int)
+    web = Networks.web(v)
+    top = web.topology
+    for (i, count, what) in ((i, n_sources, "source"), (j, n_targets, "target"))
+        n, s = ns(count(top))
+        1 <= i <= n || err("Not an index for web :$(web.name) with $n $what$s: $i.")
+    end
+    is_edge(top, i, j) || err("Not an edge in web :$(web.name): $((i, j)).")
+    edge(top, i, j)
+end
+Base.getindex(v::EdgesView, (i, j)::Tuple{Int,Int}) = getindex(v, to_linear(v, i, j))
+Base.setindex!(v::EdgesView, x, (i, j)::Tuple{Int,Int}) =
+    setindex!(v, x, to_linear(v, i, j))
+
+function Base.getindex(v::EdgesView, (s, t)::Tuple{Symbol,Symbol})
+    w, e = web(v), entry(v)
+    c = network(v).classes
+    src, tgt = c[w.source], c[w.target]
+    read(e, src.index, tgt.index) do array, src_index, tgt_index
+        i = src_index[s]
+        j = tgt_index[t]
+        array[to_linear(v, i, j)]
+    end
+end
+
+function Base.setindex!(v::EdgesView, new, (s, t)::Tuple{Symbol,Symbol})
+    w, e = web(v), entry(v)
+    c = network(v).classes
+    src, tgt = c[w.source], c[w.target]
+    mix!(e, (src.index, tgt.index)) do array, (src_index, tgt_index)
+        i = src_index[s]
+        j = tgt_index[t]
+        array[to_linear(v, i, j)] = new
+    end
+end
+
+#-------------------------------------------------------------------------------------------
 # Ergonomics.
 
 # Forward basic operators to views.
@@ -86,7 +131,6 @@ end
 @binop <
 @binop ≈
 Base.:!(v::View) = read(v -> !v, v)
-Base.iterate(v::View, args...) = read(v, iterate, args...)
 
 #-------------------------------------------------------------------------------------------
 # Display.
