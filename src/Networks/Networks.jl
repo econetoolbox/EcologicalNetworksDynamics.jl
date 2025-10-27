@@ -86,6 +86,7 @@ to automatically enforce that it cannot happen.
 
 module Networks
 
+using Crayons
 using OrderedCollections
 using SparseArrays
 
