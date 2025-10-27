@@ -249,10 +249,6 @@ end
     @test typeof(s) === SparseVector{Float64,Int}
     @test s == sparse([0, 0.15, 0.25, 0, 0.35])
 
-    m = to_map(g)
-    @test typeof(m) === OrderedDict{Symbol,Float64}
-    @test m == OrderedDict(:b => 0.15, :c => 0.25, :e => 0.35)
-
     # Exports within non-root parent class.
     r = nodes_view(n, :mineral_bound, :consumption_rate)
 
@@ -263,10 +259,6 @@ end
     s = to_sparse(r)
     @test typeof(s) === SparseVector{Int,Int}
     @test s == sparse([10, 0, 50])
-
-    m = to_map(r)
-    @test typeof(m) === OrderedDict{Symbol,Int}
-    @test m == OrderedDict(:b => 10, :e => 50)
 
     # Export several parents at once.
     s = to_sparse(r, :root)

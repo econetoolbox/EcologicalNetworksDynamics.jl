@@ -50,19 +50,3 @@ function to_sparse(v::NodesView, parent_name::Symbol)
     res
 end
 export to_sparse
-
-"""
-Obtain data under the form of a mapping from nodes class labels.
-"""
-function to_map(v::NodesView)
-    T = eltype(v)
-    class = Networks.class(v)
-    res = OrderedDict{Symbol,T}()
-    read(entry(v), class.index) do v, index
-        for (label, i) in index
-            res[label] = v[i]
-        end
-    end
-    res
-end
-export to_map
