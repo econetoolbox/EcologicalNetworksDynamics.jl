@@ -115,7 +115,12 @@ function mix!(f!, write::Entries, read::Entries, assign::Entries)
     # Execute user code,
     # trusting that no mutation via `read`
     # and no references leaks occurs in there.
-    res, new = f!(write, read) # HERE handle interrupts. Poison all involved models?
+    res, new = try
+        f!(write, read)
+    catch e
+        e isa NetworkError && rethrow(e) # Trust local errors.
+        throw(Corrupt())
+    end
 
     # Reassign entries to the values produced.
     na, nw = length.((assign, new))
@@ -127,3 +132,23 @@ function mix!(f!, write::Entries, read::Entries, assign::Entries)
     res
 end
 export mix!
+
+struct Corrupt <: Exception end
+
+function Base.showerror(io::IO, e::Corrupt)
+    red = crayon"red"
+    bold = crayon"bold"
+    reset = crayon"reset"
+    print(
+        io,
+        "$red$bold\
+         ⚠ Error during internal transaction. ⚠\
+         $reset\n\
+         This is a bug in the package.\n\
+         The models consistency is no longer guaranteed. \
+         Drop model values upstream and downstream of this one.\n\
+         Consider reporting if you can reproduce with a minimal example.\n\
+         Original error further down the stacktrace.\n\
+         ",
+    )
+end
