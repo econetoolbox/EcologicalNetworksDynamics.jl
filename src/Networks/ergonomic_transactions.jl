@@ -58,7 +58,7 @@ for i in collect(Iterators.product(repeat([(true, false)], 3)...))
     any(i) || continue
     (ew, vw), (er, vr), (ea, va) = (s ? (Entry, View) : (Entries, Views) for s in i)
     w, r, a = (s ? :(($n,)) : n for (s, n) in zip(i, (:w, :r, :a)))
-    me(xp) = :(map($mod.entry, $xp))
+    me(xp) = :($Base.map($mod.entry, $xp))
     mod = Networks
     eval(
         quote
@@ -107,9 +107,9 @@ for i in collect(Iterators.product(repeat([(true, false)], 3)...))
         Transactional `mix!` without "reassigned" entries (see `mix!`).
         """
         eval(quote
-            $mod.mix!(f!, r::$vr, w::$vw) = $mod.mix!(f!, $(me(r)), $(me(w)))
-            $mod.mix!(f!, r::$er, w::$ew) =
-                $mod.mix!($r, $w, ()) do $w, $r
+            $mod.mix!(f!, w::$vw, r::$vr) = $mod.mix!(f!, $(me(w)), $(me(r)))
+            $mod.mix!(f!, w::$ew, r::$er) =
+                $mod.mix!($w, $r, ()) do $w, $r
                     (f!(w, r), ())
                 end
         end)

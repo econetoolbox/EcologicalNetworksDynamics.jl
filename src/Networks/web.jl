@@ -36,3 +36,5 @@ n_fields(w::Web) = length(w.data)
 
 # Forward simple requests to topology.
 n_edges(w::Web) = n_edges(w.topology)
+n_sources(w::Web) = n_sources(w.topology)
+n_targets(w::Web) = n_targets(w.topology)

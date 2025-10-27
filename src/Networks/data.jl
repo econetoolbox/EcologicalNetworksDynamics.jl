@@ -115,7 +115,7 @@ function mix!(f!, write::Entries, read::Entries, assign::Entries)
     # Execute user code,
     # trusting that no mutation via `read`
     # and no references leaks occurs in there.
-    res, new = f!(write, read)
+    res, new = f!(write, read) # HERE handle interrupts. Poison all involved models?
 
     # Reassign entries to the values produced.
     na, nw = length.((assign, new))
