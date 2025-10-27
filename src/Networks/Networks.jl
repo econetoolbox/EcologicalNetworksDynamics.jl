@@ -112,4 +112,12 @@ include("./nodes_exports.jl")
 include("./edges_exports.jl")
 include("./primitives.jl")
 
+# HERE: design efficient-differential generation from the above,
+#       Inspire from the 'boost-compact' experiment.
+#       Get into the typical structure of equations and translate it to generic code.
+
+# TODO: topology analysis.
+# TODO: split the network ? (immutable, but produce two results).
+# TODO: prune nodes / edges from the network ? (immutable, but produce derived).
+
 end
