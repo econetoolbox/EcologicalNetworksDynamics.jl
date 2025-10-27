@@ -92,6 +92,7 @@ using SparseArrays
 using ..Display
 
 const Option{T} = Union{Nothing,T}
+const SparseMatrix{T} = SparseMatrixCSC{T,Int}
 const Index = OrderedDict{Symbol,Int}
 
 include("./iterators.jl")
@@ -107,6 +108,7 @@ include("./views.jl")
 include("./ergonomic_transactions.jl")
 include("./edges_imports.jl")
 include("./nodes_exports.jl")
+include("./edges_exports.jl")
 include("./primitives.jl")
 
 end
