@@ -4,6 +4,9 @@ module EcologicalNetworksDynamics
 include("./display.jl")
 
 include("Networks/Networks.jl")
+using .Networks
+
+include("Differentials/Differentials.jl")
 
 #= Silent all this during internals refactoring.
 
