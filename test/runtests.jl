@@ -18,6 +18,7 @@ using .TestUtils
 using .TestFailures
 
 include("./networks/runtests.jl")
+include("./differentials/runtests.jl")
 
 #= Silent all this during internals refactoring.
 include("./dedicated_test_failures.jl")

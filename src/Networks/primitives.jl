@@ -181,6 +181,21 @@ end
 export edges_view
 
 # ==========================================================================================
+# Queries.
+
+"""
+Using labels, obtain absolute class node indices.
+"""
+function absolute_indices(n::Network, class::Symbol)
+    check_class_name(n, class)
+    class = n.classes[class]
+    read(class.index, n.root.index) do index, root
+        [root[label] for label in keys(index)]
+    end
+end
+export absolute_indices
+
+# ==========================================================================================
 # Input guards.
 
 function check_free_name(n::Network, name::Symbol)
