@@ -2,7 +2,8 @@
 Build upon Networks to generate efficient differential code.
 In this module, we assume that a Network is available
 with all the relevant data correctly stored inside,
-and we start providing mechanistic *meaning* to this data.
+and we start providing mechanistic *meaning* to this data:
+parameters to differential equations.
 
 Mostly this is about generating ad-hoc pieces of code,
 and then assemble them into a differential function to feed the solver with.
@@ -60,6 +61,11 @@ include("./errors.jl")
 
 include("./growth.jl")
 
+"""
+Supertype the data structures generated for parametrizing generated simulation code.
+"""
+abstract type Parameters end
+
 
 """
 Elementary differential equation to feed the solver with.
@@ -67,7 +73,7 @@ Feeds from all variables in the model,
 and from a data type that has been generated along
 with the associated method code.
 """
-function dudt! end
+dudt!(dU, U, p::Parameters, t) = err("No simulation method generated for $(typeof(p))?")
 
 """
 Assemble all pieces of code
@@ -77,43 +83,44 @@ corresponding to values in the network.
 """
 function generate_dudt(n::Network)
 
-    all_data = Dict{Symbol,Any}()
-    function append!(data::NamedTuple)
-        for (k, v) in zip(keys(data), values(data))
+    all_parameters = Dict{Symbol,Any}()
+    function append!(parms::NamedTuple)
+        for (k, v) in zip(keys(parms), values(parms))
             # Conflicts are ok with same type and same value.
-            if haskey(all_data, k)
-                already = all_data[k]
+            if haskey(all_parameters, k)
+                already = all_parameters[k]
                 if typeof(v) !== typeof(already) || v != already
-                    generr("Data name conflict:\n\
+                    generr("Parameter name conflict:\n\
                             Already there: $k := $already ::$(typeof(already))\n\
                                  Appended: $k := $v ::$(typeof(v))")
                 end
             end
-            all_data[k] = v
+            all_parameters[k] = v
         end
     end
 
-    (growth, data) = generate_growth(n)
-    append!(data)
+    (growth, parms) = generate_growth(n)
+    append!(parms)
 
     # Sort data by name for arguments consistency in generated struct constructor.
-    all_data = sort!(collect(all_data); by = first)
-    fields = (:($k::$(typeof(v))) for (k, v) in all_data)
+    all_parameters = sort!(collect(all_parameters); by = first)
+    fields = (:($k::$(typeof(v))) for (k, v) in all_parameters)
 
     # Generate mutable type to hold the required data and keep it up-to date.
     type = quote
-        # This name ---vvvv changed to something hygienic if evaluated.
-        mutable struct DATA
+        # This name ---v changed to something hygienic if evaluated.
+        mutable struct P <: Parameters
             $(fields...)
         end
     end
 
     # Generate simulation method.
-    diff! = quote
-        function $D.dudt!(dU, U, data::DATA, time)
+    parnames = map(first, all_parameters)
+    code = quote
+        function D.dudt!(dU, U, p::P, time)
 
             # Destructure input data into variables used within generated pieces.
-            (; $(map(first, all_data)...)) = data
+            (; $(parnames...)) = p
 
             $(growth.args...)
 
@@ -128,35 +135,42 @@ function generate_dudt(n::Network)
     # by caching these artifacts.
     # Only models with more/less compartments, variables
     # and/or different functional responses will invalidate this program.
-    key = (type, diff!)
-    typename = if haskey(GEN_TYPES, key)
+    key = (type, code)
+    GenParms = if haskey(GEN_TYPES, key)
         # Skip evaluation if already done.
         GEN_TYPES[key]
     else
         # Otherwise evaluation is needed.
-        # Replace type name with a hygienic one
-        # and create the struct + associated method.
+        # Replace type name with a hygienic one for definition in module toplevel scope.
         name = gensym(:Data)
-        setindexpr!(type, name, 2, 2)
-        setindexpr!(diff!, name, 2, 1, 4, 2)
+        key = deepcopy(key) # To not mutate it.
+        setindexpr!(type, name, 2, 2, 1)
+        setindexpr!(code, name, 2, 1, 4, 2)
         eval(quote
             $type
-            $diff!
+            $code
         end)
-        GEN_TYPES[key] = name
+        type = invokelatest() do # (just created)
+            getfield(D, name)
+        end
+        GEN_TYPES[key] = type
+        GEN_CODE[type] = key
+        type
     end
 
-    # Retrieve the generated type.
-    Data = getfield(D, typename)
-
-    # Construct and return instance of it.
-    Data(map(last, all_data)...)
+    # Retrieve the generated type to construct and return instance of it.
+    invokelatest() do
+        GenParms(map(last, all_parameters)...)
+    end
 
 end
 export generate_dudt
 
+#-------------------------------------------------------------------------------------------
 # Module-level collection of generated type names.
-const GEN_TYPES = Dict{Tuple{Expr,Expr},Symbol}()
+const GEN_CODE = Dict{Type,Tuple{Expr,Expr}}() # { name: (type, code) }
+# Reverse-index by generated code to not compile it twice.
+const GEN_TYPES = Dict{Tuple{Expr,Expr},Type}()
 
 #-------------------------------------------------------------------------------------------
 
@@ -175,5 +189,47 @@ end, function setindexpr!(x::Expr, v, i::Int...)
     end
     x.args[last(i)] = v
 end
+
+Base.:(==)(a::P, b::P) where {P<:Parameters} =
+    let
+        for f in fieldnames(P)
+            u, v = getfield(a, f), getfield(b, f)
+            u == v || return false
+        end
+        true
+    end
+
+#-------------------------------------------------------------------------------------------
+# Display.
+
+function Base.show(io::IO, ::MIME"text/plain", p::Parameters)
+    P = typeof(p)
+    print(io, "Generated model parameters ($P):")
+    for f in fieldnames(P)
+        v = getfield(p, f)
+        print(io, "\n  $f: $v")
+    end
+end
+
+"""
+Retrieve unanottated, easy to read copy of the underlying generated struct.
+"""
+function type_code(P::Type{<:Parameters})
+    (type, _) = GEN_CODE[P]
+    MacroTools.prewalk(rmlines, type)
+end
+export type_code
+
+"""
+Retrieve unanottated, easy to read copy of the underlying generated differential code.
+"""
+function diff_code(P::Type{<:Parameters})
+    (_, code) = GEN_CODE[P]
+    MacroTools.prewalk(rmlines, code)
+end
+export diff_code
+
+type_code(p::Parameters) = type_code(typeof(p))
+diff_code(p::Parameters) = diff_code(typeof(p))
 
 end
