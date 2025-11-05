@@ -74,6 +74,7 @@ and from a data type that has been generated along
 with the associated method code.
 """
 dudt!(dU, U, p::Parameters, t) = err("No simulation method generated for $(typeof(p))?")
+export dudt!
 
 """
 Assemble all pieces of code
@@ -81,7 +82,7 @@ into a generated type and its associated `dudt!` method.
 Return a working instance of this type,
 corresponding to values in the network.
 """
-function generate_dudt(n::Network)
+function codegen(n::Network)
 
     all_parameters = Dict{Symbol,Any}()
     function append!(parms::NamedTuple)
@@ -164,7 +165,7 @@ function generate_dudt(n::Network)
     end
 
 end
-export generate_dudt
+export codegen
 
 #-------------------------------------------------------------------------------------------
 # Module-level collection of generated type names.

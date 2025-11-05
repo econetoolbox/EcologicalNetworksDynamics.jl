@@ -2,6 +2,7 @@ module TestGrowth
 
 using EcologicalNetworksDynamics.Networks
 using EcologicalNetworksDynamics.Differentials
+using DifferentialEquations
 
 n = Network()
 add_class!(n, :species, "abcdefg")
@@ -20,14 +21,19 @@ top = FullReflexive(alpha)
 add_web!(n, :competition, (:producers, :producers), top)
 add_field!(n, :competition, :intensity, edges_vec(top, alpha))
 
-d = generate_dudt(n)
+# Retrieve executable parameters, generating efficient code if needed.
+parms = codegen(n)
+type_code(parms)
+diff_code(parms)
 
-type_code(d)
-diff_code(d)
-
+# Call once.
 du = zeros(n_nodes(n))
 u0 = ones(n_nodes(n))
-D.dudt!(du, u0, d, 0)
+dudt!(du, u0, parms, 0)
 du
+
+# Use to simulate 🎉
+problem = ODEProblem(D.dudt!, u0, (0, 10), d)
+sol = solve(problem)
 
 end
