@@ -22,4 +22,12 @@ add_field!(n, :competition, :intensity, edges_vec(top, alpha))
 
 d = generate_dudt(n)
 
+type_code(d)
+diff_code(d)
+
+du = zeros(n_nodes(n))
+u0 = ones(n_nodes(n))
+D.dudt!(du, u0, d, 0)
+du
+
 end
