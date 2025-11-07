@@ -42,6 +42,7 @@ although blurred by ad-hoc performance tricks.
 """
 module Differentials
 
+using ..Display
 using ..Networks
 using Crayons
 using MacroTools
@@ -208,7 +209,12 @@ function Base.show(io::IO, ::MIME"text/plain", p::Parameters)
     print(io, "Generated model parameters ($P):")
     for f in fieldnames(P)
         v = getfield(p, f)
-        print(io, "\n  $f: $v")
+        r = if v isa AbstractVector
+            "[$(join_elided(v, ", "))]"
+        else
+            repr(v)
+        end
+        print(io, "\n  $f: $r")
     end
 end
 
