@@ -1,35 +1,33 @@
-# The macros exposed in this module
-# generate code to correctly define new components, blueprints and methods,
+# The macros exposed in this module generate code
+# to correctly define new components, blueprints and methods,
 # and check that their input make sense.
-# On incorrect input, they emit
-# useful error messages either during expansion
-# or execution of the generated code.
+# On incorrect input, they emit useful error messages
+# either during expansion or execution of the generated code.
 #
-# In particular, they accept arguments referring to
-# other types within the same invocation module,
+# In particular, they accept arguments referring to other types
+# within the same invocation module,
 # which may also have been defined with macros.
 # Checking that these arguments are valid types
 # is not straightforward then,
 # because in the following:
 #
-#   @create_type A
-#   @create_type B depends_on_type(A)
+#   @create_value A
+#   @create_value B depends_on_value(A)
 #
 # It cannot be enforced that the second macro expansion
 # will happen *after* the code resulting of the first expansion is executed.
 # For instance, both expansions happen before any execution in the following:
 #
 #   begin
-#     @create_type A
-#     @create_type B depends_on_type(A)
+#     @create_value A
+#     @create_value B depends_on_value(A)
 #   end
 #
-# As a consequence, it cannot be checked that `A`
-# is a valid reference to an existing type during macro expansion.
+# As a consequence, it cannot be checked that `A` is a valid reference to an existing type
+# during macro expansion.
 # This check must therefore be performed during generated code execution,
 # and macros must emit code for that.
-# When developping these macros,
-# be careful that the emitted code
+# When developping these macros, be careful that the emitted code
 # should enforce hygiene with respect to their temporary variables,
 # and evaluate expressions only once (as the invoker expects)
 # unless the expressions can be assumed to have no side effects
