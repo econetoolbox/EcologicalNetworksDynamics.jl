@@ -3,10 +3,8 @@
 # The components added during blueprint expansion depend on the blueprint value.
 #
 # The data inside the blueprint is only useful to run the internal `expand!()` method once,
-# and must not lend caller references to the system,
-# for the internal state to not be possibly corrupted later.
-# For now, this is enforced by requiring that all blueprints be copy-able.
-# Only a copy of the caller blueprint is actually used for component(s) expansion.
+# and must not lend caller references to the system
+# or the internal state could possibly be corrupted later.
 #
 # Blueprint values may 'bring' other blueprints than themselves,
 # because they contain enough data to do so.
@@ -43,10 +41,6 @@ componentsof(::B) where {B<:Blueprint} = throw(UnspecifiedComponents{B}())
 
 system_value_type(::Type{<:Blueprint{V}}) where {V} = V
 system_value_type(::Blueprint{V}) where {V} = V
-
-# Blueprints must be copyable, but be careful that the default (deepcopy)
-# is not necessarily what blueprints devs are after.
-Base.copy(b::Blueprint) = deepcopy(b)
 
 #-------------------------------------------------------------------------------------------
 # Requirements.
@@ -90,7 +84,7 @@ function checked_expands_from(bp::Blueprint{V}) where {V}
         Iterators.map(to_reqreason, x)
     end
 end
-struct InvalidBlueprintDependency
+struct InvalidBlueprintDependency <: Exception
     message::String
 end
 
@@ -139,6 +133,7 @@ implies_blueprint_for(b::Blueprint, c::Component) = implies_blueprint_for(b, typ
 #       be added as expected.
 #       This is to avoid the need for making the system mutable and systematically fork it
 #       to possibly revert to original state in case of failure.
+#       TODO: would a swap!(::Network, ::Network) help?
 late_check(_, ::Blueprint) = nothing # No particular constraint to enforce by default.
 
 # Same, but *before* brought blueprints are expanded.
@@ -151,8 +146,8 @@ late_check(_, ::Blueprint) = nothing # No particular constraint to enforce by de
 # TODO: add formal test for this.
 early_check(::Blueprint) = nothing # No particular constraint to enforce by default.
 
-# The expansion step is when and the wrapped system value
-# is finally modified, based on the information contained in the blueprint,
+# The expansion step is when the wrapped system value is finally modified,
+# based on the information contained in the blueprint,
 # to feature the provided components.
 # This is only called if all component addition conditions are met
 # and the above check passed.
