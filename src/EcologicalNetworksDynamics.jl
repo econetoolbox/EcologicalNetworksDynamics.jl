@@ -1,9 +1,16 @@
 module EcologicalNetworksDynamics
 
+using MacroTools
+using Crayons
+using SparseArrays
+
+const Option{T} = Union{T,Nothing}
+
 # Common display utils.
 include("./display.jl")
+using .Display
 
-#-------------------------------------------------------------------------------------------
+# ==========================================================================================
 # Ecological model internals.
 
 # Data: parsimonious model memory representation.
@@ -17,17 +24,43 @@ using .Differentials
 # Interface: ergonomic model manipulation.
 include("./Framework/Framework.jl")
 
+# ==========================================================================================
+# Exposed interface.
+
+# Factorize out common optional argument processing.
+include("./kwargs_helpers.jl")
+using .KwargsHelpers
+
+include("./AliasingDicts/AliasingDicts.jl")
+using .AliasingDicts
+
+# Factorize out common user input data preprocessing.
+include("./GraphDataInputs/GraphDataInputs.jl")
+using .GraphDataInputs
+
+include("./multiplex_api.jl")
+using .MultiplexApi
+
+const I = Iterators
+include("./dedicate_framework_to_model.jl")
+
+# Encapsulated views into internal arrays or pseudo-arrays.
+include("./graph_views.jl")
+using .GraphViews
+
+# Convenience macro to wire this all together.
+include("./expose_data.jl")
+
+#-------------------------------------------------------------------------------------------
+# The actual user-facing components of the package are defined there,
+# connecting them to the internals via the framework.
+include("./components/main.jl")
+
 #=
 #-------------------------------------------------------------------------------------------
 # Shared API internals.
 # Most of these should move to the dedicated components files
 # once the internals have been refactored to not depend on them.
-
-include("./AliasingDicts/AliasingDicts.jl")
-using .AliasingDicts
-
-include("./multiplex_api.jl")
-using .MultiplexApi
 
 # Types to represent the model under a pure topological perspective.
 include("./Topologies/Topologies.jl")
@@ -35,44 +68,7 @@ using .Topologies
 # (will be part of the internals after their refactoring)
 
 #-------------------------------------------------------------------------------------------
-# "Inner" parts: legacy internals.
-
-# The entire implementation has been brutally made private
-# so that we can focus on constructing
-# an implementation-independent API on top of it, from scratch.
-# Once this API is completed, we expect publishing the package,
-# the associated article, and then only perform deep refactoring of the "Internals".
-include("./Internals/Internals.jl")
-
-# Basic API reconstruction principle:
-#   make the package work again,
-#   but without re-exporting anything from Internals.
-import .Internals
-using .Internals: niche_model, cascade_model
-export niche_model, cascade_model # Or the least.
-
-#-------------------------------------------------------------------------------------------
 # "Outer" parts: develop user-facing stuff here.
-
-# Factorize out common optional argument processing.
-include("./kwargs_helpers.jl")
-using .KwargsHelpers
-
-# Factorize out common user input data preprocessing.
-include("./GraphDataInputs/GraphDataInputs.jl")
-using .GraphDataInputs
-
-# Encapsulated views into internal arrays or pseudo-arrays.
-include("./dedicate_framework_to_model.jl")
-include("./graph_views.jl")
-using .GraphViews
-
-# Convenience macro to wire this all together.
-include("./expose_data.jl")
-
-# The actual user-facing components of the package are defined there,
-# connecting them to the internals via the framework.
-include("./components/main.jl")
 
 # Additional exposed utils built on top of components and methods.
 include("./default_model.jl")

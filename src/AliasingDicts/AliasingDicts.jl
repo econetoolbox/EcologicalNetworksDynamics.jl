@@ -3,7 +3,8 @@ module AliasingDicts
 using OrderedCollections
 using StringCases
 using MacroTools
-import ..Option
+
+const Option{T} = Union{T,Nothing}
 
 # Design a data structure behaving like a julia's Dict{Symbol, T},
 # but alternate references can be given as a key, aka key aliases.

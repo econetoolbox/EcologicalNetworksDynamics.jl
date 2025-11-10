@@ -18,11 +18,20 @@ include("./dedicated_test_failures.jl")
 using .TestUtils
 using .TestFailures
 
-#  sep("Test internal model representation.")
+sep("Test internal model representation.")
 #  include("./networks/runtests.jl")
 
 sep("Test System/Blueprints/Components framework.")
-include("./framework/runtests.jl")
+#  include("./framework/runtests.jl")
+
+sep("Test API utils.")
+#  include("./graph_data_inputs/runtests.jl")
+#  include("./topologies.jl")
+include("./aliasing_dicts.jl")
+include("./multiplex_api.jl")
+
+sep("Test user-facing behaviour.")
+include("./user/runtests.jl")
 
 #= Silent all this during internals refactoring.
 
@@ -30,15 +39,6 @@ include("./framework/runtests.jl")
 # while we are focusing on constructing the library API.
 sep("Test internals.")
 include("./internals/runtests.jl")
-
-sep("Test API utils.")
-include("./topologies.jl")
-include("./aliasing_dicts.jl")
-include("./multiplex_api.jl")
-include("./graph_data_inputs/runtests.jl")
-
-sep("Test user-facing behaviour.")
-include("./user/runtests.jl")
 
 sep("Run doctests (DEACTIVATED while migrating api from 'Internals').")
 #  include("./doctests.jl")
