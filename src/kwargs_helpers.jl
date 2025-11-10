@@ -1,5 +1,5 @@
 # When optional arguments get sophisticated structure and connections / dependencies
-# this helper macro defines primitive local to ease their analysis.
+# this helper macro defines local primitives to ease their analysis.
 # The following functions get defined,
 # they work on a local copy of the given kwargs,
 # which gets consumed during the analysis.

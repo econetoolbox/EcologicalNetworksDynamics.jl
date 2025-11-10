@@ -48,16 +48,7 @@ function F.early_check(bp::Names)
 end
 
 F.expand!(raw, bp::Names) = expand!(raw, bp.names)
-function expand!(raw, names)
-    # Species are still internally stored within a value named "Foodweb",
-    # but this will be refactored.
-    fw = Internals.FoodWeb(names)
-    raw.network = fw
-    Topologies.add_nodes!(raw._topology, names, :species)
-    # Keep reference safe in case we later switch to a multiplex network,
-    # and want to add the layers one by one.
-    raw._foodweb = fw
-end
+expand!(raw, names) = add_class!(raw, :species, names)
 
 #-------------------------------------------------------------------------------------------
 # Construct from a plain number and generate dummy names.

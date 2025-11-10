@@ -12,7 +12,7 @@ import .Framework: CheckError
 
 include("./types.jl")
 include("./convert.jl")
-include("./check.jl")
-include("./expand.jl")
+#  include("./check.jl")
+#  include("./expand.jl")
 
 end
