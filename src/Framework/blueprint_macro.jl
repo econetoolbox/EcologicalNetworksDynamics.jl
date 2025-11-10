@@ -267,13 +267,12 @@ function blueprint_macro(__module__, __source__, input...)
     # Setup the blueprints brought.
     push_res!(
         quote
-            imap = Iterators.map
-            ifilter = Iterators.filter
+            I = Iterators
             Framework.brought(b::NewBlueprint) =
-                imap(
-                    ifilter(
+                I.map(
+                    I.filter(
                         !isnothing,
-                        imap(f -> refvalue(getfield(b, f)), keys(broughts)),
+                        I.map(f -> refvalue(getfield(b, f)), keys(broughts)),
                     ),
                 ) do f
                     f isa Component ? typeof(f) : f

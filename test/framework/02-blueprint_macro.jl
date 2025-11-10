@@ -2,10 +2,10 @@ module Blueprints
 
 using EcologicalNetworksDynamics.Framework
 
-# Testing these macros requires to generate numerous new types
+# Testing these macros requires generating numerous new types
 # which are bound to constant julia variables.
-# In particular, testing macros for *failure*
-# typically result in generated code aborting halway through their expansion/execution
+# In particular, testing macros for *failure* typically results
+# in generated code aborting halway through their expansion/execution
 # and make it likely that unexpected interactions occur between subsequent tests
 # if the names of generated blueprints/components collide.
 # Alleviate this by picking random trigrams for the tests:

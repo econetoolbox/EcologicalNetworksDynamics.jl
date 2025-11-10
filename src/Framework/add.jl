@@ -17,8 +17,8 @@
 # and then pick a correct expansion order.
 # Here is the general procedure without additional options:
 #   - The forest is visited pre-order to collect the corresponding graph of sub-blueprints:
-#     the one given by the caller are root nodes, and edges are colored depending on whether
-#     the 'broughts' are 'embedded' or 'implied'.
+#     the ones given by the caller are root nodes,
+#     and edges are colored depending on whether the 'broughts' are 'embedded' or 'implied'.
 #     - Error if an embedded blueprint brings a component already in the system.
 #     - Ignore implied blueprints bringing components already in the system.
 #     - Build implied blueprints if they are not already brought.
@@ -191,7 +191,7 @@ function check!(add::AddState, node::Node)
             # No blueprint brings the missing component.
             # Pick it from the hooks if to fill up the gap if any.
             hooked = false
-            for (H, h) in hooks
+            for H in keys(hooks)
                 if H <: R
                     # Append the hook to the forest,
                     # re-doing the first pass over it at least.
@@ -307,8 +307,6 @@ function add!(
 
         # Preorder visit: construct the trees.
         for bp in blueprints
-            # Get our owned local copy so it cannot be changed afterwards by the caller.
-            bp = copy(bp)
             root = Node(bp, nothing, false, system, add)
             push!(forest, root)
         end

@@ -59,8 +59,8 @@ value(s::System) = getfield(s, :_value) # Bypass properties checks.
 # Fork the system, recursively copying the wrapped value and every component.
 function Base.copy(s::System{V}) where {V}
     value = copy(s._value)
-    concrete = copy(s._concrete)
-    abstracts = Dict(A => Set(concretes) for (A, concretes) in s._abstract)
+    concrete = deepcopy(s._concrete)
+    abstracts = deepcopy(s._abstract)
     System{V}(RawConstruct, value, concrete, abstracts)
 end
 
@@ -68,8 +68,8 @@ end
 # Query components.
 
 # Iterate over all concrete components.
-component_types(s::System) = imap(identity, s._concrete)
-components(s::System) = imap(singleton_instance, component_types(s))
+component_types(s::System) = I.map(identity, s._concrete) # (to not leak refs)
+components(s::System) = I.map(singleton_instance, component_types(s))
 # Restrict to the given component (super)type.
 components_types(system::System{V}, C::CompType{V}) where {V} =
     if isabstracttype(C)
@@ -80,7 +80,7 @@ components_types(system::System{V}, C::CompType{V}) where {V} =
         C in d ? (C,) : ()
     end
 components(s::System, C::CompType{V}) where {V} =
-    imap(singleton_instance, components_types(s, C))
+    I.map(singleton_instance, components_types(s, C))
 export components, component_types
 
 # Basic check.

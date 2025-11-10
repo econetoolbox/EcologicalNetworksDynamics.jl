@@ -3,46 +3,25 @@ module EcologicalNetworksDynamics
 # Common display utils.
 include("./display.jl")
 
+#-------------------------------------------------------------------------------------------
+# Ecological model internals.
+
+# Data: parsimonious model memory representation.
 include("Networks/Networks.jl")
 using .Networks
 
+# Code: efficient model simulation.
 include("Differentials/Differentials.jl")
+using .Differentials
 
-#= Silent all this during internals refactoring.
+# Interface: ergonomic model manipulation.
+include("./Framework/Framework.jl")
 
-using Crayons
-using MacroTools
-using OrderedCollections
-using SparseArrays
-using Graphs
-
-const imap = Iterators.map
-const ifilter = Iterators.filter
-iid(it) = imap(identity, it) # Useful to not leak refs.
-
+#=
 #-------------------------------------------------------------------------------------------
 # Shared API internals.
 # Most of these should move to the dedicated components files
 # once the internals have been refactored to not depend on them.
-
-# Common error to throw on user input error.
-argerr(mess, raise = throw) = raise(ArgumentError(mess))
-
-# Alias common types.
-const Option{T} = Union{Nothing,T}
-const SparseMatrix{T} = SparseMatrixCSC{T,Int64}
-
-# Basic equivalence relation for recursive use.
-function equal_fields(a::T, b::T; ignore = Set{Symbol}()) where {T}
-    for name in fieldnames(T)
-        if name in ignore
-            continue
-        end
-        u, v = getfield.((a, b), name)
-        u == v || return false
-    end
-    true
-end
 
 include("./AliasingDicts/AliasingDicts.jl")
 using .AliasingDicts
@@ -71,13 +50,6 @@ include("./Internals/Internals.jl")
 import .Internals
 using .Internals: niche_model, cascade_model
 export niche_model, cascade_model # Or the least.
-
-#-------------------------------------------------------------------------------------------
-# "Abstract" parts: the framework for developing user API.
-
-# The System/Components framework code used for the API is there.
-# This module is needed for package component developers.
-include("./Framework/Framework.jl")
 
 #-------------------------------------------------------------------------------------------
 # "Outer" parts: develop user-facing stuff here.
@@ -109,8 +81,9 @@ include("./simulate.jl")
 include("./topology.jl")
 include("./diversity.jl")
 
+=#
+
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true
 
-=#
 end

@@ -14,22 +14,22 @@ import CompatHelperLocal
 # Testing utils.
 include("./utils.jl")
 include("./test_failures.jl")
+include("./dedicated_test_failures.jl")
 using .TestUtils
 using .TestFailures
 
-include("./networks/runtests.jl")
-include("./differentials/runtests.jl")
+#  sep("Test internal model representation.")
+#  include("./networks/runtests.jl")
+
+sep("Test System/Blueprints/Components framework.")
+include("./framework/runtests.jl")
 
 #= Silent all this during internals refactoring.
-include("./dedicated_test_failures.jl")
 
 # The whole testing suite has been moved to "internals"
 # while we are focusing on constructing the library API.
 sep("Test internals.")
 include("./internals/runtests.jl")
-
-sep("Test System/Blueprints/Components framework.")
-include("./framework/runtests.jl")
 
 sep("Test API utils.")
 include("./topologies.jl")

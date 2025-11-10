@@ -34,7 +34,7 @@ missing_dependencies_for(fn::Function, p::P) where {P} =
 first_missing_dependency_for(fn::Function, p::P) where {P} =
     first_missing_dependency_for(typeof(fn), p)
 
-# Hack flag to avoid that the checks below interrupt the `Revise` process.
+# Hack flag to avoid interrupting the `Revise` process.
 # Raise when done defining methods in the package.
 global REVISING = false
 
