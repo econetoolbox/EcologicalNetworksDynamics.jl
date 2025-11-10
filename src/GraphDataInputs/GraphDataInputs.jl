@@ -2,12 +2,6 @@
 # Since the underlying ecological model value essentially constitutes a *graph*,
 # then data input by user mostly falls into three categories:
 #
-# TODO: the 'template'/'filter' thing gets pervasive,
-#       include it deeply within this core logic instead.
-# TODO: this module hooks into something deeply related
-#       with how the graph modelling in this package goes.
-#       It deserves to be integrated much better with the rest of the framework.
-#
 # - Graph data:
 #   - Scalar.
 #
@@ -271,8 +265,6 @@ using MacroTools
 using SparseArrays
 using OrderedCollections
 
-import ..SparseMatrix
-import ..argerr
 import ..Framework: checkfails
 import ..join_elided
 
@@ -288,10 +280,15 @@ end
 @macroexpand @defloc
 
 const Option{T} = Union{Nothing,T}
+const SparseMatrix{T} = SparseMatrixCSC{T,Int}
+export SparseMatrix
+
+argerr(m) = throw(ArgumentError(m))
 
 include("./types.jl")
 include("./convert.jl")
-include("./check.jl")
-include("./expand.jl")
+# XXX: possibly useless now with utils in `module Networks`?
+#  include("./check.jl")
+#  include("./expand.jl")
 
 end

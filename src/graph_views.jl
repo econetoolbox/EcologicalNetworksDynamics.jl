@@ -13,6 +13,9 @@
 # Implementors then just need to define how the data
 # is supposed to be accessed or updated.
 #
+# HERE: the internal data is now consistent and wrapped in `Networks.Entry`.
+# Have the new views reflect that.
+#
 # Subtypes needs to be "fat slices" with the following fields:
 #
 #   ._ref:
@@ -36,8 +39,8 @@
 module GraphViews
 
 import ..Internal
-import ..join_elided
-
+using ..Display
+using ..Networks
 using SparseArrays
 
 const Option{T} = Union{Nothing,T}
