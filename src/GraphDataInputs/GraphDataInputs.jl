@@ -287,8 +287,7 @@ argerr(m) = throw(ArgumentError(m))
 
 include("./types.jl")
 include("./convert.jl")
-# XXX: possibly useless now with utils in `module Networks`?
-#  include("./check.jl")
-#  include("./expand.jl")
+include("./check.jl")
+include("./expand.jl")
 
 end

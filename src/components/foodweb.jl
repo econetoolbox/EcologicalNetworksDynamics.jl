@@ -43,18 +43,8 @@ end
 
 F.expand!(raw, bp::Matrix) = expand_from_matrix!(raw, bp.A)
 function expand_from_matrix!(raw, A)
-
-    # Internal network is guaranteed to be an 'Internals.FoodWeb'
-    # because NTI components cannot be set before 'Foodweb' component.
-    fw = raw.network
-    fw.A = A
-    fw.method = "from component" # (internals legacy)
-
-    # Add trophic edges to the topology.
-    top = raw._topology
-    Topologies.add_edge_type!(top, :trophic)
-    Topologies.add_edges_within_node_type!(top, :species, :trophic, A)
-
+    top = SparseReflexive(A)
+    add_web!(raw, :trophic, (:species, :species), top)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -74,13 +64,15 @@ export Adjacency
 
 function F.late_check(raw, bp::Adjacency)
     (; A) = bp
-    index = raw._foodweb._species_index
-    @check_list_refs A :species index
+    read(raw.classes[:species].index) do index
+        @check_list_refs A :species index
+    end
 end
 
 function F.expand!(raw, bp::Adjacency)
-    index = raw._foodweb._species_index
-    A = to_sparse_matrix(bp.A, index, index)
+    A = read(raw.classes[:species].index) do index
+        to_sparse_matrix(bp.A, index, index)
+    end
     expand_from_matrix!(raw, A)
 end
 
@@ -204,7 +196,7 @@ end
 # Number of links.
 @expose_data graph begin
     property(trophic.n_links)
-    ref_cached(raw -> sum(@ref raw.trophic.matrix))
+    ref(raw -> n_edges(raw.webs[:trophic])) # DEBUG
     get(raw -> @ref raw.trophic.n_links)
     depends(Foodweb)
 end

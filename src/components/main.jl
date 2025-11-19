@@ -44,13 +44,13 @@ include("./args_to_fields.jl")
 # Central in the model nodes.
 include("./species.jl")
 
-#  # Trophic links, structuring the whole network.
-#  # (typical example 'edge' data)
-#  include("./foodweb.jl")
+# Trophic links, structuring the whole network.
+# (typical example 'edge' data)
+include("./foodweb.jl")
 
-#  #  # Biorates and other values parametrizing the ODE.
-#  #  # (typical example 'nodes' data)
-#  include("./body_mass.jl")
+# Biorates and other values parametrizing the ODE.
+# (typical example 'nodes' data)
+include("./body_mass.jl")
 #  include("./metabolic_class.jl")
 
 #  # Useful global values to calculate other biorates.
