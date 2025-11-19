@@ -1,18 +1,3 @@
-# Anticipate future refactoring of the internals with this 'view' pattern.
-#
-# Values stored within an array today
-# may not always be available under this form.
-# Yet, properties like model.my_favourite_biorates need to keep working like arrays,
-# and also to protect against illegal writes.
-# To this end, design a special "View" into internals data,
-# under the form of newtypes implementing AbstractArray interface.
-#
-# Assume that the internals will always provide at least
-# a cached array version of the data,
-# and reference this cache directly from the view.
-# Implementors then just need to define how the data
-# is supposed to be accessed or updated.
-#
 # HERE: the internal data is now consistent and wrapped in `Networks.Entry`.
 # Have the new views reflect that.
 #

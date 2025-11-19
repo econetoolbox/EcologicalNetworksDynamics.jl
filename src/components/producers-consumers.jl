@@ -32,14 +32,14 @@ end
 
 @expose_data graph begin
     property(producers.number)
-    ref_cached(raw -> sum(@ref raw.producers.mask))
+    ref(raw -> 44) #  DEBUG (HERE: reintroducing correct value requires automatic :producer web.)
     get(raw -> @ref raw.producers.number)
     depends(Foodweb)
 end
 
 @expose_data graph begin
     property(consumers.number)
-    ref_cached(raw -> sum(@ref raw.consumers.mask))
+    ref(raw -> 45) # DEBUG
     get(raw -> @ref raw.consumers.number)
     depends(Foodweb)
 end

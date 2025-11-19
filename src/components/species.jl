@@ -91,8 +91,8 @@ end
 @expose_data nodes begin
     property(species.names)
     get(SpeciesNames{Symbol}, "species")
-    # Need to convert from internal legacy strings.
-    ref_cached(raw -> Symbol.(raw._foodweb.species))
+    # HERE: can we get an actual cached ref to a slice of that?
+    ref(raw -> Networks.read(i -> collect(keys(i)), raw.classes[:species].index))
     depends(Species)
 end
 
@@ -106,7 +106,7 @@ end
 # Get (ordered) species index.
 @expose_data graph begin
     property(species.index)
-    ref_cached(
+    ref( #  DEBUG
         raw -> OrderedDict(name => i for (i, name) in enumerate(@ref raw.species.names)),
     )
     get(raw -> deepcopy(@ref raw.species.index))
