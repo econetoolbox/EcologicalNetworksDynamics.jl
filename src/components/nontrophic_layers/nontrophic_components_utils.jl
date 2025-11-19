@@ -18,8 +18,8 @@ function check_parsed_random_links_arguments(args, int, _)
     end
 
     if !(given(:L) || given(:C))
-        argerr("Neither connectance (C) of number of links (L) \
-                have been specified form drawing random $int links.")
+        argerr("Neither connectance (C) or number of links (L) \
+                has been specified form drawing random $int links.")
     end
 end
 
