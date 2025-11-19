@@ -1,7 +1,8 @@
 module EcologicalNetworksDynamics
 
-using MacroTools
 using Crayons
+using MacroTools
+using OrderedCollections
 using SparseArrays
 
 const Option{T} = Union{T,Nothing}
