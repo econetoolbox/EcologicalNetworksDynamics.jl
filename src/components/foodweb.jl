@@ -64,15 +64,13 @@ export Adjacency
 
 function F.late_check(raw, bp::Adjacency)
     (; A) = bp
-    read(raw.classes[:species].index) do index
-        @check_list_refs A :species index
-    end
+    index = class(raw, :species).index
+    @check_list_refs A :species index
 end
 
 function F.expand!(raw, bp::Adjacency)
-    A = read(raw.classes[:species].index) do index
-        to_sparse_matrix(bp.A, index, index)
-    end
+    index = class(raw, :species).index
+    A = to_sparse_matrix(bp.A, index, index)
     expand_from_matrix!(raw, A)
 end
 

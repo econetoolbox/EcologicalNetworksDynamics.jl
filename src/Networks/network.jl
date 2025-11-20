@@ -20,8 +20,8 @@ mutable struct Network
     # but also grandparents *etc.*
     # This only makes sense because the whole topology is append-only,
     # so restrictions here must never be invalidated.
-    # { ([grand-]+parent, child): restriction }
-    restrictions::Dict{Tuple{Symbol,Symbol},Entry{<:Restriction}}
+    # { (child, [grand-]+parent): restriction }
+    restrictions::Dict{Tuple{Symbol,Option{Symbol}},Entry{<:Restriction}}
 end
 export Network
 

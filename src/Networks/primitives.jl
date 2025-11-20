@@ -195,10 +195,21 @@ function absolute_indices(n::Network, class::Symbol)
 end
 export absolute_indices
 
+struct Internal end # Private dispatch marker.
+
 """
 Obtain a restriction from any class to one of its superclasses or the root.
+This may update internal restrictions cache.
 """
-function restriction(n::Network, class::Symbol, super::Symbol)
+function restriction(n::Network, class::Symbol, super::Option{Symbol})
+    cache = n.restrictions
+    key = (class, super)
+    haskey(cache, key) && return cache[key]
+    cache[key] = restriction(n, class, super, Internal)
+end
+export restriction
+
+function restriction(n::Network, class::Symbol, super::Symbol, ::Type{Internal})
     check_class_name.((class, super))
     class = Networks.class(class)
     # Find parent class.
@@ -212,7 +223,7 @@ function restriction(n::Network, class::Symbol, super::Symbol)
     restriction_from_indexes(class.index, parent.index)
 end
 
-function restriction(n::Network, class::Symbol, ::Nothing)
+function restriction(n::Network, class::Symbol, ::Nothing, ::Type{Internal})
     check_class_name(n, class)
     class = Networks.class(class)
     read(n.index) do root_index

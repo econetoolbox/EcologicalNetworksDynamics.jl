@@ -16,7 +16,7 @@ import .EN: WriteError
     m = Model(fw, BodyMass([1, 2, 3]))
     bm = m.body_mass
 
-    #  HERE: Refactor graphviews and still have these pass.
+    #  XXX: Refactor graphviews and still have these pass.
 
     # Use as a vector.
     @test bm[1] == 1

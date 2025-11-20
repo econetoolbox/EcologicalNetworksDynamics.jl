@@ -3,6 +3,7 @@ Specify how nodes are filtered or "restricted"
 from one class to its subclass.
 """
 abstract type Restriction end
+export Restriction
 
 # ==========================================================================================
 # The various kinds of restrictions.
