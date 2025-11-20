@@ -54,16 +54,16 @@ Base.setindex!(v::ArrayView, x, i) = mutate!(v, setindex!, x, i)
 
 function Base.getindex(v::NodesView, label::Symbol)
     c, e = class(v), entry(v)
-    read(e, c.index) do array, index
-        i = index[label]
+    read(e) do array
+        i = c.index[label]
         array[i]
     end
 end
 
 function Base.setindex!(v::NodesView, new, label::Symbol)
     c, e = class(v), entry(v)
-    mix!(e, c.index) do array, index
-        i = index[label]
+    mutate!(e) do array
+        i = c.index[label]
         array[i] = new
     end
 end
@@ -90,9 +90,9 @@ function Base.getindex(v::EdgesView, (s, t)::Tuple{Symbol,Symbol})
     w, e = web(v), entry(v)
     c = network(v).classes
     src, tgt = c[w.source], c[w.target]
-    read(e, src.index, tgt.index) do array, src_index, tgt_index
-        i = src_index[s]
-        j = tgt_index[t]
+    read(e) do array
+        i = src.index[s]
+        j = tgt.index[t]
         array[to_linear(v, i, j)]
     end
 end
@@ -101,9 +101,9 @@ function Base.setindex!(v::EdgesView, new, (s, t)::Tuple{Symbol,Symbol})
     w, e = web(v), entry(v)
     c = network(v).classes
     src, tgt = c[w.source], c[w.target]
-    mix!(e, (src.index, tgt.index)) do array, (src_index, tgt_index)
-        i = src_index[s]
-        j = tgt_index[t]
+    mutate!(e) do array
+        i = src.index[s]
+        j = tgt.index[t]
         array[to_linear(v, i, j)] = new
     end
 end

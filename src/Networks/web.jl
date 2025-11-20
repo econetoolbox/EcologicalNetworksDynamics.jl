@@ -5,10 +5,12 @@ and holding associated data: only vectors whose size match the number of edges.
 Information for indexing into the edges is provided by the topology.
 """
 struct Web
+    # Immutable: alias when forking.
     name::Symbol
     source::Symbol
     target::Symbol
     topology::Topology
+    # Append-only with mutable values protected with entries.
     data::Dict{Symbol,Entry{<:Vector}}
 end
 

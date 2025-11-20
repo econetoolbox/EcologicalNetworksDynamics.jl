@@ -8,9 +8,9 @@ abstract type Restriction end
 # The various kinds of restrictions.
 
 """
-Root class 'no-restriction', including all nodes.
+Root class 'no-restriction', including all nodes in canonical order.
 """
-mutable struct Full <: Restriction
+struct Full <: Restriction
     n::Int # Total number of nodes in the network.
 end
 
@@ -29,6 +29,16 @@ struct Sparse <: Restriction
     # Keep sorted for efficient query.
     select::Vector{Int}
 end
+
+"""
+Restrict with a sparse list of ranges.
+"""
+struct SparseRanges <: Restriction
+    # Disjoint, sorted and *compact* in that adjacent ranges have been merged together.
+    select::Vector{UnitRange{Int}}
+end
+# TODO: the above may improve cache size and lookup time in (grand-)+parent restrictions,
+# implement, then decide whether sparse_from_mask yields one or the other.
 
 """
 Construct from a boolean mask.
