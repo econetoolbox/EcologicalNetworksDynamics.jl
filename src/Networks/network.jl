@@ -4,33 +4,40 @@ responsible for owning all network data.
 See module documentation for detail.
 """
 mutable struct Network
-    # Node-level data.
-    root::Class # Entry point.
+    # Global 'root' node index: append-only.
+    index::Entry{Index}
+
+    # Node-level data: append-only.
     classes::Dict{Symbol,Class}
 
-    # Edge-level data.
+    # Edge-level data: append-only.
     webs::Dict{Symbol,Web}
 
-    # Graph-level data.
+    # Graph-level data: append-only.
     data::Dict{Symbol,Entry}
+
+    # Cache requested restriction beyond simple parent-to-child classes,
+    # but also grandparents *etc.*
+    # This only makes sense because the whole topology is append-only,
+    # so restrictions here must never be invalidated.
+    # { ([grand-]+parent, child): restriction }
+    restrictions::Dict{Tuple{Symbol,Symbol},Entry{<:Restriction}}
 end
 export Network
 
 """
 Construct empty network.
 """
-function Network()
-    root = Class(:root)
-    finalizer(drop!, Network(root, Dict(:root => root), Dict(), Dict()))
-end
+Network() = finalizer(drop!, Network(Entry(Index()), Dict(), Dict(), Dict(), Dict()))
 
 """
 Fork the network to obtain a cheap COW-py.
 """
 function fork(n::Network)
-    (; classes, webs, data) = n
-    classes, webs, data = fork.((classes, webs, data))
-    Network(classes[:root], classes, webs, data)
+    (; index, classes, webs, data, restrictions) = n
+    index, classes, webs, data, restrictions =
+        fork.((index, classes, webs, data, restrictions))
+    Network(index, classes, webs, data, restrictions)
 end
 Base.copy(n::Network) = fork(n)
 Base.deepcopy(::Network) = throw("Deepcopying the network would break its COW logic.")
@@ -67,7 +74,7 @@ export class, web
 Total number of nodes in the network,
 or in the given class.
 """
-n_nodes(n::Network) = n_nodes(n.root)
+n_nodes(n::Network) = read(length, n.index)
 n_nodes(n::Network, class::Symbol) = n_nodes(Networks.class(n, class))
 export n_nodes
 
@@ -83,7 +90,6 @@ export n_edges
 Total number of fields in the network.
 """
 n_fields(n::Network) =
-# https://julialang.zulipchat.com/#narrow/channel/137791-general/topic/type.20inference.20in.20.60sum.60/near/546657153
     sum(n_fields(c) for c in values(n.classes); init = 0) +
     sum(n_fields(w) for w in values(n.webs); init = 0) +
     length(n.data)
@@ -120,7 +126,7 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
     nc = length(net.classes)
     nw = length(net.webs)
 
-    if nc + nw + nf == 1 # Only the root class?
+    if nc + nw + nf == 0
         print(io, "Empty network.")
         return
     else
@@ -159,17 +165,14 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
     if nn > 0
         prefix(1)
         print(io, "Nodes:")
-        sorted = [:root]
-        sorted = append!(sorted, sort(collect(k for k in keys(net.classes) if k != :root)))
+        sorted = sort(collect(k for k in keys(net.classes)))
         for name in sorted
             class = net.classes[name]
             prefix(2)
             print(io, "$name")
             if name != :root
                 n = n_nodes(class)
-                labels = read(class.index) do index
-                    sort(collect(keys(index)))
-                end
+                labels = sort(collect(keys(class.index)))
                 labels = join_elided(labels, ", ")
                 print(io, " ($n): [$labels]")
             else
