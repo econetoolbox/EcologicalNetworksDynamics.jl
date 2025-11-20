@@ -5,17 +5,15 @@
 # Nodes.
 
 """
-Introduce new nodes in the network by extending the root class.
-The class produced is a direct children of the root class.
+Introduce a new root class of nodes in the network.
 """
 function add_class!(n::Network, name::Symbol, labels)
     check_free_name(n, name)
     (; classes) = n
-    root = classes[:root]
 
-    n_before = n_nodes(n)
-    n_new = mutate!(root.index, root.restriction) do index, full
-        # Collect new labels.
+    new_class = mutate!(n.index) do index
+        # Collect new labels to update global index.
+        n_before = length(index)
         n_new = 0
         for label in labels
             label = Symbol(label)
@@ -23,13 +21,10 @@ function add_class!(n::Network, name::Symbol, labels)
             n_new += 1
             index[label] = n_before + n_new
         end
-        # Increase root class size.
-        full.n += n_new
-        n_new
+        Class(name, nothing, index, Range(n_before .+ (1:n_new)))
     end
 
-    # Construct new base class.
-    classes[name] = Class(name, root, Range(n_before .+ (1:n_new)))
+    classes[name] = new_class
 
     nothing
 end
@@ -42,7 +37,7 @@ function add_subclass!(n::Network, parent::Symbol, name::Symbol, r::Restriction)
     check_free_name(n, name)
     (; classes) = n
     parent = classes[parent]
-    classes[name] = Class(name, parent, r)
+    classes[name] = Class(name, parent.name, parent.index, r)
     nothing
 end
 add_subclass!(n::Network, p::Symbol, c::Symbol, r::Range) = add_subclass!(n, p, c, Range(r))
@@ -189,33 +184,8 @@ Using labels, obtain absolute class node indices.
 function absolute_indices(n::Network, class::Symbol)
     check_class_name(n, class)
     class = n.classes[class]
-    read(class.index, n.root.index) do index, root
-        [root[label] for label in keys(index)]
+    read(n.index) do root_index
+        [root_index[label] for label in keys(class.index)]
     end
 end
 export absolute_indices
-
-# ==========================================================================================
-# Input guards.
-
-function check_free_name(n::Network, name::Symbol)
-    (; classes, webs) = n
-    name in keys(classes) && err("There is already a class named :$name.")
-    name in keys(webs) && err("There is already a web named :$name.")
-end
-
-function check_class_name(n::Network, name::Symbol)
-    (; classes) = n
-    name in keys(classes) || err("Not a class in the network: :$name.")
-end
-
-function check_web_name(n::Network, name::Symbol)
-    (; webs) = n
-    name in keys(webs) || err("Not a web in the network: :$name.")
-end
-
-# All network data must be meaningfully copyable for COW to make sense.
-function check_value(value)
-    T = typeof(value)
-    hasmethod(deepcopy, (T,)) || err("Cannot add non-deepcopy field:\n$value ::$T")
-end

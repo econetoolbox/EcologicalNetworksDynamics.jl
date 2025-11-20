@@ -4,34 +4,28 @@ specifying how it restricts nodes from its parents class,
 and holding associated data: only vectors whose size match the class size.
 """
 struct Class
+    # Immutable: alias when forking.
     name::Symbol
-    parent::Option{Symbol}
-    restriction::Entry{<:Restriction}
-    index::Entry{Index}
+    parent::Option{Symbol} # None for root classes.
+    restriction::Restriction
+    index::Index
+    # Append-only with mutable values protected with entries.
     data::Dict{Symbol,Entry{<:Vector}}
 end
 
 """
-Construct root class.
-"""
-Class(name) = Class(name, nothing, Entry(Full(0)), Entry(Index()), Dict())
-
-"""
 Construct a subclass.
 """
-function Class(name, parent::Class, r::Restriction)
+function Class(name, parent_name::Option{Symbol}, parent_index::Index, r::Restriction)
     # Construct local index.
-    index = read(parent.index) do index
-        loc = Index()
-        i_local = 0
-        for (label, i_parent) in index
-            i_parent in r || continue
-            i_local += 1
-            loc[label] = i_local
-        end
-        loc
+    loc = Index()
+    i_local = 0
+    for (label, i_parent) in parent_index
+        i_parent in r || continue
+        i_local += 1
+        loc[label] = i_local
     end
-    Class(name, parent.name, Entry(r), Entry(index), Dict())
+    Class(name, parent_name, r, loc, Dict())
 end
 
 """
@@ -39,11 +33,11 @@ Fork class, called when COW-pying the whole network.
 """
 function fork(c::Class)
     (; name, parent, restriction, index, data) = c
-    Class(name, parent, fork(restriction), fork(index), fork(data))
+    Class(name, parent, restriction, index, fork(data))
 end
 
 # Visit all entries.
-entries(c::Class) = I.flatten(((c.restriction, c.index), values(c.data)))
+entries(c::Class) = values(c.data)
 
 #-------------------------------------------------------------------------------------------
 # Base queries.
@@ -51,7 +45,7 @@ entries(c::Class) = I.flatten(((c.restriction, c.index), values(c.data)))
 """
 Number of nodes in the class.
 """
-n_nodes(c::Class) = read(length, c.restriction)
+n_nodes(c::Class) = length(c.restriction)
 Base.length(c::Class) = n_nodes(c)
 
 """

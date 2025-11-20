@@ -27,7 +27,6 @@ const N = Networks
     @test is_disp(n, strip("""
     Network with 8 nodes and 8 edges:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -39,7 +38,6 @@ const N = Networks
     @test is_disp(n, strip("""
     Network with 8 nodes, 8 edges and 1 field:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -69,7 +67,6 @@ const N = Networks
     @test is_disp(n, strip("""
     Network with 8 nodes, 12 edges and 2 fields:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -94,7 +91,6 @@ const N = Networks
     @test is_disp(n, strip("""
     Network with 8 nodes, 19 edges and 3 fields:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -122,7 +118,6 @@ const N = Networks
     @test is_disp(n, strip("""
     Network with 8 nodes, 15 edges and 1 field:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -144,7 +139,6 @@ const N = Networks
     @test is_disp(n, strip("""
     Network with 8 nodes, 9 edges and 1 field:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -166,7 +160,6 @@ const N = Networks
     @test is_disp(n, strip("""
     Network with 8 nodes, 6 edges and 1 field:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -196,7 +189,6 @@ end
     @test is_disp(n, strip("""
     Network with 8 nodes, 7 edges and 1 field:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -234,7 +226,6 @@ end
     @test is_disp(n, strip("""
     Network with 8 nodes, 7 edges and 1 field:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:
@@ -244,7 +235,6 @@ end
     @test is_disp(f, strip("""
     Network with 8 nodes, 7 edges and 1 field:
       Nodes:
-        root: -
         nutrients (3): [:u, :v, :w]
         species (5): [:a, :b, :c, :d, :e]
       Edges:

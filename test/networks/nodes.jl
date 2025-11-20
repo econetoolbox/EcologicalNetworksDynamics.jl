@@ -15,7 +15,6 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 5 nodes:
                Nodes:
-                 root: -
                  species (5): [:a, :b, :c, :d, :e]
              """))
 
@@ -25,7 +24,6 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 5 nodes and 2 fields:
                Nodes:
-                 root: -
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -35,7 +33,6 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 5 nodes and 2 fields:
                Nodes:
-                 root: -
                  producers (3): [:b, :c, :e]
                  species (5): [:a, :b, :c, :d, :e]
                    biomass: [0.0, 0.0, 0.0, 0.0, 0.0]
@@ -46,7 +43,6 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
-                 root: -
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
                  species (5): [:a, :b, :c, :d, :e]
@@ -58,7 +54,6 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 8 nodes and 3 fields:
                Nodes:
-                 root: -
                  nutrients (3): [:u, :v, :w]
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
@@ -71,7 +66,6 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 8 nodes and 4 fields:
                Nodes:
-                 root: -
                  nutrients (3): [:u, :v, :w]
                    turnover: [4, 5, 6]
                  producers (3): [:b, :c, :e]
@@ -85,7 +79,6 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 8 nodes and 4 fields:
                Nodes:
-                 root: -
                  mineral_bound (2): [:b, :e]
                  nutrients (3): [:u, :v, :w]
                    turnover: [4, 5, 6]
@@ -100,7 +93,6 @@ using EcologicalNetworksDynamics.Networks
     @test is_disp(n, strip("""
              Network with 8 nodes and 5 fields:
                Nodes:
-                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [10, 50]
                  nutrients (3): [:u, :v, :w]
@@ -149,7 +141,6 @@ end
     @test is_disp(n, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
-                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [10, 50]
                  producers (3): [:b, :c, :e]
@@ -192,7 +183,6 @@ end
     @test is_disp(n, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
-                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [2, 20]
                  producers (3): [:b, :c, :e]
@@ -203,7 +193,6 @@ end
     @test is_disp(f, strip("""
              Network with 5 nodes and 3 fields:
                Nodes:
-                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [10, 50]
                  producers (3): [:b, :c, :e]
@@ -226,12 +215,15 @@ end
     add_field!(n, :producers, :growth, [0.15, 0.25, 0.35])
     add_subclass!(n, :producers, :mineral_bound, Bool[1, 0, 1])
     add_field!(n, :mineral_bound, :consumption_rate, [10, 50])
+    add_class!(n, :nutrients, "uvw")
+    add_field!(n, :nutrients, :flow, [0.03, 0.02, 0.01])
     @test is_disp(n, strip("""
-             Network with 5 nodes and 3 fields:
+             Network with 8 nodes and 4 fields:
                Nodes:
-                 root: -
                  mineral_bound (2): [:b, :e]
                    consumption_rate: [10, 50]
+                 nutrients (3): [:u, :v, :w]
+                   flow: [0.03, 0.02, 0.01]
                  producers (3): [:b, :c, :e]
                    growth: [0.15, 0.25, 0.35]
                  species (5): [:a, :b, :c, :d, :e]
@@ -261,19 +253,21 @@ end
     @test s == sparse([10, 0, 50])
 
     # Export several parents at once.
-    s = to_sparse(r, :root)
+    s = to_sparse(r, nothing)
     @test typeof(s) === SparseVector{Int,Int}
-    @test s == sparse([0, 10, 0, 0, 50])
+    @test s == sparse([0, 10, 0, 0, 50, 0, 0, 0])
 
-    # Meaningless sparsity.
-    add_field!(n, :root, :top, collect(reverse(1:5)))
+    # Sparse within the root (not exactly useful, right?).
+    f = nodes_view(n, :nutrients, :flow)
+    s = to_sparse(f, nothing)
+    @test typeof(s) === SparseVector{Float64,Int}
+    @test s == sparse([0.0, 0.0, 0.0, 0.0, 0.0, 0.03, 0.02, 0.01])
+
+    @netfails(to_sparse(f, :alien), "Not a class in the network: :alien.")
+
     @netfails(
-        to_sparse(nodes_view(n, :root, :top)),
-        "The root nodes class is not sparse within another."
-    )
-    @netfails(
-        to_sparse(nodes_view(n, :mineral_bound, :consumption_rate), :alien),
-        "Node class :alien does not superclass :mineral_bound."
+        to_sparse(f, :producers),
+        "Node class :producers does not superclass :nutrients."
     )
 
 end
