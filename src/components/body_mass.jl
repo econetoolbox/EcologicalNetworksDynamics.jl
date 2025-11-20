@@ -28,7 +28,7 @@ check(M, ref = nothing) = check_value(>=(0), M, ref, :M, "Not a positive value")
 
 function F.late_check(raw, bp::Raw)
     (; M) = bp
-    S = @get raw.S
+    S = n_nodes(raw, :species)
     @check_size M S
 end
 
