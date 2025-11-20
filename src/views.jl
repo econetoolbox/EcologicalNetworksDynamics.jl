@@ -20,48 +20,73 @@ Views mostly wrap a Networks.View along with a reference to its model.
 """
 module Views
 
-import ..Networks
+using ..Networks
 import ..Model
-const V = Views
+using SparseArrays
+
 const N = Networks
+const Option{T} = Union{T,Nothing}
 
 """
 Direct dense view into nodes class data.
 """
 struct NodesView{T} <: AbstractVector{T}
+    model::Model
     view::N.NodesView{T}
     fieldname::Symbol
-    model::Model
 end
-view(n::NodesView) = getfield(n, :view)
-model(n::NodesView) = getfield(n, :model)
-fieldname(n::NodesView) = getfield(n, :fieldname)
-class(n::NodesView) = n |> view |> N.class
-Base.eltype(::Type{NodesView{T}}) where {T} = T
-Base.eltype(::NodesView{T}) where {T} = T
-Base.getproperty(n::NodesView, _) = err(n, "no property to access.")
-Base.setproperty!(n::NodesView, _) = err(n, "no property to access.")
 Base.getindex(v::NodesView, i) = getindex(view(v), i)
 Base.setindex!(v::NodesView, i, x) = setindex!(view(v), i, x)
-Base.size(v::NodesView) = size(view(v))
 nodes_view(m::Model, class::Symbol, data::Symbol) =
-    NodesView(N.nodes_view(m._value, class, data), data, m)
+    NodesView(m, N.nodes_view(m._value, class, data), data)
+export nodes_view
+
+"""
+Sparse view into nodes class data,
+from the perspective of a superclass.
+"""
+struct SparseNodesView{T} <: AbstractSparseVector{T,Int}
+    model::Model
+    view::N.NodesView{T}
+    fieldname::Symbol
+    restriction::Restriction
+    parent::Option{Symbol}
+end
+function nodes_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}}, data::Symbol)
+    r = restriction(m._value, class, parent)
+    SparseNodesView(m, N.nodes_view(m._value, class, data), data, r, parent)
+end
+
+
+V{T} = Union{NodesView{T},SparseNodesView{T}}
+view(v::V) = getfield(v, :view)
+model(v::V) = getfield(v, :model)
+fieldname(v::V) = getfield(v, :fieldname)
+class(v::V) = v |> view |> N.class
+Base.getproperty(n::V, ::Symbol) = err(n, "no property to access.")
+Base.setproperty!(n::V, ::Symbol) = err(n, "no property to access.")
+Base.eltype(::Type{V{T}}) where {T} = T
+Base.eltype(::V{T}) where {T} = T
+Base.size(v::V) = size(view(v))
 
 # ==========================================================================================
 # Display.
 
 function inline_info(v::NodesView)
-    class = V.class(v).name
+    class = Views.class(v).name
     field = fieldname(v)
     "<$class:$field>"
 end
 
 function display_info(v::NodesView)
     T = eltype(v)
-    class = V.class(v).name
+    class = Views.class(v).name
     field = fieldname(v)
     "NodesView<$class:$field>{$T}"
 end
+
+type_info(::Type{<:NodesView}) = "nodes"
+type_info(::Type{<:SparseNodesView}) = "sparse nodes"
 
 function Base.show(io::IO, v::NodesView)
     print(io, inline_info(v))
@@ -85,6 +110,6 @@ struct Error <: Exception
 end
 err(T::Type, m, throw = throw) = throw(Error(T, m))
 err(t, m, throw = throw) = throw(Error(typeof(t), m))
-Base.showerror(io::IO, e::Error) = print(io, "View error ($(e.type)): $(e.message)")
-
+Base.showerror(io::IO, e::Error) =
+    print(io, "View error ($(type_info(e.type))): $(e.message)")
 end

@@ -29,7 +29,7 @@
 #   - Dense edges data.
 #   - Sparse (templated) edges data.
 #   - Behaviour (graph data that actually represents *code* to run the model).
-# HERE: time to consider that: factorize? Generate components another way?
+# XXX: time to consider that: factorize? Generate components another way?
 
 # Helpers.
 include("./macros_keywords.jl")
