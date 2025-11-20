@@ -1,4 +1,4 @@
-module TestGraphViews
+module TestViews
 using EcologicalNetworksDynamics
 using Test
 using ..TestUser

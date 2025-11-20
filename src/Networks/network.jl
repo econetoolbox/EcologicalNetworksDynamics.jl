@@ -57,15 +57,26 @@ end
 # Query.
 
 """
-Total number of nodes in the network.
+Extract web or class.
+"""
+class(n::Network, name::Symbol) = n.classes[name]
+web(n::Network, name::Symbol) = n.webs[name]
+export class, web
+
+"""
+Total number of nodes in the network,
+or in the given class.
 """
 n_nodes(n::Network) = n_nodes(n.root)
+n_nodes(n::Network, class::Symbol) = n_nodes(Networks.class(n, class))
 export n_nodes
 
 """
-Total number of edges in the network.
+Total number of edges in the network,
+or in the given web.
 """
 n_edges(n::Network) = sum(n_edges(web.topology) for web in values(n.webs); init = 0)
+n_edges(n::Network, web::Symbol) = n_edges(Networks.web(n, web).topology)
 export n_edges
 
 """

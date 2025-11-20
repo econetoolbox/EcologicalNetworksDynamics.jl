@@ -112,6 +112,7 @@ end
 # Ergonomics.
 
 # Forward basic operators to views.
+# TODO: now easy to accept more operands with like read((...) -> $op(...), ...) ?
 macro binop(op)
     quote
         Base.$op(lhs::View, rhs) = read(v -> $op(v, rhs), lhs)
