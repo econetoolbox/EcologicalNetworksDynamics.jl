@@ -35,15 +35,10 @@ Restrict with a sparse list of ranges.
 """
 struct SparseRanges <: Restriction
     # Disjoint, sorted and *compact* in that adjacent ranges have been merged together.
-    select::Vector{UnitRange{Int}}
+    ranges::Vector{UnitRange{Int}}
+    cumsizes::Vector{Int} # Useful for efficient to_parent query.
+    SparseRanges(ranges) = new(ranges, cumsum(I.map(length, ranges)))
 end
-# TODO: the above may improve cache size and lookup time in (grand-)+parent restrictions,
-# implement, then decide whether sparse_from_mask yields one or the other.
-
-"""
-Construct from a boolean mask.
-"""
-sparse_from_mask(mask) = Sparse([i for (i, included) in enumerate(mask) if included])
 
 #-------------------------------------------------------------------------------------------
 # Query restrictions.
@@ -55,6 +50,7 @@ Base.length(::Restriction) = throw("unimplemented")
 Base.length(f::Full) = f.n
 Base.length(r::Range) = length(r.range)
 Base.length(s::Sparse) = length(s.select)
+Base.length(s::SparseRanges) = last(s.cumsizes)
 
 """
 Given an index *from the parent class*,
@@ -64,6 +60,10 @@ Base.in(::Int, ::Restriction) = throw("unimplemented")
 Base.in(::Int, ::Full) = true
 Base.in(i::Int, r::Range) = i in r.range
 Base.in(i::Int, s::Sparse) = insorted(i, s.select)
+function Base.in(i::Int, (; ranges)::SparseRanges)
+    s = searchsortedfirst(ranges, i:i; lt = (a, b) -> last(a) < first(b))
+    i in ranges[s]
+end
 
 """
 Obtain an iterable through all nodes indices in the parent class.
@@ -72,6 +72,7 @@ indices(::Restriction) = throw("unimplemented")
 indices(f::Full) = 1:f.n
 indices(r::Range) = r.range
 indices(s::Sparse) = s.select
+indices(s::SparseRanges) = I.flatten(s.ranges)
 
 """
 Convert a local index to a parent index.
@@ -80,3 +81,54 @@ toparent(::Int, ::Restriction) = throw("unimplemented")
 toparent(i::Int, ::Full) = i
 toparent(i::Int, r::Range) = i + first(r.range) - 1
 toparent(i::Int, s::Sparse) = s.select[i]
+toparent(i::Int, s::SparseRanges) =
+    let
+        cs = s.cumsizes
+        i_range = searchsortedfirst(cs, i)
+        r = s.ranges[i_range]
+        r[length(r)-cs[i_range]+i]
+    end
+
+#-------------------------------------------------------------------------------------------
+"""
+Construct restriction from a boolean mask,
+picking whichever type is the most compact.
+"""
+function restriction_from_mask(mask)
+    # Try both ranges and scalars representation,
+    # pick the most compact.
+    scalars = Int[]
+    ranges = UnitRange{Int}[]
+    open = nothing
+    for (i, m) in enumerate(mask)
+        if m
+            push!(scalars, i)
+            if isnothing(open)
+                open = i
+            end
+        elseif !isnothing(open)
+            push!(ranges, open:(i-1))
+            open = nothing
+        end
+    end
+    if !isnothing(open)
+        push!(ranges, open:length(mask))
+    end
+    if length(ranges) == 1
+        Range(first(ranges))
+    elseif length(scalars) <= 3 * length(ranges) # (start + end + cumulative sizes)
+        Sparse(scalars)
+    else
+        SparseRanges(ranges)
+    end
+end
+
+# Useful for testing.
+function Base.:(==)(a::Sparse, b::Sparse)
+    (; select) = a
+    select == b.select
+end
+function Base.:(==)(a::SparseRanges, b::SparseRanges)
+    (; ranges, cumsizes) = a
+    ranges == b.ranges && cumsizes == b.cumsizes
+end

@@ -42,7 +42,7 @@ function add_subclass!(n::Network, parent::Symbol, name::Symbol, r::Restriction)
 end
 add_subclass!(n::Network, p::Symbol, c::Symbol, r::Range) = add_subclass!(n, p, c, Range(r))
 add_subclass!(n::Network, p::Symbol, c::Symbol, mask) =
-    add_subclass!(n, p, c, sparse_from_mask(mask))
+    add_subclass!(n, p, c, restriction_from_mask(mask))
 export add_subclass!
 
 #-------------------------------------------------------------------------------------------
