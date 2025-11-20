@@ -36,7 +36,7 @@ first_missing_dependency_for(fn::Function, p::P) where {P} =
 
 # Hack flag to avoid interrupting the `Revise` process.
 # Raise when done defining methods in the package.
-global REVISING = false
+global REVISING = false # TODO: Revise stopped working again. Is that the problem?
 
 # ==========================================================================================
 # Dedicated exceptions.
