@@ -29,7 +29,7 @@ using EcologicalNetworksDynamics.Networks
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
 
-    add_subclass!(n, :species, :producers, Bool[0, 1, 1, 0, 1])
+    add_subclass!(n, :producers, :species, Bool[0, 1, 1, 0, 1])
     @test is_disp(n, strip("""
              Network with 5 nodes and 2 fields:
                Nodes:
@@ -75,7 +75,7 @@ using EcologicalNetworksDynamics.Networks
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
 
-    add_subclass!(n, :producers, :mineral_bound, Bool[1, 0, 1])
+    add_subclass!(n, :mineral_bound, :producers, Bool[1, 0, 1])
     @test is_disp(n, strip("""
              Network with 8 nodes and 4 fields:
                Nodes:
@@ -107,7 +107,7 @@ using EcologicalNetworksDynamics.Networks
     @netfails(add_class!(n, :species, "xyz"), "There is already a class named :species.")
     @netfails(add_class!(n, :consumers, "abc"), "There is already a node labeled :a.")
     @netfails(
-        add_subclass!(n, :species, :producers, Bool[]),
+        add_subclass!(n, :producers, :species, Bool[]),
         "There is already a class named :producers."
     )
 
@@ -134,9 +134,9 @@ end
     n = Network()
     add_class!(n, :species, "abcde")
     add_field!(n, :species, :mortality, collect(1:5) ./ 10)
-    add_subclass!(n, :species, :producers, Bool[0, 1, 1, 0, 1])
+    add_subclass!(n, :producers, :species, Bool[0, 1, 1, 0, 1])
     add_field!(n, :producers, :growth, [0.15, 0.25, 0.35])
-    add_subclass!(n, :producers, :mineral_bound, Bool[1, 0, 1])
+    add_subclass!(n, :mineral_bound, :producers, Bool[1, 0, 1])
     add_field!(n, :mineral_bound, :consumption_rate, [10, 50])
     @test is_disp(n, strip("""
              Network with 5 nodes and 3 fields:
@@ -213,9 +213,9 @@ end
     n = Network()
     add_class!(n, :species, "abcde")
     add_field!(n, :species, :mortality, collect(1:5) ./ 10)
-    add_subclass!(n, :species, :producers, Bool[0, 1, 1, 0, 1])
+    add_subclass!(n, :producers, :species, Bool[0, 1, 1, 0, 1])
     add_field!(n, :producers, :growth, [0.15, 0.25, 0.35])
-    add_subclass!(n, :producers, :mineral_bound, Bool[1, 0, 1])
+    add_subclass!(n, :mineral_bound, :producers, Bool[1, 0, 1])
     add_field!(n, :mineral_bound, :consumption_rate, [10, 50])
     add_class!(n, :nutrients, "uvw")
     add_field!(n, :nutrients, :flow, [0.03, 0.02, 0.01])

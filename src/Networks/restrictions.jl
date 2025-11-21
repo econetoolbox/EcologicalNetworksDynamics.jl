@@ -149,3 +149,9 @@ end
 expand(r::Restriction, size::Int, data::AbstractVector{T}) where {T} =
     expand(T, r, size, data)
 export expand
+
+"""
+Obtain mask within parent class.
+"""
+mask(r::Restriction, parent_size::Int) = I.map(i -> i in r, 1:parent_size)
+export mask

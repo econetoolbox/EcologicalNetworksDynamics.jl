@@ -45,6 +45,11 @@ F.expand!(raw, bp::Matrix) = expand_from_matrix!(raw, bp.A)
 function expand_from_matrix!(raw, A)
     top = SparseReflexive(A)
     add_web!(raw, :trophic, (:species, :species), top)
+    # This defines new categories of species.
+    add_subclass!(raw, :tops, :species, sources_mask(top))
+    add_subclass!(raw, :producers, :species, sinks_mask(top))
+    add_subclass!(raw, :preys, :species, nonsources_mask(top))
+    add_subclass!(raw, :consumers, :species, nonsinks_mask(top))
 end
 
 #-------------------------------------------------------------------------------------------

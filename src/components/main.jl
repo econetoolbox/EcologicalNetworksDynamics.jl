@@ -51,17 +51,17 @@ include("./foodweb.jl")
 # Biorates and other values parametrizing the ODE.
 # (typical example 'nodes' data)
 include("./body_mass.jl")
-#  include("./metabolic_class.jl")
+include("./metabolic_class.jl")
 
-#  # Useful global values to calculate other biorates.
-#  # (typical example 'graph' data)
-#  include("./temperature.jl")
+# Useful global values to calculate other biorates.
+# (typical example 'graph' data)
+include("./temperature.jl")
 
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
 #  include("./hill_exponent.jl") # <- First, good example of 'graph' component. Read first.
-#  include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
+include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
 #  include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
 #  include("./carrying_capacity.jl")
 #  include("./mortality.jl")
