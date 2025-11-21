@@ -90,6 +90,21 @@ toparent(i::Int, s::SparseRanges) =
         r[length(r)-cs[i_range]+i]
     end
 
+"""
+Convert a parent index to a local index, assuming it exists.
+"""
+tolocal(::Int, ::Restriction) = throw("unimplemented")
+tolocal(i::Int, ::Full) = i
+tolocal(i::Int, r::Range) = i - first(r.range) + 1
+tolocal(i::Int, s::Sparse) = searchsortedfirst(s.select, i)
+tolocal(i::Int, s::SparseRanges) =
+    let
+        (; ranges, cumsizes) = s
+        i_range = searchsortedfirst(ranges, i:i; lt = (a, b) -> last(a) < first(b))
+        r, c = ranges[i_range], cumsizes[i_range]
+        c + i + 1 - length(r) - first(r)
+    end
+
 #-------------------------------------------------------------------------------------------
 """
 Construct restriction from a boolean mask,

@@ -2,7 +2,8 @@ module TestRestrictions
 
 using Test
 using EcologicalNetworksDynamics.Networks
-using .Networks: Full, Range, Sparse, SparseRanges, restriction_from_mask, indices, toparent
+using .Networks:
+    Full, Range, Sparse, SparseRanges, restriction_from_mask, indices, toparent, tolocal
 using SparseArrays
 
 @testset "Trivial full restriction." begin
@@ -33,12 +34,14 @@ end
     exp = 4:8
     @test collect(indices(r)) == exp
     @test toparent.(1:length(r), (r,)) == exp
+    @test tolocal.(indices(r), (r,)) == 1:length(r)
 
     function check_mask_to_range(mask, range)
         r = restriction_from_mask(mask)
         @test r == Range(range)
         @test collect(indices(r)) == range
         @test toparent.(1:length(r), (r,)) == range
+        @test tolocal.(indices(r), (r,)) == 1:length(r)
     end
 
     check_mask_to_range(Bool[0, 0, 0, 1, 1, 1, 0, 0, 0], 4:6)
@@ -66,12 +69,14 @@ end
     exp = [1, 3, 5, 6, 8]
     @test collect(indices(s)) == exp
     @test toparent.(1:length(s), (s,)) == exp
+    @test tolocal.(indices(s), (s,)) == 1:length(s)
 
     function check_mask_to_sparse(mask, sparse)
         s = restriction_from_mask(mask)
         @test s == Sparse(sparse)
         @test collect(indices(s)) == sparse
         @test toparent.(1:length(s), (s,)) == sparse
+        @test tolocal.(indices(s), (s,)) == 1:length(s)
     end
 
     check_mask_to_sparse(Bool[0, 1, 1, 0, 1, 0, 1], [2, 3, 5, 7])
@@ -87,10 +92,12 @@ end
     @test length(s) == 11 #                 1  2  3  4  5     6  7        8  9 10 11
     @test [i in s for i in 1:15] == Bool[0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1]
     #                                    1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+    #                                       -------------     ----       -----------
 
     exp = [2, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15]
     @test collect(indices(s)) == exp
     @test toparent.(1:length(s), (s,)) == exp
+    @test tolocal.(indices(s), (s,)) == 1:length(s)
 
     f = restriction_from_mask(Bool[0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1])
     @test f isa SparseRanges
@@ -101,6 +108,7 @@ end
         @test s == SparseRanges(ranges)
         @test collect(indices(s)) == inds
         @test toparent.(1:length(s), (s,)) == inds
+        @test tolocal.(indices(s), (s,)) == 1:length(s)
     end
 
     check_mask_to_sparse_ranges(

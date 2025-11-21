@@ -28,6 +28,7 @@ const N = Networks
 const V = Views
 const Option{T} = Union{T,Nothing}
 
+#-------------------------------------------------------------------------------------------
 """
 Direct dense view into nodes class data.
 """
@@ -38,12 +39,13 @@ struct NodesView{T}
 end
 S = NodesView # "Self"
 Base.length(v::S) = length(view(v))
-Base.getindex(v::S, i) = getindex(view(v), i)
-Base.setindex!(v::S, i, x) = setindex!(view(v), i, x)
+Base.getindex(v::S, i) = getindex(view(v), i) # WARN: leak if entry is mutable?
+Base.setindex!(v::S, x, i) = setindex!(view(v), x, i)
 nodes_view(m::Model, class::Symbol, data::Symbol) =
     NodesView(m, N.nodes_view(m._value, class, data), data)
 export nodes_view
 
+#-------------------------------------------------------------------------------------------
 """
 Sparse view into nodes class data,
 from the perspective of a superclass.
@@ -56,10 +58,36 @@ struct SparseNodesView{T}
 end
 S = SparseNodesView
 parent(v::S) = getfield(v, :parent)
+restriction(v::S) = N.restriction(network(v), class(v).name, parent(v))
 Base.length(v::S) = n_nodes(network(v), parent(v))
 nodes_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}}, data::Symbol) =
     SparseNodesView(m, N.nodes_view(m._value, class, data), data, parent)
+Base.getindex(v::S, l::Symbol) = getindex(view(v), l)
+Base.setindex!(v::S, x, l::Symbol) = setindex!(view(v), x, l)
 
+function Base.getindex(v::S, i::Int)
+    i = convert_sparse_index(v, i)
+    read(entry(v), getindex, i)
+end
+
+function Base.setindex!(v::S, x, i::Int)
+    i = convert_sparse_index(v, i)
+    mutate!(entry(v), setindex!, x, i)
+end
+
+function convert_sparse_index(v::S, i::Int)
+    n, s = ns(length(v))
+    i in 1:n || err(v, "Cannot index with $i for a view with $n node$s.")
+    r = restriction(v)
+    if !(i in r)
+        class = repr(V.class(v).name)
+        parent = repr(V.parent(v))
+        err(v, "Node $i in $parent is not an node in $class.")
+    end
+    N.tolocal(i, r)
+end
+
+#-------------------------------------------------------------------------------------------
 AbstractNodeView{T} = Union{NodesView{T},SparseNodesView{T}}
 S = AbstractNodeView
 view(v::S) = getfield(v, :view)
@@ -82,8 +110,8 @@ struct Error <: Exception
     type::Type # (View type)
     message::String
 end
-err(T::Type, m, throw = throw) = throw(Error(T, m))
-err(t, m, throw = throw) = throw(Error(typeof(t), m))
+err(T::Type, m) = throw(Error(T, m))
+err(t, m) = throw(Error(typeof(t), m))
 Base.showerror(io::IO, e::Error) =
     print(io, "View error ($(type_info(e.type))): $(e.message)")
 
