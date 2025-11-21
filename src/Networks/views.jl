@@ -32,6 +32,7 @@ const View{T} = Union{GraphView{T},NodesView{T},EdgesView{T}}
 entry(v::View) = getfield(v, :entry)
 network(v::View) = getfield(v, :network)
 Base.eltype(::View{T}) where {T} = T
+export entry, network
 
 #-------------------------------------------------------------------------------------------
 
