@@ -40,7 +40,7 @@ function to_sparse(v::NodesView, parent_name::Symbol)
     parent = class
     while true
         isnothing(class.parent) &&
-            err("Node class :$parent_name does not superclass :$(class.name).")
+            err("Node class $(repr(parent_name)) does not superclass $(repr(class.name)).")
         parent = n.classes[parent.parent]
         parent.name == parent_name && break
     end

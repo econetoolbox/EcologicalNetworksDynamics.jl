@@ -54,16 +54,18 @@ Base.setindex!(v::ArrayView, x, i) = mutate!(v, setindex!, x, i)
 
 function Base.getindex(v::NodesView, label::Symbol)
     c, e = class(v), entry(v)
+    check_label(label, c.index, c.name)
+    i = c.index[label]
     read(e) do array
-        i = c.index[label]
         array[i]
     end
 end
 
 function Base.setindex!(v::NodesView, new, label::Symbol)
     c, e = class(v), entry(v)
+    check_label(label, c.index, c.name)
+    i = c.index[label]
     mutate!(e) do array
-        i = c.index[label]
         array[i] = new
     end
 end
@@ -77,9 +79,9 @@ function to_linear(v::EdgesView, i::Int, j::Int)
     top = web.topology
     for (i, count, what) in ((i, n_sources, "source"), (j, n_targets, "target"))
         n, s = ns(count(top))
-        1 <= i <= n || err("Not an index for web :$(web.name) with $n $what$s: $i.")
+        1 <= i <= n || err("Not an index for web $(repr(web.name)) with $n $what$s: $i.")
     end
-    is_edge(top, i, j) || err("Not an edge in web :$(web.name): $((i, j)).")
+    is_edge(top, i, j) || err("Not an edge in web $(repr(web.name)): $((i, j)).")
     edge(top, i, j)
 end
 Base.getindex(v::EdgesView, (i, j)::Tuple{Int,Int}) = getindex(v, to_linear(v, i, j))

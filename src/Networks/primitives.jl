@@ -17,7 +17,8 @@ function add_class!(n::Network, name::Symbol, labels)
         n_new = 0
         for label in labels
             label = Symbol(label)
-            label in keys(index) && err("There is already a node labeled :$label.")
+            label in keys(index) &&
+                err("There is already a node labeled $(repr(label)).")
             n_new += 1
             index[label] = n_before + n_new
         end
@@ -63,7 +64,8 @@ function add_web!(
         (("source", source, n_sources(topology)), ("target", target, n_targets(topology)))
         check_class_name(n, class)
         act = n_nodes(classes[class])
-        exp == act || err("Nodes in class :$class: $act, but $exp in topology $(what)s.")
+        exp == act ||
+            err("Nodes in class $(repr(class)): $act, but $exp in topology $(what)s.")
     end
     webs[name] = Web(name, source, target, topology)
     nothing
@@ -80,7 +82,7 @@ don't keep references around or leak them to end users.
 """
 function add_field!(n::Network, fname::Symbol, v)
     check_value(v)
-    fname in keys(n.data) && err("Network already contains a field :$fname.")
+    fname in keys(n.data) && err("Network already contains a field $(repr(fname)).")
     n.data[fname] = Entry(v)
     nothing
 end
@@ -94,10 +96,12 @@ don't keep references around or leak them to end users.
 function add_field!(c::Class, fname::Symbol, v::Vector)
     check_value(v)
     (; name, data) = c
-    fname in keys(data) && err("Class :$name already contains a field :$fname.")
+    fname in keys(data) &&
+        err("Class $(repr(name)) already contains a field $(repr(fname)).")
     (nv, nc) = length.((v, c))
-    nv == nc ||
-        err("The given vector (size $nv) does not match the :$name class size ($nc).")
+    nv == nc || err(
+        "The given vector (size $nv) does not match the $(repr(name)) class size ($nc).",
+    )
     data[fname] = Entry(v)
     nothing
 end
@@ -110,9 +114,10 @@ don't keep references around or leak them to end users.
 function add_field!(w::Web, fname::Symbol, v::Vector)
     check_value(v)
     (; name, data) = w
-    fname in keys(data) && err("Web :$name already contains a field :$fname.")
+    fname in keys(data) && err("Web $(repr(name)) already contains a field $(repr(fname)).")
     (nv, nw) = length(v), n_edges(w)
-    nv == nw || err("The given vector (size $nv) does not match the :$name web size ($nw).")
+    nv == nw ||
+        err("The given vector (size $nv) does not match the $(repr(name)) web size ($nw).")
     data[fname] = Entry(v)
     nothing
 end
@@ -134,7 +139,7 @@ add_field!(n::Network, name::Symbol, fname::Symbol, v::Vector) =
 Get a graph-level view into network data.
 """
 function graph_view(n::Network, data::Symbol)
-    data in keys(n.data) || err("There is no data :$data in the network.")
+    data in keys(n.data) || err("There is no data $(repr(data)) in the network.")
     entry = n.data[data]
     T = eltype(entry)
     GraphView{T}(n, entry)
@@ -146,10 +151,10 @@ Get a node-level view into network data.
 """
 function nodes_view(n::Network, class::Symbol, data::Symbol)
     (; classes) = n
-    class in keys(classes) || err("There is no class :$class in the network.")
+    class in keys(classes) || err("There is no class $(repr(class)) in the network.")
     c = classes[class]
 
-    data in keys(c.data) || err("There is no data :$data in class :$class.")
+    data in keys(c.data) || err("There is no data $(repr(data)) in class $(repr(class)).")
     entry = c.data[data]
 
     V = eltype(entry)
@@ -163,10 +168,10 @@ Get an edge-level view into network data.
 """
 function edges_view(n::Network, web::Symbol, data::Symbol)
     (; webs) = n
-    web in keys(webs) || err("There is no web :$web in the network.")
+    web in keys(webs) || err("There is no web $(repr(web)) in the network.")
     w = webs[web]
 
-    data in keys(w.data) || err("There is no data :$data in web :$web.")
+    data in keys(w.data) || err("There is no data $(repr(data)) in web $(repr(web)).")
     entry = w.data[data]
 
     V = eltype(entry)
@@ -200,7 +205,7 @@ function restriction(n::Network, class::Symbol, super::Symbol)
     parent = class
     while true
         isnothing(class.parent) &&
-            err("Node class :$super does not superclass :$(class.name).")
+            err("Node class $(repr(super)) does not superclass $(repr(class.name)).")
         parent = n.classes[parent.parent]
         parent.name == super && break
     end
