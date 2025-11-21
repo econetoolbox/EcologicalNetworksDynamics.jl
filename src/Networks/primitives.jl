@@ -189,3 +189,31 @@ function absolute_indices(n::Network, class::Symbol)
     end
 end
 export absolute_indices
+
+"""
+Obtain a restriction from any class to one of its superclasses or the root.
+"""
+function restriction(n::Network, class::Symbol, super::Symbol)
+    check_class_name.((class, super))
+    class = Networks.class(class)
+    # Find parent class.
+    parent = class
+    while true
+        isnothing(class.parent) &&
+            err("Node class :$super does not superclass :$(class.name).")
+        parent = n.classes[parent.parent]
+        parent.name == super && break
+    end
+    restriction_from_indexes(class.index, parent.index)
+end
+
+function restriction(n::Network, class::Symbol, ::Nothing)
+    check_class_name(n, class)
+    class = Networks.class(class)
+    read(n.index) do root_index
+        restriction_from_indexes(class.index, root_index)
+    end
+end
+
+restriction_from_indexes(sub::Index, super::Index) =
+    restriction_from_mask(k in keys(sub) for k in keys(super))
