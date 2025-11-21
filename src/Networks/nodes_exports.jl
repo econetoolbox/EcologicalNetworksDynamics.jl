@@ -1,4 +1,7 @@
 # Extract regular data from a nodes view.
+# XXX: these were only useful as a POC, right?
+#      Delete in favour of what the package actually needs.
+
 
 """
 Obtain a copy of the underlying vector.

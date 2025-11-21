@@ -3,6 +3,7 @@ module TestRestrictions
 using Test
 using EcologicalNetworksDynamics.Networks
 using .Networks: Full, Range, Sparse, SparseRanges, restriction_from_mask, indices, toparent
+using SparseArrays
 
 @testset "Trivial full restriction." begin
 
@@ -119,6 +120,18 @@ end
         [2:3, 5:9],
         [2, 3, 5, 6, 7, 8, 9],
     )
+
+end
+
+@testset "Expand data from restrictions" begin
+
+    @test expand(Range(3:5), 8, [3, 2, 1]) == sparse([0, 0, 3, 2, 1, 0, 0, 0])
+
+    @test expand(Sparse([2, 4, 8, 9]), 10, [4, 3, 2, 1]) ==
+          sparse([0, 4, 0, 3, 0, 0, 0, 2, 1, 0])
+
+    @test expand(SparseRanges([2:5, 7:8]), 10, [6, 5, 4, 3, 2, 1]) ==
+          sparse([0, 6, 5, 4, 3, 0, 2, 1, 0, 0])
 
 end
 

@@ -122,6 +122,7 @@ function restriction_from_mask(mask)
         SparseRanges(ranges)
     end
 end
+export restriction_from_mask
 
 # Useful for testing.
 function Base.:(==)(a::Sparse, b::Sparse)
@@ -132,3 +133,18 @@ function Base.:(==)(a::SparseRanges, b::SparseRanges)
     (; ranges, cumsizes) = a
     ranges == b.ranges && cumsizes == b.cumsizes
 end
+
+#-------------------------------------------------------------------------------------------
+"""
+Expand data to data that are sparse within the parent by reversing the restriction.
+"""
+function expand(T::Type, r::Restriction, parent_size::Int, data)
+    res = spzeros(T, parent_size)
+    for (i, v) in zip(indices(r), data)
+        res[i] = v
+    end
+    res
+end
+expand(r::Restriction, size::Int, data::AbstractVector{T}) where {T} =
+    expand(T, r, size, data)
+export expand
