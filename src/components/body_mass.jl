@@ -122,7 +122,6 @@ end
     property(body_mass, M)
     depends(BodyMass)
     @species_index
-    # HERE: should @ref expose the actual entry to lib devs?
     ref(raw -> Networks.read(collect, raw.classes[:species].data[:body_mass]))
     get(BodyMasses{Float64}, "species")
     write!((raw, rhs::Real, i) -> BodyMass_.check(rhs, i))

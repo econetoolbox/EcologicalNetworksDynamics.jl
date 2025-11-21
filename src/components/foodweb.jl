@@ -199,7 +199,7 @@ end
 # Number of links.
 @expose_data graph begin
     property(trophic.n_links)
-    ref(raw -> n_edges(raw.webs[:trophic])) # DEBUG
+    ref_cached(raw -> sum(@ref raw.trophic.matrix))
     get(raw -> @ref raw.trophic.n_links)
     depends(Foodweb)
 end
