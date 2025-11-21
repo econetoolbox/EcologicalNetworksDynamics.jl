@@ -82,6 +82,7 @@ or in the given class.
 """
 n_nodes(n::Network) = read(length, n.index)
 n_nodes(n::Network, class::Symbol) = n_nodes(Networks.class(n, class))
+n_nodes(n::Network, ::Nothing) = n_nodes(n)
 export n_nodes
 
 """

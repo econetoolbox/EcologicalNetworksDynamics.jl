@@ -21,22 +21,25 @@ Views mostly wrap a Networks.View along with a reference to its model.
 module Views
 
 using ..Networks
+using ..Display
 import ..Model
-using SparseArrays
 
 const N = Networks
+const V = Views
 const Option{T} = Union{T,Nothing}
 
 """
 Direct dense view into nodes class data.
 """
-struct NodesView{T} <: AbstractVector{T}
+struct NodesView{T}
     model::Model
     view::N.NodesView{T}
     fieldname::Symbol
 end
-Base.getindex(v::NodesView, i) = getindex(view(v), i)
-Base.setindex!(v::NodesView, i, x) = setindex!(view(v), i, x)
+S = NodesView # "Self"
+Base.length(v::S) = length(view(v))
+Base.getindex(v::S, i) = getindex(view(v), i)
+Base.setindex!(v::S, i, x) = setindex!(view(v), i, x)
 nodes_view(m::Model, class::Symbol, data::Symbol) =
     NodesView(m, N.nodes_view(m._value, class, data), data)
 export nodes_view
@@ -45,44 +48,58 @@ export nodes_view
 Sparse view into nodes class data,
 from the perspective of a superclass.
 """
-struct SparseNodesView{T} <: AbstractSparseVector{T,Int}
+struct SparseNodesView{T}
     model::Model
     view::N.NodesView{T}
     fieldname::Symbol
-    restriction::Restriction
     parent::Option{Symbol}
 end
-function nodes_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}}, data::Symbol)
-    r = restriction(m._value, class, parent)
-    SparseNodesView(m, N.nodes_view(m._value, class, data), data, r, parent)
-end
+S = SparseNodesView
+parent(v::S) = getfield(v, :parent)
+Base.length(v::S) = n_nodes(network(v), parent(v))
+nodes_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}}, data::Symbol) =
+    SparseNodesView(m, N.nodes_view(m._value, class, data), data, parent)
 
-
-V{T} = Union{NodesView{T},SparseNodesView{T}}
-view(v::V) = getfield(v, :view)
-model(v::V) = getfield(v, :model)
-fieldname(v::V) = getfield(v, :fieldname)
-class(v::V) = v |> view |> N.class
-Base.getproperty(n::V, ::Symbol) = err(n, "no property to access.")
-Base.setproperty!(n::V, ::Symbol) = err(n, "no property to access.")
-Base.eltype(::Type{V{T}}) where {T} = T
-Base.eltype(::V{T}) where {T} = T
-Base.size(v::V) = size(view(v))
+AbstractNodeView{T} = Union{NodesView{T},SparseNodesView{T}}
+S = AbstractNodeView
+view(v::S) = getfield(v, :view)
+model(v::S) = getfield(v, :model)
+fieldname(v::S) = getfield(v, :fieldname)
+N.class(v::S) = v |> view |> class
+N.entry(v::S) = v |> view |> entry
+network(v::S) = model(v)._value
+Base.getproperty(n::S, ::Symbol) = err(n, "no property to access.")
+Base.setproperty!(n::S, ::Symbol) = err(n, "no property to access.")
+Base.eltype(::Type{S{T}}) where {T} = T
+Base.eltype(::S{T}) where {T} = T
 
 # ==========================================================================================
 # Display.
 
 function inline_info(v::NodesView)
-    class = Views.class(v).name
+    class = V.class(v).name
     field = fieldname(v)
     "<$class:$field>"
 end
 
+function inline_info(v::SparseNodesView)
+    class = V.class(v).name
+    parent = V.parent(v)
+    parent = isnothing(parent) ? ":" : parent
+    field = fieldname(v)
+    "<$parent:$class:$field>"
+end
+
 function display_info(v::NodesView)
     T = eltype(v)
-    class = Views.class(v).name
-    field = fieldname(v)
-    "NodesView<$class:$field>{$T}"
+    info = inline_info(v)
+    "NodesView$info{$T}"
+end
+
+function display_info(v::SparseNodesView)
+    T = eltype(v)
+    info = inline_info(v)
+    "SparseNodesView$info{$T}"
 end
 
 type_info(::Type{<:NodesView}) = "nodes"
@@ -90,18 +107,75 @@ type_info(::Type{<:SparseNodesView}) = "sparse nodes"
 
 function Base.show(io::IO, v::NodesView)
     print(io, inline_info(v))
-    @invoke show(io, v::AbstractVector)
+    print(io, '[')
+    read(entry(v)) do raw
+        for (i, v) in enumerate(raw)
+            print(io, repr(v))
+            if i < length(raw)
+                print(io, ", ")
+            end
+        end
+    end
+    print(io, ']')
+end
+
+function Base.show(io::IO, v::SparseNodesView)
+    print(io, inline_info(v))
+    print(io, '[')
+    n = length(v)
+    mask = N.mask(network(v), class(v).name, parent(v))
+    read(entry(v)) do raw
+        i_raw = 0
+        for (i_m, m) in enumerate(mask)
+            if m
+                i_raw += 1
+                v = raw[i_raw]
+                print(io, repr(v))
+            else
+                print(io, '·')
+            end
+            if i_m < n
+                print(io, ", ")
+            end
+        end
+    end
+    print(io, ']')
 end
 
 function Base.show(io::IO, ::MIME"text/plain", v::NodesView)
-    # Replace type display with custom info.
-    s = IOBuffer()
-    @invoke show(s, MIME("text/plain"), v::AbstractVector)
-    s = String(take!(s))
-    target = repr(typeof(v))
-    s = replace(s, target => display_info(v))
-    print(io, s)
+    print(io, display_info(v))
+    (n, s) = ns(length(v))
+    print(io, " ($n element$s)")
+    read(entry(v)) do raw
+        for v in raw
+            print(io, "\n ")
+            print(io, repr(v))
+        end
+    end
 end
+
+function Base.show(io::IO, ::MIME"text/plain", v::SparseNodesView)
+    print(io, display_info(v))
+    mask = N.mask(network(v), class(v).name, parent(v))
+    (n, _) = ns(length(v))
+    read(entry(v)) do raw
+        (nz, s) = ns(length(raw))
+        print(io, " ($nz/$n element$s)")
+        i_raw = 0
+        for m in mask
+            print(io, '\n')
+            if m
+                i_raw += 1
+                v = raw[i_raw]
+                print(io, repr(v))
+            else
+                print(io, '·')
+            end
+        end
+    end
+end
+
+ns(n) = (n, n > 1 ? "s" : "")
 
 # ==========================================================================================
 struct Error <: Exception
