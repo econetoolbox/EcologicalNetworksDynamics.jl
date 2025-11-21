@@ -39,9 +39,7 @@ function F.late_check(raw, bp::Raw)
 end
 
 F.expand!(raw, bp::Raw) = expand!(raw, bp.r)
-function expand!(raw, r)
-    add_field!(raw, :producers, :growth_rate, r |> findnz |> last)
-end
+expand!(raw, r) = add_field!(raw, :producers, :growth_rate, r |> findnz |> last)
 
 #-------------------------------------------------------------------------------------------
 # From a scalar broadcasted to all producers.

@@ -32,14 +32,14 @@ end
 
 @expose_data graph begin
     property(preys.number)
-    ref(raw -> 33) #  DEBUG
+    ref_cached(raw -> sum(@ref raw.preys.mask))
     get(raw -> @ref raw.preys.number)
     depends(Foodweb)
 end
 
 @expose_data graph begin
     property(tops.number)
-    ref(raw -> 34) #  DEBUG
+    ref_cached(raw -> sum(@ref raw.tops.mask))
     get(raw -> @ref raw.tops.number)
     depends(Foodweb)
 end
