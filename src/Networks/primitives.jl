@@ -34,16 +34,17 @@ export add_class!
 """
 Introduce a new subclass of nodes.
 """
-function add_subclass!(n::Network, parent::Symbol, name::Symbol, r::Restriction)
+function add_subclass!(n::Network, name::Symbol, parent::Symbol, r::Restriction)
     check_free_name(n, name)
     (; classes) = n
     parent = classes[parent]
     classes[name] = Class(name, parent.name, parent.index, r)
     nothing
 end
-add_subclass!(n::Network, p::Symbol, c::Symbol, r::Range) = add_subclass!(n, p, c, Range(r))
-add_subclass!(n::Network, p::Symbol, c::Symbol, mask) =
-    add_subclass!(n, p, c, restriction_from_mask(mask))
+add_subclass!(n::Network, c::Symbol, p::Symbol, r::UnitRange{Int}) =
+    add_subclass!(n, c, p, Range(r))
+add_subclass!(n::Network, c::Symbol, p::Symbol, mask) =
+    add_subclass!(n, c, p, restriction_from_mask(mask))
 export add_subclass!
 
 #-------------------------------------------------------------------------------------------
@@ -210,8 +211,8 @@ end
 export restriction
 
 function restriction(n::Network, class::Symbol, super::Symbol, ::Type{Internal})
-    check_class_name.((class, super))
-    class = Networks.class(class)
+    check_class_name.((n,), (class, super))
+    class = Networks.class(n, class)
     # Find parent class.
     parent = class
     while true
@@ -225,7 +226,7 @@ end
 
 function restriction(n::Network, class::Symbol, ::Nothing, ::Type{Internal})
     check_class_name(n, class)
-    class = Networks.class(class)
+    class = Networks.class(n, class)
     read(n.index) do root_index
         restriction_from_indexes(class.index, root_index)
     end
@@ -233,3 +234,13 @@ end
 
 restriction_from_indexes(sub::Index, super::Index) =
     restriction_from_mask(k in keys(sub) for k in keys(super))
+
+"""
+Extract class mask within a parent.
+"""
+function mask(n::Network, class::Symbol, parent::Option{Symbol})
+    r = restriction(n, class, parent)
+    size = isnothing(parent) ? n_nodes(n) : n_nodes(n, parent)
+    mask(r, size)
+end
+export mask

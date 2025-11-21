@@ -21,7 +21,7 @@ mutable struct Network
     # This only makes sense because the whole topology is append-only,
     # so restrictions here must never be invalidated.
     # { (child, [grand-]+parent): restriction }
-    restrictions::Dict{Tuple{Symbol,Option{Symbol}},Entry{<:Restriction}}
+    restrictions::Dict{Tuple{Symbol,Option{Symbol}},Restriction}
 end
 export Network
 
@@ -69,6 +69,12 @@ Extract web or class.
 class(n::Network, name::Symbol) = n.classes[name]
 web(n::Network, name::Symbol) = n.webs[name]
 export class, web
+
+"""
+Extract class index.
+"""
+index(n::Network, class::Symbol) = Networks.class(n, class).index
+export index
 
 """
 Total number of nodes in the network,
