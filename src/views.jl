@@ -73,6 +73,20 @@ Base.setproperty!(n::S, ::Symbol) = err(n, "no property to access.")
 Base.eltype(::Type{S{T}}) where {T} = T
 Base.eltype(::S{T}) where {T} = T
 
+#-------------------------------------------------------------------------------------------
+
+# HERE: craft edges views, then build up towards simplifying components def.
+
+# ==========================================================================================
+struct Error <: Exception
+    type::Type # (View type)
+    message::String
+end
+err(T::Type, m, throw = throw) = throw(Error(T, m))
+err(t, m, throw = throw) = throw(Error(typeof(t), m))
+Base.showerror(io::IO, e::Error) =
+    print(io, "View error ($(type_info(e.type))): $(e.message)")
+
 # ==========================================================================================
 # Display.
 
@@ -177,13 +191,4 @@ end
 
 ns(n) = (n, n > 1 ? "s" : "")
 
-# ==========================================================================================
-struct Error <: Exception
-    type::Type # (View type)
-    message::String
-end
-err(T::Type, m, throw = throw) = throw(Error(T, m))
-err(t, m, throw = throw) = throw(Error(typeof(t), m))
-Base.showerror(io::IO, e::Error) =
-    print(io, "View error ($(type_info(e.type))): $(e.message)")
 end
