@@ -39,7 +39,7 @@ struct NodesView{T}
 end
 S = NodesView # "Self"
 Base.length(v::S) = length(view(v))
-Base.getindex(v::S, i) = getindex(view(v), i) # WARN: leak if entry is mutable?
+Base.getindex(v::S, i) = getindex(view(v), i)
 Base.setindex!(v::S, x, i) = setindex!(view(v), x, i)
 nodes_view(m::Model, class::Symbol, data::Symbol) =
     NodesView(m, N.nodes_view(m._value, class, data), data)

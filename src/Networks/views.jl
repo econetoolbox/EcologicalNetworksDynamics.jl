@@ -42,6 +42,29 @@ Base.setproperty!(::View, ::Symbol, _) = throw("View fields are private.")
 Base.deepcopy(::View) = throw("Deepcopying the view would break its logic.")
 Base.copy(v::View) = v # There is no use in a copy.
 
+"""
+True if a reference leaked from a view cannot be used to break the COW-pattern.
+This is not checked on construction of every view,
+and Networks users are responsible to only emit views for these types.
+"""
+function is_deep_immutable(T::Type)
+    # Special-case these: julia marks them as 'mutable'
+    # but user can't do anything to mutate them, right?
+    # https://julialang.zulipchat.com/#narrow/channel/137791-general/topic/.60ismutabletype.28Symbol.29.20.3D.3D.20true.60.3F/with/559067472
+    T === String && return true
+    T === Symbol && return true
+    if T isa Union
+        (; a, b) = T
+        is_deep_immutable(a) && is_deep_immutable(b)
+    elseif T isa DataType
+        ismutabletype(T) && return false
+        all(I.map(is_deep_immutable, fieldtypes(T)))
+    else
+        throw("Deep mutability analysis unimplemented for $T.")
+    end
+end
+export is_deep_immutable
+
 # Forward to underlying entry.
 n_networks(v::View) = n_networks(entry(v))
 
