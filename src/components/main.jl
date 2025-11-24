@@ -41,28 +41,31 @@ include("./allometry.jl")
 # to each of its fields.
 include("./args_to_fields.jl")
 
+# HERE: try crafting generic components?
+include("./class.jl")
+
 # Central in the model nodes.
 include("./species.jl")
 
 # Trophic links, structuring the whole network.
 # (typical example 'edge' data)
-include("./foodweb.jl")
+#  include("./foodweb.jl")
 
 # Biorates and other values parametrizing the ODE.
 # (typical example 'nodes' data)
-include("./body_mass.jl")
-include("./metabolic_class.jl")
+#  include("./body_mass.jl")
+#  include("./metabolic_class.jl")
 
 # Useful global values to calculate other biorates.
 # (typical example 'graph' data)
-include("./temperature.jl")
+#  include("./temperature.jl")
 
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
 #  include("./hill_exponent.jl") # <- First, good example of 'graph' component. Read first.
-include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
-include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
+#  include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
+#  include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
 #  include("./carrying_capacity.jl")
 #  include("./mortality.jl")
 #  include("./metabolism.jl")

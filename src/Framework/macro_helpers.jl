@@ -23,6 +23,13 @@
 #     @create_value B depends_on_value(A)
 #   end
 #
+# HERE: is `@testset` really the only use case for the above?
+# Because if so, maybe just drop `@testset`.
+# => Yes, it is. Drop it:
+#   - 1. Fake an alternate `@testset` for framework tests.
+#   - 2. Guard macros invocations with a sync lock to ensure the above does not happen.
+#   - 3. Assume it does not and simplify macro codes a LOT then.
+#
 # As a consequence, it cannot be checked that `A` is a valid reference to an existing type
 # during macro expansion.
 # This check must therefore be performed during generated code execution,
