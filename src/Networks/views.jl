@@ -98,28 +98,28 @@ end
 # Index edge views with two dimensions with tuples.
 # Don't splat the tuples for julia not to mistake these views for matrices.
 
-function to_linear(v::EdgesView, i::Int, j::Int)
+function to_linear(v::EdgesView, i::Int, j::Int; a=i, b=j)
     web = Networks.web(v)
     top = web.topology
     for (i, count, what) in ((i, n_sources, "source"), (j, n_targets, "target"))
         n, s = ns(count(top))
         1 <= i <= n || err("Not an index for web $(repr(web.name)) with $n $what$s: $i.")
     end
-    is_edge(top, i, j) || err("Not an edge in web $(repr(web.name)): $((i, j)).")
+    is_edge(top, i, j) || err("Not an edge in web $(repr(web.name)): $(repr((a, b))).")
     edge(top, i, j)
 end
 Base.getindex(v::EdgesView, (i, j)::Tuple{Int,Int}) = getindex(v, to_linear(v, i, j))
 Base.setindex!(v::EdgesView, x, (i, j)::Tuple{Int,Int}) =
     setindex!(v, x, to_linear(v, i, j))
 
-function Base.getindex(v::EdgesView, (s, t)::Tuple{Symbol,Symbol})
+function Base.getindex(v::EdgesView, (a, b)::Tuple{Symbol,Symbol})
     w, e = web(v), entry(v)
     c = network(v).classes
     src, tgt = c[w.source], c[w.target]
     read(e) do array
-        i = src.index[s]
-        j = tgt.index[t]
-        array[to_linear(v, i, j)]
+        i = src.index[a]
+        j = tgt.index[b]
+        array[to_linear(v, i, j; a, b)]
     end
 end
 
