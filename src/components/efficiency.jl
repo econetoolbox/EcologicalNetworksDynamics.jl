@@ -34,7 +34,9 @@ function F.late_check(raw, bp::Raw)
 end
 
 F.expand!(raw, bp::Raw) = expand!(raw, bp.e)
-expand!(raw, e) = raw.biorates.e = e
+function expand!(raw, e)
+    add_field!(raw, :trophic, :efficiency, edges_vec(web(raw, :trophic).topology, e))
+end
 
 #-------------------------------------------------------------------------------------------
 # From a scalar broadcasted to all trophic links.
@@ -48,7 +50,7 @@ export Flat
 F.early_check(bp::Flat) = check(bp.e)
 function F.expand!(raw, bp::Flat)
     (; e) = bp
-    A = @ref raw.trophic.matrix
+    A = to_mask(web(raw, :trophic).topology)
     e = to_template(e, A)
     expand!(raw, e)
 end

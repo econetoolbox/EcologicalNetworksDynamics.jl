@@ -46,7 +46,7 @@ const I = Iterators
 include("./dedicate_framework_to_model.jl")
 
 # Encapsulated views into internal arrays or pseudo-arrays.
-include("./views.jl")
+include("./Views/Views.jl")
 using .Views
 
 # Convenience macro to wire this all together.
