@@ -79,6 +79,12 @@ to the closures used in the API, as it would collapse its logic.
 Julia unfortunately has no straightforward mechanism
 to automatically enforce that it cannot happen.
 
+In particular,
+using views to access individual pieces of data *can* leak references.
+Only allow it if the data is "deeply" immutable in the sense
+of the exposed `is_deep_immutable(::Type)` method.
+Don't produce views into mutable data that could otherwise break the COW-pattern.
+
 [COW]: https://en.wikipedia.org/wiki/Copy-on-write
 [RC]: https://en.wikipedia.org/wiki/Reference_counting
 [Boxing]: https://en.wikipedia.org/wiki/Boxing_(computer_programming)
