@@ -235,7 +235,7 @@ function blueprint_macro(__module__, __source__, input...)
                         implied_blueprint_for(b, singleton_instance(C))
                 end
                 # In case the brought component type is abstract,
-                # define a falllback method in case the components lib
+                # define a fallback method in case the components lib
                 # provided no way of implying a particular subtype of it.
                 # TODO: find a way to raise this error earlier
                 # during field assignment or construction.

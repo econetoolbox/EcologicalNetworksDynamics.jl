@@ -50,12 +50,12 @@ include("./Views/Views.jl")
 using .Views
 
 # Convenience macro to wire this all together.
-include("./expose_data.jl")
+#  include("./expose_data.jl") # XXX: on hold.
 
 #-------------------------------------------------------------------------------------------
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
-include("./components/main.jl")
+#  include("./components/main.jl")
 
 #=
 #-------------------------------------------------------------------------------------------
