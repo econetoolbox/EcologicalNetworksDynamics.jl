@@ -34,6 +34,7 @@ Obtain general nodes counts.
 """
 function n_targets end
 function n_sources end
+Base.size(t::Topology) = (n_sources(t), n_targets(t))
 export n_targets, n_sources
 
 """
@@ -63,6 +64,7 @@ export is_edge
 Total number of edges in the topology.
 """
 function n_edges end
+Base.length(t::Topology) = n_edges(t)
 export n_edges
 
 """

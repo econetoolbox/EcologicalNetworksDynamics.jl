@@ -62,7 +62,7 @@ include("./temperature.jl")
 #  # Easier once the Internals become more consistent?
 #  include("./hill_exponent.jl") # <- First, good example of 'graph' component. Read first.
 include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
-#  include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
+include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
 #  include("./carrying_capacity.jl")
 #  include("./mortality.jl")
 #  include("./metabolism.jl")

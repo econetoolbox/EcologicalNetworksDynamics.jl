@@ -41,3 +41,15 @@ function push_edges!(res, t::SymmetricTopology, i, j, val)
 end
 to_sparse(v::EdgesView; kwargs...) = read(r -> to_sparse(web(v).topology, r), v)
 export to_sparse
+
+"""
+Obtain a matrix mask (binary sparse matrix).
+"""
+function to_mask(t::Topology)
+    res = spzeros(Bool, n_sources(t), n_targets(t))
+    for (i, j) in edges(t)
+        res[i, j] = true
+    end
+    res
+end
+export to_mask
