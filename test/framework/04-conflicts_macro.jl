@@ -10,7 +10,7 @@ export Value
 module Invocations
 using ..ConflictsMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails, @pconffails, @xconffails
+using Main: @sysfails, @conffails
 using Test
 
 # Generate many small "markers" components just to toy with'em.
@@ -28,29 +28,31 @@ end
 
     #---------------------------------------------------------------------------------------
     # Provide enough data for the declaration to be meaningful.
-    @pconffails((@conflicts), ["No macro arguments provided. Example usage:"])
-    @pconffails(
+    @conffails((@conflicts), ["No macro arguments provided. Example usage:"])
+    @conffails(
         (@conflicts A),
         "At least two components are required to declare a conflict not only :A."
     )
-    @pconffails(
+    @conffails(
         (@conflicts(A)),
         "At least two components are required to declare a conflict not only :A."
     )
-    @pconffails(
+    @conffails(
         (@conflicts(A,)),
         "At least two components are required to declare a conflict not only :A."
     )
-    @pconffails(
+    @conffails(
         (@conflicts (A,)), # Watch this subtle semantic difference.
-        "At least two components are required to declare a conflict not only :((A,))."
+        "First conflicting entry: expression does not evaluate to a component:\n\
+         Expression: :((A,))\n\
+         Result: ($A,) ::$Tuple{$(typeof(A))}"
     )
-    @pconffails(
+    @conffails(
         (@conflicts(A => ())),
         "At least two components are required to declare a conflict not only :A."
     )
-    @xconffails((@conflicts(A, A)), "Component $_A cannot conflict with itself.")
-    @xconffails((@conflicts(A, A)), "Component $_A cannot conflict with itself.")
+    @conffails((@conflicts(A, A)), "Component $_A cannot conflict with itself.")
+    @conffails((@conflicts(A, A)), "Component $_A cannot conflict with itself.")
 
     #---------------------------------------------------------------------------------------
     # No conflicts *a priori*, they are declared by the macro invocation.
@@ -72,26 +74,26 @@ end
     @test confs(D) == [(D, C, nothing)]
 
     # Guard against non-components types.
-    @xconffails(
+    @conffails(
         (@conflicts(XX, YY)),
         "First conflicting entry: expression does not evaluate: :XX. \
          (See error further down the exception stack.)"
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(A, YY)),
         "Conflicting entry: expression does not evaluate: :YY. \
          (See error further down the exception stack.)"
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(4 + 5, 6)),
         "First conflicting entry: expression does not evaluate to a component:\n\
          Expression: :(4 + 5)\n\
          Result: 9 ::$Int"
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(A, 6)),
         "Conflicting entry: expression does not evaluate \
          to a component for '$Value':\n\
@@ -99,7 +101,7 @@ end
          Result: 6 ::$Int"
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(Int, Float64)),
         "First conflicting entry: expression does not evaluate \
          to a subtype of $Component:\n\
@@ -107,7 +109,7 @@ end
          Result: $Int ::DataType",
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(A, Float64)), # 'Value' inferred from the first entry.
         "Conflicting entry: expression does not evaluate \
          to a subtype of '$Component':\n\
@@ -115,8 +117,10 @@ end
          Result: $Float64 ::DataType",
     )
 
-    a = 5
-    @xconffails(
+    eval(quote
+        a = 5 # Must be declared at toplevel for evaluation.
+    end)
+    @conffails(
         (@conflicts(a, a)),
         "First conflicting entry: expression does not evaluate \
          to a component:\n\
@@ -124,7 +128,7 @@ end
          Result: 5 ::$Int",
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(A, a)),
         "Conflicting entry: expression does not evaluate \
          to a component for '$Value':\n\
@@ -146,7 +150,7 @@ end
     )
 
     # Invalid reasons specs.
-    @xconffails(
+    @conffails(
         (@conflicts(E, (4 + 5) => (E => "ok"))),
         "Conflicting entry: expression does not evaluate \
          to a component for '$Value':\n\
@@ -154,16 +158,16 @@ end
          Result: 9 ::$Int",
     )
 
-    @pconffails((@conflicts(E, F => (4 + 5))), "Not a list of conflict reasons: :(4 + 5).")
+    @conffails((@conflicts(E, F => (4 + 5))), "Not a list of conflict reasons: :(4 + 5).")
 
-    @xconffails(
+    @conffails(
         (@conflicts(E, F => (E => 4 + 5))),
         "Reason message: expression does not evaluate to a 'String':\n\
          Expression: :(4 + 5)\n\
          Result: 9 ::$Int"
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(E, F => (4 + 5 => "ok"))),
         "Reason reference: expression does not evaluate \
          to a component for '$Value':\n\
@@ -171,37 +175,37 @@ end
          Result: 9 ::$Int",
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(E, F => (A => "A dislikes F."))),
         "Conflict reason does not refer to a component listed \
          in the same @conflicts invocation: $_A => \"A dislikes F.\"."
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(E, F => (F => "F again?"))),
         "Component $_F cannot conflict with itself."
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(E, F => (F => "F again?"))),
         "Component $_F cannot conflict with itself."
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(E, F => (B => "B?"))),
         "Conflict reason does not refer to a component \
          listed in the same @conflicts invocation: $_B => \"B?\"."
     )
 
     # Same, but with a list of reasons.
-    @xconffails(
+    @conffails(
         (@conflicts(E, F, G => (F => "ok", E => 4 + 5))),
         "Reason message: expression does not evaluate to a 'String':\n\
          Expression: :(4 + 5)\n\
          Result: 9 ::$Int"
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(E, F, G => [F => "ok", 4 + 5 => "message"])),
         "Reason reference: expression does not evaluate \
          to a component for '$Value':\n\
@@ -209,7 +213,7 @@ end
          Result: 9 ::$Int",
     )
 
-    @xconffails(
+    @conffails(
         (@conflicts(E, F, G => (F => "ok", A => "A dislikes F."))),
         "Conflict reason does not refer to a component listed \
          in the same @conflicts invocation: $_A => \"A dislikes F.\"."
@@ -258,7 +262,7 @@ end
     @conflicts(A, U, V => (A => "V dislikes A.")) # (U and V were already known).
 
     # .. unless it would override the reason already specified.
-    @xconffails(
+    @conffails(
         (@conflicts(B, U, V => (U => "New reason why V dislikes U."))),
         "Component $_V already declared to conflict with $_U \
          for the following reason:\n  V dislikes U.",
@@ -271,7 +275,7 @@ end
 module Abstracts
 using ..ConflictsMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails, @pconffails, @xconffails
+using Main: @sysfails, @conffails
 using Test
 
 const S = System{Value}
@@ -341,22 +345,22 @@ comps(s) = collect(components(s))
     )
 
     # Forbid vertical conflicts.
-    @xconffails(
+    @conffails(
         @conflicts(G, I),
         "Component $_I cannot conflict with its own super-component $G."
     )
-    @xconffails(
+    @conffails(
         @conflicts(I, G),
         "Component $_I cannot conflict with its own super-component $G."
     )
 
     # Guard against redundant reason specifications.
-    @xconffails(
+    @conffails(
         @conflicts(F, H => (F => "H dislikes F.")),
         "Component $_H already declared to conflict with $_F (as $A) \
          for the following reason:\n  H dislikes A."
     )
-    @xconffails(
+    @conffails(
         @conflicts(D, E => (D => "E dislikes D.")),
         "Component $_E (as $C) already declared to conflict with $_D (as $B) \
          for the following reason:\n  C dislikes B."

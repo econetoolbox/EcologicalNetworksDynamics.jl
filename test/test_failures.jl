@@ -57,7 +57,7 @@ function failswith(src, mod, xp, exception_pattern, expect_expansion_failure)
                 rethrow(e)
             else
                 # Otherwise the macro failed as expected.
-                return :($Test.@test true) # Count as one for the surrounding @testset.
+                return :($mod.@test true) # Count as one for the surrounding @testset.
             end
         else
             @error "Macro unexpectedly failed during expansion: $loc"
@@ -80,7 +80,7 @@ function failswith(src, mod, xp, exception_pattern, expect_expansion_failure)
                     # Evaluate the exception pattern
                     # in the invocation context, at execution time.
                     $_check_exception($exception_pattern, $e)
-                    $Test.@test true # Count as one for the surrounding @testset.
+                    $mod.@test true # Count as one for the surrounding @testset.
                 catch $e
                     @error $"The tested code did not fail as expected: $loc"
                     rethrow($e)
@@ -103,8 +103,11 @@ end
 
 # Common exception checker: only the type (like @test_throws).
 function _check_unwrapped_exception(ExceptionType::Type, e)
-    e isa ExceptionType || error("Expected error type:\n  $ExceptionType\n\
-                                  got instead:\n  $(typeof(e))")
+    e isa ExceptionType || error(
+        "Expected error type:\n  $ExceptionType\n\
+         got instead:\n  $(typeof(e))",
+        throw,
+    )
 end
 
 # Common exception checker: the actual exception value field by field (like @test_throws).
@@ -145,7 +148,7 @@ struct FailedFailure <: Exception
 end
 Base.showerror(io::IO, e::FailedFailure) = print(io, "Failed failure test: $(e.message)")
 # Local override.
-error(mess, throw = rethrow) = throw(FailedFailure(mess))
+error(mess, throw = throw) = throw(FailedFailure(mess))
 
 #-------------------------------------------------------------------------------------------
 # Convenience message checking utils.
