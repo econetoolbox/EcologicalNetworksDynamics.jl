@@ -2,7 +2,6 @@ module TestFramework
 
 # Raise the hack flag to test macros within @testset local scopes.
 using EcologicalNetworksDynamics.Framework
-Framework.LOCAL_MACROCALLS = true
 
 # Run all numbered -.jl files we can find by default, except the current one.
 only = [] # Unless some files are specified here, in which case only run these.
@@ -23,7 +22,5 @@ else
         include(file)
     end
 end
-
-Framework.LOCAL_MACROCALLS = false
 
 end
