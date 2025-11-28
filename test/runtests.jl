@@ -17,6 +17,8 @@ reset = crayon"reset"
 sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$reset")
 
 # Testing utils.
+using EcologicalNetworksDynamics
+EcologicalNetworksDynamics.Framework.dispexp("A")
 include("./test_failures.jl")
 include("./dedicated_test_failures.jl")
 
@@ -26,7 +28,9 @@ sep("Test internals.")
 include("./internals/runtests.jl")
 
 sep("Test System/Blueprints/Components framework.")
+EcologicalNetworksDynamics.Framework.dispexp("B")
 include("./framework/runtests.jl")
+EcologicalNetworksDynamics.Framework.dispexp("C")
 
 sep("Test API utils.")
 include("./topologies.jl")
@@ -44,4 +48,5 @@ sep("Check source code formatting.")
 include("./formatting.jl")
 
 sep("Check compatibility entries.")
+EcologicalNetworksDynamics.Framework.dispexp("D")
 CompatHelperLocal.@check()

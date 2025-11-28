@@ -72,6 +72,7 @@ export niche_model, cascade_model # Or the least.
 # The System/Components framework code used for the API is there.
 # This module is needed for package component developers.
 include("./Framework/Framework.jl")
+Framework.dispexp("U")
 
 #-------------------------------------------------------------------------------------------
 # "Outer" parts: develop user-facing stuff here.
@@ -105,5 +106,6 @@ include("./diversity.jl")
 
 # Avoid Revise interruptions when redefining methods and properties.
 Framework.REVISING = true
+Framework.dispexp("V")
 
 end

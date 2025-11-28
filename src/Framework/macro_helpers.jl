@@ -23,7 +23,18 @@
 #     @create_type A
 #     @create_type B depends_on_type(A)
 #   end
-#
+
+# EXPERIMENT: how often and *when* does that happen: only during tests?
+const LOCK = Ref(false)
+const INTERSPERSED = Ref(0) # ()()()
+const NESTED = Ref(0) # ((()))
+function dispexp(m)
+    println("---------$m------")
+    println("LOCK: $(LOCK[])")
+    println("INTERSPERSED: $(INTERSPERSED[])")
+    println("NESTED: $(NESTED[])")
+end
+
 # As a consequence, it cannot be checked that `A`
 # is a valid reference to an existing type during macro expansion.
 # This check must therefore be performed during generated code execution,

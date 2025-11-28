@@ -69,6 +69,13 @@ export @blueprint
 # Extract function to ease debugging with Revise.
 function blueprint_macro(__module__, __source__, input...)
 
+    if LOCK[]
+        NESTED[] += 1
+    else
+        INTERSPERSED[] += 1
+        LOCK[] = true
+    end
+
     # Push resulting generated code to this variable.
     res = quote end
     push_res!(xp) = xp.head == :block ? append!(res.args, xp.args) : push!(res.args, xp)
@@ -361,6 +368,7 @@ function blueprint_macro(__module__, __source__, input...)
 
     # Avoid confusing/leaky return type from macro invocation.
     push_res!(quote
+        $LOCK[] = false
         nothing
     end)
 
