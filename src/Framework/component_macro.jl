@@ -258,6 +258,7 @@ function component_macro(__module__, __source__, input...)
             end)
         end
         $__module__.eval(str)
+        CompType = invokelatest(() -> $ety)
     end)
 
     # Construct the singleton instance.
@@ -272,9 +273,9 @@ function component_macro(__module__, __source__, input...)
             end
             $__module__.eval(cstr)
             # Connect instance to type.
-            Framework.singleton_instance(::Type{$ety}) = $ena
+            Framework.singleton_instance(::Type{CompType}) = $ena
             # Ensure singleton unicity.
-            (C::Type{$ety})(args...; kwargs...) =
+            (C::Type{CompType})(args...; kwargs...) =
                 throw("Cannot construct other instances of $C.")
         end,
     )

@@ -1,3 +1,9 @@
+# v0.3.x
+
+# Bugfixes
+
+- Fix world count in Framework `@conflicts` macro with Julia 1.12.
+
 # v0.3.1
 
 ## New feature
