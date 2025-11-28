@@ -152,7 +152,9 @@ function declare_conflict(A::CompType, B::CompType, reason::Reason, err)
         end
     end
     # Append new method or override by updating value.
-    current = conflicts_(A) # Creates a new empty value if falling back on default impl.
+    current = invokelatest() do
+        conflicts_(A) # Creates a new empty value if falling back on default impl.
+    end
     if isempty(current)
         # Dynamically add method to lend reference to the value lended by `conflicts_`.
         eval(quote
@@ -179,7 +181,7 @@ function declare_conflicts_clique(err, components::Vector{<:CompType{V}}) where 
             _, current = changes[A]
             current
         else
-            current = conflicts_(A)
+            current = invokelatest(() -> conflicts_(A))
             changes[A] = (isempty(current), current)
             current
         end
