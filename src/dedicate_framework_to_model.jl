@@ -82,6 +82,13 @@ macro propspace(path)
     end
 end
 
+# Convenience macro to alias properties.
+macro alias(a, b)
+    quote
+        F.@alias($a, $b, $Internal)
+    end
+end
+
 # ==========================================================================================
 # The above defines var"get_a.b" method names for nested properties
 # to avoid possible ambiguity with `get_a_b`.
