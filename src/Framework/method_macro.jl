@@ -495,3 +495,24 @@ function eval_dependency(mod, xp, ctx, err)
         check_component_type_or_instance(xp, dep, ctx, err)
     end
 end
+
+# Call later to append aliases.
+# TODO: this is only tested by the above client package yet. Test within framework tests.
+macro alias(a, b, V)
+    a, b = Meta.quot.((a, b))
+    quote
+        $alias_property!($a, $b, $V)
+    end
+end
+export @alias
+function alias_property!(a, b, V)
+    # Extract original.
+    (A, B) = property_space_type.((a, b), (V,))
+    (Pa, Pb) = super.((A, B))
+    (na, nb) = last_in_path.((a, b))
+    fn_a = read_property(Pa, Val(na)) # Checked.
+    fn_a! = possible_write_property(Pa, Val(na))
+    set_read_property!(Pb, nb, fn_a)
+    isnothing(fn_a!) && return
+    set_write_property!(Pb, nb, fn_a!)
+end

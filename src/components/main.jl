@@ -36,6 +36,9 @@ include("./class.jl")
 
 # XXX: this is how we may define this component now. Use to work on `exposed_data`.
 @class_component species Species s
+@alias species.number S
+@alias S richness
+@alias S species.richness
 export Species
 
 # Helpers.
