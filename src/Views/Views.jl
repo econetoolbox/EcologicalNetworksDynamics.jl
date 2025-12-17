@@ -16,7 +16,10 @@ with the following intent:
       + Enforce underlying COW pattern.
       + Avoids leaking references to underlying data.
 
-Views mostly wrap a Networks.View along with a reference to its model.
+"Shared" views mostly wrap a Networks.View along with a reference to its model.
+"Owned" views on the other hand wrap their own vector/matrix data,
+along with the references required for guarded integer/label indexing into them.
+HERE: fit owned views into the module.
 """
 module Views
 

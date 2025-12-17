@@ -55,6 +55,7 @@ using .Views
 #-------------------------------------------------------------------------------------------
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
+argerr(mess) = throw(ArgumentError(mess))
 include("./components/main.jl")
 
 #=

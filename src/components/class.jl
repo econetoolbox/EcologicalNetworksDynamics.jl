@@ -94,11 +94,10 @@ function define_class_component(
 
         module $(Symbol(Class, :Methods)) # (to not pollute invocation scope)
         using OrderedCollections
-        import EcologicalNetworksDynamics: Internal, Networks, Framework
+        import EcologicalNetworksDynamics: Internal, Networks, Framework, argerr
         using .Framework
         using .Networks
         const $Class = $mod.$Class
-        argerr(mess) = throw(ArgumentError(mess))
 
         # Nodes counts and nodes labels.
         # The 'ref' variant is more efficient but unexposed.

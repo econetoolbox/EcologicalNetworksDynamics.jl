@@ -14,7 +14,6 @@ using Test
 using ..TestUser
 
 const EN = EcologicalNetworksDynamics
-import .EN: WriteError
 
 # Many small similar components tests files, although they easily diverge.
 only = ["./data_components/species.jl"] # Only run these if specified.

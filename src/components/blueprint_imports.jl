@@ -12,18 +12,19 @@ import .EN:
     AliasingDicts,
     Blueprint,
     SparseMatrix,
-    check_template,
-    check_value,
-    dense_nodes_allometry,
-    sparse_edges_allometry,
-    sparse_nodes_allometry,
+    # XXX: reintroduce as needed from shared component utils.
+    #  check_template,
+    #  check_value,
+    #  dense_nodes_allometry,
+    #  sparse_edges_allometry,
+    #  sparse_nodes_allometry,
     @get,
     @ref
 import .F: @blueprint, checkfails, Brought, checkrefails
 
 using .EN.Networks
 using .EN.AliasingDicts
-using .EN.AllometryApi
+#  using .EN.AllometryApi
 using .EN.GraphDataInputs
 using .EN.KwargsHelpers
 

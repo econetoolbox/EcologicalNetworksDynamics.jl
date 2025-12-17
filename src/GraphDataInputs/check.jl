@@ -68,7 +68,7 @@ end
 check_size(s, v, e::Integer) = check_size(s, v, (e,))
 check_size(s, v, ::Type{Any}) = check_size(s, v, (Any,))
 
-# This being a macro is useful so the variable name can be reported one check failure.
+# This being a macro is useful so the variable name can be reported on check failure.
 macro check_size(var::Symbol, size)
     _check_size(var, size)
 end
