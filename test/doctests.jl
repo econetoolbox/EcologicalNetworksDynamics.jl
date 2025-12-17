@@ -10,6 +10,9 @@ DocMeta.setdocmeta!(
     recursive = true,
 )
 
-doctest(EcologicalNetworksDynamics)
+doctest(
+    EcologicalNetworksDynamics;
+    manual = false, # XXX: restore once all refactoring is over.
+)
 
 end

@@ -33,16 +33,8 @@ sep("Test API utils.")
 sep("Test user-facing behaviour.")
 #  include("./user/runtests.jl")
 
-#= Silent all this during internals refactoring.
-
-# The whole testing suite has been moved to "internals"
-# while we are focusing on constructing the library API.
-sep("Test internals.")
-include("./internals/runtests.jl")
-
-sep("Run doctests (DEACTIVATED while migrating api from 'Internals').")
-#  include("./doctests.jl")
-=#
+sep("Run doctests.")
+include("./doctests.jl")
 
 sep("Check source code formatting.")
 include("./formatting.jl")
