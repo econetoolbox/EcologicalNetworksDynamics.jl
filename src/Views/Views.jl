@@ -8,7 +8,7 @@ with the following intent:
       + Edge-level data behave almost as dense/sparse matrices.
       + Index with class/web local integers.
       + Index with absolute labels symbols.
-      + Convenience extraction under proper dense/sparse vectors/matrices.
+      + Convenience extraction as proper dense/sparse vectors/matrices.
 
   - Protection:
 

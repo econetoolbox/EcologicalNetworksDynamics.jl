@@ -15,9 +15,9 @@ function define_class_component(
     Class::Symbol,
     short_prefix::Symbol,
 )
-    Class_ = Symbol(Class, :Blueprints) # Blueprints module name.
+    Class_ = Symbol(Class, :_) # Blueprints module name.
     _Class = Symbol(:_, Class) # Component type name.
-    sclass, sp = Meta.quot.((class, short_prefix))
+    sclass, sClass, sp = Meta.quot.((class, Class, short_prefix))
     xp = quote
 
         # ==================================================================================
@@ -86,6 +86,62 @@ function define_class_component(
         # Build from a number or default to names.
         (::$_Class)(n::Integer) = $Class.Number(n)
         (::$_Class)(names) = $Class.Names(names)
+
+        # ==================================================================================
+        # Exposing data.
+
+        @propspace $class
+
+        module $(Symbol(Class, :Methods)) # (to not pollute invocation scope)
+        using OrderedCollections
+        import EcologicalNetworksDynamics: Internal, Networks, Framework
+        using .Framework
+        using .Networks
+        const $Class = $mod.$Class
+        argerr(mess) = throw(ArgumentError(mess))
+
+        # Nodes counts and nodes labels.
+        # The 'ref' variant is more efficient but unexposed.
+        get_number(m::Internal) = n_nodes(m, $sclass)
+        get_names(m::Internal) = collect(ref_names(m))
+        ref_names(m::Internal) = keys(ref_index(m))
+        @method get_number depends($Class) read_as($class.number)
+        @method ref_names depends($Class) read_as($class._names)
+        @method get_names depends($Class) read_as($class.names)
+
+        # Ordered index.
+        ref_index(m::Internal) = class(m, $sclass).index
+        get_index(m::Internal) = OrderedDict(ref_index(m))
+        @method ref_index depends($Class) read_as($class._index)
+        @method get_index depends($Class) read_as($class.index)
+
+        # Get a closure able to convert node indices the corresponding labels.
+        function label(m::Internal)
+            names = get_names(m)
+            n = length(names)
+            (i) -> begin
+                if 1 <= i <= n
+                    names[i]
+                else
+                    (are, s) = n > 1 ? ("are", "s") : ("is", "")
+                    argerr("Invalid index ($(i)) when there $are $n $($sclass) name$s.")
+                end
+            end
+        end
+        # (This technically leaks a reference to the internal as `m.$class.label.raw`,
+        # but closure captures being accessible as fields is an implementation detail
+        # and no one should rely on it).
+        @method label depends($Class) read_as($class.label)
+        end
+
+        # ==================================================================================
+        # Display.
+
+        function Framework.shortline(io::IO, model::Model, ::$_Class)
+            names = model.$class._names
+            n = length(names)
+            print(io, "$($sClass): $n ($(join_elided(names, ", ")))")
+        end
 
     end
     mod.eval.(xp.args)

@@ -33,6 +33,7 @@
 
 # Templates for typical network components.
 include("./class.jl")
+
 # XXX: this is how we may define this component now. Use to work on `exposed_data`.
 @class_component species Species s
 export Species
