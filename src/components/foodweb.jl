@@ -6,14 +6,14 @@
 # and values checks are performed against this layer.
 
 # (reassure JuliaLS)
-(false) && (local Foodweb, _Foodweb, trophic)
+(false) && (local Foodweb, _Foodweb)
 
 # ==========================================================================================
 # Blueprints.
 
 module Foodweb_
-include("blueprint_modules.jl")
-include("blueprint_modules_identifiers.jl")
+include("blueprint_imports.jl")
+include("modules_identifiers.jl")
 import .EN: _Species, Species
 
 #-------------------------------------------------------------------------------------------
@@ -69,12 +69,12 @@ export Adjacency
 
 function F.late_check(raw, bp::Adjacency)
     (; A) = bp
-    index = class(raw, :species).index
+    index = @ref raw.species.index
     @check_list_refs A :species index
 end
 
 function F.expand!(raw, bp::Adjacency)
-    index = class(raw, :species).index
+    index = @ref raw.species.index
     A = to_sparse_matrix(bp.A, index, index)
     expand_from_matrix!(raw, A)
 end
@@ -134,6 +134,7 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
                 tol = take_or!(:tol_C, 0.1 * C)
                 no_unused_arguments()
 
+                    # HERE: time to extract these from old internals.
                     #! format: off
                     Internals.model_foodweb_from_C(
                         Internals.niche_model,
@@ -185,44 +186,54 @@ end
 # ==========================================================================================
 # Foodweb queries.
 
+module FoodwebMethods # (to not pollute global scope)
+
+using SparseArrays
+include("./modules_identifiers.jl")
+import EcologicalNetworksDynamics:
+    EcologicalNetworksDynamics,
+    Framework,
+    Internal,
+    Networks,
+    argerr,
+    @method,
+    @get,
+    @ref,
+    @propspace
+using .Framework
+using .Networks
+import ..Foodweb
+
+(false) && (local trophic) # (reassure JuliaLS)
 @propspace trophic
 
-# Topology as a matrix.
-@expose_data edges begin
-    property(A, trophic.A, trophic.matrix)
-    get(TrophicMatrix{Bool}, sparse, "trophic link")
-    ref(raw -> raw._foodweb.A)
-    @species_index
-    depends(Foodweb)
-end
+#-------------------------------------------------------------------------------------------
+# Basic queries.
 
-# Number of links.
-@expose_data graph begin
-    property(trophic.n_links)
-    ref_cached(raw -> sum(@ref raw.trophic.matrix))
-    get(raw -> @ref raw.trophic.n_links)
-    depends(Foodweb)
-end
+# HERE: the obtained masks should be indexable by species names to not break, right?
+# Wrap into view bounds to topology + index?
 
-# Trophic levels.
-@expose_data nodes begin
-    property(trophic.levels)
-    get(TrophicLevels{Float64}, "species")
-    ref_cached(raw -> Internals.trophic_levels(@ref raw.trophic.matrix))
-    @species_index
-    depends(Foodweb)
-end
+web(m::Internal) = Networks.web(m, :trophic)
+topology(m::Internal) = web(m).topology
+mask(m::Internal) = m |> topology |> to_mask
+number(m::Internal) = m |> topology |> n_edges
+levels(m::Internal) = m |> Internals.trophic_levels # HERE: extract from internals.
+@method topology depends(Foodweb) read_as(trophic._topology)
+@method mask depends(Foodweb) read_as(A, trophic.A, trophic.matrix, trophic.mask)
+@method number depends(Foodweb) read_as(trophic.n_links, trophic.n_edges)
 
-# More elaborate queries.
+#-------------------------------------------------------------------------------------------
+# Elaborate queries.
 # TODO: abstract over the following to reduce boilerplate.
 # as it all just stems from sparse boolean node information.
-include("./producers-consumers.jl")
-include("./preys-tops.jl")
+#  include("./producers-consumers.jl")
+#  include("./preys-tops.jl")
 
 #-------------------------------------------------------------------------------------------
 # Get a sparse matrix highlighting only the producer-to-producer links.
+# HERE: these also need to be indexed by labels. Wrap into a view bound to topology + index?
 
-function calculate_producers_matrix(raw)
+function producers_matrix(raw::Internal)
     S = @get raw.S
     prods = @get raw.producers.indices
     res = spzeros(Bool, S, S)
@@ -231,20 +242,13 @@ function calculate_producers_matrix(raw)
     end
     res
 end
-
-@expose_data edges begin
-    property(producers.matrix)
-    get(ProducersMatrix{Bool}, sparse, "producer link")
-    ref_cached(calculate_producers_matrix)
-    @species_index
-    depends(Foodweb)
-end
+@method producers_matrix depends(Foodweb) read_as(producers.matrix)
 
 #-------------------------------------------------------------------------------------------
 # Get a sparse matrix highlighting only 'herbivorous' trophic links: consumers-to-producers.
 #                                    or 'carnivorous' trophic links: consumers-to-consumers.
 
-function calculate_herbivory_matrix(raw)
+function herbivory_matrix(raw::Internal)
     S = @get raw.S
     A = @ref raw.A
     res = spzeros(Bool, S, S)
@@ -254,8 +258,9 @@ function calculate_herbivory_matrix(raw)
     end
     res
 end
+@method herbivory_matrix depends(Foodweb) read_as(trophic.herbivory_matrix)
 
-function calculate_carnivory_matrix(raw)
+function carnivory_matrix(raw::Internal)
     S = @get raw.S
     A = @ref raw.A
     res = spzeros(Bool, S, S)
@@ -265,21 +270,8 @@ function calculate_carnivory_matrix(raw)
     end
     res
 end
+@method carnivory_matrix depends(Foodweb) read_as(trophic.carnivory_matrix)
 
-@expose_data edges begin
-    property(trophic.herbivory_matrix)
-    get(HerbivoryMatrix{Bool}, sparse, "herbivorous link")
-    ref_cached(calculate_herbivory_matrix)
-    @species_index
-    depends(Foodweb)
-end
-
-@expose_data edges begin
-    property(trophic.carnivory_matrix)
-    get(CarnivoryMatrix{Bool}, sparse, "carnivorous link")
-    ref_cached(calculate_carnivory_matrix)
-    @species_index
-    depends(Foodweb)
 end
 
 # ==========================================================================================
