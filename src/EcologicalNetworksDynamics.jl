@@ -55,7 +55,7 @@ using .Views
 #-------------------------------------------------------------------------------------------
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
-#  include("./components/main.jl")
+include("./components/main.jl")
 
 #=
 #-------------------------------------------------------------------------------------------
