@@ -31,18 +31,23 @@
 #   - Behaviour (graph data that actually represents *code* to run the model).
 # XXX: This is now being considered: see `class.jl` for 'Nodes' components.
 
+# Helpers.
+include("./macros_keywords.jl")
+
 # Templates for typical network components.
 include("./class.jl")
 
-# XXX: this is how we may define this component now. Use to work on `exposed_data`.
-@class_component species Species s
-@alias species.number S
-@alias S richness
-@alias S species.richness
-export Species
+# Central in the model nodes.
+# First example of a nodes class.
+include("./species.jl")
 
+# Trophic links, structuring the whole network.
+# First example of an edges web.
+include("./foodweb.jl")
+
+# XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
+# ==========================================================================================
 # Helpers.
-#  include("./macros_keywords.jl")
 #  include("./shared.jl")
 #  include("./allometry.jl")
 
@@ -50,13 +55,6 @@ export Species
 # This utils factorizes how args/kwargs are passed from its inner constructor
 # to each of its fields.
 #  include("./args_to_fields.jl")
-
-# Central in the model nodes.
-#  include("./species.jl")
-
-# Trophic links, structuring the whole network.
-# (typical example 'edge' data)
-#  include("./foodweb.jl")
 
 # Biorates and other values parametrizing the ODE.
 # (typical example 'nodes' data)
