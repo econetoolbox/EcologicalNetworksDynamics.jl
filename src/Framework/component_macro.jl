@@ -253,7 +253,7 @@ shortline(io, B::Type{<:Blueprint}) = @invoke show(io, B::DataType)
 function Base.show(io::IO, ::MIME"text/plain", c::Component)
     it = crayon"italics"
     V = system_value_type(c)
-    print(io, "$component_color$C$reset $grayed(component for $V")
+    print(io, "$component_color$c$reset $grayed(component for $V")
     names = fieldnames(typeof(c))
     if isempty(names)
         print(io, " with no base blueprint")

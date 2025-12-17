@@ -29,23 +29,26 @@
 #   - Dense edges data.
 #   - Sparse (templated) edges data.
 #   - Behaviour (graph data that actually represents *code* to run the model).
-# XXX: time to consider that: factorize? Generate components another way?
+# XXX: This is now being considered: see `class.jl` for 'Nodes' components.
+
+# Templates for typical network components.
+include("./class.jl")
+# XXX: this is how we may define this component now. Use to work on `exposed_data`.
+@class_component species Species s
+export Species
 
 # Helpers.
-include("./macros_keywords.jl")
-include("./shared.jl")
-include("./allometry.jl")
+#  include("./macros_keywords.jl")
+#  include("./shared.jl")
+#  include("./allometry.jl")
 
 # Behaviour blueprints typically "optionally bring" other blueprints.
 # This utils factorizes how args/kwargs are passed from its inner constructor
 # to each of its fields.
-include("./args_to_fields.jl")
-
-# HERE: try crafting generic components?
-include("./class.jl")
+#  include("./args_to_fields.jl")
 
 # Central in the model nodes.
-include("./species.jl")
+#  include("./species.jl")
 
 # Trophic links, structuring the whole network.
 # (typical example 'edge' data)
