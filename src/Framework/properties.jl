@@ -71,8 +71,6 @@ names_sequence(p::PropertyTarget) = names_sequence(typeof(p))
 
 # Factorize for reuse with properties spaces.
 function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
-    # Authorize direct accesses to private fields.
-    pname in fieldnames(P) && return getfield(target, pname)
     # Search property method.
     fn = read_property(P, Val(pname))
     # Check for required components availability.
@@ -86,8 +84,6 @@ function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
 end
 
 function Base.setproperty!(target::P, pname::Symbol, rhs) where {P<:PropertyTarget}
-    # Authorize direct accesses to private fields.
-    pname in fieldnames(P) && return setfield!(target, pname, rhs)
     # Search property method.
     fn = readwrite_property(P, Val(pname))
     # Check for required components availability.

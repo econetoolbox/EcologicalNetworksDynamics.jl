@@ -211,7 +211,7 @@ function check!(add::AddState, node::Node)
         for (C_as, Other, reason) in all_conflicts(C)
             if has_component(target, Other)
                 (Other, Other_abstract) =
-                    isabstracttype(Other) ? (first(target._abstract[Other]), Other) :
+                    isabstracttype(Other) ? (first(abstract(target)[Other]), Other) :
                     (Other, nothing)
                 throw(
                     ConflictWithSystemComponent(
@@ -407,7 +407,7 @@ function add!(
 
             # Last check hook against current system value.
             try
-                late_check(system._value, blueprint, system)
+                late_check(value(system), blueprint, system)
             catch e
                 if e isa CheckError
                     rethrow(HookCheckFailure(node, e.message, true))
@@ -418,7 +418,7 @@ function add!(
 
             # Expand.
             try
-                expand!(system._value, blueprint, system)
+                expand!(value(system), blueprint, system)
             catch _
                 throw(ExpansionAborted(node))
             end
@@ -426,7 +426,7 @@ function add!(
             # Record.
             just_added = Set()
             for C in componentsof(blueprint)
-                crt, abs = system._concrete, system._abstract
+                crt, abs = concrete(system), abstract(system)
                 push!(crt, C)
                 push!(just_added, C)
                 for sup in supertypes(C)
@@ -444,7 +444,7 @@ function add!(
                 if isempty(remaining)
                     for trig in trigs
                         try
-                            trig(system._value, system)
+                            trig(value(system), system)
                         catch _
                             throw(TriggerAborted(node, combination))
                         end
