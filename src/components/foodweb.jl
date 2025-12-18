@@ -50,6 +50,8 @@ function expand_from_matrix!(raw, A)
     add_subclass!(raw, :producers, :species, sinks_mask(top))
     add_subclass!(raw, :preys, :species, nonsources_mask(top))
     add_subclass!(raw, :consumers, :species, nonsinks_mask(top))
+    # And also new webs with special trophic links highlighted.
+    # XXX: import herbivory etc. here.
 end
 
 #-------------------------------------------------------------------------------------------
@@ -194,7 +196,9 @@ import EcologicalNetworksDynamics:
     EcologicalNetworksDynamics,
     Framework,
     Internal,
+    Model,
     Networks,
+    Views,
     argerr,
     @method,
     @get,
@@ -202,25 +206,32 @@ import EcologicalNetworksDynamics:
     @propspace
 using .Framework
 using .Networks
+using .Views
 import ..Foodweb
 
-(false) && (local trophic) # (reassure JuliaLS)
+(false) && (local trophic, producers, consumers) # (reassure JuliaLS)
 @propspace trophic
+@propspace producers
+@propspace consumers
 
 #-------------------------------------------------------------------------------------------
 # Basic queries.
 
-# HERE: the obtained masks should be indexable by species names to not break, right?
-# Wrap into view bounds to topology + index?
-
 web(m::Internal) = Networks.web(m, :trophic)
 topology(m::Internal) = web(m).topology
-mask(m::Internal) = m |> topology |> to_mask
 number(m::Internal) = m |> topology |> n_edges
+mask(::Internal, m::Model) = edges_mask_view(m, :trophic)
 levels(m::Internal) = m |> Internals.trophic_levels # HERE: extract from internals.
 @method topology depends(Foodweb) read_as(trophic._topology)
 @method mask depends(Foodweb) read_as(A, trophic.A, trophic.matrix, trophic.mask)
 @method number depends(Foodweb) read_as(trophic.n_links, trophic.n_edges)
+
+producers(::Internal, m::Model) = nodes_mask_view(m, (:producers, :species))
+n_producers(m::Internal) = n_nodes(m, :producers)
+@method n_producers depends(Foodweb) read_as(producers.number)
+@method producers depends(Foodweb) read_as(producers.mask)
+# HERE: figure a way to automatically "expose" class names, class mask & web mask,
+# factorizing the above boilerplate.
 
 #-------------------------------------------------------------------------------------------
 # Elaborate queries.
@@ -231,7 +242,7 @@ levels(m::Internal) = m |> Internals.trophic_levels # HERE: extract from interna
 
 #-------------------------------------------------------------------------------------------
 # Get a sparse matrix highlighting only the producer-to-producer links.
-# HERE: these also need to be indexed by labels. Wrap into a view bound to topology + index?
+# HERE: upgrade to a derived extra web within the network.
 
 function producers_matrix(raw::Internal)
     S = @get raw.S

@@ -47,6 +47,7 @@ include("./dedicate_framework_to_model.jl")
 
 # Encapsulated views into internal arrays or pseudo-arrays.
 include("./Views/Views.jl")
+export extract
 using .Views
 
 # Convenience macro to wire this all together.

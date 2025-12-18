@@ -31,4 +31,9 @@ end
     using .Networks
 end
 
+@static if (false)
+    include("../Views/Views.jl")
+    using .views
+end
+
 include("./allometry_identifiers.jl")
