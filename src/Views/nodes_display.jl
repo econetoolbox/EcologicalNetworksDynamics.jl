@@ -1,33 +1,59 @@
-function inline_info(v::NodesView)
-    class = V.class(v).name
+function inline_info(v::NodesDataView)
+    class = classname(v)
     field = fieldname(v)
     "<$class:$field>"
 end
 
-function inline_info(v::ExpandedNodesView)
-    class = V.class(v).name
+function inline_info(v::ExpandedNodesDataView)
+    class = classname(v)
     parent = V.parent(v)
     parent = isnothing(parent) ? ":" : parent
     field = fieldname(v)
     "<$parent:$class:$field>"
 end
 
-function display_info(v::NodesView)
-    T = eltype(v)
-    info = inline_info(v)
-    "NodesView$info{$T}"
+function inline_info(v::NodesNamesView)
+    class = classname(v)
+    "<$class>"
 end
 
-function display_info(v::ExpandedNodesView)
-    T = eltype(v)
-    info = inline_info(v)
-    "ExpandedNodesView$info{$T}"
+function inline_info(v::NodesMaskView)
+    class = classname(v)
+    parent = V.parent(v)
+    parent = isnothing(parent) ? ":" : parent
+    "<$parent:$class>"
 end
 
-type_info(::Type{<:NodesView}) = "nodes"
-type_info(::Type{<:ExpandedNodesView}) = "sparse nodes"
+function display_info(v::NodesDataView)
+    T = eltype(v)
+    info = inline_info(v)
+    "NodesDataView$info{$T}"
+end
 
-function Base.show(io::IO, v::NodesView)
+function display_info(v::ExpandedNodesDataView)
+    T = eltype(v)
+    info = inline_info(v)
+    "ExpandedNodesDataView$info{$T}"
+end
+
+function display_info(v::NodesNamesView)
+    T = eltype(v)
+    info = inline_info(v)
+    "NodesNamesView$info{$T}"
+end
+
+function display_info(v::NodesMaskView)
+    T = eltype(v)
+    info = inline_info(v)
+    "NodesMaskView$info{$T}"
+end
+
+type_info(::Type{<:NodesDataView}) = "nodes"
+type_info(::Type{<:ExpandedNodesDataView}) = "sparse nodes"
+type_info(::Type{<:NodesNamesView}) = "nodes names"
+type_info(::Type{<:NodesMaskView}) = "nodes mask"
+
+function Base.show(io::IO, v::NodesDataView)
     print(io, inline_info(v))
     print(io, '[')
     read(entry(v)) do raw
@@ -41,7 +67,7 @@ function Base.show(io::IO, v::NodesView)
     print(io, ']')
 end
 
-function Base.show(io::IO, v::ExpandedNodesView)
+function Base.show(io::IO, v::ExpandedNodesDataView)
     print(io, inline_info(v))
     print(io, '[')
     n = length(v)
@@ -64,9 +90,39 @@ function Base.show(io::IO, v::ExpandedNodesView)
     print(io, ']')
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::NodesView)
+function Base.show(io::IO, v::NodesNamesView)
+    print(io, inline_info(v))
+    print(io, '[')
+    for (i, name) in enumerate(index(v).reverse)
+        print(io, repr(name))
+        if i < length(v)
+            print(io, ", ")
+        end
+    end
+    print(io, ']')
+end
+
+function Base.show(io::IO, v::NodesMaskView)
+    print(io, inline_info(v))
+    print(io, '[')
+    n = length(v)
+    r = restriction(v)
+    for i_parent in 1:n
+        if i_parent in r
+            print(io, '1')
+        else
+            print(io, '·')
+        end
+        if i_parent < n
+            print(io, ", ")
+        end
+    end
+    print(io, ']')
+end
+
+function Base.show(io::IO, ::MIME"text/plain", v::NodesDataView)
     print(io, display_info(v))
-    (n, s) = ns(length(v))
+    n, s = ns(length(v))
     print(io, " ($n value$s)")
     read(entry(v)) do raw
         for v in raw
@@ -76,10 +132,10 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodesView)
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::ExpandedNodesView)
+function Base.show(io::IO, ::MIME"text/plain", v::ExpandedNodesDataView)
     print(io, display_info(v))
     mask = N.mask(network(v), class(v).name, parent(v))
-    (n, _) = ns(length(v))
+    n, _ = ns(length(v))
     read(entry(v)) do raw
         (nz, s) = ns(length(raw))
         print(io, " ($nz/$n value$s)")
@@ -93,6 +149,32 @@ function Base.show(io::IO, ::MIME"text/plain", v::ExpandedNodesView)
             else
                 print(io, '·')
             end
+        end
+    end
+end
+
+function Base.show(io::IO, ::MIME"text/plain", v::NodesNamesView)
+    print(io, display_info(v))
+    n, s = ns(length(v))
+    print(io, " ($n value$s)")
+    for name in index(v).reverse
+        print(io, "\n ")
+        print(io, repr(name))
+    end
+end
+
+function Base.show(io::IO, ::MIME"text/plain", v::NodesMaskView)
+    print(io, display_info(v))
+    r = restriction(v)
+    n, _ = ns(length(v))
+    (nr, s) = ns(length(r))
+    print(io, " ($nr/$n value$s)")
+    for i_parent in 1:n
+        print(io, '\n')
+        if i_parent in r
+            print(io, '1')
+        else
+            print(io, '·')
         end
     end
 end
