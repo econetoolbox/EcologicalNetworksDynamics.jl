@@ -94,29 +94,32 @@ function define_class_component(
 
         module $(Symbol(Class, :Methods)) # (to not pollute invocation scope)
         using OrderedCollections
-        import EcologicalNetworksDynamics: Internal, Networks, Framework, argerr
-        using .Framework
+        import EcologicalNetworksDynamics:
+            Internal, Model, Networks, Framework, Views, argerr
         using .Networks
+        using .Framework
+        using .Views
         const $Class = $mod.$Class
 
         # Nodes counts and nodes labels.
         # The 'ref' variant is more efficient but unexposed.
         get_number(m::Internal) = n_nodes(m, $sclass)
-        get_names(m::Internal) = collect(ref_names(m))
-        ref_names(m::Internal) = keys(ref_index(m))
+        ref_names(m::Internal) = class(m, $sclass).index.reverse
+        get_names(::Internal, m::Model) = nodes_names_view(m, $sclass)
         @method get_number depends($Class) read_as($class.number)
         @method ref_names depends($Class) read_as($class._names)
         @method get_names depends($Class) read_as($class.names)
 
         # Ordered index.
-        ref_index(m::Internal) = class(m, $sclass).index
-        get_index(m::Internal) = OrderedDict(ref_index(m))
+        ref_index(m::Internal) = class(m, $sclass).index.forward
+        get_index(m::Internal) = deepcopy(ref_index(m))
         @method ref_index depends($Class) read_as($class._index)
         @method get_index depends($Class) read_as($class.index)
 
+        # XXX: on hold: let user build this from index/names if they need.
         # Get a closure able to convert node indices the corresponding labels.
         function label(m::Internal)
-            names = get_names(m)
+            names = ref_names(m)
             n = length(names)
             (i) -> begin
                 if 1 <= i <= n

@@ -1,26 +1,106 @@
+(false) && using EcologicalNetworksDynamics.Networks # (fix JuliaLS missing refs)
+
 """
 Direct view into web data,
 either dense or sparse depending on underlying topology.
 """
-struct EdgesView{T}
+struct EdgesDataView{T}
     model::Model
     view::N.EdgesView{T}
     fieldname::Symbol
 end
-S = EdgesView
+S = EdgesDataView
 N.web(v::S) = v |> view |> web
-source(v::S) = web(v).source
-target(v::S) = web(v).target
-topology(v::S) = web(v).topology
-Base.size(v::S) = v |> topology |> size
-Base.length(v::S) = v |> topology |> length
 edges_view(m::Model, web::Symbol, data::Symbol) =
-    EdgesView(m, N.edges_view(m._value, web, data), data)
+    EdgesDataView(m, N.edges_view(value(m), web, data), data)
+Base.getindex(v::S, i, j) = getindex(view(v), (i, j))
+Base.setindex!(v::S, x, i, j) = setindex!(view(v), x, (i, j))
+
+function extract(v::S)
+    T = eltype(v)
+    n, m = size(v)
+    res = spzeros(T, (n, m))
+    for (i, sub) in N.forward(topology(v))
+        for j in sub
+            res[i, j] = v[i, j]
+        end
+    end
+    res
+end
+
+# TODO: do we need an ExpandedEdgesView? Maybe refactor components first to figure this.
+
+# ==========================================================================================
+# Topology mask.
+
+"""
+Indirect, immutable view into edges topology (typically masks).
+"""
+struct EdgesMaskView
+    model::Model
+    web::N.Web
+end
+S = EdgesMaskView # "Self"
+web(v::S) = getfield(v, :web)
+topology(v::S) = web(v).topology
+Base.setindex!(v::S, _...) = err(v, "Cannot mutate edges topology.")
+Base.getindex(v::S, i::Int, j::Int) = N.is_edge(topology(v), check_range(v, i, j)...)
+function Base.getindex(v::S, a::Symbol, b::Symbol)
+    check_range(v, a, b)
+    N.is_edge(topology(v), source_index(v).forward[a], target_index(v).forward[b])
+end
+edges_mask_view(m::Model, web::Symbol) = EdgesMaskView(m, N.web(value(m), web))
+export edges_mask_view
+function extract(v::S)
+    res = spzeros(Bool, size(v))
+    for (i, sub) in v |> topology |> N.forward
+        for (j, _) in sub
+            res[i, j] = true
+        end
+    end
+    res
+end
+Base.eltype(::Type{EdgesMaskView}) = Bool
+
+# ==========================================================================================
+# Common to all edge views.
+
+EdgesView = Union{EdgesDataView,EdgesMaskView}
+S = EdgesView
+webname(v::S) = web(v).name
+topology(v::S) = web(v).topology
+sourcename(v) = web(v).source
+targetname(v) = web(v).target
+source(v::S) = N.class(network(v), sourcename(v))
+target(v::S) = N.class(network(v), targetname(v))
+source_index(v::S) = source(v).index
+target_index(v::S) = target(v).index
+Base.size(v::S) = v |> web |> size
+Base.length(v::S) = v |> topology |> length
 inderr(v::S, i) = err(v, "Two indices are required to index into webs. Received: ($i,).")
 Base.getindex(v::S, i) = inderr(v, i)
 Base.setindex!(v::S, _, i) = inderr(v, i)
-Base.getindex(v::S, i, j) = getindex(view(v), (i, j))
-Base.setindex!(v::S, x, i, j) = setindex!(view(v), x, (i, j))
-export edges_view
 
-# TODO: do we need an ExpandedEdgesView? Maybe refactor components first to figure this.
+function check_range(v::S, i::Int, j::Int)
+    for (i, class) in [(i, source(v)), (j, target(v))]
+        n = length(class)
+        i in 1:n || err(
+            v,
+            "Cannot index with $((i, j)) \
+             into a web view for $(repr(webname(v))) of size $(size(web(v))).",
+        )
+    end
+    (i, j)
+end
+
+function check_range(v::S, a::Symbol, b::Symbol)
+    for (side, l, class) in [("source", a, source(v)), ("target", b, target(v))]
+        l in keys(class.index.forward) || err(
+            v,
+            "Cannot index with $(repr((a, b))) \
+             into a web view for $(repr(webname(v))) data \
+             because $(repr(l)) is not a node label in $side class $(repr(class.name)).",
+        )
+    end
+    (a, b)
+end
