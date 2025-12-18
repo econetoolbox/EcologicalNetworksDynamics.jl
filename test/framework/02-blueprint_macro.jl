@@ -19,7 +19,7 @@ struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 Base.getproperty(s::Framework.System{Value}, name::Symbol) =
-    name in fieldnames(System) ? getfield(s, name) : s._value.d[name]
+    name in fieldnames(System) ? getfield(s, name) : value(s).d[name]
 export Value
 
 # ==========================================================================================

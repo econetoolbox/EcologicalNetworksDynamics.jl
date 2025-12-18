@@ -53,7 +53,7 @@ import .EN: WriteError
 
     # Write through the view.
     bm[1] = 10
-    @test bm[1] == m._value._foodweb.M[1] == 10
+    @test bm[1] == EN.Framework.value(m)._foodweb.M[1] == 10
     bm[1:2] .= 20
     @test bm == [20, 20, 3]
     bm .*= 10

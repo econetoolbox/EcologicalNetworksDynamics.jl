@@ -36,7 +36,7 @@
 # The generated wrapper method then elides this extra 'hook' argument,
 # but still forwards the whole system to it:
 #
-#   f(v::System{ValueType}, a, b) = f(v._value, a, b, v) # (generated)
+#   f(s::System{ValueType}, a, b) = f(value(s), a, b, s) # (generated)
 #
 # Two types of items can be listed in the 'depends' section:
 #  - Component: means that the generated methods

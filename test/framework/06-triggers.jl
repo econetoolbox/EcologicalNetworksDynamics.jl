@@ -43,22 +43,22 @@ Base.copy(v::Value) = deepcopy(v)
 
     # Nothing happens without combinations.
     s = System{Value}()
-    @test s._value._vec == []
+    @test value(s)._vec == []
     s += B.b()
-    @test s._value._vec == []
-    @test System{Value}(C.b(), D.b())._value._vec == []
+    @test value(s)._vec == []
+    @test value(System{Value}(C.b(), D.b()))._vec == []
 
     # Triggers occur in order they were set.
     s += C.b()
-    @test s._value._vec == [:ac, :bc]
+    @test value(s)._vec == [:ac, :bc]
 
     s += D.b()
-    @test s._value._vec == [:ac, :bc, :ad, :bd]
+    @test value(s)._vec == [:ac, :bc, :ad, :bd]
 
     # Get a system hook on-demand.
     with_hook(v::Value, ::System) = push!(v._vec, :hook)
     add_trigger!([A, C], with_hook) # Okay to have several triggers.
-    @test System{Value}(B.b(), C.b())._value._vec == [:ac, :hook, :bc] # Still in order.
+    @test value(System{Value}(B.b(), C.b()))._vec == [:ac, :hook, :bc] # Still in order.
 
     # ======================================================================================
     # Invalid uses.

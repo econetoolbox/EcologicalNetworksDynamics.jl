@@ -671,12 +671,12 @@ export Value
     # Finally succeed.
     @method set_htl!{Value} write_as(mre.htl)
 
-    @test isnothing(s._value._member)
+    @test isnothing(value(s)._member)
     s.mre.htl = 5
-    @test s._value._member == 5
+    @test value(s)._member == 5
     mre = s.mre # Delayed access.
     mre.htl = 8
-    @test s._value._member == 8
+    @test value(s)._member == 8
 
     # Dependent write.
     struct Vnq_b <: Blueprint{Value} end
@@ -750,11 +750,11 @@ export Value
     )
     s += Tkq.b()
     s.btt = 44
-    @test s._value._member == 440
+    @test value(s)._member == 440
     s.goa.btt = 55
-    @test s._value._member == 550
+    @test value(s)._member == 550
     s.goa.gyq.btt = 66
-    @test s._value._member == 660
+    @test value(s)._member == 660
 
 end
 
