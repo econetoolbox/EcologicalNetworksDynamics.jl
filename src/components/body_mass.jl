@@ -28,12 +28,12 @@ check(M, ref = nothing) = check_value(>=(0), M, ref, :M, "Not a positive value")
 
 function F.late_check(raw, bp::Raw)
     (; M) = bp
-    S = @get raw.S
+    S = n_nodes(raw, :species)
     @check_size M S
 end
 
 F.expand!(raw, bp::Raw) = expand!(raw, bp.M)
-expand!(raw, M) = raw._foodweb.M = M
+expand!(raw, M) = add_field!(raw.classes[:species], :body_mass, deepcopy(M))
 
 #-------------------------------------------------------------------------------------------
 # From a scalar broadcasted to all species.
@@ -122,7 +122,7 @@ end
     property(body_mass, M)
     depends(BodyMass)
     @species_index
-    ref(raw -> raw._foodweb.M)
+    ref(raw -> Networks.read(collect, raw.classes[:species].data[:body_mass]))
     get(BodyMasses{Float64}, "species")
     write!((raw, rhs::Real, i) -> BodyMass_.check(rhs, i))
 end

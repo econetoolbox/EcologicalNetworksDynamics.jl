@@ -4,7 +4,7 @@
 #   - method!(v::Value, rhs)
 #
 # .. can optionally become properties of the system/value,
-# in the sense of julia's `getproperty/set_property!`.
+# in the sense of julia's `getproperty/setproperty!`.
 #
 # The properties come in two styles:
 #
@@ -71,8 +71,6 @@ names_sequence(p::PropertyTarget) = names_sequence(typeof(p))
 
 # Factorize for reuse with properties spaces.
 function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
-    # Authorize direct accesses to private fields.
-    pname in fieldnames(P) && return getfield(target, pname)
     # Search property method.
     fn = read_property(P, Val(pname))
     # Check for required components availability.
@@ -86,8 +84,6 @@ function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
 end
 
 function Base.setproperty!(target::P, pname::Symbol, rhs) where {P<:PropertyTarget}
-    # Authorize direct accesses to private fields.
-    pname in fieldnames(P) && return setfield!(target, pname, rhs)
     # Search property method.
     fn = readwrite_property(P, Val(pname))
     # Check for required components availability.
@@ -191,8 +187,8 @@ end
 # Yields (property_name, fn_read, Option{fn_write}, iterator{dependencies...}).
 
 function properties(P::PropertyTargetType)
-    imap(
-        ifilter(methods(read_property, Tuple{Type{P},Val}, Framework)) do mth
+    I.map(
+        I.filter(methods(read_property, Tuple{Type{P},Val}, Framework)) do mth
             mth.sig isa UnionAll && return false # Only consider concrete implementations.
             val = mth.sig.types[end]
             val <: Val ||
@@ -204,7 +200,7 @@ function properties(P::PropertyTargetType)
         name = first(val.parameters)
         read_fn = read_property(P, Val(name))
         write_fn = possible_write_property(P, Val(name))
-        (name, read_fn, write_fn, imap(identity, depends(P, read_fn)))
+        (name, read_fn, write_fn, I.map(identity, depends(P, read_fn)))
     end
 end
 export properties
@@ -212,8 +208,8 @@ export properties
 # List properties available for *this* particular instance.
 # Yields (:propname, read, Option{write})
 function properties(target::PropertyTarget)
-    imap(
-        ifilter(properties(typeof(target))) do (_, read, _, _)
+    I.map(
+        I.filter(properties(typeof(target))) do (_, read, _, _)
             isnothing(first_missing_dependency_for(read, target))
         end,
     ) do (name, read, write, _)
@@ -225,18 +221,18 @@ end
 # along with the components missing to support them.
 # Yields (:propname, read, Option{write}, iterator{missing_dependencies...})
 function latent_properties(target::PropertyTarget)
-    imap(
-        ifilter(properties(typeof(target))) do (_, read, _, _)
+    I.map(
+        I.filter(properties(typeof(target))) do (_, read, _, _)
             !isnothing(first_missing_dependency_for(read, target))
         end,
     ) do (name, read, write, deps)
-        (name, read, write, ifilter(d -> !has_component(target, d), deps))
+        (name, read, write, I.filter(d -> !has_component(target, d), deps))
     end
 end
 export latent_properties
 
 # Consistency + REPL completion.
-Base.propertynames(target::PropertyTarget) = imap(first, properties(target))
+Base.propertynames(target::PropertyTarget) = I.map(first, properties(target))
 
 # ==========================================================================================
 # Helper macro to define deep nested type paths.
