@@ -23,6 +23,7 @@ function check_value(value)
 end
 
 function check_label(label::Symbol, index::Index, class::Symbol)
-    haskey(index, label) ||
-        err("Label $(repr(label)) does not refer to a node in $(repr(class)).")
+    haskey(index.forward, label) ||
+        err("Label $(repr(label)) does not refer to a node in class $(repr(class)).")
+    label
 end
