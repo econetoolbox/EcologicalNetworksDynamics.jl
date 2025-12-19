@@ -203,8 +203,8 @@ end
 
     @netfails(nodes_view(n, :bak, :growth), "There is no class :bak in the network.")
     @netfails(nodes_view(n, :producers, :bok), "There is no data :bok in class :producers.")
-    @netfails(c[:x], "Label :x does not refer to a node in :mineral_bound.")
-    @netfails((c[:x] = 1), "Label :x does not refer to a node in :mineral_bound.")
+    @netfails(c[:x], "Label :x does not refer to a node in class :mineral_bound.")
+    @netfails((c[:x] = 1), "Label :x does not refer to a node in class :mineral_bound.")
 
 end
 

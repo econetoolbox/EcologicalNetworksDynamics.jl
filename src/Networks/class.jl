@@ -17,15 +17,7 @@ end
 Construct a subclass.
 """
 function Class(name, parent_name::Option{Symbol}, parent_index::Index, r::Restriction)
-    # Construct local index.
-    loc = Index()
-    i_local = 0
-    for (label, i_parent) in parent_index
-        i_parent in r || continue
-        i_local += 1
-        loc[label] = i_local
-    end
-    Class(name, parent_name, r, loc, Dict())
+    Class(name, parent_name, r, Index(parent_index, r), Dict())
 end
 
 """

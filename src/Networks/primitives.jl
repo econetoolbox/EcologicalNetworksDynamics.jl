@@ -17,10 +17,10 @@ function add_class!(n::Network, name::Symbol, labels)
         n_new = 0
         for label in labels
             label = Symbol(label)
-            label in keys(index) &&
+            label in Networks.labels(index) &&
                 err("There is already a node labeled $(repr(label)).")
             n_new += 1
-            index[label] = n_before + n_new
+            index.forward[label] = n_before + n_new
         end
         Class(name, nothing, index, Range(n_before .+ (1:n_new)))
     end
