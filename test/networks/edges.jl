@@ -211,9 +211,9 @@ end
     @test c[(2, 5)] == c[(5, 2)]
 
     # Can't index outside topology.
-    @netfails(c[(9, 2)], "Not an index for web :compete with 5 sources: 9.")
-    @netfails(c[(1, 2)], "Not an edge in web :compete: (1, 2).")
-    @netfails(c[(:a, :b)], "Not an edge in web :compete: (1, 2).")
+    @netfails(c[(9, 2)], "Not an index for :compete web with 5 sources: 9.")
+    @netfails(c[(1, 2)], "Not an edge in :compete web: (1, 2).")
+    @netfails(c[(:a, :b)], "Not an edge in :compete web: (:a, :b).")
 
     # Mutate.
     c[1] *= 2

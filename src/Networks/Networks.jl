@@ -100,7 +100,6 @@ using ..Display
 
 const Option{T} = Union{Nothing,T}
 const SparseMatrix{T} = SparseMatrixCSC{T,Int}
-const Index = OrderedDict{Symbol,Int}
 
 include("./iterators.jl")
 include("./errors.jl")
@@ -109,6 +108,7 @@ include("./data.jl")
 include("./restrictions.jl")
 include("./topologies.jl")
 include("./graphs.jl")
+include("./index.jl")
 include("./class.jl")
 include("./web.jl")
 include("./network.jl")
