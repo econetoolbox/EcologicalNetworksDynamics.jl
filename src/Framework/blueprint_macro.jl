@@ -78,6 +78,8 @@ function blueprint_macro(mod, src, input)
     new_blueprint = Ref{Option{DataType}}(nothing) # Refine later.
     err(mess) = item_err(mess, new_blueprint[])
 
+    mod, input = parse_module(mod, input...)
+
     # Convenience local wrap.
     ceval(xp, ctx, type) = checked_eval(mod, xp, ctx, err, type)
 

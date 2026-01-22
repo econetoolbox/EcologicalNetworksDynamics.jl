@@ -1,5 +1,10 @@
 # v0.3.x
 
+# Breaking
+
+- Drop `.label` properties returning index mapping functions,
+  in favour of raw `.index` and `.names` views.
+
 # Bugfixes
 
 - Fix world count in Framework `@conflicts` macro with Julia 1.12.

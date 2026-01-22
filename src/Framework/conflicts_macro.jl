@@ -33,6 +33,8 @@ function conflicts_macro(mod, src, input)
     # Raise on failure.
     err(mess) = throw(ConflictMacroError(src, mess))
 
+    mod, input = parse_module(mod, input...)
+
     # Convenience local wrap.
     ceval(xp, ctx, type) = checked_eval(mod, xp, ctx, err, type)
 

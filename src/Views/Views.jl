@@ -57,6 +57,8 @@ Extract an owned copy of the viewed data under a regular dense/sparse vector/mat
 function extract end
 export extract
 
+# TODO: feature indexing into views with `::Colon` e.g. `views[:a, :]`.
+
 include("nodes.jl")
 include("edges.jl")
 include("nodes_display.jl")
