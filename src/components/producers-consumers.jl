@@ -6,45 +6,6 @@
 (false) && (local producers, consumers)
 
 #-------------------------------------------------------------------------------------------
-# Spot species sub-compartments.
-
-@propspace producers
-@propspace consumers
-
-@expose_data nodes begin
-    property(producers.mask)
-    get(ProducersMask{Bool}, sparse, "species")
-    ref_cached(raw -> sparse([!any(row) for row in eachrow(@ref raw.A)]))
-    @species_index
-    depends(Foodweb)
-end
-
-@expose_data nodes begin
-    property(consumers.mask)
-    get(ConsumersMask{Bool}, sparse, "species")
-    ref_cached(raw -> sparse([any(row) for row in eachrow(@ref raw.A)]))
-    @species_index
-    depends(Foodweb)
-end
-
-#-------------------------------------------------------------------------------------------
-# Count either
-
-@expose_data graph begin
-    property(producers.number)
-    ref_cached(raw -> sum(@ref raw.producers.mask))
-    get(raw -> @ref raw.producers.number)
-    depends(Foodweb)
-end
-
-@expose_data graph begin
-    property(consumers.number)
-    ref_cached(raw -> sum(@ref raw.consumers.mask))
-    get(raw -> @ref raw.consumers.number)
-    depends(Foodweb)
-end
-
-#-------------------------------------------------------------------------------------------
 # Query one particular index.
 
 is_producer(raw::Internal, i) = (@get raw.producers.mask)[i]

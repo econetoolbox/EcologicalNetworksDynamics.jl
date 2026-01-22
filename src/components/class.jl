@@ -149,6 +149,11 @@ function define_class_properties(
         @method $m $M.ref_index $deps read_as($class._index)
         @method $m $M.get_index $deps read_as($class.index)
 
+        # Mask within parent class.
+        mask(i::Internal, m::Model) =
+            nodes_mask_view(m, ($sclass, class(i, $sclass).parent))
+        @method $m $M.mask $deps read_as($class.mask)
+
         end
     end
 

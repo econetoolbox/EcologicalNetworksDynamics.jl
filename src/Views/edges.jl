@@ -43,8 +43,8 @@ end
 S = EdgesMaskView # "Self"
 web(v::S) = getfield(v, :web)
 topology(v::S) = web(v).topology
-Base.setindex!(v::S, _...) = err(v, "Cannot mutate edges topology.")
 Base.getindex(v::S, i::Int, j::Int) = N.is_edge(topology(v), check_range(v, i, j)...)
+Base.setindex!(v::S, _, ::Any, ::Any) = err(v, "Cannot mutate edges topology.")
 function Base.getindex(v::S, a::Symbol, b::Symbol)
     check_range(v, a, b)
     N.is_edge(topology(v), source_index(v).forward[a], target_index(v).forward[b])
@@ -77,9 +77,12 @@ source_index(v::S) = source(v).index
 target_index(v::S) = target(v).index
 Base.size(v::S) = v |> web |> size
 Base.length(v::S) = v |> topology |> length
-inderr(v::S, i) = err(v, "Two indices are required to index into webs. Received: ($i,).")
-Base.getindex(v::S, i) = inderr(v, i)
-Base.setindex!(v::S, _, i) = inderr(v, i)
+Base.getindex(v::S, i...) = erredgesdim(v, i)
+Base.setindex!(v::S, _, i...) = erredgesdim(v, i)
+erredgesdim(v::S, i) = err(
+    v,
+    "Two indices are required to index into webs. Received $(length(i)): $(repr(i)).",
+)
 
 function check_range(v::S, i::Int, j::Int)
     for (i, class) in [(i, source(v)), (j, target(v))]
