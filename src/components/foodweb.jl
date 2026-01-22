@@ -45,13 +45,26 @@ F.expand!(raw, bp::Matrix) = expand_from_matrix!(raw, bp.A)
 function expand_from_matrix!(raw, A)
     top = SparseReflexive(A)
     add_web!(raw, :trophic, (:species, :species), top)
+
     # This defines new categories of species.
     add_subclass!(raw, :tops, :species, sources_mask(top))
     add_subclass!(raw, :producers, :species, sinks_mask(top))
     add_subclass!(raw, :preys, :species, nonsources_mask(top))
     add_subclass!(raw, :consumers, :species, nonsinks_mask(top))
+
     # And also new webs with special trophic links highlighted.
-    # XXX: import herbivory etc. here.
+
+    # Producers matrix.
+    S = @get raw.S
+    S = @get raw.S
+    prods = @get raw.producers.indices
+    mat = spzeros(Bool, S, S)
+    for i in prods, j in prods
+        mat[i, j] = true
+    end
+    top = SparseSymmetric(mat)
+    add_web!(raw, :producers_web, (:species, :species), top)
+
 end
 
 #-------------------------------------------------------------------------------------------
@@ -197,6 +210,9 @@ end
 @class_properties top Top tops Tops depends(Foodweb)
 @class_properties prey Prey preys Preys depends(Foodweb)
 
+@web_properties producers_web ProducersWeb depends(Foodweb)
+@alias producers_web.matrix producers.matrix
+
 module FoodwebMethods # (to not pollute global scope)
 
 using SparseArrays
@@ -221,20 +237,7 @@ import ..Foodweb
 # HERE: extract from internals: valid for any reflexive web?
 levels(m::Internal) = m |> Internals.trophic_levels
 
-#-------------------------------------------------------------------------------------------
-# Get a sparse matrix highlighting only the producer-to-producer links.
-# HERE: upgrade to a derived extra web within the network.
-
-function producers_matrix(raw::Internal)
-    S = @get raw.S
-    prods = @get raw.producers.indices
-    res = spzeros(Bool, S, S)
-    for i in prods, j in prods
-        res[i, j] = true
-    end
-    res
-end
-@method producers_matrix depends(Foodweb) read_as(producers.matrix)
+# HERE: upgrade the following to derived extra webs within the network.
 
 #-------------------------------------------------------------------------------------------
 # Get a sparse matrix highlighting only 'herbivorous' trophic links: consumers-to-producers.
