@@ -4,6 +4,7 @@
 
 - Drop `.label` properties returning index mapping functions,
   in favour of raw `.index` and `.names` views.
+- Drop `is_<class>` methods in favour of raw `.mask` views.
 
 # Bugfixes
 

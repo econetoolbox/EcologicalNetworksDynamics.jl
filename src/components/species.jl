@@ -4,7 +4,7 @@
 (false) && (local Species, _Species)
 
 # Typical, vanilla class component.
-@class_component species Species s
+@class_component species Species species Species s
 export Species
 
 # Extra aliases used by the community.
