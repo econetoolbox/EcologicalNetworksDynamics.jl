@@ -6,29 +6,6 @@
 (false) && (local preys, tops)
 
 #-------------------------------------------------------------------------------------------
-# Query one particular index.
-
-is_prey(raw::Internal, i) = (@get raw.preys.mask)[i]
-is_top(raw::Internal, i) = (@get raw.tops.mask)[i]
-is_prey(raw::Internal, i::Integer) = (@ref raw.preys.mask)[i] # No need for the view/index.
-is_top(raw::Internal, i::Integer) = (@ref raw.tops.mask)[i]
-@method is_prey depends(Foodweb)
-@method is_top depends(Foodweb)
-export is_prey, is_top
-
-# Get corresponding species indices (iterator).
-@expose_data graph begin
-    property(preys.indices)
-    get(raw -> (i for (i, is_cons) in enumerate(@ref raw.preys.mask) if is_cons))
-    depends(Foodweb)
-end
-@expose_data graph begin
-    property(tops.indices)
-    get(raw -> (i for (i, is_cons) in enumerate(@ref raw.tops.mask) if is_cons))
-    depends(Foodweb)
-end
-
-#-------------------------------------------------------------------------------------------
 # Get corresponding (orderded) Symbol ↦ Integer indexes, in the space of species indices.
 
 @expose_data graph begin

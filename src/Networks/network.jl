@@ -102,6 +102,15 @@ n_fields(n::Network) =
     length(n.data)
 export n_fields
 
+
+#-------------------------------------------------------------------------------------------
+# Wrap class/webs primitives.
+
+node_labels(n::Network, c::Symbol) = node_labels(class(n, c))
+node_indices(n::Network, c::Symbol) = node_indices(class(n, c))
+n_sources(n::Network, w::Symbol) = n_sources(web(n, w))
+n_targets(n::Network, w::Symbol) = n_targets(web(n, w))
+
 # ==========================================================================================
 # Display.
 

@@ -188,10 +188,10 @@ end
 # ==========================================================================================
 # Foodweb queries.
 
-@class_properties(producers, Producers, depends(Foodweb))
-@class_properties(consumers, Consumers, depends(Foodweb))
-@class_properties(tops, Tops, depends(Foodweb))
-@class_properties(preys, Preys, depends(Foodweb))
+@class_properties producer Producer producers Producers depends(Foodweb)
+@class_properties consumer Consumer consumers Consumers depends(Foodweb)
+@class_properties top Top tops Tops depends(Foodweb)
+@class_properties prey Prey preys Preys depends(Foodweb)
 
 module FoodwebMethods # (to not pollute global scope)
 
