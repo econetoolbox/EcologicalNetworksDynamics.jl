@@ -308,7 +308,10 @@ function display_long(io::IO, p::PropertySpace, properties::Function)
         print(io, ".$name")
     end
     print(io, crayon"reset")
+    any = false
     for (name, _) in properties(p)
         print("\n  .$name")
+        any = true
     end
+    any || print("\n  <empty>")
 end
