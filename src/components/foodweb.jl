@@ -188,6 +188,10 @@ end
 # ==========================================================================================
 # Foodweb queries.
 
+@web_properties trophic Trophic depends(Foodweb)
+@alias trophic.matrix A
+@alias A trophic.A
+
 @class_properties producer Producer producers Producers depends(Foodweb)
 @class_properties consumer Consumer consumers Consumers depends(Foodweb)
 @class_properties top Top tops Tops depends(Foodweb)
@@ -214,20 +218,8 @@ using .Networks
 using .Views
 import ..Foodweb
 
-(false) && (local trophic, producers, Producers, consumers, Consumers) # (reassure JuliaLS)
-@propspace trophic
-
-#-------------------------------------------------------------------------------------------
-# Basic queries.
-
-web(m::Internal) = Networks.web(m, :trophic)
-topology(m::Internal) = web(m).topology
-number(m::Internal) = m |> topology |> n_edges
-mask(::Internal, m::Model) = edges_mask_view(m, :trophic)
-levels(m::Internal) = m |> Internals.trophic_levels # HERE: extract from internals.
-@method topology depends(Foodweb) read_as(trophic._topology)
-@method mask depends(Foodweb) read_as(A, trophic.A, trophic.matrix, trophic.mask)
-@method number depends(Foodweb) read_as(trophic.n_links, trophic.n_edges)
+# HERE: extract from internals: valid for any reflexive web?
+levels(m::Internal) = m |> Internals.trophic_levels
 
 #-------------------------------------------------------------------------------------------
 # Get a sparse matrix highlighting only the producer-to-producer links.

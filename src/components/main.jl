@@ -36,6 +36,7 @@ include("./macros_keywords.jl")
 
 # Templates for typical network components.
 include("./class.jl")
+include("./web.jl")
 
 # Central in the model nodes.
 # First example of a nodes class.
