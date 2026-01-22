@@ -13,15 +13,15 @@
 #
 # The polymorphism of methods use julia dispatch over function types.
 
-# Methods depend on nothing by default (see properties.jl for the meaning of 'P').
-depends(::Type{P}, ::Type{<:Function}) where {P} = CompType{system_value_type(P)}[]
-missing_dependencies_for(fn::Type{<:Function}, p::P) where {P} =
-    Iterators.filter(depends(P, fn)) do dep
-        !has_component(system(p), dep)
+# Methods depend on nothing by default.
+depends(S::Type{<:System}, ::Type{<:Function}) = CompType{system_value_type(S)}[]
+missing_dependencies_for(fn::Type{<:Function}, s::System) =
+    Iterators.filter(depends(typeof(s), fn)) do dep
+        !has_component(s, dep)
     end
 # Just pick the first one. Return nothing if dependencies are met.
-function first_missing_dependency_for(fn::Type{<:Function}, p::P) where {P}
-    for dep in missing_dependencies_for(fn, p)
+function first_missing_dependency_for(fn::Type{<:Function}, s::System)
+    for dep in missing_dependencies_for(fn, s)
         return dep
     end
     nothing
@@ -29,10 +29,9 @@ end
 
 # Direct call with the functions themselves.
 depends(T::Type, fn::Function) = depends(T, typeof(fn))
-missing_dependencies_for(fn::Function, p::P) where {P} =
-    missing_dependencies_for(typeof(fn), p)
-first_missing_dependency_for(fn::Function, p::P) where {P} =
-    first_missing_dependency_for(typeof(fn), p)
+missing_dependencies_for(fn::Function, s::System) = missing_dependencies_for(typeof(fn), s)
+first_missing_dependency_for(fn::Function, s::System) =
+    first_missing_dependency_for(typeof(fn), s)
 
 # Hack flag to avoid interrupting the `Revise` process.
 # Raise when done defining methods in the package.
