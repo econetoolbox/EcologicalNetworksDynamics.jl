@@ -22,8 +22,23 @@ function check_value(value)
     hasmethod(deepcopy, (T,)) || err("Cannot add non-deepcopy field:\n$value ::$T")
 end
 
+is_label(label::Symbol, n::Network) =
+    read(n.index) do index
+        haskey(index.forward, label)
+    end
+
+is_label(label::Symbol, index::Index) = haskey(index.forward, label)
+is_label(label::Symbol, class::Class) = is_label(label, class.index)
+
+function check_label(label::Symbol, n::Network)
+    is_label(label, n) ||
+        err("Label $(repr(label)) does not refer to a node in the network.")
+    label
+end
+
 function check_label(label::Symbol, index::Index, class::Symbol)
-    haskey(index.forward, label) ||
+    is_label(label, index) ||
         err("Label $(repr(label)) does not refer to a node in class $(repr(class)).")
     label
 end
+check_label(label::Symbol, class::Class) = check_label(label, class.index, class.name)

@@ -102,7 +102,7 @@ index(v::S) = getfield(v, :index)
 Base.length(v::S) = v |> index |> length
 Base.getindex(v::S, i::Int) = index(v).reverse[check_range(v, i)]
 Base.getindex(v::S, l::Symbol) = check_label(v, l) # (not exactly useful but consistent)
-Base.setindex!(v::S, ::Int) =
+Base.setindex!(v::S, _, ::Any) =
     err(v, "Cannot change :$(classname(v)) nodes names after they have been set.")
 function nodes_names_view(m::Model, class::Symbol)
     c = N.class(value(m), class)
@@ -118,16 +118,22 @@ An immutable view into network class restriction mask.
 struct NodesMaskView
     model::Model
     classname::Symbol
-    parent::Option{Symbol}
+    parent::Option{Symbol} # TODO: split into 2 types instead?
     restriction::N.Restriction
 end
 S = NodesMaskView
 parent(v::S) = getfield(v, :parent)
+parentclass(v::S) = N.class(network(v), parent(v))
 restriction(v::S) = getfield(v, :restriction)
 Base.length(v::S) =
-    isnothing(parent(v)) ? length(network(v).index) : length(class(network(v), parent(v)))
+    isnothing(parent(v)) ? n_nodes(network(v)) : length(class(network(v), parent(v)))
 Base.getindex(v::S, i::Int) = check_range(v, i) in restriction(v)
-Base.setindex!(v::S, ::Int) = err(v, "Cannot change :$(classname(v)) nodes mask.")
+Base.getindex(v::S, l::Symbol) = N.is_label(
+    isnothing(parent(v)) ? N.check_label(l, network(v)) : N.check_label(l, parentclass(v)),
+    class(v),
+)
+Base.setindex!(v::S, _, ::Any) =
+    err(v, "Cannot change :$(classname(v)) nodes mask after it has been set.")
 nodes_mask_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}}) =
     NodesMaskView(m, class, parent, N.restriction(value(m), class, parent))
 export nodes_mask_view
@@ -160,6 +166,10 @@ function check_range(v::S, i::Int)
     i in 1:n || err(v, "Cannot index with '$i' into a view with '$n' $nname node$s.")
     i
 end
+Base.getindex(v::S, i...) = errnodesdim(v, i)
+Base.setindex!(v::S, _, i...) = errnodesdim(v, i)
+errnodesdim(v, i) =
+    err(v, "Cannot index into nodes with $(length(i)) dimensions: $(repr(i)).")
 check_label(v::S, l::Symbol) = N.check_label(l, index(v), classname(v))
 # TODO: generic iteration like this must be awfully inefficient
 # because of all underlying checking churn.

@@ -6,45 +6,6 @@
 (false) && (local preys, tops)
 
 #-------------------------------------------------------------------------------------------
-# Spot species sub-compartments.
-
-@propspace preys
-@propspace tops
-
-@expose_data nodes begin
-    property(preys.mask)
-    get(PreysMask{Bool}, sparse, "species")
-    ref_cached(raw -> sparse([any(col) for col in eachcol(@ref raw.A)]))
-    @species_index
-    depends(Foodweb)
-end
-
-@expose_data nodes begin
-    property(tops.mask)
-    get(TopsMask{Bool}, sparse, "species")
-    ref_cached(raw -> sparse([!any(col) for col in eachcol(@ref raw.A)]))
-    @species_index
-    depends(Foodweb)
-end
-
-#-------------------------------------------------------------------------------------------
-# Count either
-
-@expose_data graph begin
-    property(preys.number)
-    ref_cached(raw -> sum(@ref raw.preys.mask))
-    get(raw -> @ref raw.preys.number)
-    depends(Foodweb)
-end
-
-@expose_data graph begin
-    property(tops.number)
-    ref_cached(raw -> sum(@ref raw.tops.mask))
-    get(raw -> @ref raw.tops.number)
-    depends(Foodweb)
-end
-
-#-------------------------------------------------------------------------------------------
 # Query one particular index.
 
 is_prey(raw::Internal, i) = (@get raw.preys.mask)[i]
