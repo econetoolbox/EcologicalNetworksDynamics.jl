@@ -63,6 +63,8 @@ function component_macro(mod, src, input)
     component_name = Ref{Option{Symbol}}(nothing) # Refined later.
     err(mess) = item_err(mess, component_name[])
 
+    mod, input = parse_module(mod, input...)
+
     # Convenience local wrap.
     ceval(xp, ctx, type) = checked_eval(mod, xp, ctx, err, type)
 

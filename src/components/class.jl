@@ -88,55 +88,6 @@ function define_class_component(
         (::$_Class)(names) = $Class.Names(names)
 
         # ==================================================================================
-        # Exposing data.
-
-        @propspace $class
-
-        module $(Symbol(Class, :Methods)) # (to not pollute invocation scope)
-        using OrderedCollections
-        import EcologicalNetworksDynamics:
-            Internal, Model, Networks, Framework, Views, argerr
-        using .Networks
-        using .Framework
-        using .Views
-        const $Class = $mod.$Class
-
-        # Nodes counts and nodes labels.
-        # The 'ref' variant is more efficient but unexposed.
-        get_number(m::Internal) = n_nodes(m, $sclass)
-        ref_names(m::Internal) = class(m, $sclass).index.reverse
-        get_names(::Internal, m::Model) = nodes_names_view(m, $sclass)
-        @method get_number depends($Class) read_as($class.number)
-        @method ref_names depends($Class) read_as($class._names)
-        @method get_names depends($Class) read_as($class.names)
-
-        # Ordered index.
-        ref_index(m::Internal) = class(m, $sclass).index.forward
-        get_index(m::Internal) = deepcopy(ref_index(m))
-        @method ref_index depends($Class) read_as($class._index)
-        @method get_index depends($Class) read_as($class.index)
-
-        # XXX: on hold: let user build this from index/names if they need.
-        # Get a closure able to convert node indices the corresponding labels.
-        function label(m::Internal)
-            names = ref_names(m)
-            n = length(names)
-            (i) -> begin
-                if 1 <= i <= n
-                    names[i]
-                else
-                    (are, s) = n > 1 ? ("are", "s") : ("is", "")
-                    argerr("Invalid index ($(i)) when there $are $n $($sclass) name$s.")
-                end
-            end
-        end
-        # (This technically leaks a reference to the internal as `m.$class.label.raw`,
-        # but closure captures being accessible as fields is an implementation detail
-        # and no one should rely on it).
-        @method label depends($Class) read_as($class.label)
-        end
-
-        # ==================================================================================
         # Display.
 
         function Framework.shortline(io::IO, model::Model, ::$_Class)
@@ -146,5 +97,60 @@ function define_class_component(
         end
 
     end
+    mod.eval.(xp.args)
+    define_class_properties(mod, class, Class, :(depends($Class)))
+end
+
+# ==========================================================================================
+
+"""
+Some classes are not directly defined by a component,
+e.g. 'producers' is defined by the foodweb,
+but the need the same exposure: use it to expose them.
+"""
+macro class_properties(input...)
+    quote
+        $define_class_properties($__module__, $(Meta.quot.(input)...))
+        nothing
+    end
+end
+
+function define_class_properties(
+    mod::Module,
+    class::Symbol,
+    Class::Symbol,
+    deps::Expr, # As in a regular call to @method.
+)
+    sclass = Meta.quot(class)
+    M = Symbol(Class, :Methods) # Create submodule to not pollute invocation scope..
+    m = :(mod($mod)) # .. but still evaluate dependencies within the invocation module.
+    xp = quote
+
+        @propspace $class
+
+        module $M
+        import EcologicalNetworksDynamics: Internal, Model, Networks, Framework, Views
+        using .Networks
+        using .Framework
+        using .Views
+
+        # Nodes counts and nodes labels.
+        # The 'ref' variant is more efficient but unexposed.
+        get_number(m::Internal) = n_nodes(m, $sclass)
+        ref_names(m::Internal) = class(m, $sclass).index.reverse
+        get_names(::Internal, m::Model) = nodes_names_view(m, $sclass)
+        @method $m $M.get_number $deps read_as($class.number)
+        @method $m $M.ref_names $deps read_as($class._names)
+        @method $m $M.get_names $deps read_as($class.names)
+
+        # Ordered index.
+        ref_index(m::Internal) = class(m, $sclass).index.forward
+        get_index(m::Internal) = deepcopy(ref_index(m))
+        @method $m $M.ref_index $deps read_as($class._index)
+        @method $m $M.get_index $deps read_as($class.index)
+
+        end
+    end
+
     mod.eval.(xp.args)
 end

@@ -188,6 +188,11 @@ end
 # ==========================================================================================
 # Foodweb queries.
 
+@class_properties(producers, Producers, depends(Foodweb))
+@class_properties(consumers, Consumers, depends(Foodweb))
+@class_properties(tops, Tops, depends(Foodweb))
+@class_properties(preys, Preys, depends(Foodweb))
+
 module FoodwebMethods # (to not pollute global scope)
 
 using SparseArrays
@@ -209,10 +214,8 @@ using .Networks
 using .Views
 import ..Foodweb
 
-(false) && (local trophic, producers, consumers) # (reassure JuliaLS)
+(false) && (local trophic, producers, Producers, consumers, Consumers) # (reassure JuliaLS)
 @propspace trophic
-@propspace producers
-@propspace consumers
 
 #-------------------------------------------------------------------------------------------
 # Basic queries.
@@ -225,13 +228,6 @@ levels(m::Internal) = m |> Internals.trophic_levels # HERE: extract from interna
 @method topology depends(Foodweb) read_as(trophic._topology)
 @method mask depends(Foodweb) read_as(A, trophic.A, trophic.matrix, trophic.mask)
 @method number depends(Foodweb) read_as(trophic.n_links, trophic.n_edges)
-
-producers(::Internal, m::Model) = nodes_mask_view(m, (:producers, :species))
-n_producers(m::Internal) = n_nodes(m, :producers)
-@method n_producers depends(Foodweb) read_as(producers.number)
-@method producers depends(Foodweb) read_as(producers.mask)
-# HERE: figure a way to automatically "expose" class names, class mask & web mask,
-# factorizing the above boilerplate.
 
 #-------------------------------------------------------------------------------------------
 # Elaborate queries.

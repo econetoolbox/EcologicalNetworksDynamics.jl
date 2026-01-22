@@ -61,6 +61,8 @@ function method_macro(mod, src, input)
     new_fn = Ref{Option{Function}}(nothing) # Refine later.
     err(mess) = item_err(mess, new_fn[])
 
+    mod, input = parse_module(mod, input...)
+
     # Convenience wrap.
     ValueType = Ref{Union{Nothing,DataType}}(nothing)
     ceval(xp, ctx, type) = checked_eval(mod, xp, ctx, err, type)

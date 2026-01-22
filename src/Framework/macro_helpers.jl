@@ -43,6 +43,18 @@
 #
 # The following helper functions should be helpful in this respect.
 
+# In any macro from this family, prefix input with `mod(evaluation_target_module)`
+# if the module to be evaluated within is not the invocation one.
+# This is useful for invoking these macros *from macros*.
+# Use this to pre-parse input and extract the right module.
+function parse_module(fallback_module, input...)
+    default = (fallback_module, input)
+    isempty(input) && return default
+    @capture(input[1], mod(explicit_module_))
+    isnothing(explicit_module) && return (fallback_module, input)
+    (explicit_module, input[2:end])
+end
+
 # Evaluate given input in invocation module toplevel context,
 # and (possibly) check against expected type.
 function checked_eval(mod, xp, context, err, T = nothing)
