@@ -230,13 +230,6 @@ levels(m::Internal) = m |> Internals.trophic_levels # HERE: extract from interna
 @method number depends(Foodweb) read_as(trophic.n_links, trophic.n_edges)
 
 #-------------------------------------------------------------------------------------------
-# Elaborate queries.
-# TODO: abstract over the following to reduce boilerplate.
-# as it all just stems from sparse boolean node information.
-#  include("./producers-consumers.jl")
-#  include("./preys-tops.jl")
-
-#-------------------------------------------------------------------------------------------
 # Get a sparse matrix highlighting only the producer-to-producer links.
 # HERE: upgrade to a derived extra web within the network.
 
