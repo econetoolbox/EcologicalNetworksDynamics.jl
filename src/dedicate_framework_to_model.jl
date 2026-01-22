@@ -27,7 +27,8 @@ import .F:
     embedded,
     has_component,
     implied,
-    isacomponent
+    isacomponent,
+    value
 
 # Direct re-exports from the framework module.
 export add!

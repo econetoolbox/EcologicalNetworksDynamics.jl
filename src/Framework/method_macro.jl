@@ -218,16 +218,11 @@ function method_macro(mod, src, input)
     #   types: list of positional parameters types,
     #   names: list of positional parameters names,
     #   receiver: the receiver parameter name,
-    #   targets: receiver parameter types in the generated wrapper methods
-    #            (either `System` or `PropertySpace`s,
-    #             there may be several if invoker has specified
-    #             several property paths)
     #   hook: the receiver parameter name,
     # )]
     to_wrap = []
-    can_be_read_property = [false] # (wrap scalar to access from within the loop..
-    can_be_write_property = [false] # .. without triggering global variable warnings)
-    all_targets = OrderedSet() # Gather all possible target receivers.
+    can_be_read_property = Ref(false)
+    can_be_write_property = Ref(false)
     for mth in methods(fn)
 
         # Retrieve fixed-parameters types for the method.
@@ -277,34 +272,17 @@ function method_macro(mod, src, input)
         end
 
         n_parms_for_user = length(parms) - !isnothing(hook)
-        targets = if isnothing(prop_kw)
-            [System{ValueType}]
-        else
-            maybe_propspaces = if n_parms_for_user == 1
-                can_be_read_property[1] = true
-            elseif n_parms_for_user == 2 && (
-                parms[1] <: ValueType || hook == first(names) && parms[2] <: ValueType
-            )
-                can_be_write_property[1] = true
-            else
-                false
+        if !isnothing(prop_kw)
+            if n_parms_for_user == 1
+                can_be_read_property[] = true
+            elseif n_parms_for_user == 2 &&
+                   (parms[1] <: ValueType || hook == first(names) && parms[2] <: ValueType)
+                can_be_write_property[] = true
             end
-            if maybe_propspaces && !isempty(prop_paths)
-                # (avoid duplicate methods defs for properties aliases)
-                ps = OrderedSet(map(prop_paths) do (path, P, pname)
-                    P
-                end)
-                push!(ps, System{ValueType}) # (always have the system as a target)
-            else
-                [System{ValueType}]
-            end
-        end
-        for P in targets
-            push!(all_targets, P)
         end
 
         # Record for wrapping.
-        push!(to_wrap, (mth, parms, names, receiver, targets, hook))
+        push!(to_wrap, (mth, parms, names, receiver, hook))
     end
     isempty(to_wrap) &&
         err("No suitable method has been found to mark $fn as a system method. \
@@ -349,13 +327,13 @@ function method_macro(mod, src, input)
     end
 
     if prop_kw == read_kw
-        can_be_read_property[1] || err("The function cannot be called with exactly \
+        can_be_read_property[] || err("The function cannot be called with exactly \
                                         1 argument of type '$ValueType' \
                                         as required to be set as a 'read' property.")
     end
 
     if prop_kw == write_kw
-        can_be_write_property[1] ||
+        can_be_write_property[] ||
             err("The function cannot be called with exactly 2 arguments, \
                  the first one being of type '$ValueType', \
                  as required to be set as a 'write' property.")
@@ -387,59 +365,56 @@ function method_macro(mod, src, input)
 
     # Generate dependencies method.
     Fn = Type{typeof(fn)}
-    for P in all_targets
-        eval(quote
-            Framework.depends(::Type{$P}, ::$Fn) = $deps
-        end)
-    end
+    Target = System{ValueType}
+    eval(quote
+        Framework.depends(::Type{$Target}, ::$Fn) = $deps
+    end)
 
     # Wrap the detected methods within checked methods receiving 'System' values.
-    for (mth, parms, pnames, receiver, targets, hook) in to_wrap
-        for P in targets
-            # Start from dummy (; kwargs...) signature/forward call..
-            # (hygienic temporary variables, generated for the target module)
-            dep, a = gensym.((:dep, :a))
-            xp = quote
-                function (::typeof($fn))(; kwargs...)
-                    $dep = first_missing_dependency_for($fn, $receiver)
-                    if !isnothing($dep)
-                        $a = isabstracttype($dep) ? " a" : ""
-                        throw(
-                            MethodError(
-                                $ValueType,
-                                nameof($fn),
-                                "Requires$($a) component $($dep).",
-                            ),
-                        )
-                    end
-                    $fn(; kwargs...)
+    for (mth, parms, pnames, receiver, hook) in to_wrap
+        # Start from dummy (; kwargs...) signature/forward call..
+        # (hygienic temporary variables, generated for the target module)
+        dep, a = gensym.((:dep, :a))
+        xp = quote
+            function (::typeof($fn))(; kwargs...)
+                $dep = first_missing_dependency_for($fn, $system($receiver))
+                if !isnothing($dep)
+                    $a = isabstracttype($dep) ? " a" : ""
+                    throw(
+                        MethodError(
+                            $ValueType,
+                            nameof($fn),
+                            "Requires$($a) component $($dep).",
+                        ),
+                    )
                 end
+                $fn(; kwargs...)
             end
-            # .. then fill them up from the collected names/parameters.
-            parms_xp = xp.args[2].args[1].args #  (the `(; kwargs)` in signature)
-            args_xp = xp.args[2].args[2].args[end].args # (the same in the call)
-            for (name, type) in zip(pnames, parms)
-                parm, arg = if type isa Core.TypeofVararg
-                    # Forward variadics as-is.
-                    (:($name::$(type.T)...), :($name...))
-                else
-                    if name == receiver
-                        # Dispatch signature on the target
-                        # to transmit the inner value to the call.
-                        (:($name::$P), :(value($name)))
-                    elseif name == hook
-                        # Don't receive at all, but transmit from the receiver.
-                        (nothing, :(system($receiver)))
-                    else
-                        # All other arguments are forwarded as-is.
-                        (:($name::$type), name)
-                    end
-                end
-                isnothing(parm) || push!(parms_xp, parm)
-                push!(args_xp, arg)
-            end
-            eval(xp)
         end
+        # .. then fill them up from the collected names/parameters.
+        parms_xp = xp.args[2].args[1].args #  (the `(; kwargs)` in signature)
+        args_xp = xp.args[2].args[2].args[end].args # (the same in the call)
+        for (name, type) in zip(pnames, parms)
+            parm, arg = if type isa Core.TypeofVararg
+                # Forward variadics as-is.
+                (:($name::$(type.T)...), :($name...))
+            else
+                if name == receiver
+                    # Dispatch signature on the target
+                    # to transmit the inner value to the call.
+                    (:($name::$Target), :(value($name)))
+                elseif name == hook
+                    # Don't receive at all, but transmit from the receiver.
+                    (nothing, :(system($receiver)))
+                else
+                    # All other arguments are forwarded as-is.
+                    (:($name::$type), name)
+                end
+            end
+            isnothing(parm) || push!(parms_xp, parm)
+            push!(args_xp, arg)
+        end
+        eval(xp)
     end
 
     # Property specification.
