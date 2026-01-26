@@ -44,6 +44,7 @@ export isacomponent
 export properties
 
 # The type wrapped within the system.
+# TODO: "Internal" -> "Network" ?
 const Internal = Networks.Network
 
 const Blueprint = F.Blueprint{Internal}
