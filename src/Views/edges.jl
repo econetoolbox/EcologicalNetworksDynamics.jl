@@ -15,18 +15,7 @@ edges_view(m::Model, web::Symbol, data::Symbol) =
     EdgesDataView(m, N.edges_view(value(m), web, data), data)
 Base.getindex(v::S, i, j) = getindex(view(v), (i, j))
 Base.setindex!(v::S, x, i, j) = setindex!(view(v), x, (i, j))
-
-function extract(v::S)
-    T = eltype(v)
-    n, m = size(v)
-    res = spzeros(T, (n, m))
-    for (i, sub) in N.forward(topology(v))
-        for j in sub
-            res[i, j] = v[i, j]
-        end
-    end
-    res
-end
+extract(v::S; kw...) = N.to_sparse(view(v), kw...)
 
 # TODO: do we need an ExpandedEdgesView? Maybe refactor components first to figure this.
 
@@ -51,15 +40,7 @@ function Base.getindex(v::S, a::Symbol, b::Symbol)
 end
 edges_mask_view(m::Model, web::Symbol) = EdgesMaskView(m, N.web(value(m), web))
 export edges_mask_view
-function extract(v::S)
-    res = spzeros(Bool, size(v))
-    for (i, sub) in v |> topology |> N.forward
-        for (j, _) in sub
-            res[i, j] = true
-        end
-    end
-    res
-end
+extract(v::S) = v |> topology |> N.to_mask
 Base.eltype(::Type{EdgesMaskView}) = Bool
 
 # ==========================================================================================
@@ -77,8 +58,10 @@ source_index(v::S) = source(v).index
 target_index(v::S) = target(v).index
 Base.size(v::S) = v |> web |> size
 Base.length(v::S) = v |> topology |> length
-Base.getindex(v::S, i...) = erredgesdim(v, i)
-Base.setindex!(v::S, _, i...) = erredgesdim(v, i)
+Base.getindex(v::S, i) = erredgesdim(v, (i,))
+Base.setindex!(v::S, _, i) = erredgesdim(v, (i,))
+Base.getindex(v::S, i, j, k, l...) = erredgesdim(v, (i, j, k, l...))
+Base.setindex!(v::S, _, i, j, k, l...) = erredgesdim(v, (i, j, k, l...))
 erredgesdim(v::S, i) = err(
     v,
     "Two indices are required to index into webs. Received $(length(i)): $(repr(i)).",

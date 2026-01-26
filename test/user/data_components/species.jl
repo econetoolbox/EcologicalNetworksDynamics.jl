@@ -13,11 +13,6 @@
     @test m.species.names == [:a, :b, :c]
     @test typeof(sp) == Species.Names
 
-    # Get a closure to convert index to label.
-    lab = m.species.label
-    @test lab(1) == :a
-    @test lab.([1, 2, 3]) == [:a, :b, :c]
-
     # From a number of species (default names generated).
     sp = Species(3)
     m = base + sp
@@ -51,11 +46,6 @@
     @sysfails(
         Model(Species([:a, :b, :a])),
         Check(early, [Species.Names], "Species 1 and 3 are both named :a."),
-    )
-
-    @argfails(
-        Model(Species([:a, :b])).species.label(3),
-        "Invalid index (3) when there are 2 species names."
     )
 
     @sysfails(

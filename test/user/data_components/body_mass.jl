@@ -60,7 +60,7 @@
     bm = BodyMass(; Z = 2.8)
 
     m = base + fw + bm
-    @test m.trophic.levels == [2.5, 2, 1]
+    @test m.trophic.level == [2.5, 2, 1]
     @test m.body_mass == [2.8^1.5, 2.8, 1]
 
     @sysfails(Model(Species(2)) + bm, Missing(Foodweb, nothing, [BodyMass.Z], nothing))
@@ -107,6 +107,7 @@
         )
     )
 
+    # HERE: restore these checks.
     @failswith(
         (m.M[1] = 'a'),
         WriteError("not a value of type Real", :body_mass, (1,), 'a')

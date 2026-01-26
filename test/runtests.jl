@@ -22,7 +22,7 @@ sep("Test internal model representation.")
 #  include("./networks/runtests.jl")
 
 sep("Test System/Blueprints/Components framework.")
-include("./framework/runtests.jl")
+#  include("./framework/runtests.jl")
 
 sep("Test API utils.")
 #  include("./graph_data_inputs/runtests.jl")

@@ -10,7 +10,7 @@ define_node_data_component(
     :Species,
     :body_mass,
     :BodyMass;
-    check_value = (>=(0.0), "Not a positive value."),
+    check_value = (>=(0.0), "Not a positive value"),
     #---------------------------------------------------------------------------------------
     # One extra blueprint to build from trophic levels.
     Blueprints = quote
@@ -29,13 +29,18 @@ define_node_data_component(
         end
 
         function F.expand!(raw, bp::Z)
-            A = @ref raw.A
-            M = Internals.compute_mass(A, bp.Z)
-            expand_from_vec!(raw, M)
+            level = @ref raw.trophic.level
+            M = read(level) do level
+                bp.Z .^ (level .- 1) # Credit to Ismaël Lajaaiti.
+            end
+            expand_from_vector!(raw, M)
         end
 
     end,
 )
+
+# Community convenience alias.
+@alias body_mass M
 
 function (::_BodyMass)(; Z = nothing)
     isnothing(Z) && argerr("Either 'M' or 'Z' must be provided to define body masses.")

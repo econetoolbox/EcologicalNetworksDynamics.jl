@@ -13,14 +13,17 @@ struct NodesDataView{T}
     model::Model
     view::N.NodesView{T}
     fieldname::Symbol
+    writeable::Bool
 end
 S = NodesDataView # "Self"
 restriction(v::S) = class(v).restriction
 Base.length(v::S) = v |> view |> length
-Base.getindex(v::S, r::Ref) = getindex(view(v), r)
-Base.setindex!(v::S, x, r::Ref) = setindex!(view(v), x, r)
-nodes_view(m::Model, class::Symbol, data::Symbol) =
-    NodesDataView(m, N.nodes_view(value(m), class, data), data)
+Base.getindex(v::S, ref) = getindex(view(v), ref)
+Base.setindex!(v::S, x, ref) =
+    writeable(v) ? setindex!(view(v), x, ref) :
+    err(v, "Values of $(repr(fieldname(v))) are readonly.")
+N.nodes_view(m::Model, class::Symbol, data::Symbol, writeable::Bool) =
+    NodesDataView(m, N.nodes_view(value(m), class, data), data, writeable)
 extract(v::S) = [v[i] for i in 1:length(v)]
 
 """
@@ -33,6 +36,7 @@ struct ExpandedNodesDataView{T}
     view::N.NodesView{T}
     fieldname::Symbol
     parent::Option{Symbol}
+    writeable::Bool
 end
 S = ExpandedNodesDataView
 parent(v::S) = getfield(v, :parent)
@@ -40,8 +44,12 @@ restriction(v::S) = N.restriction(network(v), classname(v), parent(v))
 Base.length(v::S) = n_nodes(network(v), parent(v))
 Base.getindex(v::S, l::Symbol) = getindex(view(v), l)
 Base.setindex!(v::S, x, l::Symbol) = setindex!(view(v), x, l)
-nodes_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}}, data::Symbol) =
-    ExpandedNodesDataView(m, N.nodes_view(value(m), class, data), data, parent)
+N.nodes_view(
+    m::Model,
+    (class, parent)::Tuple{Symbol,Option{Symbol}},
+    data::Symbol,
+    writeable::Bool,
+) = ExpandedNodesDataView(m, N.nodes_view(value(m), class, data), data, parent, writeable)
 
 function Base.getindex(v::S, i::Int)
     i = restrict_index(v, i)
@@ -84,6 +92,9 @@ AbstractNodesDataView{T} = Union{NodesDataView{T},ExpandedNodesDataView{T}}
 S = AbstractNodesDataView
 N.class(v::S) = v |> view |> class
 classname(v::S) = class(v).name
+writeable(v::S) = getfield(v, :writeable)
+Base.:(==)(v::S, o::AbstractVector) = extract(v) == o # Inefficient: reconsider if bottleneck.
+Base.:(==)(o::AbstractVector, v::S) = v == o
 
 # ==========================================================================================
 # Special-cased, immutable topology views.
@@ -166,8 +177,8 @@ function check_range(v::S, i::Int)
     i in 1:n || err(v, "Cannot index with '$i' into a view with '$n' $nname node$s.")
     i
 end
-Base.getindex(v::S, i...) = errnodesdim(v, i)
-Base.setindex!(v::S, _, i...) = errnodesdim(v, i)
+Base.getindex(v::S, i, j, k...) = errnodesdim(v, (i, j, k...))
+Base.setindex!(v::S, _, i, j, k...) = errnodesdim(v, (i, j, k...))
 errnodesdim(v, i) =
     err(v, "Cannot index into nodes with $(length(i)) dimensions: $(repr(i)).")
 check_label(v::S, l::Symbol) = N.check_label(l, index(v), classname(v))

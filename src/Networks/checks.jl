@@ -30,15 +30,31 @@ is_label(label::Symbol, n::Network) =
 is_label(label::Symbol, index::Index) = haskey(index.forward, label)
 is_label(label::Symbol, class::Class) = is_label(label, class.index)
 
+struct LabelError <: Exception
+    name::Symbol
+    class::Option{Symbol} # None for root.
+    valids::Index
+end
+laberr(l, c, n) = throw(LabelError(l, c, n))
+
 function check_label(label::Symbol, n::Network)
-    is_label(label, n) ||
-        err("Label $(repr(label)) does not refer to a node in the network.")
+    is_label(label, n) || laberr(label, nothing, read(deepcopy, n.index))
     label
 end
 
 function check_label(label::Symbol, index::Index, class::Symbol)
-    is_label(label, index) ||
-        err("Label $(repr(label)) does not refer to a node in class $(repr(class)).")
+    is_label(label, index) || laberr(label, class, index)
     label
 end
 check_label(label::Symbol, class::Class) = check_label(label, class.index, class.name)
+
+function Base.showerror(io::IO, e::LabelError)
+    (; name, class, valids) = e
+    # TODO: display elided valid names or closest match.
+    if isnothing(class)
+        print(io, "Label does not refer to a node in the network: $(repr(name)).")
+    else
+        print(io, "Label does not refer to a node in $(repr(class)) class: $(repr(name)).")
+    end
+    print(io, "\nValid labels: $(collect(keys(valids))).")
+end

@@ -8,10 +8,10 @@ to_vec(v::EdgesView) = read(collect, v)
 export to_vec
 
 """
-Obtain values under a matrix form,
+Obtain values under a dense matrix form,
 specifying what to use in entries corresponding to no edge (defaults to `zero(T)`).
 """
-function to_mat(t::Topology, v::Vector; empty = Unspecified)
+function to_dense(t::Topology, v::Vector; empty = Unspecified)
     if empty === Unspecified
         empty = zero(eltype(v))
     end
@@ -21,11 +21,11 @@ function to_mat(t::Topology, v::Vector; empty = Unspecified)
     ]
 end
 struct Unspecified end
-to_mat(v::EdgesView; kwargs...) = read(r -> to_mat(web(v).topology, r), v)
-export to_mat
+to_dense(v::EdgesView; kw...) = read(r -> to_dense(web(v).topology, r, kw...), v)
+export to_dense
 
 """
-Obtain a sparse matrix.
+Obtain values under a sparse matrix form.
 """
 function to_sparse(t::Topology, v::Vector)
     res = spzeros(eltype(v), n_sources(t), n_targets(t))
@@ -49,6 +49,14 @@ function to_mask(t::Topology)
     res = spzeros(Bool, n_sources(t), n_targets(t))
     for (i, j) in edges(t)
         res[i, j] = true
+    end
+    res
+end
+function to_mask(t::SymmetricTopology)
+    res = spzeros(Bool, n_sources(t), n_targets(t))
+    for (i, j) in edges(t)
+        res[i, j] = true
+        res[j, i] = true
     end
     res
 end
