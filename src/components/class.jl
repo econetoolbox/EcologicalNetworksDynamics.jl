@@ -138,6 +138,8 @@ function define_class_properties(
         using .Framework
         using .Views
 
+        using OrderedCollections
+
         # Nodes counts and nodes labels.
         # The 'ref' variant is more efficient but unexposed.
         get_number(m::Internal) = n_nodes(m, $s)
@@ -151,9 +153,12 @@ function define_class_properties(
         ref_index(m::Internal) = class(m, $s).index.forward
         get_index(m::Internal) = deepcopy(ref_index(m))
         indices(m::Internal) = Networks.node_indices(m, $s)
+        get_parent_index(m::Internal) =
+            OrderedDict(l => i for (l, i) in zip(ref_names(m), indices(m)))
         @method $m $M.ref_index $deps read_as($plural._index)
         @method $m $M.get_index $deps read_as($plural.index)
         @method $m $M.indices $deps read_as($plural.indices)
+        @method $m $M.get_parent_index $deps read_as($plural.parent_index)
 
         # Mask within parent class.
         mask(i::Internal, m::Model) = nodes_mask_view(m, ($s, class(i, $s).parent))

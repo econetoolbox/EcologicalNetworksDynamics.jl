@@ -123,7 +123,8 @@ end
 function Base.show(io::IO, ::MIME"text/plain", v::NodesDataView)
     print(io, display_info(v))
     n, s = ns(length(v))
-    print(io, " ($n value$s)")
+    w = writeable(v) ? "" : " readonly"
+    print(io, " ($n$w value$s)")
     read(entry(v)) do raw
         for v in raw
             print(io, "\n ")
@@ -136,9 +137,10 @@ function Base.show(io::IO, ::MIME"text/plain", v::ExpandedNodesDataView)
     print(io, display_info(v))
     mask = N.mask(network(v), class(v).name, parent(v))
     n, _ = ns(length(v))
+    w = writeable(v) ? "" : " (readonly)"
     read(entry(v)) do raw
         (nz, s) = ns(length(raw))
-        print(io, " ($nz/$n value$s)")
+        print(io, " ($nz/$n$w value$s)")
         i_raw = 0
         for m in mask
             print(io, '\n')

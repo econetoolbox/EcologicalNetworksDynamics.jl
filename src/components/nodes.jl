@@ -67,7 +67,7 @@ function define_node_data_component(
             else
                 "[$(join(repr.(ref), ", "))]"
             end
-            checkfails("$($bad_value_message): $name$index = $value.")
+            checkfails("$($bad_value_message): $($s_field)$index = $value.")
         end
 
         function F.late_check(raw, bp::Raw)
@@ -146,7 +146,7 @@ function define_node_data_component(
         module $M # (to not pollute invokation scope)
         import EcologicalNetworksDynamics: Views, @method, Internal, Model
 
-        $get_data(::Internal, m::Model) = Views.nodes_view(m, $s_class, $s_data)
+        $get_data(::Internal, m::Model) = Views.nodes_view(m, $s_class, $s_data, true)
         @method $m $M.$get_data read_as($data) depends($Data)
 
         end

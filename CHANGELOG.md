@@ -18,14 +18,30 @@
 
 # Breaking
 
-- Drop `.label` properties returning index mapping functions,
-  in favour of raw `.index` and `.names` views.
-- Drop `is_<class>` methods in favour of raw `.mask` views.
+- `model.trophic.levels` becomes `model.trophic.level` for consistency with
+  other node properties being named with singular form.
+
 - `model.trophic.herbivory_matrix` becomes `model.trophic.herbivory.matrix`
   or just `model.herbivory.matrix`,
   with other standard web properties namespaced within `model.herbivory`,
   and aliased to `model.trophic.herbivory`.
   The same goes for `carnivory`.
+
+- A bunch of redundant properties and methods are dropped
+  in favour of raw `model.<class>.index`, `model.<class>.names`
+  and `model.<class>.mask` views:
+  - `is_<class>(model, i)` methods are dropped.
+  - `model.<class>.label` property is dropped.
+  - `model.<class>_<sparse|dense>_index` are dropped.
+
+- Data views like `model.M` or `model.A`
+  do not subtype `AbstractVector` or `AbstractMatrix` anymore,
+  but it is easy to extract a sparse/dense vector/matrix from them
+  with `extract(model.M)` or `extract(model.A)`.
+  This being said, there is an effort to implement useful interface on them
+  like `getindex`, `setindex!`, `==`, `.+` *etc.*
+  If their use is inconvenient (*i.e.* you need to write `extract` too often),
+  please consider it an issue to discuss.
 
 # Bugfixes
 

@@ -265,7 +265,7 @@ end
     @test typeof(v) === Vector{Int}
     @test v == [5, 4, 6, 2, 1, 8, 3]
 
-    m = to_mat(c)
+    m = to_dense(c)
     @test typeof(m) === Matrix{Int}
     @test m == [ # Symmetry worked ;)
         0 0 4 0 0
