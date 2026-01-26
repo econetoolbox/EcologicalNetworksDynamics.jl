@@ -5,6 +5,8 @@ using MacroTools
 using OrderedCollections
 using SparseArrays
 using LinearAlgebra
+using Graphs
+using Distributions
 
 const Option{T} = Union{T,Nothing}
 

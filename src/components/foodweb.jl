@@ -131,6 +131,9 @@ function (::_Foodweb)(A)
     end
 end
 
+# Foodweb generation structural models.
+include("./structural_models.jl")
+
 # Construct blueprint from a random model.
 function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
     model = @tographdata model Y{}
@@ -166,10 +169,9 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
                 tol = take_or!(:tol_C, 0.1 * C)
                 no_unused_arguments()
 
-                    # HERE: time to extract these from old internals.
                     #! format: off
-                    Internals.model_foodweb_from_C(
-                        Internals.niche_model,
+                    model_foodweb_from_C(
+                        niche_model,
                         S, C, nothing, # old 'p_forbidden' ?
                         tol, rc, rd, max,
                     )
@@ -181,8 +183,8 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
                 no_unused_arguments()
 
                     #! format: off
-                    Internals.model_foodweb_from_L(
-                        Internals.niche_model,
+                    model_foodweb_from_L(
+                        niche_model,
                         S, L, nothing, # old 'p_forbidden' ?
                         tol, rc, rd, max,
                     )
@@ -202,8 +204,8 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
             no_unused_arguments()
 
                 #! format: off
-                Internals.model_foodweb_from_C(
-                    Internals.cascade_model,
+                model_foodweb_from_C(
+                    cascade_model,
                     S, C, nothing, # old 'p_forbidden' ?
                     tol, rc, rd, max,
                 )
@@ -235,6 +237,7 @@ end
 @alias herbivory trophic.herbivory
 @alias carnivory trophic.carnivory
 
+#-------------------------------------------------------------------------------------------
 """
 Calculate trophic levels for every species.
 Credit: Ismaël Lajaaiti 2024-03-19 #5665e377.
