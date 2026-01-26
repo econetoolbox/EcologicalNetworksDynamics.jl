@@ -11,15 +11,17 @@ end
 
 function define_class_component(
     mod::Module,
+    # Class name, singular/plural, capitalized/not.
     singular::Symbol,
     Singular::Symbol,
     plural::Symbol,
     Plural::Symbol,
+    # Prefix for automatically generated node labels.
     short_prefix::Symbol,
 )
     Plural_ = Symbol(Plural, :_) # Blueprints module name.
     _Plural = Symbol(:_, Plural) # Component type name.
-    s, S, sp = Meta.quot.((plural, Plural, short_prefix))
+    s, S, sp = Meta.quot.((plural, Plural, short_prefix)) # Symbol names.
     xp = quote
 
         # ==================================================================================
@@ -57,8 +59,7 @@ function define_class_component(
             for (i, a) in enumerate(names)
                 for j in (i+1):length(names)
                     b = names[j]
-                    a == b &&
-                        G.checkfails("$($S) $i and $j are both named $(repr(a)).")
+                    a == b && G.checkfails("$($S) $i and $j are both named $(repr(a)).")
                 end
             end
         end
@@ -156,8 +157,7 @@ function define_class_properties(
         @method $m $M.indices $deps read_as($plural.indices)
 
         # Mask within parent class.
-        mask(i::Internal, m::Model) =
-            nodes_mask_view(m, ($s, class(i, $s).parent))
+        mask(i::Internal, m::Model) = nodes_mask_view(m, ($s, class(i, $s).parent))
         @method $m $M.mask $deps read_as($plural.mask)
 
         end

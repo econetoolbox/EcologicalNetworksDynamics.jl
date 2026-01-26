@@ -475,10 +475,10 @@ end
 
 # Call later to append aliases.
 # TODO: this is only tested by the above client package yet. Test within framework tests.
-macro alias(a, b, V)
-    a, b = Meta.quot.((a, b))
+macro alias(old, new, V)
+    old, new = Meta.quot.((old, new))
     quote
-        $alias_property!($a, $b, $V)
+        $alias_property!($old, $new, $V)
     end
 end
 export @alias
