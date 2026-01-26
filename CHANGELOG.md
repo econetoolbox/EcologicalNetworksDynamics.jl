@@ -1,10 +1,31 @@
 # v0.3.x
 
+# New
+
+- All `<class>`es like `species`, `producers`, `consumers`, `nutrients`, *etc.*
+  now have the same standard properties available:
+  - `model.<class>.number`: class size = number of nodes in the class.
+  - `model.<class>.names`: class node labels in canonical (=original) order.
+  - `model.<class>.index`: map labels to local class indices.
+  - `model.<class>.mask`:
+    view into underlying sparse restrictions from parent class.
+- All `<web>`s like `trophic`, `herbivory`, `carnivory` *etc.*
+  now have the same standard properties available:
+  - `model.<web>.matrix` or `model.<web>.mask`:
+    view into underlying sparse topology.
+  - `model.<web>.n_links` or `model.<web>.n_edges`:
+    number of links/edges in the web.
+
 # Breaking
 
 - Drop `.label` properties returning index mapping functions,
   in favour of raw `.index` and `.names` views.
 - Drop `is_<class>` methods in favour of raw `.mask` views.
+- `model.trophic.herbivory_matrix` becomes `model.trophic.herbivory.matrix`
+  or just `model.herbivory.matrix`,
+  with other standard web properties namespaced within `model.herbivory`,
+  and aliased to `model.trophic.herbivory`.
+  The same goes for `carnivory`.
 
 # Bugfixes
 

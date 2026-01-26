@@ -43,20 +43,19 @@ end
 
 F.expand!(raw, bp::Matrix) = expand_from_matrix!(raw, bp.A)
 function expand_from_matrix!(raw, A)
-    top = SparseReflexive(A)
-    add_web!(raw, :trophic, (:species, :species), top)
+    troph = SparseReflexive(A)
+    add_web!(raw, :trophic, (:species, :species), troph)
 
     # This defines new categories of species.
-    add_subclass!(raw, :tops, :species, sources_mask(top))
-    add_subclass!(raw, :producers, :species, sinks_mask(top))
-    add_subclass!(raw, :preys, :species, nonsources_mask(top))
-    add_subclass!(raw, :consumers, :species, nonsinks_mask(top))
+    add_subclass!(raw, :tops, :species, sources_mask(troph))
+    add_subclass!(raw, :producers, :species, sinks_mask(troph))
+    add_subclass!(raw, :preys, :species, nonsources_mask(troph))
+    add_subclass!(raw, :consumers, :species, nonsinks_mask(troph))
 
     # And also new webs with special trophic links highlighted.
+    S = @get raw.S
 
     # Producers matrix.
-    S = @get raw.S
-    S = @get raw.S
     prods = @get raw.producers.indices
     mat = spzeros(Bool, S, S)
     for i in prods, j in prods
@@ -64,6 +63,24 @@ function expand_from_matrix!(raw, A)
     end
     top = SparseSymmetric(mat)
     add_web!(raw, :producers_web, (:species, :species), top)
+
+    # Herbivory matrix: consumers-to-producers.
+    mat = spzeros(Bool, S, S)
+    preds, preys, _ = findnz(A)
+    for (pred, prey) in zip(preds, preys)
+        is_sink(troph, prey) && (mat[pred, prey] = true)
+    end
+    top = SparseReflexive(mat)
+    add_web!(raw, :herbivory, (:species, :species), top)
+
+    # Carnivory matrix: consumers-to-consumers.
+    mat = spzeros(Bool, S, S)
+    preds, preys, _ = findnz(A)
+    for (pred, prey) in zip(preds, preys)
+        is_sink(troph, prey) || (mat[pred, prey] = true)
+    end
+    top = SparseReflexive(mat)
+    add_web!(raw, :carnivory, (:species, :species), top)
 
 end
 
@@ -213,6 +230,11 @@ end
 @web_properties producers_web ProducersWeb depends(Foodweb)
 @alias producers_web.matrix producers.matrix
 
+@web_properties herbivory Herbivory depends(Foodweb)
+@web_properties carnivory Carnivory depends(Foodweb)
+@alias herbivory trophic.herbivory
+@alias carnivory trophic.carnivory
+
 module FoodwebMethods # (to not pollute global scope)
 
 using SparseArrays
@@ -236,36 +258,6 @@ import ..Foodweb
 
 # HERE: extract from internals: valid for any reflexive web?
 levels(m::Internal) = m |> Internals.trophic_levels
-
-# HERE: upgrade the following to derived extra webs within the network.
-
-#-------------------------------------------------------------------------------------------
-# Get a sparse matrix highlighting only 'herbivorous' trophic links: consumers-to-producers.
-#                                    or 'carnivorous' trophic links: consumers-to-consumers.
-
-function herbivory_matrix(raw::Internal)
-    S = @get raw.S
-    A = @ref raw.A
-    res = spzeros(Bool, S, S)
-    preds, preys, _ = findnz(A)
-    for (pred, prey) in zip(preds, preys)
-        is_producer(raw, prey) && (res[pred, prey] = true)
-    end
-    res
-end
-@method herbivory_matrix depends(Foodweb) read_as(trophic.herbivory_matrix)
-
-function carnivory_matrix(raw::Internal)
-    S = @get raw.S
-    A = @ref raw.A
-    res = spzeros(Bool, S, S)
-    preds, preys, _ = findnz(A)
-    for (pred, prey) in zip(preds, preys)
-        is_consumer(raw, prey) && (res[pred, prey] = true)
-    end
-    res
-end
-@method carnivory_matrix depends(Foodweb) read_as(trophic.carnivory_matrix)
 
 end
 
