@@ -1,5 +1,48 @@
 # v0.3.x
 
+# New
+
+- All `<class>`es like `species`, `producers`, `consumers`, `nutrients`, *etc.*
+  now have the same standard properties available:
+  - `model.<class>.number`: class size = number of nodes in the class.
+  - `model.<class>.names`: class node labels in canonical (=original) order.
+  - `model.<class>.index`: map labels to local class indices.
+  - `model.<class>.mask`:
+    view into underlying sparse restrictions from parent class.
+- All `<web>`s like `trophic`, `herbivory`, `carnivory` *etc.*
+  now have the same standard properties available:
+  - `model.<web>.matrix` or `model.<web>.mask`:
+    view into underlying sparse topology.
+  - `model.<web>.n_links` or `model.<web>.n_edges`:
+    number of links/edges in the web.
+
+# Breaking
+
+- `model.trophic.levels` becomes `model.trophic.level` for consistency with
+  other node properties being named with singular form.
+
+- `model.trophic.herbivory_matrix` becomes `model.trophic.herbivory.matrix`
+  or just `model.herbivory.matrix`,
+  with other standard web properties namespaced within `model.herbivory`,
+  and aliased to `model.trophic.herbivory`.
+  The same goes for `carnivory`.
+
+- A bunch of redundant properties and methods are dropped
+  in favour of raw `model.<class>.index`, `model.<class>.names`
+  and `model.<class>.mask` views:
+  - `is_<class>(model, i)` methods are dropped.
+  - `model.<class>.label` property is dropped.
+  - `model.<class>_<sparse|dense>_index` are dropped.
+
+- Data views like `model.M` or `model.A`
+  do not subtype `AbstractVector` or `AbstractMatrix` anymore,
+  but it is easy to extract a sparse/dense vector/matrix from them
+  with `extract(model.M)` or `extract(model.A)`.
+  This being said, there is an effort to implement useful interface on them
+  like `getindex`, `setindex!`, `==`, `.+` *etc.*
+  If their use is inconvenient (*i.e.* you need to write `extract` too often),
+  please consider it an issue to discuss.
+
 # Bugfixes
 
 - Fix world count in Framework `@conflicts` macro with Julia 1.12.

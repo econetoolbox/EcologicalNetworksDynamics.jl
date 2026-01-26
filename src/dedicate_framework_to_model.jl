@@ -27,7 +27,8 @@ import .F:
     embedded,
     has_component,
     implied,
-    isacomponent
+    isacomponent,
+    value
 
 # Direct re-exports from the framework module.
 export add!
@@ -42,7 +43,9 @@ export implied
 export isacomponent
 export properties
 
-const Internal = Internals.ModelParameters # <- TODO: rename when refactoring Internals.
+# The type wrapped within the system.
+# TODO: "Internal" -> "Network" ?
+const Internal = Networks.Network
 
 const Blueprint = F.Blueprint{Internal}
 const BlueprintSum = F.BlueprintSum{Internal}
@@ -63,10 +66,10 @@ function properties(m::Model)
     res
 end
 non_underscore(p::F.PropertySpace) =
-    ifilter(F.properties(p)) do (name, _)
+    I.filter(F.properties(p)) do (name, _)
         !startswith(String(name), '_')
     end
-properties(p::F.PropertySpace) = collect(imap(first, non_underscore(p)))
+properties(p::F.PropertySpace) = collect(I.map(first, non_underscore(p)))
 export properties
 Base.propertynames(m::Model) = properties(m)
 Base.propertynames(p::F.PropertySpace{name,P,Internal}) where {name,P} = properties(p)
@@ -78,6 +81,13 @@ macro propspace(path)
     quote
         $eget(::Internal, s::Model) = F.@PropertySpace($path, $Internal)(s)
         F.@method $get{$Internal} read_as($path)
+    end
+end
+
+# Convenience macro to alias properties.
+macro alias(old, new)
+    quote
+        F.@alias($old, $new, $Internal)
     end
 end
 
@@ -185,9 +195,8 @@ end
 # ==========================================================================================
 # Display.
 
-F.mod_roots = [EcologicalNetworksDynamics]
+push!(F.mod_roots, EcologicalNetworksDynamics)
 
-Base.show(io::IO, ::Type{Internal}) = print(io, "<internals>") # Shorten and opacify.
 Base.show(io::IO, ::Type{Model}) = print(io, "Model")
 
 Base.show(io::IO, ::MIME"text/plain", I::Type{Internal}) = Base.show(io, I)
@@ -245,7 +254,7 @@ function F.display_blueprint_field_short(
     map::@GraphData(Map{T}),
     ::Blueprint,
 ) where {T}
-    it = imap(map) do (k, v)
+    it = I.map(map) do (k, v)
         "$k: $v"
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")
@@ -257,7 +266,7 @@ function F.display_blueprint_field_short(
     adj::@GraphData(Adjacency{T}),
     bp::Blueprint,
 ) where {T}
-    it = imap(adj) do (k, v)
+    it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")
@@ -274,7 +283,7 @@ function F.display_blueprint_field_short(
     adj::@GraphData(Adjacency{:bin}),
     bp::Blueprint,
 )
-    it = imap(adj) do (k, v)
+    it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")

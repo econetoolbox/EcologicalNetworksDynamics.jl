@@ -19,7 +19,7 @@ export Value
 module Invocations
 using ..ComponentMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails, @pcompfails, @xcompfails, @failswith
+using Main: @sysfails, @compfails, @failswith
 const F = Framework
 using Test
 
@@ -170,16 +170,18 @@ module Zru end # Test empty module.
 
     @component Tap{Value} blueprints(b::Tap_b)
 
-    tap_count = [0] # (check that it's only evaluated once as expected)
-    dsn_count = [0]
-    function tap_expression()
-        tap_count[1] += 1
-        Tap
-    end
-    function dsn_expression()
-        dsn_count[1] += 1
-        Dsn_b
-    end
+    eval(quote
+        tap_count = [0] # (check that it's only evaluated once as expected)
+        dsn_count = [0]
+        function tap_expression()
+            tap_count[1] += 1
+            Tap
+        end
+        function dsn_expression()
+            dsn_count[1] += 1
+            Dsn_b
+        end
+    end)
 
     # Use arbitrary expression instead of identifier paths.
     @component Dsn{Value} blueprints(b::dsn_expression()) requires(tap_expression())
@@ -200,51 +202,59 @@ end
     #---------------------------------------------------------------------------------------
     # Basic misuses.
 
-    @pcompfails((@component), ["Not enough macro input provided. Example usage:\n"])
+    @compfails((@component), nothing, ["Not enough macro input provided. Example usage:\n"])
 
-    @pcompfails((@component a b c d e), ["Too much macro input provided. Example usage:\n"])
+    @compfails(
+        (@component a b c d e),
+        nothing,
+        ["Too much macro input provided. Example usage:\n"]
+    )
 
-    @pcompfails(
+    @compfails(
         (@component 4 + 5),
+        nothing,
         "Expected component `Name{ValueType}` or `Name <: SuperComponent`, \
          got instead: :(4 + 5)."
     )
 
-    @pcompfails(
+    @compfails(
         (@component Vector),
+        nothing,
         "Expected component `Name{ValueType}` or `Name <: SuperComponent`, \
          got instead: :Vector."
     )
 
-    @xcompfails(
+    @compfails(
         (@component Oan{NotAType}),
-        nothing,
+        :Oan,
         "Evaluating given system value type: \
          expression does not evaluate: :NotAType. \
          (See error further down the exception stack.)"
     )
 
-    @xcompfails(
+    @compfails(
         (@component Vector{Int64}),
-        nothing,
+        :Vector,
         "Cannot define component 'Vector': name already defined."
     )
 
     @component Rrn{Value}
-    @xcompfails(
+    @compfails(
         (@component Rrn{Int64}),
-        nothing,
+        :Rrn,
         "Cannot define component 'Rrn': name already defined."
     )
 
-    @pcompfails(
+    @compfails(
         (@component Eft{Value} wrong()),
+        :Eft,
         "Invalid @component section. Expected `requires(..)` or `blueprints(..)`, \
          got instead: :(wrong())."
     )
 
-    @pcompfails(
+    @compfails(
         (@component Ohk{Value} struct NotASection end),
+        :Ohk,
         ["Invalid @component section. Expected `requires(..)` or `blueprints(..)`, \
           got instead: :(struct NotASection"],
     )
@@ -252,13 +262,15 @@ end
     #---------------------------------------------------------------------------------------
     # Blueprints section.
 
-    @pcompfails(
+    @compfails(
         (@component Uvv{Value} blueprints(4 + 5)),
-        "Expected `name::Type` or `ModuleName` to specify blueprint, \
-         found instead: :(4 + 5).",
+        :Uvv,
+        "Blueprints list: expression does not evaluate to a 'Module':\n\
+         Expression: :(4 + 5)\n\
+         Result: 9 ::$Int",
     )
 
-    @xcompfails(
+    @compfails(
         (@component Uvv{Value} blueprints(b::(4 + 5))),
         :Uvv,
         "Blueprint: expression does not evaluate to a 'DataType':\n\
@@ -266,7 +278,7 @@ end
          Result: 9 ::$Int",
     )
 
-    @xcompfails(
+    @compfails(
         (@component Uvv{Value} blueprints(b::Int)),
         :Uvv,
         "Blueprint: '$Int64' does not subtype '$Blueprint{$Value}'.",
@@ -275,7 +287,7 @@ end
     # The given blueprint(s) need to target the same type.
     struct Uvv_i <: Blueprint{Int} end
     @blueprint Uvv_i
-    @xcompfails(
+    @compfails(
         (@component Uvv{Value} blueprints(b::Uvv_i)),
         :Uvv,
         "Blueprint: '$Uvv_i' does not subtype '$Blueprint{$Value}', but '$Blueprint{$Int}'.",
@@ -284,7 +296,7 @@ end
     # Guard against redundancy / collisions.
     struct Uvv_b <: Blueprint{Value} end
     @blueprint Uvv_b
-    @xcompfails(
+    @compfails(
         (@component Uvv{Value} blueprints(b::Uvv_b, c::Uvv_b)),
         :Uvv,
         "Base blueprint '$Uvv_b' bound to both names :b and :c.",
@@ -292,7 +304,7 @@ end
 
     struct Uvv_c <: Blueprint{Value} end
     @blueprint Uvv_c
-    @xcompfails(
+    @compfails(
         (@component Uvv{Value} blueprints(b::Uvv_b, b::Uvv_c)),
         :Uvv,
         "Base blueprint :b both refers to '$Uvv_b' and to '$Uvv_c'.",
@@ -309,13 +321,13 @@ end
     @test Plv.Ibh_b == Plv_b.Ibh_b
     @test Plv.Fek_b == Plv_b.Fek_b
 
-    @xcompfails(
+    @compfails(
         (@component Fyi{Value} blueprints(Plv_b, dupe::Plv_b.Fek_b)),
         :Fyi,
         "Base blueprint '$(Plv_b.Fek_b)' bound to both names :Fek_b and :dupe."
     )
 
-    @xcompfails(
+    @compfails(
         (@component Kxi{Value} blueprints(Zru)),
         :Kxi,
         "Module '$Zru' exports no blueprint for '$Value'."
@@ -325,14 +337,14 @@ end
     #---------------------------------------------------------------------------------------
     # Requires section.
 
-    @xcompfails(
+    @compfails(
         (@component Kpr{Value} requires(Undefined)),
         :Kpr,
         "Required component: expression does not evaluate: :Undefined. \
         (See error further down the exception stack.)"
     )
 
-    @xcompfails(
+    @compfails(
         (@component Kpr{Value} requires(4 + 5)),
         :Kpr,
         "Required component: expression does not evaluate \
@@ -341,7 +353,7 @@ end
          Result: 9 ::$Int"
     )
 
-    @xcompfails(
+    @compfails(
         (@component Kpr{Value} requires(Int)),
         :Kpr,
         "Required component: expression does not evaluate \
@@ -351,7 +363,7 @@ end
     )
 
     abstract type Ayz <: Component{Int} end
-    @xcompfails(
+    @compfails(
         (@component Kpr{Value} requires(Ayz)),
         :Kpr,
         "Required component: expression does not evaluate \
@@ -361,7 +373,7 @@ end
     )
 
     @component Wdj{Int}
-    @xcompfails(
+    @compfails(
         (@component Odv{Value} requires(Wdj)),
         :Odv,
         "Required component: expression does not evaluate \
@@ -375,19 +387,19 @@ end
     @component Rhr <: Lpx
     @component Crq{Value}
 
-    @xcompfails(
+    @compfails(
         (@component Mpz{Value} requires(Crq, Crq)),
         :Mpz,
         "Requirement <$Crq> is specified twice."
     )
 
-    @xcompfails(
+    @compfails(
         (@component Mpz{Value} requires(Lpx, Rhr)),
         :Mpz,
         "Requirement <$Rhr> is also specified as $Lpx."
     )
 
-    @xcompfails(
+    @compfails(
         (@component Mpz{Value} requires(Rhr, Lpx)),
         :Mpz,
         "Requirement <$Rhr> is also specified as $Lpx."
@@ -400,7 +412,7 @@ end
 module Abstracts
 using ..ComponentMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails, @pcompfails, @xcompfails
+using Main: @sysfails
 using Test
 
 const S = System{Value}
