@@ -8,6 +8,7 @@ using LinearAlgebra
 using Graphs
 using Distributions
 
+const EN = EcologicalNetworksDynamics
 const Option{T} = Union{T,Nothing}
 
 # Common display utils.

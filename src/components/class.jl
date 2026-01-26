@@ -1,6 +1,5 @@
 """
 Typical setup for a component bringing a new class to the network.
-Provide lowercase + camelcase names and a short prefix for default labels.
 """
 macro class_component(input...)
     quote

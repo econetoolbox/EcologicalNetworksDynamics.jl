@@ -9,7 +9,7 @@
 (false) && (local Foodweb, _Foodweb)
 
 define_reflexive_web_component(
-    nothing,
+    EN,
     :foodweb,
     :Foodweb,
     :species,
