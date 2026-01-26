@@ -85,9 +85,9 @@ macro propspace(path)
 end
 
 # Convenience macro to alias properties.
-macro alias(a, b)
+macro alias(old, new)
     quote
-        F.@alias($a, $b, $Internal)
+        F.@alias($old, $new, $Internal)
     end
 end
 
