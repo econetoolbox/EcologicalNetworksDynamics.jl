@@ -8,10 +8,9 @@ macro reflexive_web_component(input...)
     end
 end
 
-# If extension points are used, this form is more ergonomic,
-# and the calling module is inferred from extension points.
+# If extension points are used, this form is more ergonomic.
 function define_reflexive_web_component(
-    mod::Option{Module},
+    mod::Module,
     # Web name (capitalized and not).
     web::Symbol,
     Web::Symbol,
@@ -27,9 +26,6 @@ function define_reflexive_web_component(
     Web_ = Symbol(Web, :_) # Blueprints module name.
     _Web = Symbol(:_, Web) # Component type name.
     w, c, p = Meta.quot.((web, class, prop)) # Symbol names.
-    if isnothing(mod)
-        mod = parentmodule(expand_from_matrix!)
-    end
     xp = quote
 
         # ==================================================================================

@@ -37,6 +37,7 @@ include("./macros_keywords.jl")
 # Templates for typical network components.
 include("./class.jl")
 include("./web.jl")
+include("./nodes.jl")
 
 # Central in the model nodes.
 # First example of a nodes class.
@@ -45,6 +46,10 @@ include("./species.jl")
 # Trophic links, structuring the whole network.
 # First example of an edges web.
 include("./foodweb.jl")
+
+# Biorates and other values parametrizing the ODE.
+# (typical example 'nodes' data)
+include("./body_mass.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
@@ -57,7 +62,6 @@ include("./foodweb.jl")
 # to each of its fields.
 #  include("./args_to_fields.jl")
 
-# Biorates and other values parametrizing the ODE.
 # (typical example 'nodes' data)
 #  include("./body_mass.jl")
 #  include("./metabolic_class.jl")
