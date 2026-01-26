@@ -235,31 +235,23 @@ end
 @alias herbivory trophic.herbivory
 @alias carnivory trophic.carnivory
 
-module FoodwebMethods # (to not pollute global scope)
-
-using SparseArrays
-include("./modules_identifiers.jl")
-import EcologicalNetworksDynamics:
-    EcologicalNetworksDynamics,
-    Framework,
-    Internal,
-    Model,
-    Networks,
-    Views,
-    argerr,
-    @method,
-    @get,
-    @ref,
-    @propspace
-using .Framework
-using .Networks
-using .Views
-import ..Foodweb
-
-# HERE: extract from internals: valid for any reflexive web?
-levels(m::Internal) = m |> Internals.trophic_levels
-
+"""
+Calculate trophic levels for every species.
+Credit: Ismaël Lajaaiti 2024-03-19 #5665e377.
+"""
+function trophic_levels(A::AbstractMatrix{Bool})
+    A = Matrix(A) # Ensure A is dense for inversion.
+    S = size(A, 1) # Species richness.
+    out_degree = sum(A; dims = 2)
+    D = -(A ./ out_degree) # Diet matrix.
+    D[isnan.(D)] .= 0.0
+    D[diagind(D)] .= 1.0 .- D[diagind(D)]
+    # Solve with the inverse matrix.
+    inverse = iszero(det(D)) ? pinv : inv
+    inverse(D) * ones(S)
 end
+levels(m::Internal) = trophic_levels(to_mask(web(m, :trophic).topology))
+@method levels read_as(trophic.levels) depends(Foodweb)
 
 # ==========================================================================================
 

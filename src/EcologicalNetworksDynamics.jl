@@ -4,6 +4,7 @@ using Crayons
 using MacroTools
 using OrderedCollections
 using SparseArrays
+using LinearAlgebra
 
 const Option{T} = Union{T,Nothing}
 
