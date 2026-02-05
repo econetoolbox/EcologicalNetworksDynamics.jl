@@ -4,10 +4,11 @@
 Direct view into web data,
 either dense or sparse depending on underlying topology.
 """
-struct EdgesDataView{T}
+struct EdgesDataView{T} <: AbstractMatrix{T}
     model::Model
     view::N.EdgesView{T}
     fieldname::Symbol
+    # HERE: add check_fn like other data views.
 end
 S = EdgesDataView
 N.web(v::S) = v |> view |> web
@@ -25,7 +26,7 @@ extract(v::S; kw...) = N.to_sparse(view(v), kw...)
 """
 Indirect, immutable view into edges topology (typically masks).
 """
-struct EdgesMaskView
+struct EdgesMaskView <: AbstractMatrix{Bool}
     model::Model
     web::N.Web
 end
@@ -41,7 +42,6 @@ end
 edges_mask_view(m::Model, web::Symbol) = EdgesMaskView(m, N.web(value(m), web))
 export edges_mask_view
 extract(v::S) = v |> topology |> N.to_mask
-Base.eltype(::Type{EdgesMaskView}) = Bool
 
 # ==========================================================================================
 # Common to all edge views.
@@ -57,11 +57,10 @@ target(v::S) = N.class(network(v), targetname(v))
 source_index(v::S) = source(v).index
 target_index(v::S) = target(v).index
 Base.size(v::S) = v |> web |> size
-Base.length(v::S) = v |> topology |> length
-Base.getindex(v::S, i) = erredgesdim(v, (i,))
-Base.setindex!(v::S, _, i) = erredgesdim(v, (i,))
-Base.getindex(v::S, i, j, k, l...) = erredgesdim(v, (i, j, k, l...))
-Base.setindex!(v::S, _, i, j, k, l...) = erredgesdim(v, (i, j, k, l...))
+Base.getindex(v::S, i::Ref) = erredgesdim(v, (i,))
+Base.setindex!(v::S, _, i::Ref) = erredgesdim(v, (i,))
+Base.getindex(v::S, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(v, (i, j, k, l...))
+Base.setindex!(v::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(v, (i, j, k, l...))
 erredgesdim(v::S, i) = err(
     v,
     "Two indices are required to index into webs. Received $(length(i)): $(repr(i)).",

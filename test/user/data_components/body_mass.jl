@@ -107,15 +107,42 @@
         )
     )
 
-    # HERE: restore these checks.
     @failswith(
-        (m.M[1] = 'a'),
-        WriteError("not a value of type Real", :body_mass, (1,), 'a')
+        (m.M[1] = "a"),
+        EN.Views.WriteError(
+            "could not convert to a value of type Float64 (see stacktrace below)",
+            :body_mass,
+            1,
+            "a",
+        )
     )
 
+    # Special-case.
     @failswith(
-        (m.M[2:3] *= -10),
-        WriteError("Not a positive value: M[2] = -28.0.", :body_mass, (2,), -28.0)
+        (m.M[1] = 'a'),
+        EN.Views.WriteError(
+            "would not automatically convert Char to a value of type Float64",
+            :body_mass,
+            1,
+            'a',
+        )
+    )
+
+    @argfails(
+        (m.M[2:3] = 10),
+        "indexed assignment with a single value to possibly many locations \
+         is not supported; perhaps use broadcasting `.=` instead?",
+    )
+
+    # TODO: Essentially same error as above, but message more confusing.
+    @failswith(
+        (m.M[2:3] *= 10),
+        EN.Views.WriteError(
+            "could not convert to a value of type Float64 (see stacktrace below)",
+            :body_mass,
+            2:3,
+            [28.0, 10.0],
+        )
     )
 
     # Graphview-related tests live in "../02-graphviews.jl".

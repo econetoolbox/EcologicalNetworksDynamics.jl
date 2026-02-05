@@ -31,6 +31,7 @@ although they should implement the same interface:
 module Views
 
 using SparseArrays
+using Crayons
 
 using ..Networks
 using ..Framework
@@ -47,7 +48,7 @@ struct Error <: Exception
     message::String
 end
 err(T::Type, m) = throw(Error(T, m))
-err(t, m) = throw(Error(typeof(t), m))
+err(t, m, throw = throw) = throw(Error(typeof(t), m))
 Base.showerror(io::IO, e::Error) =
     print(io, "View error ($(type_info(e.type))): $(e.message)")
 
@@ -65,20 +66,80 @@ include("nodes_display.jl")
 include("edges_display.jl")
 
 # ==========================================================================================
-# Common to both nodes and edges.
+# Common nodes or edge data views.
 
 DataView{T} = Union{AbstractNodesDataView{T},EdgesDataView{T}}
 S = DataView
 view(v::S) = getfield(v, :view)
 fieldname(v::S) = getfield(v, :fieldname)
 N.entry(v::S) = v |> view |> entry
-Base.eltype(::Type{S{T}}) where {T} = T
+check(v::S) = getfield(v, :check)
+readonly(v::S) = v |> check |> isnothing
+
+function check_value(v::S, x, ref)
+    shape_check(x, ref)
+    if readonly(v)
+        err(v, "Values of $(repr(fieldname(v))) are readonly.")
+    else
+        x = try
+            checked_convert(eltype(v), x, check(v))
+        catch e
+            e isa String || rethrow(e)
+            rethrow(WriteError(e, fieldname(v), ref, x))
+        end
+        x
+    end
+end
+function checked_convert(T, x, check_fn)
+    x = try
+        convert(T, x)
+    catch _
+        throw("could not convert to a value of type $T (see stacktrace below)")
+    end
+    check_fn(x)
+    x
+end
+checked_convert(T::Type{<:Number}, ::Char, _) = # Special-case to prevent confusion.
+    throw("would not automatically convert Char to a value of type $T")
+display_index(i...) = display_index(i)
+display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
+
+# Avoid that user forgetting broadcasting breaks underlying network data edition.
+# TODO: this is an ugly hack resembling Julia's std. Can it not help instead?
+shape_check(_, _) = nothing
+shape_check(x, ::UnitRange) =
+    is_scalar(typeof(x)) && throw(
+        ArgumentError("indexed assignment with a single value to possibly many locations \
+                       is not supported; perhaps use broadcasting `.=` instead?"),
+    )
+# https://stackoverflow.com/a/47764659/3719101
+is_scalar(::Type{T}) where {T} =
+    Broadcast.BroadcastStyle(T) isa Broadcast.DefaultArrayStyle{0}
+
+struct WriteError <: Exception
+    message::String
+    fieldname::Symbol
+    index::Any
+    value::Any
+end
+function Base.showerror(io::IO, e::WriteError)
+    (; fieldname, index, value, message) = e
+    it, reset = crayon"italics", crayon"reset"
+    print(
+        io,
+        "Cannot set node data $fieldname$(display_index(index)):\n\
+         $it  $message$reset\n\
+         Received value: $(repr(value)) ::$(typeof(value))",
+    )
+end
+
+# ==========================================================================================
+#  Common to all views.
 
 AbstractView = Union{NodesView,EdgesView}
 S = AbstractView
 model(v::S) = getfield(v, :model)
 network(v::S) = v |> model |> value
-Base.eltype(v::S) = eltype(typeof(v))
 Base.getproperty(n::S, ::Symbol) = err(n, "no property to access.")
 Base.setproperty!(n::S, ::Symbol) = err(n, "no property to access.")
 

@@ -146,7 +146,9 @@ function define_node_data_component(
         module $M # (to not pollute invokation scope)
         import EcologicalNetworksDynamics: Views, @method, Internal, Model
 
-        $get_data(::Internal, m::Model) = Views.nodes_view(m, $s_class, $s_data, true)
+        check_value(x) = $check_value_fn(x) || throw($bad_value_message)
+        $get_data(::Internal, m::Model) =
+            Views.nodes_view(m, $s_class, $s_data, check_value)
         @method $m $M.$get_data read_as($data) depends($Data)
 
         end

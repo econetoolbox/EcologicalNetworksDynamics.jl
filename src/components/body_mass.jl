@@ -10,7 +10,7 @@ define_node_data_component(
     :Species,
     :body_mass,
     :BodyMass;
-    check_value = (>=(0.0), "Not a positive value"),
+    check_value = (>=(0.0), "not a positive value"),
     #---------------------------------------------------------------------------------------
     # One extra blueprint to build from trophic levels.
     Blueprints = quote
