@@ -2,7 +2,7 @@ module NetworkCOW
 
 using Test
 using Main.TestUtils
-using Main.TestNetworksUtils
+import Main: @netfails
 using EcologicalNetworksDynamics.Networks
 const N = Networks
 

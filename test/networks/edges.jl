@@ -4,7 +4,7 @@ using Test
 using SparseArrays
 using OrderedCollections
 using Main.TestUtils
-using Main.TestNetworksUtils
+import Main: @netfails
 using EcologicalNetworksDynamics.Networks
 const N = Networks
 

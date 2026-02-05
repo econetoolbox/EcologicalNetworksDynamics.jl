@@ -11,6 +11,8 @@ using OrderedCollections
 using Random
 using Test
 
+using Main: @labelfails
+
 using ..TestUser
 
 const EN = EcologicalNetworksDynamics

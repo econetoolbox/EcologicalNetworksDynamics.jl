@@ -3,9 +3,12 @@ module TestNodes
 using Test
 using SparseArrays
 using OrderedCollections
+
 using Main.TestUtils
-using Main.TestNetworksUtils
+import Main: @netfails, @labelfails
+
 using EcologicalNetworksDynamics.Networks
+
 
 @testset "Nodes classes hierarchy." begin
 
@@ -203,8 +206,8 @@ end
 
     @netfails(nodes_view(n, :bak, :growth), "There is no class :bak in the network.")
     @netfails(nodes_view(n, :producers, :bok), "There is no data :bok in class :producers.")
-    @netfails(c[:x], "Label :x does not refer to a node in class :mineral_bound.")
-    @netfails((c[:x] = 1), "Label :x does not refer to a node in class :mineral_bound.")
+    @labelfails(c[:x], x, mineral_bound)
+    @labelfails((c[:x] = 1), x, mineral_bound)
 
 end
 
