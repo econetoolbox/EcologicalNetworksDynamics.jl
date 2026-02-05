@@ -9,12 +9,17 @@
   - `model.<class>.index`: map labels to local class indices.
   - `model.<class>.mask`:
     view into underlying sparse restrictions from parent class.
+
 - All `<web>`s like `trophic`, `herbivory`, `carnivory` *etc.*
   now have the same standard properties available:
   - `model.<web>.matrix` or `model.<web>.mask`:
     view into underlying sparse topology.
   - `model.<web>.n_links` or `model.<web>.n_edges`:
     number of links/edges in the web.
+
+- Extract regular vectors/matrices from views into a model `m`
+  with `extract` *e.g.*
+  `extract(m.A)`, `extract(m.M)`, `extract(m.species.names)` *etc.*
 
 # Breaking
 
@@ -34,14 +39,9 @@
   - `model.<class>.label` property is dropped.
   - `model.<class>_<sparse|dense>_index` are dropped.
 
-- Data views like `model.M` or `model.A`
-  do not subtype `AbstractVector` or `AbstractMatrix` anymore,
-  but it is easy to extract a sparse/dense vector/matrix from them
-  with `extract(model.M)` or `extract(model.A)`.
-  This being said, there is an effort to implement useful interface on them
-  like `getindex`, `setindex!`, `==`, `.+` *etc.*
-  If their use is inconvenient (*i.e.* you need to write `extract` too often),
-  please consider it an issue to discuss.
+- Operating on slices from views now requires the broadcast operator:
+  - `model.M[2:3] *= 10` used to work, but is not supported anymore.
+  - `model.M[2:3] .*= 10` continues to work.
 
 # Bugfixes
 

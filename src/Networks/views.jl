@@ -98,7 +98,7 @@ end
 # Index edge views with two dimensions with tuples.
 # Don't splat the tuples for julia not to mistake these views for matrices.
 
-function to_linear(v::EdgesView, i::Int, j::Int; a=i, b=j)
+function to_linear(v::EdgesView, i::Int, j::Int; a = i, b = j)
     web = Networks.web(v)
     top = web.topology
     for (i, count, what) in ((i, n_sources, "source"), (j, n_targets, "target"))

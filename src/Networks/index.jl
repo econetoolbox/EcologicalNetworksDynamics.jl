@@ -25,4 +25,3 @@ function Index(parent::Index, restriction::Restriction)
     end
     res
 end
-

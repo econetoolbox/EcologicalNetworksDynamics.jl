@@ -36,7 +36,7 @@ View into nodes class data
 from the perspective of a superclass,
 resulting in incomplete / sparse data.
 """
-struct ExpandedNodesDataView{T} <: AbstractSparseVector{T, Int}
+struct ExpandedNodesDataView{T} <: AbstractSparseVector{T,Int}
     model::Model
     view::N.NodesView{T}
     fieldname::Symbol
@@ -143,7 +143,7 @@ parent(v::S) = getfield(v, :parent)
 parentclass(v::S) = N.class(network(v), parent(v))
 restriction(v::S) = getfield(v, :restriction)
 Base.size(v::S) =
-    isnothing(parent(v)) ? n_nodes(network(v)) : length(class(network(v), parent(v)))
+    (isnothing(parent(v)) ? n_nodes(network(v)) : length(class(network(v), parent(v))),)
 Base.getindex(v::S, i::Int) = check_range(v, i) in restriction(v)
 Base.getindex(v::S, l::Symbol) = N.is_label(
     isnothing(parent(v)) ? N.check_label(l, network(v)) : N.check_label(l, parentclass(v)),

@@ -32,7 +32,7 @@
 
     # Editable property.
     m.body_mass[1] = 2
-    m.body_mass[2:3] *= 10
+    m.body_mass[2:3] .*= 10
     @test m.body_mass == [2, 20, 30] == m.M
 
     # Scalar (requires species to expand).
@@ -83,7 +83,7 @@
 
     @sysfails(
         Model(BodyMass([1, -2])),
-        Check(early, [BodyMass.Raw], "Not a positive value: M[2] = -2.0.")
+        Check(early, [BodyMass.Raw], "not a positive value: M[2] = -2.0.")
     )
 
     # Common ref checks from GraphDataInputs (not tested for every similar component).
