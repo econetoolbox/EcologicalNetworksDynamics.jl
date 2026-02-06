@@ -101,6 +101,8 @@ macro expose_data(
     #     use `row_index` and `col_index` instead.
 )
 
+    return # DEBUG: ease new exposition design.
+
     # Push resulting generated code to this variable.
     res = quote end
     push_res!(xp) = xp.head == :block ? append!(res.args, xp.args) : push!(res.args, xp)

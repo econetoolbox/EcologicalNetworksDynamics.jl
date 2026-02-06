@@ -4,7 +4,7 @@
 #   - method!(v::Value, rhs)
 #
 # .. can optionally become properties of the system/value,
-# in the sense of julia's `getproperty/set_property!`.
+# in the sense of julia's `getproperty/setproperty!`.
 #
 # The properties come in two styles:
 #
@@ -18,8 +18,7 @@
 #   system.other.subspace.a # (different from 'space.a')
 #
 # Where `system.space` and `system.other.subspace` are raw opaque accessor types
-# called *property spaces*
-# wrapping a simple reference to the underlying systems.
+# called *property spaces* and wrapping a simple reference to the underlying systems.
 
 # In this context, 'P' or *property target*
 # refers to either the wrapped system value type
@@ -37,14 +36,16 @@ const PropertyTarget = Union{System,PropertySpace}
 
 # Basic queries.
 system_value_type(::Type{PropertySpace{name,P,V}}) where {name,P,V} = V
-property_name(::Type{PropertySpace{name,P,V}}) where {name,P,V} = name
-super(::Type{PropertySpace{name,P,V}}) where {name,P,V} = P
 system_value_type(sp::PropertySpace) = system_value_type(typeof(sp))
+property_name(::Type{PropertySpace{name,P,V}}) where {name,P,V} = name
 property_name(sp::PropertySpace) = property_name(typeof(sp))
+super(::Type{PropertySpace{name,P,V}}) where {name,P,V} = P
 super(sp::PropertySpace) = super(typeof(sp))
-system(p::PropertySpace) = getfield(p, :_system) # Bypass property checks.
 value(p::PropertySpace) = value(system(p))
+system(p::PropertySpace) = getfield(p, :_system) # Bypass property checks.
 system(s::System) = s # Consistency accross targets.
+system(::Type{PropertySpace{name,P,V}}) where {name,P,V} = System{V}
+system(::Type{S}) where {S<:System} = S
 
 # Climb up the types hierarchy to reconstruct `.path.to.concrete.property`.
 # (the result is a reversed tuple)
@@ -71,33 +72,29 @@ names_sequence(p::PropertyTarget) = names_sequence(typeof(p))
 
 # Factorize for reuse with properties spaces.
 function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
-    # Authorize direct accesses to private fields.
-    pname in fieldnames(P) && return getfield(target, pname)
     # Search property method.
     fn = read_property(P, Val(pname))
     # Check for required components availability.
-    miss = first_missing_dependency_for(fn, target)
+    miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
         comp = isabstracttype(miss) ? "A component $miss" : "Component $miss"
         properr(P, pname, "$comp is required to read this property.")
     end
     # Forward to method.
-    fn(target)
+    fn(system(target))
 end
 
 function Base.setproperty!(target::P, pname::Symbol, rhs) where {P<:PropertyTarget}
-    # Authorize direct accesses to private fields.
-    pname in fieldnames(P) && return setfield!(target, pname, rhs)
     # Search property method.
     fn = readwrite_property(P, Val(pname))
     # Check for required components availability.
-    miss = first_missing_dependency_for(fn, target)
+    miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
         comp = isabstracttype(miss) ? "A component $miss" : "Component $miss"
         properr(P, pname, "$comp is required to write to this property.")
     end
     # Invoke property method.
-    fn(target, rhs)
+    fn(system(target), rhs)
 end
 
 # In case the framework user agrees,
@@ -191,8 +188,8 @@ end
 # Yields (property_name, fn_read, Option{fn_write}, iterator{dependencies...}).
 
 function properties(P::PropertyTargetType)
-    imap(
-        ifilter(methods(read_property, Tuple{Type{P},Val}, Framework)) do mth
+    I.map(
+        I.filter(methods(read_property, Tuple{Type{P},Val}, Framework)) do mth
             mth.sig isa UnionAll && return false # Only consider concrete implementations.
             val = mth.sig.types[end]
             val <: Val ||
@@ -204,7 +201,7 @@ function properties(P::PropertyTargetType)
         name = first(val.parameters)
         read_fn = read_property(P, Val(name))
         write_fn = possible_write_property(P, Val(name))
-        (name, read_fn, write_fn, imap(identity, depends(P, read_fn)))
+        (name, read_fn, write_fn, I.map(identity, depends(system(P), read_fn)))
     end
 end
 export properties
@@ -212,9 +209,9 @@ export properties
 # List properties available for *this* particular instance.
 # Yields (:propname, read, Option{write})
 function properties(target::PropertyTarget)
-    imap(
-        ifilter(properties(typeof(target))) do (_, read, _, _)
-            isnothing(first_missing_dependency_for(read, target))
+    I.map(
+        I.filter(properties(typeof(target))) do (_, read, _, _)
+            isnothing(first_missing_dependency_for(read, system(target)))
         end,
     ) do (name, read, write, _)
         (name, read, write)
@@ -225,18 +222,18 @@ end
 # along with the components missing to support them.
 # Yields (:propname, read, Option{write}, iterator{missing_dependencies...})
 function latent_properties(target::PropertyTarget)
-    imap(
-        ifilter(properties(typeof(target))) do (_, read, _, _)
-            !isnothing(first_missing_dependency_for(read, target))
+    I.map(
+        I.filter(properties(typeof(target))) do (_, read, _, _)
+            !isnothing(first_missing_dependency_for(read, system(target)))
         end,
     ) do (name, read, write, deps)
-        (name, read, write, ifilter(d -> !has_component(target, d), deps))
+        (name, read, write, I.filter(d -> !has_component(target, d), deps))
     end
 end
 export latent_properties
 
 # Consistency + REPL completion.
-Base.propertynames(target::PropertyTarget) = imap(first, properties(target))
+Base.propertynames(target::PropertyTarget) = I.map(first, properties(target))
 
 # ==========================================================================================
 # Helper macro to define deep nested type paths.
@@ -312,7 +309,10 @@ function display_long(io::IO, p::PropertySpace, properties::Function)
         print(io, ".$name")
     end
     print(io, crayon"reset")
+    any = false
     for (name, _) in properties(p)
         print("\n  .$name")
+        any = true
     end
+    any || print("\n  <empty>")
 end

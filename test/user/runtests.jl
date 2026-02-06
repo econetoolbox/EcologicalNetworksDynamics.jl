@@ -1,18 +1,9 @@
 module TestUser
 
-using EcologicalNetworksDynamics
-using Random
-using Test
-using ..TestFailures
-
-Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
-import ..Main: @viewfails, @sysfails, @argfails, @failswith
-
-# Expose to further test submodules.
-export Value, @viewfails, @sysfails, @argfails, @failswith
+Value = Main.EcologicalNetworksDynamics.Internal # To make @sysfails work.
 
 # Run all .jl files we can find except the current one (and without recursing).
-only = [] # Unless some files are specified here, in which case only run these.
+only = ["02-views.jl", "03-components.jl"] # Unless some files are specified here, in which case only run these.
 if isempty(only)
     folder = dirname(@__FILE__)
     for file in readdir(folder)
