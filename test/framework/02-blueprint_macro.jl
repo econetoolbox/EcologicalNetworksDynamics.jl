@@ -24,14 +24,18 @@ export Value
 
 # ==========================================================================================
 module Invocations
+
+using Crayons
+
 using ..Blueprints
 using EcologicalNetworksDynamics.Framework
-using Main: @failswith, @sysfails, @bluefails
-using Test
-using Crayons
-const F = Framework
 
+using Test
+using Main: @failswith, @sysfails, @bluefails
+
+const F = Framework
 const S = System{Value}
+
 comps(s) = collect(components(s))
 
 @testset "Valid @blueprint macro invocations." begin
@@ -463,14 +467,18 @@ end
 
 # ==========================================================================================
 module Abstracts
+
+using Crayons
+
 using ..Blueprints
 using EcologicalNetworksDynamics.Framework
-using Main: @failswith, @sysfails, @compfails, @bluefails
-using Test
-using Crayons
-const F = Framework
 
+using Test
+using Main: @failswith, @sysfails, @compfails, @bluefails
+
+const F = Framework
 const S = System{Value}
+
 comps(s) = sort(collect(components(s)); by = repr)
 
 @testset "Bringing abstract component types." begin

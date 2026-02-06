@@ -8,10 +8,12 @@ export Value
 # Use submodules to not clash marker names.
 # ==========================================================================================
 module Invocations
+
 using ..ConflictsMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails, @conffails
+
 using Test
+using Main: @sysfails, @conffails
 
 # Generate many small "markers" components just to toy with'em.
 for letter in 'A':'Z'
@@ -273,12 +275,15 @@ end
 
 # ==========================================================================================
 module Abstracts
+
 using ..ConflictsMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails, @conffails
+
 using Test
+using Main: @sysfails, @conffails
 
 const S = System{Value}
+
 comps(s) = collect(components(s))
 
 @testset "Abstract component conflicts semantics." begin

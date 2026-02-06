@@ -1,8 +1,9 @@
 module TestAliasingDicts
 
 using EcologicalNetworksDynamics.AliasingDicts
-using Main: @argfails, @aliasfails, @xaliasfails, @failswith
+
 using Test
+using Main: @argfails, @aliasfails, @xaliasfails, @failswith
 
 const AD = AliasingDicts
 

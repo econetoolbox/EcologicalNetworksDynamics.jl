@@ -17,13 +17,16 @@ export Value
 
 # ==========================================================================================
 module Invocations
+
 using ..ComponentMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails, @compfails, @failswith
-const F = Framework
-using Test
 
+using Test
+using Main: @sysfails, @compfails, @failswith
+
+const F = Framework
 const S = System{Value}
+
 comps(s) = collect(components(s))
 
 # Testing blueprint collectiong from module.
@@ -410,12 +413,15 @@ end
 
 # ==========================================================================================
 module Abstracts
+
 using ..ComponentMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails
+
 using Test
+using Main: @sysfails
 
 const S = System{Value}
+
 comps(s) = sort(collect(components(s)); by = repr)
 
 # Component type hierachy.

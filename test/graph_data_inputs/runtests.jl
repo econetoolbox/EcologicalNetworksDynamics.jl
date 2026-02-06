@@ -3,12 +3,13 @@ module TestGraphDataInputs
 using SparseArrays
 using OrderedCollections
 
-using EcologicalNetworksDynamics.GraphDataInputs
-using ..TestFailures
-using Test
+import EcologicalNetworksDynamics: SparseMatrix, Framework, GraphDataInputs
 
-import EcologicalNetworksDynamics: SparseMatrix, Framework
+using .GraphDataInputs
 import .Framework: CheckError
+
+using Test
+using Main: @xargfails, @argfails, @failswith
 
 include("./types.jl")
 include("./convert.jl")

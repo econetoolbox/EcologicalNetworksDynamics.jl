@@ -1,10 +1,11 @@
 module TestRestrictions
 
-using Test
 using EcologicalNetworksDynamics.Networks
 using .Networks:
     Full, Range, Sparse, SparseRanges, restriction_from_mask, indices, toparent, tolocal
 using SparseArrays
+
+using Test
 
 @testset "Trivial full restriction." begin
 

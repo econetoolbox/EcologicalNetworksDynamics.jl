@@ -17,8 +17,8 @@ macro xaliasfails(xp, name, mess)
         true,
     )
 end
+export @xaliasfails
 
-export @aliasfails
 macro aliasfails(xp, name, mess)
     TestFailures.failswith(
         __source__,

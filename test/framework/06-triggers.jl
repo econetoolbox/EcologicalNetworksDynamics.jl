@@ -3,10 +3,11 @@
 module Triggers
 
 using EcologicalNetworksDynamics.Framework
-const F = Framework
-export F
-using Main: @argfails
+
 using Test
+using Main: @argfails
+
+const F = Framework
 
 mutable struct Value
     _vec::Vector{Symbol}

@@ -1,15 +1,16 @@
 module TestViews
+
 using EcologicalNetworksDynamics
+
 using Test
-using ..TestUser
+using Main.TestUtils
+using Main: @viewfails, @labelfails, @argfails, @failswith
 
 const EN = EcologicalNetworksDynamics
-import .EN: WriteError
 
 @testset "Writeable nodes view." begin
 
-    # Use this one as a typical example.
-    BM = EN.BodyMasses
+    V = EN.Views.NodesDataView{Float64}
 
     # Get a graphview type.
     fw = Foodweb([:a => :b, :b => :c])
@@ -22,13 +23,18 @@ import .EN: WriteError
     @test bm[3] == 3
     @test bm[2:3] == [2, 3]
     @test bm == collect(bm) == [1, 2, 3]
-    @test repr(bm) == "[1.0, 2.0, 3.0]"
-    @test repr(MIME("text/plain"), bm) == """
-        3-element $BM:
+
+    # But it's not.
+    @test is_repr(bm, "<species:body_mass>[1.0, 2.0, 3.0]")
+    @test is_disp(
+        bm,
+        """
+        NodesDataView<species:body_mass>{Float64} (3 values)
          1.0
          2.0
          3.0\
-    """
+        """,
+    )
 
     # Access with labels.
     @test bm[:a] == 1
@@ -37,23 +43,17 @@ import .EN: WriteError
 
     # Guard index.
     for i in [-5, 0, 5]
-        @viewfails(
-            bm[i],
-            BM,
-            "Species index [$i] is off-bounds for a view into 3 nodes data."
-        )
+        @viewfails(bm[i], V, "Cannot index with [$i] into a view with 3 :species nodes.")
     end
-
-    @viewfails(
-        bm[:x],
-        BM,
-        "Invalid species node label. \
-         Expected either :a, :b or :c, got instead: :x."
-    )
+    @labelfails(bm[:x], x, species)
 
     # Write through the view.
-    bm[1] = 10
-    @test bm[1] == EN.Framework.value(m)._foodweb.M[1] == 10
+    other_model = copy(m)
+    other_view = m.M
+    bm[1] = 10 # Mutate.
+    @test bm[1] == other_view[1] == m.M[1] == 10 # Model impacted and all other views.
+    @test other_model.M[1] == 1 # Forked model unchanged.
+
     bm[1:2] .= 20
     @test bm == [20, 20, 3]
     bm .*= 10
@@ -63,28 +63,69 @@ import .EN: WriteError
     @test bm[2] == bm[:b] == 5
 
     # Guard against invalid dimensions index.
-    m = "Nodes data are 1-dimensional: \
-         cannot access species data values with 0 index: []."
-    @viewfails(bm[], BM, m)
-    @viewfails(bm[] = 1, BM, m)
+    e = "Cannot index into nodes with 0 dimensions: []."
+    @viewfails(bm[], V, e)
+    @viewfails(bm[] = 1, V, e)
 
-    m = "Nodes data are 1-dimensional: \
-         cannot access species data values with 2 indices: [1, 2]."
-    @viewfails(bm[1, 2], BM, m)
-    @viewfails(bm[1, 2] = 1, BM, m)
+    e = "Cannot index into nodes with 2 dimensions: [1, 2]."
+    @viewfails(bm[1, 2], V, e)
+    @viewfails(bm[1, 2] = 1, V, e)
 
-    m = "Nodes data are 1-dimensional: \
-         cannot access species data values with 2 labels: [:a, :b]."
-    @viewfails(bm[:a, :b], BM, m)
-    @viewfails(bm[:a, :b] = 1, BM, m)
+    e = "Cannot index into nodes with 2 dimensions: [:a, :b]."
+    @viewfails(bm[:a, :b], V, e)
+    @viewfails(bm[:a, :b] = 1, V, e)
 
+    #---------------------------------------------------------------------------------------
     # Guard rhs.
-    @failswith((bm[1] = 'a'), WriteError("not a value of type Real", :body_mass, (1,), 'a'))
+    WE = EN.Views.WriteError
+
+    m = Model(fw, BodyMass([1, 2, 3]))
+    bm = m.body_mass
+
     @failswith(
-        (bm[2:3] *= -10),
-        WriteError("Not a positive value: M[2] = -50.0.", :body_mass, (2,), -50)
+        (m.M[1] = "a"),
+        WE(
+            "could not convert to a value of type Float64 (see stacktrace below)",
+            :body_mass,
+            1,
+            "a",
+        )
     )
 
+    @failswith(
+        (m.M[1] = 'a'), # Special-case.
+        WE(
+            "would not automatically convert Char to a value of type Float64",
+            :body_mass,
+            1,
+            'a',
+        )
+    )
+
+    @argfails(
+        (m.M[2:3] = 10),
+        "indexed assignment with a single value to possibly many locations \
+         is not supported; perhaps use broadcasting `.=` instead?",
+    )
+
+    # TODO: Essentially same error as above, but message more confusing.
+    @failswith(
+        (m.M[2:3] *= 10),
+        WE(
+            "could not convert to a value of type Float64 (see stacktrace below)",
+            :body_mass,
+            2:3,
+            [20.0, 30.0],
+        )
+    )
+
+    # Also per-field special guard.
+    @failswith((m.M[1] = -10), WE("not a positive value", :body_mass, 1, -10.0))
+
+    @failswith((bm[2:3] .*= -10), WE("not a positive value", :body_mass, 2, -20.0))
+
 end
+
+# HERE: also test NameView + Mask + Expanded for nodes and Data + Mask for edges.
 
 end

@@ -1,12 +1,14 @@
 module TestEdges
 
-using Test
 using SparseArrays
 using OrderedCollections
-using Main.TestUtils
-import Main: @netfails
+
 using EcologicalNetworksDynamics.Networks
 const N = Networks
+
+using Test
+using Main.TestUtils
+import Main: @netfails
 
 @testset "Setting webs and data." begin
 

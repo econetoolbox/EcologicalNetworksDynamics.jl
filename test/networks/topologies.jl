@@ -1,8 +1,9 @@
 module TestNetworkTopologies
 
-using Test
 using SparseArrays
 using EcologicalNetworksDynamics.Networks
+
+using Test
 
 function check_adjacent(top, (nodes, nb), n, expected)
     actual = collect(nodes(top, n))

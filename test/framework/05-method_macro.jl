@@ -5,10 +5,12 @@ using EcologicalNetworksDynamics.Framework
 # Use submodules to not clash component names.
 # ==========================================================================================
 module Invocations
+
 using ..MethodMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @failswith, @sysfails, @methfails
+
 using Test
+using Main: @failswith, @sysfails, @methfails
 
 # The plain value to wrap in a "system" in subsequent tests.
 mutable struct Value
@@ -19,7 +21,6 @@ Base.copy(v::Value) = deepcopy(v)
 # Willing to enjoy wrapped value properties.
 Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
 Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
-export Value
 
 @testset "Invocation variations for @method macro." begin
 
@@ -454,10 +455,12 @@ end
 
 # ==========================================================================================
 module Abstracts
+
 using ..MethodMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails
+
 using Test
+using Main: @sysfails
 
 # The plain value to wrap in a "system" in subsequent tests.
 mutable struct Value
@@ -533,10 +536,13 @@ end
 
 # ==========================================================================================
 module PropertySpaces
+
 using ..MethodMacro
 using EcologicalNetworksDynamics.Framework
-using Main: @sysfails, @methfails
+
 using Test
+using Main: @sysfails, @methfails
+
 const F = Framework
 
 # The plain value to wrap in a "system" in subsequent tests.

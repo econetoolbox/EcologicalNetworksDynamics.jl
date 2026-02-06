@@ -1,14 +1,13 @@
 module TestNodes
 
-using Test
 using SparseArrays
 using OrderedCollections
 
-using Main.TestUtils
-import Main: @netfails, @labelfails
-
 using EcologicalNetworksDynamics.Networks
 
+using Test
+using Main.TestUtils
+import Main: @netfails, @labelfails
 
 @testset "Nodes classes hierarchy." begin
 

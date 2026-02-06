@@ -179,13 +179,17 @@ index(v::S) = class(v).index
 function check_range(v::S, i::Int)
     n, s = ns(length(v))
     class = repr(classname(v))
-    i in 1:n || err(v, "Cannot index with '$i' into a view with $n $class node$s.")
+    i in 1:n || err(v, "Cannot index with [$i] into a view with $n $class node$s.")
     i
 end
+Base.getindex(v::S) = errnodesdim(v, ())
+Base.setindex!(v::S, _) = errnodesdim(v, ())
 Base.getindex(v::S, i, j, k...) = errnodesdim(v, (i, j, k...))
 Base.setindex!(v::S, _, i, j, k...) = errnodesdim(v, (i, j, k...))
-errnodesdim(v, i) =
-    err(v, "Cannot index into nodes with $(length(i)) dimensions: $(repr(i)).")
+errnodesdim(v, i) = err(
+    v,
+    "Cannot index into nodes with $(length(i)) dimensions: [$(join_elided(i, ", "))].",
+)
 check_label(v::S, l::Symbol) = N.check_label(l, index(v), classname(v))
 check_ref(v::S, i::Int) = check_range(v, i)
 check_ref(v::S, l::Symbol) = check_label(v, l)

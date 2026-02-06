@@ -5,15 +5,15 @@
 
 module TestComponents
 
-using EcologicalNetworksDynamics
 using SparseArrays
 using OrderedCollections
 using Random
+
+using EcologicalNetworksDynamics
+
 using Test
-
-using Main: @labelfails
-
-using ..TestUser
+using Main.TestUser: Value
+using Main: @failswith, @argfails, @sysfails, @labelfails
 
 const EN = EcologicalNetworksDynamics
 

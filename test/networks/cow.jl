@@ -1,11 +1,11 @@
 module NetworkCOW
 
-using Test
-using Main.TestUtils
-import Main: @netfails
 using EcologicalNetworksDynamics.Networks
 const N = Networks
 
+using Test
+using Main.TestUtils
+import Main: @netfails
 
 @testset "Basic network COW." begin
 
