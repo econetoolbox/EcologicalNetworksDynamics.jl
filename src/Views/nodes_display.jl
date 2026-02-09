@@ -172,12 +172,8 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodesMaskView)
     (nr, s) = ns(length(r))
     print(io, " ($nr/$n value$s)")
     for i_parent in 1:n
-        print(io, '\n')
-        if i_parent in r
-            print(io, '1')
-        else
-            print(io, '·')
-        end
+        print(io, "\n ")
+        print(io, i_parent in r ? '1' : '·')
     end
 end
 

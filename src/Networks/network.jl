@@ -35,8 +35,8 @@ Fork the network to obtain a cheap COW-py.
 """
 function fork(n::Network)
     (; index, classes, webs, data, restrictions) = n
-    index, classes, webs, data, restrictions =
-        fork.((index, classes, webs, data, restrictions))
+    index, classes, webs, data = fork.((index, classes, webs, data))
+    restrictions = deepcopy(restrictions)
     Network(index, classes, webs, data, restrictions)
 end
 Base.copy(n::Network) = fork(n)
