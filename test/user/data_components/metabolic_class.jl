@@ -46,9 +46,7 @@
         Check(
             early,
             [MetabolicClass.Raw],
-            "Metabolic class input 2: \
-             In aliasing system for \"metabolic class\": \
-             Invalid reference: 'x'.",
+            "Invalid reference in aliasing system for \"metabolic class\": class[2] = :x",
         )
     )
 
@@ -57,9 +55,7 @@
         Check(
             early,
             [MetabolicClass.Map],
-            "Metabolic class input :b: \
-             In aliasing system for \"metabolic class\": \
-             Invalid reference: 'x'.",
+            "Invalid reference in aliasing system for \"metabolic class\": class[:b] = :x",
         )
     )
 
@@ -103,32 +99,30 @@
 
     @failswith(
         (m.metabolic_class[2] = 4),
-        WriteError(
-            "Metabolic class input 2: \
-             In aliasing system for \"metabolic class\": \
-             Invalid reference: '4'.",
+        EN.Views.WriteError(
+            "Invalid reference in aliasing system for \"metabolic class\"",
             :metabolic_class,
-            (2,),
+            2,
             4,
         ),
     )
 
     @failswith(
         (m.metabolic_class[2] = :p),
-        WriteError(
-            "Metabolic class for species 2 cannot be 'producer' since it is a consumer.",
+        EN.Views.WriteError(
+            "Metabolic class for species :b cannot be 'producer' since it is a consumer.",
             :metabolic_class,
-            (2,),
+            2,
             :p,
         ),
     )
 
     @failswith(
         (m.metabolic_class[:c] = :i),
-        WriteError(
-            "Metabolic class for species 3 cannot be 'invertebrate' since it is a producer.",
+        EN.Views.WriteError(
+            "Metabolic class for species :c cannot be 'invertebrate' since it is a producer.",
             :metabolic_class,
-            (3,),
+            :c,
             :i,
         ),
     )

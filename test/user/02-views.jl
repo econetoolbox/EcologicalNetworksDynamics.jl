@@ -1,5 +1,7 @@
 module TestViews
 
+using SparseArrays
+
 using EcologicalNetworksDynamics
 
 using Test
@@ -191,12 +193,7 @@ end
 
     @failswith(
         (m.M[1] = 'a'), # Special-case.
-        WE(
-            "would not automatically convert Char to a value of type Float64",
-            :body_mass,
-            1,
-            'a',
-        )
+        WE("Would not automatically convert Char to a numeric value", :body_mass, 1, 'a')
     )
 
     @argfails(
@@ -205,21 +202,16 @@ end
          is not supported; perhaps use broadcasting `.=` instead?",
     )
 
-    # TODO: Essentially same error as above, but message more confusing.
-    @failswith(
+    @argfails(
         (m.M[2:3] *= 10),
-        WE(
-            "could not convert to a value of type Float64 (see stacktrace below)",
-            :body_mass,
-            2:3,
-            [20.0, 30.0],
-        )
+        "indexed assignment with a single value to possibly many locations \
+         is not supported; perhaps use broadcasting `.=` instead?"
     )
 
     # Also per-field special guard.
-    @failswith((m.M[1] = -10), WE("not a positive value", :body_mass, 1, -10.0))
+    @failswith((m.M[1] = -10), WE("Value cannot be negative", :body_mass, 1, -10.0))
 
-    @failswith((bm[2:3] .*= -10), WE("not a positive value", :body_mass, 2, -20.0))
+    @failswith((bm[2:3] .*= -10), WE("Value cannot be negative", :body_mass, 2, -20.0))
 
 end
 

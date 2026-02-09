@@ -12,149 +12,212 @@ function define_node_data_component(
     mod::Module,
     # Short field name.
     field::Symbol,
+    T::Type,
     # Data name and its class.
     class::Symbol,
     Class::Union{Symbol,Expr},
     data::Symbol,
     Data::Symbol;
+    #---------------------------------------------------------------------------------------
     # Extension points.
-    # Check value prior to writing through view, and associated failure message.
-    check_value = ((_) -> true, ""),
+
+    # Check value prior to writing through view,
+    # possibly transforming/standardizing it.
+    # Raise a simple string if check fails.
+    # Also used for early_check.
+    check_value = v -> v,
+    # Extension if a check against the rest of the model value is required.
+    # Receives a value checked by the above.
+    check_against_model = (v, label, model) -> v,
+
+    # Extend checks beyond the default ones.
+    late_check = (; Raw = (raw, bp, model) -> nothing, Map = (raw, bp, model) -> nothing),
+
     # Code for extra blueprints, evaluated within the code generated here.
     Blueprints = nothing,
+
+    # Extra requirements for the component.
+    requires = (),
+
+    # Raise to produce a 'Flat' blueprint
+    # expanding the same scalar value to the whole class.
+    # If raised, provide the argument type for component-call constructor.
+    flat_blueprint = nothing,
 )
+    #---------------------------------------------------------------------------------------
     Data_ = Symbol(Data, :_) # Blueprints module name.
     _Data = Symbol(:_, Data) # Component type name.
     s_data, s_field, s_class = Meta.quot.((data, field, class)) # Symbol names.
-    check_value_fn, bad_value_message = check_value
     N = Networks
     # For queries.
     M = Symbol(Data, :Methods)
     m = :(mod($mod))
     get_data = Symbol(:get_, data)
-    xp = quote
 
-        # ==================================================================================
-        # Blueprints for the component.
-        module $Data_
-        import EcologicalNetworksDynamics:
-            Blueprint, Framework, Networks, GraphDataInputs, Views, @blueprint, @ref
-        using .Networks
-        using .Framework
-        using .GraphDataInputs
-        const F = Framework
-        const Class = $mod.$Class
-        const _Class = typeof(Class)
+    # ======================================================================================
+    # Blueprints for the component.
 
-        #-----------------------------------------------------------------------------------
-        # From raw values.
+    # Prepare dedicated blueprints module and populate namespace.
+    blueprints =
+        mod.eval.(
+            (
+                quote
+                    module $Data_
+                    import EcologicalNetworksDynamics:
+                        Blueprint, Framework, Networks, GraphDataInputs, Views, @blueprint
+                    using .Networks
+                    using .Framework
+                    using .GraphDataInputs
+                    const F = Framework
+                    const Class = $mod.$Class
+                    const _Class = typeof(Class)
+                    end
+                end
+            ).args
+        ) |> last
 
-        mutable struct Raw <: Blueprint
-            $field::Vector{Float64}
-            $class::Brought(Class)
-            Raw($field, $class = _Class) =
-                new(@tographdata($field, Vector{Float64}), $class)
-        end
-        F.implied_blueprint_for(bp::Raw, ::_Class) = Class(length(bp.$field))
-        @blueprint Raw "raw values"
-        export Raw
 
-        F.early_check(bp::Raw) = check_nodes(check, bp.$field)
-        function check(value, ref = nothing)
-            $check_value_fn(value) && return value
-            index = if isnothing(ref)
-                ""
-            else
-                "[$(join(repr.(ref), ", "))]"
+    #---------------------------------------------------------------------------------------
+    # From raw values.
+
+    blueprints.eval(
+        quote
+            mutable struct Raw <: Blueprint
+                $field::Vector{$T}
+                $class::Brought(Class)
+                Raw($field, $class = _Class) =
+                    new(@tographdata($field, Vector{$T}), $class)
             end
-            checkfails("$($bad_value_message): $($s_field)$index = $value.")
-        end
+            F.implied_blueprint_for(bp::Raw, ::_Class) = Class(length(bp.$field))
+            @blueprint Raw "raw values"
+            export Raw
 
-        function F.late_check(raw, bp::Raw)
-            (; $field) = bp
-            S = n_nodes(raw, $s_class)
-            @check_size $field S
-        end
-
-        F.expand!(raw, bp::Raw) = expand_from_vector!(raw, bp.$field)
-        expand_from_vector!(raw, vec) =
-            add_field!(class(raw, $s_class), $s_data, deepcopy(vec))
-
-        #-----------------------------------------------------------------------------------
-        # From a scalar broadcasted to all nodes in the class.
-
-        mutable struct Flat <: Blueprint
-            $field::Float64
-        end
-        @blueprint Flat "uniform value" depends(Class)
-        export Flat
-
-        F.early_check(bp::Flat) = check(bp.$field)
-        F.expand!(raw, bp::Flat) =
-            expand_from_vector!(raw, to_size(bp.$field, n_nodes(raw, $s_class)))
-
-
-        #-----------------------------------------------------------------------------------
-        # From a node-indexed map.
-
-        mutable struct Map <: Blueprint
-            $field::@GraphData Map{Float64}
-            $class::Brought(Class)
-            Map($field, sp = _Class) = new(@tographdata($field, Map{Float64}), sp)
-        end
-        F.implied_blueprint_for(bp::Map, ::_Class) = Class(refspace(bp.$field))
-        @blueprint Map "[$($s_class) => $($s_data)] map"
-        export Map
-
-        F.early_check(bp::Map) = check_nodes(check, bp.$field)
-        function F.late_check(raw, bp::Map)
-            (; $field) = bp
-            index = @ref raw.$class.index
-            @check_list_refs $field $s_class index dense
-        end
-
-        function F.expand!(raw, bp::Map)
-            index = @ref raw.$class.index
-            vec = to_dense_vector(bp.$field, index)
-            expand_from_vector!(raw, vec)
-        end
-
-        $Blueprints
-
-        end
-
-        # ==================================================================================
-        # The component itself and generic blueprints constructors.
-
-        @component $Data{Internal} requires($Class) blueprints($Data_)
-        export $Data
-
-        (::$_Data)($field::Real) = $Data.Flat($field)
-
-        function (::$_Data)($field)
-            $field = @tographdata $field {Vector, Map}{Float64}
-            if $field isa Vector
-                $Data.Raw($field)
-            else
-                $Data.Map($field)
+            F.early_check(bp::Raw) = check_nodes(check, bp.$field)
+            function check(value, ref = nothing)
+                v = try
+                    $check_value(value)
+                catch e
+                    e isa String || rethrow(e)
+                    index = if isnothing(ref)
+                        ""
+                    else
+                        "[$(join(repr.(ref), ", "))]"
+                    end
+                    checkfails("$e: $($s_field)$index = $(repr(value))")
+                end
             end
-        end
 
-        # ==================================================================================
-        # Queries.
+            function F.late_check(raw, bp::Raw, model)
+                (; $field) = bp
+                S = n_nodes(raw, $s_class)
+                @check_size $field S
+                $(late_check.Raw)(raw, bp, model)
+            end
 
-        module $M # (to not pollute invokation scope)
-        import EcologicalNetworksDynamics: Views, @method, Internal, Model
+            F.expand!(raw, bp::Raw) = expand_from_vector!(raw, bp.$field)
+            expand_from_vector!(raw, vec) =
+                add_field!(class(raw, $s_class), $s_data, check.(vec))
+        end,
+    )
 
-        check_value(x) = $check_value_fn(x) || throw($bad_value_message)
-        $get_data(::Internal, m::Model) =
-            Views.nodes_view(m, $s_class, $s_data, check_value)
-        @method $m $M.$get_data read_as($data) depends($Data)
 
-        end
+    #---------------------------------------------------------------------------------------
+    # From a node-indexed map.
+    blueprints.eval(
+        quote
+            mutable struct Map <: Blueprint
+                $field::@GraphData Map{$T}
+                $class::Brought(Class)
+                Map($field, sp = _Class) = new(@tographdata($field, Map{$T}), sp)
+            end
+            F.implied_blueprint_for(bp::Map, ::_Class) = Class(refspace(bp.$field))
+            @blueprint Map "[$($s_class) => $($s_data)] map"
+            export Map
 
-        # ==================================================================================
-        # Display.
+            F.early_check(bp::Map) = check_nodes(check, bp.$field)
+            function F.late_check(raw, bp::Map, model)
+                (; $field) = bp
+                index = model.$class._index
+                @check_list_refs $field $s_class index dense
+                $(late_check.Map)(raw, bp, model)
+            end
+
+            function F.expand!(raw, bp::Map, model)
+                index = model.$class._index
+                vec = to_dense_vector(bp.$field, index)
+                expand_from_vector!(raw, vec)
+            end
+        end,
+    )
+
+    #---------------------------------------------------------------------------------------
+    # From a scalar broadcasted to all nodes in the class (if meaningful).
+    if !isnothing(flat_blueprint)
+        blueprints.eval(
+            quote
+                mutable struct Flat <: Blueprint
+                    $field::$T
+                end
+                @blueprint Flat "uniform value" depends(Class)
+                F.early_check(bp::Flat) = check(bp.$field)
+                F.expand!(raw, bp::Flat) =
+                    expand_from_vector!(raw, to_size(bp.$field, n_nodes(raw, $s_class)))
+                export Flat
+            end,
+        )
+    end
+
+    # Any extra blueprint code.
+    blueprints.eval(Blueprints)
+
+    # ======================================================================================
+    # The component itself and generic blueprints constructors.
+
+    mod.eval(
+        quote
+            @component $Data{Internal} requires($Class, $(requires...)) blueprints($Data_)
+            export $Data
+
+            function (::$_Data)($field)
+                $field = @tographdata $field {Vector, Map}{$T}
+                if $field isa Vector
+                    $Data.Raw($field)
+                else
+                    $Data.Map($field)
+                end
+            end
+        end,
+    )
+
+    if !isnothing(flat_blueprint)
+        R = flat_blueprint # Receiver type.
+        mod.eval(quote
+            (::$_Data)($field::$R) = $Data.Flat($field)
+        end)
+    end
+
+    # ======================================================================================
+    # Queries.
+    mod.eval.(
+        (
+            quote
+                module $M # (to not pollute invokation scope)
+                import EcologicalNetworksDynamics: Views, @method, Internal, Model
+
+                check(input, label, model) =
+                    $check_against_model($check_value(input), label, model)
+                $get_data(::Internal, m::Model) =
+                    Views.nodes_view(m, $s_class, $s_data, check)
+                @method $m $M.$get_data read_as($data) depends($Data)
+
+                end
+            end
+        ).args,
+    )
+
+    # ======================================================================================
+    # Display.
+    mod.eval(quote
         function $Framework.shortline(io::IO, model::Model, ::$_Data)
             network = $EN.value(model)
             class = $N.class(network, $s_class)
@@ -163,7 +226,5 @@ function define_node_data_component(
                 print(io, "$($Data): [$(join_elided(data, ", "))]")
             end
         end
-
-    end
-    mod.eval.(xp.args)
+    end)
 end

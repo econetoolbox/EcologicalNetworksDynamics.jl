@@ -82,7 +82,8 @@ function check_value(v::S, x, ref)
         err(v, "Values of $(repr(fieldname(v))) are readonly.")
     else
         x = try
-            checked_convert(eltype(v), x, check(v))
+            l = label(v, ref)
+            check(v)(x, l, model(v))
         catch e
             e isa String || rethrow(e)
             rethrow(WriteError(e, fieldname(v), ref, x))
@@ -90,28 +91,16 @@ function check_value(v::S, x, ref)
         x
     end
 end
-function checked_convert(T, x, check_fn)
-    x = try
-        convert(T, x)
-    catch _
-        throw("could not convert to a value of type $T (see stacktrace below)")
-    end
-    check_fn(x)
-    x
-end
-checked_convert(T::Type{<:Number}, ::Char, _) = # Special-case to prevent confusion.
-    throw("would not automatically convert Char to a value of type $T")
 display_index(i...) = display_index(i)
 display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
 
 # Avoid that user forgetting broadcasting breaks underlying network data edition.
 # TODO: this is an ugly hack resembling Julia's std. Can it not help instead?
 shape_check(_, _) = nothing
-shape_check(x, ::UnitRange) =
-    is_scalar(typeof(x)) && throw(
-        ArgumentError("indexed assignment with a single value to possibly many locations \
-                       is not supported; perhaps use broadcasting `.=` instead?"),
-    )
+shape_check(_, ::UnitRange) = throw(
+    ArgumentError("indexed assignment with a single value to possibly many locations \
+                   is not supported; perhaps use broadcasting `.=` instead?"),
+)
 # https://stackoverflow.com/a/47764659/3719101
 is_scalar(::Type{T}) where {T} =
     Broadcast.BroadcastStyle(T) isa Broadcast.DefaultArrayStyle{0}

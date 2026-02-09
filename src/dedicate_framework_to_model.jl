@@ -19,7 +19,6 @@ import .F:
     add!,
     blueprints,
     checkfails,
-    checkrefails,
     components,
     does_bring,
     does_embed,
@@ -89,107 +88,6 @@ macro alias(old, new)
     quote
         F.@alias($old, $new, $Internal)
     end
-end
-
-# ==========================================================================================
-# The above defines var"get_a.b" method names for nested properties
-# to avoid possible ambiguity with `get_a_b`.
-# Use this pattern for all propspace uses
-# and these convenience macro to call these methods on raw values.
-
-macro ref(raw, path)
-    read(:ref, raw, path)
-end
-
-macro get(raw, path)
-    read(:get, raw, path)
-end
-
-macro set!(raw, path, rhs)
-    write(raw, path, rhs)
-end
-
-# Convenience idiomatic syntax:
-# @ref var.path.to.prop
-# @get var.path.to.prop
-macro ref(path)
-    convenience_read(__source__, :ref, path)
-end
-macro get(path)
-    convenience_read(__source__, :get, path)
-end
-function convenience_read(src, kw, path)
-    err(m) = throw(AccessError(kw, m, src))
-    F.is_identifier_path(path) || err("Not an access path: $(repr(path)).")
-    var, path... = F.collect_path(path)
-    read(kw, var, join_path(path))
-end
-
-# @set var.path.to.prop = rhs
-macro set(input)
-    err(m) = throw(AccessError(:set, m, __source__))
-    (false) && (local path, rhs)
-    @capture(input, path_ = rhs_)
-    isnothing(path) && err("Not a `path = rhs` expression: $(repr(input))")
-    F.is_identifier_path(path) || err("Not an access path: $(repr(path)).")
-    var, path... = F.collect_path(path)
-    write(var, join_path(path), rhs)
-end
-
-# Actual code generation.
-function read(kw, raw, path)
-    target, name = to_target_name(path, kw == :ref)
-    raw = esc(raw)
-    quote
-        F.read_property($target, Val($name))($raw)
-    end
-end
-
-function write(raw, path, rhs)
-    target, name = to_target_name(path, false)
-    raw, rhs = esc.((raw, rhs))
-    quote
-        F.readwrite_property($target, Val($name))($raw, $rhs)
-    end
-end
-
-function to_target_name(path, is_ref)
-    target, name = split_last(path)
-    target = isnothing(target) ? Model : F.property_space_type(target, Internal)
-    if is_ref  # Standard in the next: `_`-prefixed are ref propnames.
-        name = Symbol(:_, name)
-    end
-    name = Meta.quot(name)
-    (target, name)
-end
-
-# Assuming path is checked: :(a.b.c) -> (:(a.b), :c)
-function split_last(path)
-    path isa Symbol && return (nothing, path)
-    @capture(path, a_.b_)
-    (a, b)
-end
-
-function join_path(v)
-    prop = last(v)
-    if length(v) == 1
-        prop
-    else
-        head = join_path(v[1:end-1])
-        :($head.$prop)
-    end
-end
-
-# Dedicated errors.
-struct AccessError
-    type::Symbol
-    message::String
-    src::LineNumberNode
-end
-function Base.showerror(io::IO, e::AccessError)
-    print(io, "In @$(e.type) access: ")
-    println(io, crayon"blue", "$(e.src.file):$(e.src.line)", crayon"reset")
-    println(io, e.message)
 end
 
 # ==========================================================================================

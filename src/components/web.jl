@@ -20,7 +20,7 @@ function define_reflexive_web_component(
     # Property name, if different from web name.
     prop = (web, Web),
     # Extension points.
-    expand_from_matrix! = (raw, topology, A) -> nothing,
+    expand_from_matrix! = (raw, topology, A, model) -> nothing,
 )
     prop, Prop = prop
     Web_ = Symbol(Web, :_) # Blueprints module name.
@@ -32,7 +32,7 @@ function define_reflexive_web_component(
         # Blueprints for the component.
         module $Web_
         import EcologicalNetworksDynamics:
-            Blueprint, Framework, Networks, GraphDataInputs, @blueprint, @get, @ref
+            Blueprint, Framework, Networks, GraphDataInputs, @blueprint
         using .GraphDataInputs
         using .Framework
         using .Networks
@@ -61,17 +61,17 @@ function define_reflexive_web_component(
                 checkfails("The adjacency matrix of size $((m, n)) is not squared.")
         end
 
-        function F.late_check(raw, bp::Matrix)
+        function F.late_check(_, bp::Matrix, model)
             (; A) = bp
-            n = @get raw.$class.number
+            n = model.$class.number
             @check_size A (n, n)
         end
 
-        F.expand!(raw, bp::Matrix) = expand_from_matrix!(raw, bp.A)
-        function expand_from_matrix!(raw, A)
+        F.expand!(raw, bp::Matrix, model) = expand_from_matrix!(raw, bp.A, model)
+        function expand_from_matrix!(raw, A, model)
             topology = SparseReflexive(A)
             add_web!(raw, $p, ($c, $c), topology)
-            $expand_from_matrix!(raw, topology, A)
+            $expand_from_matrix!(raw, topology, A, model)
         end
 
         #-----------------------------------------------------------------------------------
@@ -90,16 +90,16 @@ function define_reflexive_web_component(
         @blueprint Adjacency "adjacency list of $($w) links"
         export Adjacency
 
-        function F.late_check(raw, bp::Adjacency)
+        function F.late_check(_, bp::Adjacency, model)
             (; A) = bp
-            index = @ref raw.$class.index
+            index = model.$class._index
             @check_list_refs A $c index
         end
 
-        function F.expand!(raw, bp::Adjacency)
-            index = @ref raw.$class.index
+        function F.expand!(raw, bp::Adjacency, model)
+            index = model.$class.index
             A = to_sparse_matrix(bp.A, index, index)
-            expand_from_matrix!(raw, A)
+            expand_from_matrix!(raw, A, model)
         end
 
         end

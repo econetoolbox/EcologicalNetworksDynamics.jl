@@ -6,11 +6,13 @@
 define_node_data_component(
     EN,
     :M,
+    Float64,
     :species,
     :Species,
     :body_mass,
     :BodyMass;
-    check_value = (>=(0.0), "not a positive value"),
+    check_value = non_negative(Float64),
+    flat_blueprint = Real,
     #---------------------------------------------------------------------------------------
     # One extra blueprint to build from trophic levels.
     Blueprints = quote
@@ -28,9 +30,8 @@ define_node_data_component(
                                   with a negative value of Z: $Z.")
         end
 
-        function F.expand!(raw, bp::Z)
-            level = @ref raw.trophic.level
-            M = read(level) do level
+        function F.expand!(raw, bp::Z, model)
+            M = read(model.trophic._level) do level
                 bp.Z .^ (level .- 1) # Credit to Ismaël Lajaaiti.
             end
             expand_from_vector!(raw, M)

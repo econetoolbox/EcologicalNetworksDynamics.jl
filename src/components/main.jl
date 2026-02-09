@@ -33,6 +33,8 @@
 
 # Helpers.
 include("./macros_keywords.jl")
+include("./allometry.jl")
+include("./input.jl") # XXX: Predates `GraphDataInputs` module?
 
 # Templates for typical network components.
 include("./class.jl")
@@ -48,14 +50,14 @@ include("./species.jl")
 include("./foodweb.jl")
 
 # Biorates and other values parametrizing the ODE.
-# (typical example 'nodes' data)
-include("./body_mass.jl")
+include("./body_mass.jl") # (typical example 'nodes' data)
+include("./metabolic_class.jl")
+#  include("./growth_rate.jl") # (typical example 'sub-nodes' data)
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
 # Helpers.
 #  include("./shared.jl")
-#  include("./allometry.jl")
 
 # Behaviour blueprints typically "optionally bring" other blueprints.
 # This utils factorizes how args/kwargs are passed from its inner constructor

@@ -115,12 +115,11 @@ const CompRef{V} = Union{Component{V},CompType{V}}
 struct CheckError <: Exception
     message::String
 end
-checkfails(m::String; throw = Base.throw) = throw(CheckError(m))
-checkfails(to_string::Function, e::Exception; throw = Base.throw) =
-    checkfails(to_string(sprint(showerror, e)); throw)
-checkfails(e::Exception; throw = Base.throw) = checkfails(identity, e; throw)
-checkrefails(args...) = checkfails(args...; throw = Base.rethrow)
-export checkfails, checkrefails
+checkfails(m::String, throw = Base.throw) = throw(CheckError(m))
+checkfails(to_string::Function, e::Exception, throw = Base.throw) =
+    checkfails(to_string(sprint(showerror, e)), throw)
+checkfails(e::Exception, throw = Base.throw) = checkfails(identity, e, throw)
+export checkfails
 
 # ==========================================================================================
 # Display.

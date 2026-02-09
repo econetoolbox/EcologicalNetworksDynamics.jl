@@ -83,7 +83,7 @@
 
     @sysfails(
         Model(BodyMass([1, -2])),
-        Check(early, [BodyMass.Raw], "not a positive value: M[2] = -2.0.")
+        Check(early, [BodyMass.Raw], "Value cannot be negative: M[2] = -2.0")
     )
 
     # Common ref checks from GraphDataInputs (not tested for every similar component).
@@ -109,7 +109,7 @@
 
     @failswith(
         (m.M[1] = -10),
-        EN.Views.WriteError("not a positive value", :body_mass, 1, -10.0)
+        EN.Views.WriteError("Value cannot be negative", :body_mass, 1, -10.0)
     )
 
     # Graphview-related tests live in "../02-graphviews.jl".

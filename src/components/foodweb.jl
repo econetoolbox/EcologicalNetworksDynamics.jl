@@ -15,7 +15,7 @@ define_reflexive_web_component(
     :species,
     :Species;
     prop = (:trophic, :Trophic),
-    expand_from_matrix! = (raw, topology, A) -> begin
+    expand_from_matrix! = (raw, topology, A, model) -> begin
         N = Networks
 
         # Every node becomes associated with a trophic level.
@@ -29,10 +29,10 @@ define_reflexive_web_component(
         add_subclass!(raw, :consumers, :species, nonsinks_mask(topology))
 
         # And also new webs with special trophic links highlighted.
-        S = @get raw.S
+        S = model.S
 
         # Producers matrix.
-        prods = @get raw.producers.indices
+        prods = node_indices(raw, :producers)
         mat = spzeros(Bool, S, S)
         for i in prods, j in prods
             mat[i, j] = true

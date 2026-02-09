@@ -14,8 +14,9 @@ struct NodesDataView{T} <: AbstractVector{T}
     view::N.NodesView{T}
     fieldname::Symbol
     # If writeable, provide a function to check individual values prior to writing.
-    # The function feeds from one value of type T
-    # and raises a 'String' exception if the value is incorrect.
+    # The function feeds from one value of type T, a label and the model,
+    # converts the value to T, checks it against the model,
+    # and raises a 'String' exception if anything is incorrect.
     check::Option{Function}
 end
 S = NodesDataView # "Self"
@@ -100,6 +101,7 @@ end
 
 AbstractNodesDataView{T} = Union{NodesDataView{T},ExpandedNodesDataView{T}}
 S = AbstractNodesDataView
+index(v::S) = class(v).index
 N.class(v::S) = v |> view |> class
 classname(v::S) = class(v).name
 
@@ -176,6 +178,8 @@ N.class(v::S) = class(network(v), classname(v))
 NodesView = Union{AbstractNodesDataView,NodesNamesView,NodesMaskView}
 S = NodesView
 index(v::S) = class(v).index
+label(v::S, i::Int) = N.label(index(v), i)
+label(v::S, l::Symbol) = check_label(v::S, l)
 function check_range(v::S, i::Int)
     n, s = ns(length(v))
     class = repr(classname(v))

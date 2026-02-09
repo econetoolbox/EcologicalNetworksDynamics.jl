@@ -29,6 +29,8 @@ is_label(label::Symbol, n::Network) =
 
 is_label(label::Symbol, index::Index) = haskey(index.forward, label)
 is_label(label::Symbol, class::Class) = is_label(label, class.index)
+is_label(network::Network, label::Symbol, c::Symbol) = is_label(label, class(network, c))
+export is_label
 
 struct LabelError <: Exception
     name::Symbol
