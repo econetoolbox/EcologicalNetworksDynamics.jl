@@ -4,16 +4,20 @@
 Direct view into web data,
 either dense or sparse depending on underlying topology.
 """
-struct EdgesDataView{T} <: AbstractMatrix{T}
+struct EdgesDataView{WF,T} <: AbstractMatrix{T} # WF: (:webname, :fieldname)
     model::Model
     view::N.EdgesView{T}
-    fieldname::Symbol
-    # HERE: add check_fn like other data views.
+end
+function edges_view(m::Model, web::Symbol, data::Symbol)
+    view = N.edges_view(value(m), web, data)
+    WF = (web, data)
+    T = eltype(view)
+    EdgesDataView{WF,T}(m, view)
 end
 S = EdgesDataView
 N.web(v::S) = v |> view |> web
-edges_view(m::Model, web::Symbol, data::Symbol) =
-    EdgesDataView(m, N.edges_view(value(m), web, data), data)
+webname(::S{WF}) where {WF} = first(WF)
+fieldname(::S{WF}) where {WF} = last(WF)
 Base.getindex(v::S, i, j) = getindex(view(v), (i, j))
 Base.setindex!(v::S, x, i, j) = setindex!(view(v), x, (i, j))
 extract(v::S; kw...) = N.to_sparse(view(v), kw...)
@@ -26,12 +30,14 @@ extract(v::S; kw...) = N.to_sparse(view(v), kw...)
 """
 Indirect, immutable view into edges topology (typically masks).
 """
-struct EdgesMaskView <: AbstractMatrix{Bool}
+struct EdgesMaskView{W} <: AbstractMatrix{Bool} # W: :webname
     model::Model
     web::N.Web
 end
+edges_mask_view(m::Model, web::Symbol) = EdgesMaskView{web}(m, N.web(value(m), web))
 S = EdgesMaskView # "Self"
 web(v::S) = getfield(v, :web)
+webname(::S{W}) where {W} = W
 topology(v::S) = web(v).topology
 Base.getindex(v::S, i::Int, j::Int) = N.is_edge(topology(v), check_range(v, i, j)...)
 Base.setindex!(v::S, _, ::Any, ::Any) = err(v, "Cannot mutate edges topology.")
@@ -39,7 +45,6 @@ function Base.getindex(v::S, a::Symbol, b::Symbol)
     check_range(v, a, b)
     N.is_edge(topology(v), source_index(v).forward[a], target_index(v).forward[b])
 end
-edges_mask_view(m::Model, web::Symbol) = EdgesMaskView(m, N.web(value(m), web))
 export edges_mask_view
 extract(v::S) = v |> topology |> N.to_mask
 
@@ -48,7 +53,6 @@ extract(v::S) = v |> topology |> N.to_mask
 
 EdgesView = Union{EdgesDataView,EdgesMaskView}
 S = EdgesView
-webname(v::S) = web(v).name
 topology(v::S) = web(v).topology
 sourcename(v) = web(v).source
 targetname(v) = web(v).target

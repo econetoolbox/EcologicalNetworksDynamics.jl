@@ -40,6 +40,8 @@ define_node_data_component(
     end,
 )
 
+Views.check_value(::Val{(:species, :body_mass)}, x) = non_negative(Float64, x)
+
 # Community convenience alias.
 @alias body_mass M
 

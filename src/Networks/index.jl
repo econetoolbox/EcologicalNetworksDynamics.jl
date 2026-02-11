@@ -12,8 +12,9 @@ Base.keys(v::S) = keys(v.forward)
 Base.length(v::S) = length(v.forward)
 fork(v::Index) = Index(copy(v.forward), copy(v.reverse))
 labels(v::S) = keys(v.forward)
-label(v::S, i::Int) = v.reverse[i]
-export label
+to_index(v::S, l::Symbol) = v.forward[l]
+to_label(v::S, i::Int) = v.reverse[i]
+export to_index, to_label
 
 """
 Build from a parent index and a restriction, assuming they are consistent.

@@ -17,11 +17,13 @@ with the following intent:
       + Avoids leaking references to underlying data.
 
 Under the hood, not all views work the same,
-although they should implement the same interface:
+although they should implement the same interface (mutability aside):
 
     - Views into internal network mutable *data* associated with nodes and edges
       directly wrap a `Networks.View` along with a reference to its model.
       Refer to them as `DataView`s.
+      These are generic over the (class/web, field) names,
+      so this may be used for dispatching field-specific behaviour like value checking.
 
     - Views into network *topology* (node names, edges and restriction binary masks)
       also conceptually wrap data associated with nodes and edges,
@@ -68,42 +70,12 @@ include("edges_display.jl")
 # ==========================================================================================
 # Common nodes or edge data views.
 
-DataView{T} = Union{AbstractNodesDataView{T},EdgesDataView{T}}
+DataView{CF,T} = Union{AbstractNodesDataView{CF,T},EdgesDataView{CF,T}}
 S = DataView
 view(v::S) = getfield(v, :view)
-fieldname(v::S) = getfield(v, :fieldname)
+fieldname(::S{CF}) where {CF} = last(CF)
 N.entry(v::S) = v |> view |> entry
-check(v::S) = getfield(v, :check)
 readonly(v::S) = v |> check |> isnothing
-
-function check_value(v::S, x, ref)
-    shape_check(x, ref)
-    if readonly(v)
-        err(v, "Values of $(repr(fieldname(v))) are readonly.")
-    else
-        x = try
-            l = label(v, ref)
-            check(v)(x, l, model(v))
-        catch e
-            e isa String || rethrow(e)
-            rethrow(WriteError(e, fieldname(v), ref, x))
-        end
-        x
-    end
-end
-display_index(i...) = display_index(i)
-display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
-
-# Avoid that user forgetting broadcasting breaks underlying network data edition.
-# TODO: this is an ugly hack resembling Julia's std. Can it not help instead?
-shape_check(_, _) = nothing
-shape_check(_, ::UnitRange) = throw(
-    ArgumentError("indexed assignment with a single value to possibly many locations \
-                   is not supported; perhaps use broadcasting `.=` instead?"),
-)
-# https://stackoverflow.com/a/47764659/3719101
-is_scalar(::Type{T}) where {T} =
-    Broadcast.BroadcastStyle(T) isa Broadcast.DefaultArrayStyle{0}
 
 struct WriteError <: Exception
     message::String
@@ -121,6 +93,8 @@ function Base.showerror(io::IO, e::WriteError)
          Received value: $(repr(value)) ::$(typeof(value))",
     )
 end
+display_index(i...) = display_index(i)
+display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
 
 # ==========================================================================================
 #  Common to all views.

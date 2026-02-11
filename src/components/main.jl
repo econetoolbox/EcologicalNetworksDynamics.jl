@@ -32,7 +32,6 @@
 # XXX: This is now being considered: see `class.jl` for 'Nodes' components.
 
 # Helpers.
-include("./macros_keywords.jl")
 include("./allometry.jl")
 include("./input.jl") # XXX: Predates `GraphDataInputs` module?
 
@@ -57,6 +56,7 @@ include("./metabolic_class.jl")
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
 # Helpers.
+#  include("./macros_keywords.jl")
 #  include("./shared.jl")
 
 # Behaviour blueprints typically "optionally bring" other blueprints.

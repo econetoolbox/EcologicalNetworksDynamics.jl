@@ -21,15 +21,6 @@ function define_node_data_component(
     #---------------------------------------------------------------------------------------
     # Extension points.
 
-    # Check value prior to writing through view,
-    # possibly transforming/standardizing it.
-    # Raise a simple string if check fails.
-    # Also used for early_check.
-    check_value = v -> v,
-    # Extension if a check against the rest of the model value is required.
-    # Receives a value checked by the above.
-    check_against_model = (v, label, model) -> v,
-
     # Extend checks beyond the default ones.
     late_check = (; Raw = (raw, bp, model) -> nothing, Map = (raw, bp, model) -> nothing),
 
@@ -204,16 +195,15 @@ function define_node_data_component(
                 module $M # (to not pollute invokation scope)
                 import EcologicalNetworksDynamics: Views, @method, Internal, Model
 
-                check(input, label, model) =
-                    $check_against_model($check_value(input), label, model)
-                $get_data(::Internal, m::Model) =
-                    Views.nodes_view(m, $s_class, $s_data, check)
+                $get_data(::Internal, m::Model) = Views.nodes_view(m, $s_class, $s_data)
                 @method $m $M.$get_data read_as($data) depends($Data)
 
                 end
             end
         ).args,
     )
+
+    # Specialize value checking prior to writing to views if any.
 
     # ======================================================================================
     # Display.
@@ -228,3 +218,6 @@ function define_node_data_component(
         end
     end)
 end
+
+# ==========================================================================================
+

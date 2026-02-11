@@ -42,6 +42,8 @@ export implied
 export isacomponent
 export properties
 
+const N = Networks
+
 # The type wrapped within the system.
 # TODO: "Internal" -> "Network" ?
 const Internal = Networks.Network
@@ -88,6 +90,26 @@ macro alias(old, new)
     quote
         F.@alias($old, $new, $Internal)
     end
+end
+
+#-------------------------------------------------------------------------------------------
+# Defer basic queries to inner network.
+network(m::Model) = value(m)
+for fn in [
+    :class,
+    :web,
+    :index,
+    :n_nodes,
+    :n_edges,
+    :n_fields,
+    :node_labels,
+    :node_indices,
+    :n_sources,
+    :n_targets,
+]
+    eval(quote
+        Networks.$fn(m::Model, args...) = Networks.$fn(network(m), args...)
+    end)
 end
 
 # ==========================================================================================

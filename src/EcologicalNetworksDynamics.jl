@@ -40,7 +40,7 @@ include("./AliasingDicts/AliasingDicts.jl")
 using .AliasingDicts
 
 # Factorize out common user input data preprocessing.
-include("./GraphDataInputs/GraphDataInputs.jl")
+include("./GraphDataInputs/GraphDataInputs.jl") # XXX: too much debt in here: snip to assess.
 using .GraphDataInputs
 
 include("./multiplex_api.jl")
@@ -49,17 +49,19 @@ using .MultiplexApi
 const I = Iterators
 include("./dedicate_framework_to_model.jl")
 
-# Encapsulated views into internal arrays or pseudo-arrays.
+#-------------------------------------------------------------------------------------------
+# The actual user-facing components of the package are defined there,
+# connecting them to the internals via the framework.
+
+# Define extension points to be later specialized for every class/web/field.
+include("./network_config.jl")
+
+# Encapsulated views into internal arrays or pseudo-arrays,
+# configured by the above.
 include("./Views/Views.jl")
 export extract
 using .Views
 
-# Convenience macro to wire this all together.
-#  include("./expose_data.jl") # XXX: on hold.
-
-#-------------------------------------------------------------------------------------------
-# The actual user-facing components of the package are defined there,
-# connecting them to the internals via the framework.
 argerr(mess) = throw(ArgumentError(mess))
 include("./components/main.jl")
 
@@ -68,6 +70,9 @@ include("./components/main.jl")
 # Shared API internals.
 # Most of these should move to the dedicated components files
 # once the internals have been refactored to not depend on them.
+
+# Convenience macro to wire this all together.
+#  include("./expose_data.jl") # XXX: on hold.
 
 # Types to represent the model under a pure topological perspective.
 include("./Topologies/Topologies.jl")
