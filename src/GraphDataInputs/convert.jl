@@ -2,6 +2,7 @@
 
 # The conversions allowed.
 graphdataconvert(::Type{T}, source::T) where {T} = source # Trivial identity.
+export graphdataconvert
 
 # ==========================================================================================
 # Scalar conversions.

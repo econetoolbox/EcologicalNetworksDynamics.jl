@@ -54,7 +54,8 @@ include("./dedicate_framework_to_model.jl")
 # connecting them to the internals via the framework.
 
 # Define extension points to be later specialized for every class/web/field.
-include("./network_config.jl")
+include("./network_config.jl") # XXX: group with `dedicate_framework_to_model.jl`.
+using .NetworkConfig
 
 # Encapsulated views into internal arrays or pseudo-arrays,
 # configured by the above.

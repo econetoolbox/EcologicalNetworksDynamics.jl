@@ -3,15 +3,19 @@
 # (reassure JuliaLS)
 (false) && (local BodyMass, _BodyMass)
 
+nd = C.NodeData(:species, :body_mass)
+Nd = C.NodeData(:Species, :BodyMass)
+
+# Values constraint.
+ND = typeof(nd)
+C.check_value(::ND, x) = non_negative(Float64, x)
+
 define_node_data_component(
     EN,
     :M,
     Float64,
-    :species,
-    :Species,
-    :body_mass,
-    :BodyMass;
-    check_value = non_negative(Float64),
+    nd,
+    Nd;
     flat_blueprint = Real,
     #---------------------------------------------------------------------------------------
     # One extra blueprint to build from trophic levels.
@@ -36,15 +40,13 @@ define_node_data_component(
             end
             expand_from_vector!(raw, M)
         end
-
     end,
 )
-
-Views.check_value(::Val{(:species, :body_mass)}, x) = non_negative(Float64, x)
 
 # Community convenience alias.
 @alias body_mass M
 
+# Extra constructor dispatch to the extra blueprint.
 function (::_BodyMass)(; Z = nothing)
     isnothing(Z) && argerr("Either 'M' or 'Z' must be provided to define body masses.")
     BodyMass.Z(Z)

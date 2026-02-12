@@ -127,6 +127,7 @@ implies_blueprint_for(b::Blueprint, c::Component) = implies_blueprint_for(b, typ
 # The objective is to avoid failure during expansion,
 # as it could result in inconsistent system state.
 # Raise the dedicated blueprint check exception if not the case.
+# On success, return arbitrary data useful for `expand!`.
 # NOTE: a failure during late check does not compromise the system state consistency,
 #       but it does result in that not all blueprints
 #       brought by the toplevel added blueprint
@@ -151,6 +152,7 @@ early_check(::Blueprint) = nothing # No particular constraint to enforce by defa
 # to feature the provided components.
 # This is only called if all component addition conditions are met
 # and the above check passed.
+# Expansion feeds from arbitrary data produced by a success in `late_check`.
 # This function must not fail or the system may end up in a corrupt state.
 # TODO: must it also be deterministic?
 #       Or can a random component expansion happen
@@ -158,7 +160,7 @@ early_check(::Blueprint) = nothing # No particular constraint to enforce by defa
 #       Note that random expansion would result in:
 #       (System{Value}() + blueprint).property != (System{Value}() + blueprint).property
 #       which may be confusing.
-expand!(_, ::Blueprint) = nothing # Expanding does nothing by default.
+expand!(_, ::Blueprint, data) = nothing # Expanding does nothing by default.
 
 # NOTE: the above signatures for default functions *could* be more strict
 # like eg. `check(::V, ::Blueprint{V}) where {V}`,
@@ -175,7 +177,7 @@ expand!(_, ::Blueprint) = nothing # Expanding does nothing by default.
 # unless in overriden methods.
 # Issue `CheckError` on failure.
 late_check(v, b::Blueprint, _) = late_check(v, b)
-expand!(v, b::Blueprint, _) = expand!(v, b)
+expand!(v, b::Blueprint, data, _) = expand!(v, b, data)
 
 # ==========================================================================================
 # Explicit terminal display.
