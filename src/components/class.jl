@@ -1,42 +1,39 @@
 """
 Typical setup for a component bringing a new class to the network.
 """
-macro class_component(input...)
-    quote
-        $define_class_component($__module__, $(Meta.quot.(input)...))
-        nothing
-    end
-end
-
-function define_class_component(
-    mod::Module,
-    # Class name, singular/plural, capitalized/not.
-    singular::Symbol,
-    Singular::Symbol,
-    plural::Symbol,
-    Plural::Symbol,
-    # Prefix for automatically generated node labels.
-    short_prefix::Symbol,
-)
+function define_class_component(mod::Module, nc::NodeClass)
+    short_prefix, singular, plural, Singular, Plural = name_variants(nc)
     Plural_ = Symbol(Plural, :_) # Blueprints module name.
     _Plural = Symbol(:_, Plural) # Component type name.
     s, S, sp = Meta.quot.((plural, Plural, short_prefix)) # Symbol names.
-    xp = quote
 
-        # ==================================================================================
-        # Blueprints for the component.
-        module $Plural_
-        import EcologicalNetworksDynamics:
-            Blueprint, Framework, Networks, GraphDataInputs, @blueprint
-        const F = Framework
-        const G = GraphDataInputs
+    # ======================================================================================
+    # Blueprints for the component.
 
-        #-------------------------------------------------------------------------------
-        # Construct from a given set of names.
+    # Prepare dedicated blueprints module and populate namespace.
+    blueprints =
+        mod.eval.(
+            (
+                quote
+                    module $Plural_
+                    import EcologicalNetworksDynamics:
+                        Blueprint, Framework, Networks, GraphDataInputs, @blueprint
+                    const F = Framework
+                    const G = GraphDataInputs
+                    const nc = $nc
+                    end
+                end
+            ).args
+        ) |> last
+
+    #---------------------------------------------------------------------------------------
+    # Construct from a given set of names.
+    blueprints.eval(quote
         mutable struct Names <: Blueprint
             names::Vector{Symbol}
+
             # Convert anything to symbols.
-            Names(names) = new(G.@tographdata names Vector{Symbol})
+            Names(names) = new(G.graphdataconvert(Vector{Symbol}, names))
             Names(names...) = new(Symbol.(collect(names)))
 
             # From an index (useful when implied).
@@ -49,82 +46,67 @@ function define_class_component(
             Names(names::Vector{Symbol}) = new(names)
         end
 
+        # Declare as a blueprint.
         @blueprint Names "raw $($s) names"
         export Names
 
-        # Forbid duplicates (triangular check).
-        function F.early_check(bp::Names)
-            (; names) = bp
-            for (i, a) in enumerate(names)
-                for j in (i+1):length(names)
-                    b = names[j]
-                    a == b && G.checkfails("$($S) $i and $j are both named $(repr(a)).")
-                end
-            end
-        end
+        # Verify blueprint values.
+        F.early_check(bp::Names) = $class_names_early_check(nc, bp)
 
         # Expand into a new compartment.
-        F.expand!(raw, bp::Names) = expand!(raw, bp.names)
-        expand!(raw, names) = Networks.add_class!(raw, $s, names)
+        F.expand!(raw, bp::Names, _) = expand_from_vector!(raw, bp.names)
+        expand_from_vector!(raw, vec) = Networks.add_class!(raw, $s, vec)
 
-        #-----------------------------------------------------------------------------------
-        # Construct from a plain number and generate dummy names.
+    end)
 
-        mutable struct Number <: Blueprint
-            n::UInt
-        end
-        @blueprint Number "number of $($s)"
-        export Number
+    #---------------------------------------------------------------------------------------
+    # Construct from a plain number and generate dummy names.
+    blueprints.eval(
+        quote
+            mutable struct Number <: Blueprint
+                n::UInt
+            end
+            @blueprint Number "number of $($s)"
+            export Number
+            F.expand!(raw, bp::Number, _) =
+                expand_from_vector!(raw, [Symbol($sp, i) for i in 1:bp.n])
+        end,
+    )
 
-        F.expand!(raw, bp::Number) = expand!(raw, [Symbol($sp, i) for i in 1:bp.n])
-
-        end
-
-        # ==================================================================================
-        # The component itself and generic blueprints constructors.
-
+    # ======================================================================================
+    # The component itself and generic blueprints constructors.
+    mod.eval(quote
+        # XXX: if all components wrap like this, no need for the macro anymore?
         @component $Plural{Internal} blueprints($Plural_)
+    end) # Need to reach toplevel first to access generated values, right?
 
+    NC = typeof(nc)
+    mod.eval(quote
+        C.component(::$NC) = $Plural
         # Build from a number or default to names.
         (::$_Plural)(n::Integer) = $Plural.Number(n)
         (::$_Plural)(names) = $Plural.Names(names)
+    end)
 
-        # ==================================================================================
-        # Display.
+    # Display.
+    mod.eval(
+        quote
+            Framework.shortline(io::IO, model::Model, ::$_Plural) =
+                $class_shortline(io, model, nc)
+        end,
+    )
 
-        function Framework.shortline(io::IO, model::Model, ::$_Plural)
-            names = model.$plural._names
-            n = length(names)
-            print(io, "$($S): $n ($(join_elided(names, ", ")))")
-        end
-
-    end
-    mod.eval.(xp.args)
-    define_class_properties(mod, plural, Plural, singular, Singular, :(depends($Plural)))
+    define_class_properties(mod, nc, :(depends($Plural)))
 end
 
 # ==========================================================================================
 
-"""
-Some classes are not directly defined by a component,
-e.g. 'producers' is defined by the foodweb,
-but the need the same exposure: use it to expose them.
-"""
-macro class_properties(input...)
-    quote
-        $define_class_properties($__module__, $(Meta.quot.(input)...))
-        nothing
-    end
-end
-
 function define_class_properties(
     mod::Module,
-    singular::Symbol,
-    Singular::Symbol,
-    plural::Symbol,
-    Plural::Symbol,
+    nc::NodeClass,
     deps::Expr, # As in a regular call to @method.
 )
+    short_prefix, singular, plural, Singular, Plural = name_variants(nc)
     s = Meta.quot(plural)
     M = Symbol(Plural, :Methods) # Create submodule to not pollute invocation scope..
     m = :(mod($mod)) # .. but still evaluate dependencies within the invocation module.
@@ -168,4 +150,28 @@ function define_class_properties(
     end
 
     mod.eval.(xp.args)
+end
+
+# ==========================================================================================
+# Extract implementation detail to ease Revise work.
+
+# Forbid duplicates (triangular check).
+function class_names_early_check(nc::NodeClass, bp::Blueprint)
+    Class = CamelCaseSingular(nc)
+    (; names) = bp
+    for (i, a) in enumerate(names)
+        for j in (i+1):length(names)
+            b = names[j]
+            a == b && checkfails("$Class $i and $j are both named $(repr(a)).")
+        end
+    end
+end
+
+# Display.
+function class_shortline(io::IO, model::Model, nc::NodeClass)
+    class = snake_case_plural(nc)
+    Class = CamelCaseSingular(nc)
+    names = getproperty(model, class)._names
+    n = length(names)
+    print(io, "$Class: $n ($(join_elided(names, ", ")))")
 end

@@ -19,6 +19,7 @@ const EN = EcologicalNetworksDynamics
 
 # Many small similar components tests files, although they easily diverge.
 only = [
+    # HERE: have this run again after the large cleanup.
     "./data_components/species.jl",
     "./data_components/foodweb.jl",
     "./data_components/body_mass.jl",

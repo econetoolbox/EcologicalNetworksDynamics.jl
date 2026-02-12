@@ -13,18 +13,13 @@ function define_node_data_component(
     # Short field name.
     field::Symbol,
     T::Type,
-    # Data name and its class.
-    class::Symbol,
-    Class::Union{Symbol,Expr},
-    data::Symbol,
-    Data::Symbol;
+    # Provide name with the dispatcher (+ capitalized version).
+    nd::NodeData,
+    ND::NodeData;
     #---------------------------------------------------------------------------------------
     # Extension points.
 
-    # Extend checks beyond the default ones.
-    late_check = (; Raw = (raw, bp, model) -> nothing, Map = (raw, bp, model) -> nothing),
-
-    # Code for extra blueprints, evaluated within the code generated here.
+    # Code for extra blueprints, evaluated within the blueprints module.
     Blueprints = nothing,
 
     # Extra requirements for the component.
@@ -36,14 +31,11 @@ function define_node_data_component(
     flat_blueprint = nothing,
 )
     #---------------------------------------------------------------------------------------
+    class, data = content(nd)
+    Class, Data = content(ND)
     Data_ = Symbol(Data, :_) # Blueprints module name.
     _Data = Symbol(:_, Data) # Component type name.
-    s_data, s_field, s_class = Meta.quot.((data, field, class)) # Symbol names.
-    N = Networks
-    # For queries.
-    M = Symbol(Data, :Methods)
-    m = :(mod($mod))
-    get_data = Symbol(:get_, data)
+    # Dispatch to this node class field.
 
     # ======================================================================================
     # Blueprints for the component.
@@ -55,94 +47,67 @@ function define_node_data_component(
                 quote
                     module $Data_
                     import EcologicalNetworksDynamics:
-                        Blueprint, Framework, Networks, GraphDataInputs, Views, @blueprint
+                        Blueprint,
+                        Framework,
+                        Networks,
+                        GraphDataInputs,
+                        Views,
+                        @blueprint,
+                        NetworkConfig
                     using .Networks
                     using .Framework
                     using .GraphDataInputs
+                    using .NetworkConfig
+                    const N = Networks
                     const F = Framework
+                    const T = GraphDataInputs # "T"ypes.
                     const Class = $mod.$Class
                     const _Class = typeof(Class)
+                    const nd = $nd
+                    const (class, data) = NetworkConfig.content(nd)
                     end
                 end
             ).args
         ) |> last
 
 
-    #---------------------------------------------------------------------------------------
     # From raw values.
-
     blueprints.eval(
         quote
             mutable struct Raw <: Blueprint
                 $field::Vector{$T}
                 $class::Brought(Class)
                 Raw($field, $class = _Class) =
-                    new(@tographdata($field, Vector{$T}), $class)
+                    new(graphdataconvert(Vector{$T}, $field), $class)
             end
             F.implied_blueprint_for(bp::Raw, ::_Class) = Class(length(bp.$field))
+            F.early_check(bp::Raw) = nodes_raw_early_check(nd, bp.$field)
+            F.late_check(raw, bp::Raw, model) =
+                nodes_raw_late_check(nd, raw, bp.$field, model)
+            F.expand!(raw, ::Raw, values) = expand_from_vector!(raw, values)
+            expand_from_vector!(raw, vec) = add_field!(N.class(raw, class), data, vec)
             @blueprint Raw "raw values"
             export Raw
-
-            # HERE: use NetworkConfig instead.
-            F.early_check(bp::Raw) = check_nodes(check, bp.$field)
-            function check(value, ref = nothing)
-                v = try
-                    $check_value(value)
-                catch e
-                    e isa String || rethrow(e)
-                    index = if isnothing(ref)
-                        ""
-                    else
-                        "[$(join(repr.(ref), ", "))]"
-                    end
-                    checkfails("$e: $($s_field)$index = $(repr(value))")
-                end
-            end
-
-            function F.late_check(raw, bp::Raw, model)
-                (; $field) = bp
-                S = n_nodes(raw, $s_class)
-                @check_size $field S
-                $(late_check.Raw)(raw, bp, model)
-            end
-
-            F.expand!(raw, bp::Raw) = expand_from_vector!(raw, bp.$field)
-            expand_from_vector!(raw, vec) =
-                add_field!(class(raw, $s_class), $s_data, check.(vec))
         end,
     )
 
-
-    #---------------------------------------------------------------------------------------
     # From a node-indexed map.
     blueprints.eval(
         quote
             mutable struct Map <: Blueprint
-                $field::@GraphData Map{$T}
+                $field::T.Map{$T}
                 $class::Brought(Class)
-                Map($field, sp = _Class) = new(@tographdata($field, Map{$T}), sp)
+                Map($field, sp = _Class) = new(graphdataconvert(T.Map{$T}, $field), sp)
             end
             F.implied_blueprint_for(bp::Map, ::_Class) = Class(refspace(bp.$field))
-            @blueprint Map "[$($s_class) => $($s_data)] map"
+            F.early_check(bp::Map) = nodes_map_early_check(nd, bp.$field)
+            F.late_check(raw, bp::Map, model) = nodes_map_late_check(nd, bp.$field, model)
+            F.expand!(raw, bp::Map, values) = expand_from_vector!(raw, values)
+            @blueprint Map "[$class => $data] map"
             export Map
-
-            F.early_check(bp::Map) = check_nodes(check, bp.$field)
-            function F.late_check(raw, bp::Map, model)
-                (; $field) = bp
-                index = model.$class._index
-                @check_list_refs $field $s_class index dense
-                $(late_check.Map)(raw, bp, model)
-            end
-
-            function F.expand!(raw, bp::Map, model)
-                index = model.$class._index
-                vec = to_dense_vector(bp.$field, index)
-                expand_from_vector!(raw, vec)
-            end
         end,
     )
 
-    #---------------------------------------------------------------------------------------
     # From a scalar broadcasted to all nodes in the class (if meaningful).
     if !isnothing(flat_blueprint)
         blueprints.eval(
@@ -150,10 +115,10 @@ function define_node_data_component(
                 mutable struct Flat <: Blueprint
                     $field::$T
                 end
+                F.early_check(bp::Flat) = check_value(nd, bp.$field)
+                F.expand!(raw, bp::Flat, _) =
+                    expand_from_vector!(raw, fill(bp.$field, n_nodes(raw, $class)))
                 @blueprint Flat "uniform value" depends(Class)
-                F.early_check(bp::Flat) = check(bp.$field)
-                F.expand!(raw, bp::Flat) =
-                    expand_from_vector!(raw, to_size(bp.$field, n_nodes(raw, $s_class)))
                 export Flat
             end,
         )
@@ -165,10 +130,11 @@ function define_node_data_component(
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
+    ND = typeof(nd)
     mod.eval(
         quote
             @component $Data{Internal} requires($Class, $(requires...)) blueprints($Data_)
-            export $Data
+            C.component(::$ND) = $Data
 
             function (::$_Data)($field)
                 $field = @tographdata $field {Vector, Map}{$T}
@@ -190,13 +156,22 @@ function define_node_data_component(
 
     # ======================================================================================
     # Queries.
+
+    M = Symbol(Data, :Methods)
+    m = :(mod($mod))
+    get_data = Symbol(:get_, data)
+
     mod.eval.(
         (
             quote
                 module $M # (to not pollute invokation scope)
-                import EcologicalNetworksDynamics: Views, @method, Internal, Model
+                import EcologicalNetworksDynamics:
+                    Views, @method, Internal, Model, NetworkConfig
+                const nd = $nd
+                const (class, data) = NetworkConfig.content(nd)
 
-                $get_data(::Internal, m::Model) = Views.nodes_view(m, $s_class, $s_data)
+                $get_data(::Internal, m::Model) = Views.nodes_view(m, class, data)
+                # XXX: how come set_data! is not needed anymore?
                 @method $m $M.$get_data read_as($data) depends($Data)
 
                 end
@@ -208,14 +183,112 @@ function define_node_data_component(
 
     # ======================================================================================
     # Display.
-    mod.eval(quote
-        function $Framework.shortline(io::IO, model::Model, ::$_Data)
-            network = $EN.value(model)
-            class = $N.class(network, $s_class)
-            entry = class.data[$s_data]
-            $N.read(entry) do data
-                print(io, "$($Data): [$(join_elided(data, ", "))]")
-            end
+    N = Networks
+    mod.eval(
+        quote
+            $Framework.shortline(io::IO, model::Model, ::$_Data) =
+                nodes_shortline(io, model, $nd, $(Meta.quot(Data)))
+        end,
+    )
+end
+
+# ==========================================================================================
+# Extract implementation detail to ease Revise work.
+
+#-------------------------------------------------------------------------------------------
+# Raw blueprint.
+
+nodes_raw_early_check(nd::NodeData, values::Vector) =
+    for (i, value) in enumerate(values)
+        try
+            check_value(nd, value)
+        catch e
+            e isa ValueError && checkfails(
+                "When checking vector data for $nd \
+                 at index [$i]:\n$(e.message)",
+                rethrow,
+            )
+            rethrow(e)
         end
-    end)
+    end
+
+function nodes_raw_late_check(nd::NodeData, raw::Network, values::Vector, model::Model)
+    # Check number of values first.
+    n = n_nodes(raw, class)
+    l = length(values)
+    n == l || checkfails("Wrong number of values received for $nd: expected $n, got $l.")
+    labels = node_labels(raw, class)
+    # Then convert values one by one.
+    map(enumerate(zip(labels, values))) do (i, (label, value))
+        try
+            check_value(nd, model, value, label, i)
+        catch e
+            e isa ValueError && checkfails(
+                "Incorrect value at index [$i] ($(repr(label))):\n$(e.message)",
+                rethrow,
+            )
+            rethrow(e)
+        end
+    end
+end
+
+#-------------------------------------------------------------------------------------------
+# Map blueprint.
+
+nodes_map_early_check(nd::NodeData, values::Vector) =
+    for (label, value) in values
+        try
+            check_value(nd, label)
+        catch e
+            e isa ValueError && checkfails(
+                "When checking map data for $nd \
+                 for label [$(repr(label))]:\n$(e.message)",
+                rethrow,
+            )
+            rethrow(e)
+        end
+    end
+
+function nodes_map_late_check(nd::NodeData, raw::Network, map::Map, model::Model)
+    # Check labels first.
+    labels = node_labels(raw, class)
+    exp = Set()
+    act = Set(keys(map))
+    miss = setdiff(exp, act)
+    if !isempty(miss)
+        miss = join_elided(sort!(collect(miss)), ", ", " and ")
+        checkfails("Missing for $nd, no value provided for $miss.")
+    end
+    unexp = setdiff(act, exp)
+    if !isempty(unexp)
+        unexp = join_elided(sort!(collect(miss)), ", ", " and ")
+        a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
+        checkfails("Not$a $(repr(class)) name$s: $unexp.")
+    end
+    # Then reorder values one by one into a vector.
+    try
+        map(labels) do label
+            value = map[label]
+            check_value(nd, model, value, label)
+        end
+    catch e
+        e isa ValueError && checkfails(
+            "Incorrect value for label $(repr(label)) [$i]:\n$(e.message)",
+            rethrow,
+        )
+        rethrow(e)
+    end
+end
+
+#-------------------------------------------------------------------------------------------
+# Display.
+
+function nodes_shortline(io::IO, model::Model, nd::NodeData, Data::Symbol)
+    c, d = content(nd)
+    network = EN.value(model)
+    class = N.class(network, c)
+    entry = class.data[d]
+    N.read(entry) do data
+        print(io, "$Data: [$(join_elided(data, ", "))]")
+    end
 end

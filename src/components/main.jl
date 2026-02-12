@@ -52,7 +52,7 @@ include("./foodweb.jl")
 
 # Biorates and other values parametrizing the ODE.
 include("./body_mass.jl") # (typical example 'nodes' data)
-include("./metabolic_class.jl")
+#  include("./metabolic_class.jl")
 #  include("./growth_rate.jl") # (typical example 'sub-nodes' data)
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.

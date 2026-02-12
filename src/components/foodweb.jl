@@ -8,52 +8,14 @@
 # (reassure JuliaLS)
 (false) && (local Foodweb, _Foodweb)
 
-define_reflexive_web_component(
-    EN,
-    :foodweb,
-    :Foodweb,
-    :species,
-    :Species;
-    prop = (:trophic, :Trophic),
-    expand_from_matrix! = (raw, topology, A, model) -> begin
-        N = Networks
+ew = EdgeWeb(:foodweb)
+EW = typeof(ew)
+C.sidenames(::EW) = (:species, :species)
+C.name_variants(::EW) = (:foodweb, :Foodweb)
+C.propnames(::EW) = (:trophic, :Trophic)
+C.is_reflexive(::EW) = true
 
-        # Every node becomes associated with a trophic level.
-        levels = EN.trophic_levels(A)
-        add_field!(raw, :species, :trophic_level, levels)
-
-        # The foodweb defines new categories of species.
-        add_subclass!(raw, :tops, :species, sources_mask(topology))
-        add_subclass!(raw, :producers, :species, sinks_mask(topology))
-        add_subclass!(raw, :preys, :species, nonsources_mask(topology))
-        add_subclass!(raw, :consumers, :species, nonsinks_mask(topology))
-
-        # And also new webs with special trophic links highlighted.
-        S = model.S
-
-        # Producers matrix.
-        prods = node_indices(raw, :producers)
-        mat = spzeros(Bool, S, S)
-        for i in prods, j in prods
-            mat[i, j] = true
-        end
-        add_web!(raw, :producers_web, (:species, :species), SparseSymmetric(mat))
-
-        # Herbivory matrix: consumers-to-producers.
-        mat = spzeros(Bool, S, S)
-        for (pred, prey) in N.edges(topology)
-            is_sink(topology, prey) && (mat[pred, prey] = true)
-        end
-        add_web!(raw, :herbivory, (:species, :species), SparseReflexive(mat))
-
-        # Carnivory matrix: consumers-to-consumers.
-        mat = spzeros(Bool, S, S)
-        for (pred, prey) in N.edges(topology)
-            is_sink(topology, prey) || (mat[pred, prey] = true)
-        end
-        add_web!(raw, :carnivory, (:species, :species), SparseReflexive(mat))
-    end,
-)
+define_reflexive_web_component(EN, ew)
 
 # Community consistency aliases.
 const (TrophicLayer, _TrophicLayer) = (Foodweb, _Foodweb)
@@ -62,21 +24,78 @@ export Foodweb, TrophicLayer
 @alias trophic.matrix A
 @alias A trophic.A
 
-# Standard queries.
-@class_properties producer Producer producers Producers depends(Foodweb)
-@class_properties consumer Consumer consumers Consumers depends(Foodweb)
-@class_properties top Top tops Tops depends(Foodweb)
-@class_properties prey Prey preys Preys depends(Foodweb)
+# ==========================================================================================
+# Web-derived classes and webs.
 
-@web_properties producers_web ProducersWeb depends(Foodweb)
+function reflexive_web_post_expand!(::EW, raw, topology, A, model)
+    N = Networks
+
+    # Every node becomes associated with a trophic level.
+    levels = EN.trophic_levels(A)
+    add_field!(raw, :species, :trophic_level, levels)
+
+    # The foodweb defines new categories of species.
+    add_subclass!(raw, :tops, :species, sources_mask(topology))
+    add_subclass!(raw, :producers, :species, sinks_mask(topology))
+    add_subclass!(raw, :preys, :species, nonsources_mask(topology))
+    add_subclass!(raw, :consumers, :species, nonsinks_mask(topology))
+
+    # And also new webs with special trophic links highlighted.
+    S = model.S
+
+    # Producers matrix.
+    prods = node_indices(raw, :producers)
+    mat = spzeros(Bool, S, S)
+    for i in prods, j in prods
+        mat[i, j] = true
+    end
+    add_web!(raw, :producers_web, (:species, :species), SparseSymmetric(mat))
+
+    # Herbivory matrix: consumers-to-producers.
+    mat = spzeros(Bool, S, S)
+    for (pred, prey) in N.edges(topology)
+        is_sink(topology, prey) && (mat[pred, prey] = true)
+    end
+    add_web!(raw, :herbivory, (:species, :species), SparseReflexive(mat))
+
+    # Carnivory matrix: consumers-to-consumers.
+    mat = spzeros(Bool, S, S)
+    for (pred, prey) in N.edges(topology)
+        is_sink(topology, prey) || (mat[pred, prey] = true)
+    end
+    add_web!(raw, :carnivory, (:species, :species), SparseReflexive(mat))
+end
+
+deps = :(depends(Foodweb))
+p = NodeClass(:producer)
+c = NodeClass(:consumer)
+t = NodeClass(:top)
+r = NodeClass(:prey)
+# TODO: fix that there is no need for a short prefix for them: subclasses.
+C.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
+C.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
+C.name_variants(::typeof(t)) = (:_, :top, :tops, :Top, :Tops)
+C.name_variants(::typeof(r)) = (:_, :prey, :preys, :Preys, :Preys)
+define_class_properties(EN, p, deps)
+define_class_properties(EN, c, deps)
+define_class_properties(EN, t, deps)
+define_class_properties(EN, r, deps)
+
+p = EdgeWeb(:producers_web)
+h = EdgeWeb(:herbivory)
+c = EdgeWeb(:carnivory)
+C.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
+C.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
+C.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
+define_web_properties(EN, p, deps)
+define_web_properties(EN, h, deps)
+define_web_properties(EN, c, deps)
+
 @alias producers_web.matrix producers.matrix
-
-@web_properties herbivory Herbivory depends(Foodweb)
-@web_properties carnivory Carnivory depends(Foodweb)
 @alias herbivory trophic.herbivory
 @alias carnivory trophic.carnivory
 
-#-------------------------------------------------------------------------------------------
+# ==========================================================================================
 """
 Calculate trophic levels for every species.
 Credit: Ismaël Lajaaiti 2024-03-19 #5665e377.
@@ -93,7 +112,7 @@ function trophic_levels(A::AbstractMatrix{Bool})
     inverse(D) * ones(S)
 end
 # Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
-level(::Internal, m::Model) = nodes_view(m, :species, :trophic_level, nothing)
+level(::Internal, m::Model) = nodes_view(m, :species, :trophic_level)
 level_entry(raw::Internal) = class(raw, :species).data[:trophic_level]
 @method level read_as(trophic.level) depends(Foodweb)
 @method level_entry read_as(trophic._level) depends(Foodweb)

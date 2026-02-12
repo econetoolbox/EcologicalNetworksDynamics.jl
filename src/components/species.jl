@@ -4,7 +4,10 @@
 (false) && (local Species, _Species)
 
 # Typical, vanilla class component.
-@class_component species Species species Species s
+nc = NodeClass(:species)
+NC = typeof(nc)
+C.name_variants(::NC) = (:s, :species, :species, :Species, :Species)
+define_class_component(EN, nc)
 export Species
 
 # Extra aliases used by the community.

@@ -9,15 +9,15 @@ end
 """
 Direct dense view into nodes class data.
 """
-struct NodesDataView{CF,T} <: AbstractVector{T} # CF: (class, field)
+struct NodesDataView{ND,T} <: AbstractVector{T}
     model::Model
     view::N.NodesView{T}
 end
 function N.nodes_view(m::Model, class::Symbol, fieldname::Symbol)
     view = N.nodes_view(value(m), class, fieldname)
-    CF = (class, fieldname)
+    ND = NodeData{class, fieldname}
     T = eltype(view)
-    NodesDataView{CF,T}(m, view)
+    NodesDataView{ND,T}(m, view)
 end
 S = NodesDataView # "Self"
 restriction(v::S) = class(v).restriction
@@ -30,6 +30,7 @@ function Base.setindex!(v::S, x, ref)
 end
 extract(v::S) = [v[i] for i in eachindex(v)]
 
+# HERE: transition from storing raw 'CF' (↓) to actual 'ND' (↑).
 """
 View into nodes class data
 from the perspective of a superclass,
@@ -190,6 +191,7 @@ end
 NodeTopologyView{C} = Union{NodesNamesView{C},NodesMaskView{C}}
 S = NodeTopologyView
 classname(::S{C}) where {C} = C
+readonly(::S) = C.readonly()
 N.class(v::S) = class(network(v), classname(v))
 
 # ==========================================================================================

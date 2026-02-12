@@ -406,7 +406,7 @@ function add!(
             blueprint = node.blueprint
 
             # Last check hook against current system value.
-            try
+            data = try
                 late_check(value(system), blueprint, system)
             catch e
                 if e isa CheckError
@@ -418,7 +418,7 @@ function add!(
 
             # Expand.
             try
-                expand!(value(system), blueprint, system)
+                expand!(value(system), blueprint, data, system)
             catch _
                 throw(ExpansionAborted(node))
             end

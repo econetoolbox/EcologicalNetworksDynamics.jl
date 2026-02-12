@@ -116,6 +116,7 @@ struct CheckError <: Exception
     message::String
 end
 checkfails(m::String, throw = Base.throw) = throw(CheckError(m))
+#  TODO: are the following two still useful?
 checkfails(to_string::Function, e::Exception, throw = Base.throw) =
     checkfails(to_string(sprint(showerror, e)), throw)
 checkfails(e::Exception, throw = Base.throw) = checkfails(identity, e, throw)

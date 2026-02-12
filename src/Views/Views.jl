@@ -77,7 +77,6 @@ S = DataView
 view(v::S) = getfield(v, :view)
 fieldname(::S{CF}) where {CF} = last(CF)
 N.entry(v::S) = v |> view |> entry
-readonly(v::S) = v |> check |> isnothing
 
 struct WriteError <: Exception
     message::String
