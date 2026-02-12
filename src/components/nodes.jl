@@ -83,6 +83,7 @@ function define_node_data_component(
             @blueprint Raw "raw values"
             export Raw
 
+            # HERE: use NetworkConfig instead.
             F.early_check(bp::Raw) = check_nodes(check, bp.$field)
             function check(value, ref = nothing)
                 v = try
@@ -218,6 +219,3 @@ function define_node_data_component(
         end
     end)
 end
-
-# ==========================================================================================
-

@@ -39,9 +39,11 @@ using ..Networks
 using ..Framework
 using ..Display
 import ..Model
+import ..NetworkConfig
 
 const N = Networks
 const V = Views
+const C = NetworkConfig
 const Option{T} = Union{T,Nothing}
 const Ref = Union{Int,Symbol}
 

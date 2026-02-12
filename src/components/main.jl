@@ -31,6 +31,8 @@
 #   - Behaviour (graph data that actually represents *code* to run the model).
 # XXX: This is now being considered: see `class.jl` for 'Nodes' components.
 
+const C = NetworkConfig
+
 # Helpers.
 include("./allometry.jl")
 include("./input.jl") # XXX: Predates `GraphDataInputs` module?

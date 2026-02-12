@@ -107,18 +107,6 @@ N.class(v::S) = v |> view |> class
 index(v::S) = class(v).index
 
 """
-Extension point to check and convert individual values
-prior to writing them the given index.
-Specialize by specifying Val{CF} argument.
-Raise with `valerr("simple message")` if anything is incorrect
-to obtain a contextualized error.
-"""
-check_value(v::S, value, ref::Ref, model::Model) = value # Nothing to check a priori.
-# User either overrides for index or label, we provide adequate conversion.
-check_value(v::S, x, i::Int) = check_value(v, x, to_label(v, i))
-check_value(v::S, x, l::Symbol) = check_value(v, x, to_index(v, l))
-
-"""
 Generic checking logic, assuming checked ref.
 """
 check_write(v::S, x, ref) =
@@ -126,10 +114,11 @@ check_write(v::S, x, ref) =
         err(v, "Values of $(repr(fieldname(v))) are readonly.")
     else
         x = try
-            CF = classfield(v)
-            check_value(Val(CF), x, ref)
+            # Dispatch to correct possible check extension.
+            nd = C.NodeData(classfield(v)...)
+            C.check_value(nd, model(v), x, ref)
         catch e
-            e isa ValueError || rethrow(e)
+            e isa C.ValueError || rethrow(e)
             rethrow(WriteError(e, fieldname(v), ref, x))
         end
         x
