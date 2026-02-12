@@ -19,7 +19,6 @@ import .F:
     add!,
     blueprints,
     checkfails,
-    checkrefails,
     components,
     does_bring,
     does_embed,
@@ -27,7 +26,8 @@ import .F:
     embedded,
     has_component,
     implied,
-    isacomponent
+    isacomponent,
+    value
 
 # Direct re-exports from the framework module.
 export add!
@@ -42,7 +42,11 @@ export implied
 export isacomponent
 export properties
 
-const Internal = Internals.ModelParameters # <- TODO: rename when refactoring Internals.
+const N = Networks
+
+# The type wrapped within the system.
+# TODO: "Internal" -> "Network" ?
+const Internal = Networks.Network
 
 const Blueprint = F.Blueprint{Internal}
 const BlueprintSum = F.BlueprintSum{Internal}
@@ -63,10 +67,10 @@ function properties(m::Model)
     res
 end
 non_underscore(p::F.PropertySpace) =
-    ifilter(F.properties(p)) do (name, _)
+    I.filter(F.properties(p)) do (name, _)
         !startswith(String(name), '_')
     end
-properties(p::F.PropertySpace) = collect(imap(first, non_underscore(p)))
+properties(p::F.PropertySpace) = collect(I.map(first, non_underscore(p)))
 export properties
 Base.propertynames(m::Model) = properties(m)
 Base.propertynames(p::F.PropertySpace{name,P,Internal}) where {name,P} = properties(p)
@@ -81,113 +85,38 @@ macro propspace(path)
     end
 end
 
-# ==========================================================================================
-# The above defines var"get_a.b" method names for nested properties
-# to avoid possible ambiguity with `get_a_b`.
-# Use this pattern for all propspace uses
-# and these convenience macro to call these methods on raw values.
-
-macro ref(raw, path)
-    read(:ref, raw, path)
-end
-
-macro get(raw, path)
-    read(:get, raw, path)
-end
-
-macro set!(raw, path, rhs)
-    write(raw, path, rhs)
-end
-
-# Convenience idiomatic syntax:
-# @ref var.path.to.prop
-# @get var.path.to.prop
-macro ref(path)
-    convenience_read(__source__, :ref, path)
-end
-macro get(path)
-    convenience_read(__source__, :get, path)
-end
-function convenience_read(src, kw, path)
-    err(m) = throw(AccessError(kw, m, src))
-    F.is_identifier_path(path) || err("Not an access path: $(repr(path)).")
-    var, path... = F.collect_path(path)
-    read(kw, var, join_path(path))
-end
-
-# @set var.path.to.prop = rhs
-macro set(input)
-    err(m) = throw(AccessError(:set, m, __source__))
-    (false) && (local path, rhs)
-    @capture(input, path_ = rhs_)
-    isnothing(path) && err("Not a `path = rhs` expression: $(repr(input))")
-    F.is_identifier_path(path) || err("Not an access path: $(repr(path)).")
-    var, path... = F.collect_path(path)
-    write(var, join_path(path), rhs)
-end
-
-# Actual code generation.
-function read(kw, raw, path)
-    target, name = to_target_name(path, kw == :ref)
-    raw = esc(raw)
+# Convenience macro to alias properties.
+macro alias(old, new)
     quote
-        F.read_property($target, Val($name))($raw)
+        F.@alias($old, $new, $Internal)
     end
 end
 
-function write(raw, path, rhs)
-    target, name = to_target_name(path, false)
-    raw, rhs = esc.((raw, rhs))
-    quote
-        F.readwrite_property($target, Val($name))($raw, $rhs)
-    end
-end
-
-function to_target_name(path, is_ref)
-    target, name = split_last(path)
-    target = isnothing(target) ? Model : F.property_space_type(target, Internal)
-    if is_ref  # Standard in the next: `_`-prefixed are ref propnames.
-        name = Symbol(:_, name)
-    end
-    name = Meta.quot(name)
-    (target, name)
-end
-
-# Assuming path is checked: :(a.b.c) -> (:(a.b), :c)
-function split_last(path)
-    path isa Symbol && return (nothing, path)
-    @capture(path, a_.b_)
-    (a, b)
-end
-
-function join_path(v)
-    prop = last(v)
-    if length(v) == 1
-        prop
-    else
-        head = join_path(v[1:end-1])
-        :($head.$prop)
-    end
-end
-
-# Dedicated errors.
-struct AccessError
-    type::Symbol
-    message::String
-    src::LineNumberNode
-end
-function Base.showerror(io::IO, e::AccessError)
-    print(io, "In @$(e.type) access: ")
-    println(io, crayon"blue", "$(e.src.file):$(e.src.line)", crayon"reset")
-    println(io, e.message)
+#-------------------------------------------------------------------------------------------
+# Defer basic queries to inner network.
+network(m::Model) = value(m)
+for fn in [
+    :class,
+    :web,
+    :index,
+    :n_nodes,
+    :n_edges,
+    :n_fields,
+    :node_labels,
+    :node_indices,
+    :n_sources,
+    :n_targets,
+]
+    eval(quote
+        Networks.$fn(m::Model, args...) = Networks.$fn(network(m), args...)
+    end)
 end
 
 # ==========================================================================================
 # Display.
 
-F.mod_roots = [EcologicalNetworksDynamics]
+push!(F.mod_roots, EcologicalNetworksDynamics)
 
-Base.show(io::IO, ::Type{Internal}) = print(io, "<internals>") # Shorten and opacify.
 Base.show(io::IO, ::Type{Model}) = print(io, "Model")
 
 Base.show(io::IO, ::MIME"text/plain", I::Type{Internal}) = Base.show(io, I)
@@ -245,7 +174,7 @@ function F.display_blueprint_field_short(
     map::@GraphData(Map{T}),
     ::Blueprint,
 ) where {T}
-    it = imap(map) do (k, v)
+    it = I.map(map) do (k, v)
         "$k: $v"
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")
@@ -257,7 +186,7 @@ function F.display_blueprint_field_short(
     adj::@GraphData(Adjacency{T}),
     bp::Blueprint,
 ) where {T}
-    it = imap(adj) do (k, v)
+    it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")
@@ -274,7 +203,7 @@ function F.display_blueprint_field_short(
     adj::@GraphData(Adjacency{:bin}),
     bp::Blueprint,
 )
-    it = imap(adj) do (k, v)
+    it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
     print(io, "{$(join_elided(it, ", "; repr = false))}")

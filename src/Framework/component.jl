@@ -1,4 +1,5 @@
-# Components are not values, but they are reified here as julia *singletons types*
+# Components are not values, conceptually,
+# but they are reified here as julia *singletons types*
 # whose corresponding blueprints associate to.
 #
 # No concrete component type can be added twice to the system.
@@ -13,7 +14,7 @@
 # Components also 'conflict' with each other:
 # because the data they represent make no sense within their context.
 # If A conflicts with B, it means that an error should be raised
-# when attempting to add A in a system with B.
+# to prevent from adding A in a system with B.
 #
 # Component types can be structured with julia's abstract type hierarchy:
 #
@@ -112,10 +113,10 @@ end
 # yields (conflict_key, conflicting_component, reason)
 # The yielded conflict key may be a supercomponent of the focal one.
 function all_conflicts(C::CompType)
-    supers = ifilter(T -> T !== Any, supertypes(C))
-    Iterators.flatten(imap(supers) do Sup
+    supers = I.filter(T -> T !== Any, supertypes(C))
+    Iterators.flatten(I.map(supers) do Sup
         entries = conflicts_(Sup)
-        imap(entries) do (k, v)
+        I.map(entries) do (k, v)
             (Sup, k, v)
         end
     end)

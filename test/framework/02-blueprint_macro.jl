@@ -2,10 +2,10 @@ module Blueprints
 
 using EcologicalNetworksDynamics.Framework
 
-# Testing these macros requires to generate numerous new types
+# Testing these macros requires generating numerous new types
 # which are bound to constant julia variables.
-# In particular, testing macros for *failure*
-# typically result in generated code aborting halway through their expansion/execution
+# In particular, testing macros for *failure* typically results
+# in generated code aborting halway through their expansion/execution
 # and make it likely that unexpected interactions occur between subsequent tests
 # if the names of generated blueprints/components collide.
 # Alleviate this by picking random trigrams for the tests:
@@ -19,19 +19,23 @@ struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 Base.getproperty(s::Framework.System{Value}, name::Symbol) =
-    name in fieldnames(System) ? getfield(s, name) : s._value.d[name]
+    name in fieldnames(System) ? getfield(s, name) : value(s).d[name]
 export Value
 
 # ==========================================================================================
 module Invocations
+
+using Crayons
+
 using ..Blueprints
 using EcologicalNetworksDynamics.Framework
-using Main: @failswith, @sysfails, @pbluefails, @xbluefails
-using Test
-using Crayons
-const F = Framework
 
+using Test
+using Main: @failswith, @sysfails, @bluefails
+
+const F = Framework
 const S = System{Value}
+
 comps(s) = collect(components(s))
 
 @testset "Valid @blueprint macro invocations." begin
@@ -48,11 +52,13 @@ comps(s) = collect(components(s))
     # Any expression can be given if it evaluates to expected macro input.
     struct Tap_b <: Blueprint{Value} end
 
-    ev_count = [0] # (check that the expression is only evaluated once)
-    function value_expression()
-        ev_count[1] += 1
-        Tap_b
-    end
+    eval(quote
+        ev_count = [0] # (check that the expression is only evaluated once)
+        function value_expression()
+            ev_count[1] += 1
+            Tap_b
+        end
+    end)
 
     @blueprint value_expression()
 
@@ -97,27 +103,31 @@ end
 
 @testset "Invalid @blueprint macro invocations." begin
 
-    @pbluefails(
+    @bluefails(
         (@blueprint),
+        nothing,
         "Not enough macro input provided. Example usage:\n\
          | @blueprint Name \"short description\" depends(Components...)\n"
     )
 
-    @pbluefails(
+    @bluefails(
         (@blueprint a b c d),
+        nothing,
         "Too much macro input provided. Example usage:\n\
          | @blueprint Name \"short description\" depends(Components...)\n"
     )
 
-    @xbluefails(
+    @bluefails(
         (@blueprint Cpf),
         nothing,
         "Blueprint type: expression does not evaluate: :Cpf. \
         (See error further down the exception stack.)"
     )
 
-    Zmw_b = 5
-    @xbluefails(
+    eval(quote
+        Zmw_b = 5 # Correctly evaluated if toplevel.
+    end)
+    @bluefails(
         (@blueprint Zmw_b),
         nothing,
         "Blueprint type: expression does not evaluate to a 'DataType':\n\
@@ -125,7 +135,7 @@ end
          Result: 5 ::$Int"
     )
 
-    @xbluefails(
+    @bluefails(
         (@blueprint 4 + 5),
         nothing,
         "Blueprint type: expression does not evaluate to a 'DataType':\n\
@@ -133,17 +143,17 @@ end
          Result: 9 ::$Int"
     )
 
-    @xbluefails(
+    @bluefails(
         (@blueprint Vector{Int}),
         Vector{Int},
         "Not a subtype of '$Blueprint': 'Vector{$Int}'."
     )
 
     struct Xgi end
-    @xbluefails((@blueprint Xgi), Xgi, "Not a subtype of '$Blueprint': '$Xgi'.")
+    @bluefails((@blueprint Xgi), Xgi, "Not a subtype of '$Blueprint': '$Xgi'.")
 
     abstract type Hek <: Blueprint{Value} end
-    @xbluefails(
+    @bluefails(
         (@blueprint Hek),
         Hek,
         "Cannot define blueprint from an abstract type: '$Hek'."
@@ -151,7 +161,7 @@ end
 
     struct Eap <: Blueprint{Value} end
     @blueprint Eap
-    @xbluefails(
+    @bluefails(
         (@blueprint Eap),
         Eap,
         "Type '$Eap' already marked as a blueprint for systems of '$Value'."
@@ -296,7 +306,7 @@ end
         xhu::Brought(Xhu)
         ejp::Brought(Ejp)
     end
-    @xbluefails(
+    @bluefails(
         (@blueprint Ihb_b),
         Ihb_b,
         "Method implied_blueprint_for($Ihb_b, <$Xhu>) unspecified \
@@ -305,7 +315,7 @@ end
 
     # Define one, but not the other.
     F.implied_blueprint_for(::Ihb_b, ::Type{_Xhu}) = Xhu.b() # Regular method signature.
-    @xbluefails(
+    @bluefails(
         (@blueprint Ihb_b),
         Ihb_b,
         "Method implied_blueprint_for($Ihb_b, <$Ejp>) unspecified \
@@ -322,7 +332,7 @@ end
     end
     F.implied_blueprint_for(::Ntz_b, ::_Xhu) = Xhu.b()
     F.implied_blueprint_for(::Ntz_b, ::Type{_Xhu}) = Xhu.b()
-    @xbluefails(
+    @bluefails(
         (@blueprint Ntz_b),
         Ntz_b,
         "Ambiguity: the two following methods have been defined:\n  \
@@ -338,7 +348,7 @@ end
         other::Brought(Ejp)
     end
     F.implied_blueprint_for(::Qev_b, ::_Ejp) = Ejp.b(5, 8)
-    @xbluefails(
+    @bluefails(
         (@blueprint Qev_b),
         Qev_b,
         "Both fields 'data' and 'other' potentially bring <$Ejp>.",
@@ -356,7 +366,7 @@ end
     end
     F.implied_blueprint_for(::Jzd_b, ::TopComp) = Agf.b()
     F.implied_blueprint_for(::Jzd_b, ::_BottomComp) = Agf.b()
-    @xbluefails(
+    @bluefails(
         (@blueprint Jzd_b),
         Jzd_b,
         "Fields 'sub' and 'sup': \
@@ -457,14 +467,18 @@ end
 
 # ==========================================================================================
 module Abstracts
+
+using Crayons
+
 using ..Blueprints
 using EcologicalNetworksDynamics.Framework
-using Main: @failswith, @sysfails, @pcompfails, @xcompfails, @xbluefails
-using Test
-using Crayons
-const F = Framework
 
+using Test
+using Main: @failswith, @sysfails, @compfails, @bluefails
+
+const F = Framework
 const S = System{Value}
+
 comps(s) = sort(collect(components(s)); by = repr)
 
 @testset "Bringing abstract component types." begin

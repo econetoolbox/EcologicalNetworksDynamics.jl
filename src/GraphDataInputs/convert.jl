@@ -1,7 +1,8 @@
-# Convenience explicit conversion to the given union tgc(Map, [:a => 5, Bool[0, 1, 1] => 8])ype from constructor arguments.
+# Convenience explicit conversion to the given union type from constructor arguments.
 
 # The conversions allowed.
 graphdataconvert(::Type{T}, source::T) where {T} = source # Trivial identity.
+export graphdataconvert
 
 # ==========================================================================================
 # Scalar conversions.

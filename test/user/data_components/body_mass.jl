@@ -32,7 +32,7 @@
 
     # Editable property.
     m.body_mass[1] = 2
-    m.body_mass[2:3] *= 10
+    m.body_mass[2:3] .*= 10
     @test m.body_mass == [2, 20, 30] == m.M
 
     # Scalar (requires species to expand).
@@ -60,7 +60,7 @@
     bm = BodyMass(; Z = 2.8)
 
     m = base + fw + bm
-    @test m.trophic.levels == [2.5, 2, 1]
+    @test m.trophic.level == [2.5, 2, 1]
     @test m.body_mass == [2.8^1.5, 2.8, 1]
 
     @sysfails(Model(Species(2)) + bm, Missing(Foodweb, nothing, [BodyMass.Z], nothing))
@@ -83,7 +83,7 @@
 
     @sysfails(
         Model(BodyMass([1, -2])),
-        Check(early, [BodyMass.Raw], "Not a positive value: M[2] = -2.0.")
+        Check(early, [BodyMass.Raw], "Value cannot be negative: M[2] = -2.0")
     )
 
     # Common ref checks from GraphDataInputs (not tested for every similar component).
@@ -108,13 +108,8 @@
     )
 
     @failswith(
-        (m.M[1] = 'a'),
-        WriteError("not a value of type Real", :body_mass, (1,), 'a')
-    )
-
-    @failswith(
-        (m.M[2:3] *= -10),
-        WriteError("Not a positive value: M[2] = -28.0.", :body_mass, (2,), -28.0)
+        (m.M[1] = -10),
+        EN.Views.WriteError("Value cannot be negative", :body_mass, 1, -10.0)
     )
 
     # Graphview-related tests live in "../02-graphviews.jl".

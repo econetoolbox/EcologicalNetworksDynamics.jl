@@ -17,8 +17,8 @@
 # and then pick a correct expansion order.
 # Here is the general procedure without additional options:
 #   - The forest is visited pre-order to collect the corresponding graph of sub-blueprints:
-#     the one given by the caller are root nodes, and edges are colored depending on whether
-#     the 'broughts' are 'embedded' or 'implied'.
+#     the ones given by the caller are root nodes,
+#     and edges are colored depending on whether the 'broughts' are 'embedded' or 'implied'.
 #     - Error if an embedded blueprint brings a component already in the system.
 #     - Ignore implied blueprints bringing components already in the system.
 #     - Build implied blueprints if they are not already brought.
@@ -191,7 +191,7 @@ function check!(add::AddState, node::Node)
             # No blueprint brings the missing component.
             # Pick it from the hooks if to fill up the gap if any.
             hooked = false
-            for (H, h) in hooks
+            for H in keys(hooks)
                 if H <: R
                     # Append the hook to the forest,
                     # re-doing the first pass over it at least.
@@ -211,7 +211,7 @@ function check!(add::AddState, node::Node)
         for (C_as, Other, reason) in all_conflicts(C)
             if has_component(target, Other)
                 (Other, Other_abstract) =
-                    isabstracttype(Other) ? (first(target._abstract[Other]), Other) :
+                    isabstracttype(Other) ? (first(abstract(target)[Other]), Other) :
                     (Other, nothing)
                 throw(
                     ConflictWithSystemComponent(
@@ -307,8 +307,6 @@ function add!(
 
         # Preorder visit: construct the trees.
         for bp in blueprints
-            # Get our owned local copy so it cannot be changed afterwards by the caller.
-            bp = copy(bp)
             root = Node(bp, nothing, false, system, add)
             push!(forest, root)
         end
@@ -408,8 +406,8 @@ function add!(
             blueprint = node.blueprint
 
             # Last check hook against current system value.
-            try
-                late_check(system._value, blueprint, system)
+            data = try
+                late_check(value(system), blueprint, system)
             catch e
                 if e isa CheckError
                     rethrow(HookCheckFailure(node, e.message, true))
@@ -420,7 +418,7 @@ function add!(
 
             # Expand.
             try
-                expand!(system._value, blueprint, system)
+                expand!(value(system), blueprint, data, system)
             catch _
                 throw(ExpansionAborted(node))
             end
@@ -428,7 +426,7 @@ function add!(
             # Record.
             just_added = Set()
             for C in componentsof(blueprint)
-                crt, abs = system._concrete, system._abstract
+                crt, abs = concrete(system), abstract(system)
                 push!(crt, C)
                 push!(just_added, C)
                 for sup in supertypes(C)
@@ -446,7 +444,7 @@ function add!(
                 if isempty(remaining)
                     for trig in trigs
                         try
-                            trig(system._value, system)
+                            trig(value(system), system)
                         catch _
                             throw(TriggerAborted(node, combination))
                         end
