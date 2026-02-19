@@ -39,12 +39,7 @@ function F.late_check(raw, bp::Raw)
 end
 
 F.expand!(raw, bp::Raw) = expand!(raw, bp.r)
-function expand!(raw, r)
-    # The legacy format is a dense vector.
-    raw.biorates.r = collect(r)
-    # Keep a true sparse version in the cache.
-    raw._cache[:growth_rate] = r
-end
+expand!(raw, r) = add_field!(raw, :producers, :growth_rate, r |> findnz |> last)
 
 #-------------------------------------------------------------------------------------------
 # From a scalar broadcasted to all producers.
@@ -71,13 +66,14 @@ export Map
 F.early_check(bp::Map) = check_nodes(check, bp.r)
 function F.late_check(raw, bp::Map)
     (; r) = bp
-    index = @ref raw.species.index
-    prods = @ref raw.producers.mask
+    index = Networks.index(raw, :species)
+    prods = mask(raw, :producers, :species)
+    prods = sparse(collect(prods)) # TODO should not be needed anymore soon.
     @check_list_refs r :producer index template(prods)
 end
 
 function F.expand!(raw, bp::Map)
-    index = @ref raw.species.index
+    index = Networks.index(raw, :species)
     r = to_sparse_vector(bp.r, index)
     expand!(raw, r)
 end

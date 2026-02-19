@@ -1,5 +1,5 @@
 # When optional arguments get sophisticated structure and connections / dependencies
-# this helper macro defines primitive local to ease their analysis.
+# this helper macro defines local primitives to ease their analysis.
 # The following functions get defined,
 # they work on a local copy of the given kwargs,
 # which gets consumed during the analysis.
@@ -44,7 +44,7 @@
 # TODO: cover with dedicated test instead of relying on use in the package.
 module KwargsHelpers
 
-argerr(mess) = throw(ArgumentError(mess))
+import EcologicalNetworksDynamics: argerr
 
 macro kwargs_helpers(kwargs)
     (

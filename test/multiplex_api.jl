@@ -1,8 +1,9 @@
 module TestMultiplexApi
 
 using EcologicalNetworksDynamics.MultiplexApi
-using ..TestFailures
+
 using Test
+import Main: @argfails
 
 # Shorten argument parser names.
 nocontext(; kwargs...) = parse_multiplex_arguments(kwargs)

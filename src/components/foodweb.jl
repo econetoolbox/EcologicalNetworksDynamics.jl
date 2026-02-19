@@ -6,105 +6,120 @@
 # and values checks are performed against this layer.
 
 # (reassure JuliaLS)
-(false) && (local Foodweb, _Foodweb, trophic)
+(false) && (local Foodweb, _Foodweb)
 
-# ==========================================================================================
-# Blueprints.
+ew = EdgeWeb(:foodweb)
+EW = typeof(ew)
+C.sidenames(::EW) = (:species, :species)
+C.name_variants(::EW) = (:foodweb, :Foodweb)
+C.propnames(::EW) = (:trophic, :Trophic)
+C.is_reflexive(::EW) = true
 
-module Foodweb_
-include("blueprint_modules.jl")
-include("blueprint_modules_identifiers.jl")
-import .EN: _Species, Species
+define_reflexive_web_component(EN, ew)
 
-#-------------------------------------------------------------------------------------------
-# From matrix.
-
-mutable struct Matrix <: Blueprint
-    A::@GraphData SparseMatrix{:bin}
-    species::Brought(Species)
-    Matrix(A, sp = Species) = new(@tographdata(A, SparseMatrix{:bin}), sp)
-end
-# Infer number of species from matrix size.
-F.implied_blueprint_for(bp::Matrix, ::_Species) = Species(size(bp.A, 1))
-@blueprint Matrix "boolean matrix of trophic links"
-export Matrix
-
-function F.early_check(bp::Matrix)
-    (; A) = bp
-    n, m = size(A)
-    n == m || checkfails("The adjacency matrix of size $((m, n)) is not squared.")
-end
-
-function F.late_check(raw, bp::Matrix)
-    (; A) = bp
-    S = @get raw.S
-    @check_size A (S, S)
-end
-
-F.expand!(raw, bp::Matrix) = expand_from_matrix!(raw, bp.A)
-function expand_from_matrix!(raw, A)
-
-    # Internal network is guaranteed to be an 'Internals.FoodWeb'
-    # because NTI components cannot be set before 'Foodweb' component.
-    fw = raw.network
-    fw.A = A
-    fw.method = "from component" # (internals legacy)
-
-    # Add trophic edges to the topology.
-    top = raw._topology
-    Topologies.add_edge_type!(top, :trophic)
-    Topologies.add_edges_within_node_type!(top, :species, :trophic, A)
-
-end
-
-#-------------------------------------------------------------------------------------------
-# From ajacency list.
-
-mutable struct Adjacency <: Blueprint
-    A::@GraphData {Adjacency}{:bin} # (refs are either numbers or names)
-    species::Brought(Species)
-    Adjacency(A, sp = Species) = new(@tographdata(A, {Adjacency}{:bin}), sp)
-end
-
-# Infer number or names of species from the lists.
-F.implied_blueprint_for(bp::Adjacency, ::_Species) = Species(refspace(bp.A))
-
-@blueprint Adjacency "adjacency list of trophic links"
-export Adjacency
-
-function F.late_check(raw, bp::Adjacency)
-    (; A) = bp
-    index = raw._foodweb._species_index
-    @check_list_refs A :species index
-end
-
-function F.expand!(raw, bp::Adjacency)
-    index = raw._foodweb._species_index
-    A = to_sparse_matrix(bp.A, index, index)
-    expand_from_matrix!(raw, A)
-end
-
-end
-
-# ==========================================================================================
-# Component and generic constructors.
-
-@component Foodweb{Internal} requires(Species) blueprints(Foodweb_)
-# Consistency alias.
+# Community consistency aliases.
 const (TrophicLayer, _TrophicLayer) = (Foodweb, _Foodweb)
 export Foodweb, TrophicLayer
+@alias trophic foodweb
+@alias trophic.matrix A
+@alias A trophic.A
 
-# Precise edges specifications.
-function (::_Foodweb)(A)
-    A = @tographdata A {SparseMatrix, Adjacency}{:bin}
-    if A isa AbstractMatrix
-        Foodweb.Matrix(A)
-    else
-        Foodweb.Adjacency(A)
+# ==========================================================================================
+# Web-derived classes and webs.
+
+function reflexive_web_post_expand!(::EW, raw, topology, A, model)
+    N = Networks
+
+    # Every node becomes associated with a trophic level.
+    levels = EN.trophic_levels(A)
+    add_field!(raw, :species, :trophic_level, levels)
+
+    # The foodweb defines new categories of species.
+    add_subclass!(raw, :tops, :species, sources_mask(topology))
+    add_subclass!(raw, :producers, :species, sinks_mask(topology))
+    add_subclass!(raw, :preys, :species, nonsources_mask(topology))
+    add_subclass!(raw, :consumers, :species, nonsinks_mask(topology))
+
+    # And also new webs with special trophic links highlighted.
+    S = model.S
+
+    # Producers matrix.
+    prods = node_indices(raw, :producers)
+    mat = spzeros(Bool, S, S)
+    for i in prods, j in prods
+        mat[i, j] = true
     end
+    add_web!(raw, :producers_web, (:species, :species), SparseSymmetric(mat))
+
+    # Herbivory matrix: consumers-to-producers.
+    mat = spzeros(Bool, S, S)
+    for (pred, prey) in N.edges(topology)
+        is_sink(topology, prey) && (mat[pred, prey] = true)
+    end
+    add_web!(raw, :herbivory, (:species, :species), SparseReflexive(mat))
+
+    # Carnivory matrix: consumers-to-consumers.
+    mat = spzeros(Bool, S, S)
+    for (pred, prey) in N.edges(topology)
+        is_sink(topology, prey) || (mat[pred, prey] = true)
+    end
+    add_web!(raw, :carnivory, (:species, :species), SparseReflexive(mat))
 end
 
-# Construct blueprint from a random model.
+deps = :(depends(Foodweb))
+p = NodeClass(:producer)
+c = NodeClass(:consumer)
+t = NodeClass(:top)
+r = NodeClass(:prey)
+# TODO: fix that there is no need for a short prefix for them: subclasses.
+C.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
+C.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
+C.name_variants(::typeof(t)) = (:_, :top, :tops, :Top, :Tops)
+C.name_variants(::typeof(r)) = (:_, :prey, :preys, :Preys, :Preys)
+define_class_properties(EN, p, deps)
+define_class_properties(EN, c, deps)
+define_class_properties(EN, t, deps)
+define_class_properties(EN, r, deps)
+
+p = EdgeWeb(:producers_web)
+h = EdgeWeb(:herbivory)
+c = EdgeWeb(:carnivory)
+C.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
+C.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
+C.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
+define_web_properties(EN, p, deps)
+define_web_properties(EN, h, deps)
+define_web_properties(EN, c, deps)
+
+@alias producers_web.matrix producers.matrix
+@alias herbivory trophic.herbivory
+@alias carnivory trophic.carnivory
+
+# ==========================================================================================
+"""
+Calculate trophic levels for every species.
+Credit: Ismaël Lajaaiti 2024-03-19 #5665e377.
+"""
+function trophic_levels(A::AbstractMatrix{Bool})
+    A = Matrix(A) # Ensure A is dense for inversion.
+    S = size(A, 1) # Species richness.
+    out_degree = sum(A; dims = 2)
+    D = -(A ./ out_degree) # Diet matrix.
+    D[isnan.(D)] .= 0.0
+    D[diagind(D)] .= 1.0 .- D[diagind(D)]
+    # Solve with the inverse matrix.
+    inverse = iszero(det(D)) ? pinv : inv
+    inverse(D) * ones(S)
+end
+# Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
+level(::Internal, m::Model) = nodes_view(m, :species, :trophic_level)
+level_entry(raw::Internal) = class(raw, :species).data[:trophic_level]
+@method level read_as(trophic.level) depends(Foodweb)
+@method level_entry read_as(trophic._level) depends(Foodweb)
+
+# ==========================================================================================
+# Construct Matrix blueprint from a random model.
+include("./structural_models.jl")
 function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
     model = @tographdata model Y{}
     @kwargs_helpers kwargs
@@ -140,8 +155,8 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
                 no_unused_arguments()
 
                     #! format: off
-                    Internals.model_foodweb_from_C(
-                        Internals.niche_model,
+                    model_foodweb_from_C(
+                        niche_model,
                         S, C, nothing, # old 'p_forbidden' ?
                         tol, rc, rd, max,
                     )
@@ -153,8 +168,8 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
                 no_unused_arguments()
 
                     #! format: off
-                    Internals.model_foodweb_from_L(
-                        Internals.niche_model,
+                    model_foodweb_from_L(
+                        niche_model,
                         S, L, nothing, # old 'p_forbidden' ?
                         tol, rc, rd, max,
                     )
@@ -174,8 +189,8 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
             no_unused_arguments()
 
                 #! format: off
-                Internals.model_foodweb_from_C(
-                    Internals.cascade_model,
+                model_foodweb_from_C(
+                    cascade_model,
                     S, C, nothing, # old 'p_forbidden' ?
                     tol, rc, rd, max,
                 )
@@ -185,106 +200,6 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
 
     Foodweb.Matrix(A)
 
-end
-
-# ==========================================================================================
-# Foodweb queries.
-
-@propspace trophic
-
-# Topology as a matrix.
-@expose_data edges begin
-    property(A, trophic.A, trophic.matrix)
-    get(TrophicMatrix{Bool}, sparse, "trophic link")
-    ref(raw -> raw._foodweb.A)
-    @species_index
-    depends(Foodweb)
-end
-
-# Number of links.
-@expose_data graph begin
-    property(trophic.n_links)
-    ref_cached(raw -> sum(@ref raw.trophic.matrix))
-    get(raw -> @ref raw.trophic.n_links)
-    depends(Foodweb)
-end
-
-# Trophic levels.
-@expose_data nodes begin
-    property(trophic.levels)
-    get(TrophicLevels{Float64}, "species")
-    ref_cached(raw -> Internals.trophic_levels(@ref raw.trophic.matrix))
-    @species_index
-    depends(Foodweb)
-end
-
-# More elaborate queries.
-# TODO: abstract over the following to reduce boilerplate.
-# as it all just stems from sparse boolean node information.
-include("./producers-consumers.jl")
-include("./preys-tops.jl")
-
-#-------------------------------------------------------------------------------------------
-# Get a sparse matrix highlighting only the producer-to-producer links.
-
-function calculate_producers_matrix(raw)
-    S = @get raw.S
-    prods = @get raw.producers.indices
-    res = spzeros(Bool, S, S)
-    for i in prods, j in prods
-        res[i, j] = true
-    end
-    res
-end
-
-@expose_data edges begin
-    property(producers.matrix)
-    get(ProducersMatrix{Bool}, sparse, "producer link")
-    ref_cached(calculate_producers_matrix)
-    @species_index
-    depends(Foodweb)
-end
-
-#-------------------------------------------------------------------------------------------
-# Get a sparse matrix highlighting only 'herbivorous' trophic links: consumers-to-producers.
-#                                    or 'carnivorous' trophic links: consumers-to-consumers.
-
-function calculate_herbivory_matrix(raw)
-    S = @get raw.S
-    A = @ref raw.A
-    res = spzeros(Bool, S, S)
-    preds, preys, _ = findnz(A)
-    for (pred, prey) in zip(preds, preys)
-        is_producer(raw, prey) && (res[pred, prey] = true)
-    end
-    res
-end
-
-function calculate_carnivory_matrix(raw)
-    S = @get raw.S
-    A = @ref raw.A
-    res = spzeros(Bool, S, S)
-    preds, preys, _ = findnz(A)
-    for (pred, prey) in zip(preds, preys)
-        is_consumer(raw, prey) && (res[pred, prey] = true)
-    end
-    res
-end
-
-@expose_data edges begin
-    property(trophic.herbivory_matrix)
-    get(HerbivoryMatrix{Bool}, sparse, "herbivorous link")
-    ref_cached(calculate_herbivory_matrix)
-    @species_index
-    depends(Foodweb)
-end
-
-@expose_data edges begin
-    property(trophic.carnivory_matrix)
-    get(CarnivoryMatrix{Bool}, sparse, "carnivorous link")
-    ref_cached(calculate_carnivory_matrix)
-    @species_index
-    depends(Foodweb)
 end
 
 # ==========================================================================================

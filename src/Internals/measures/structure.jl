@@ -85,12 +85,6 @@ See also [`richness`](@ref) and [`nutrient_richness`](@ref).
 total_richness(p::ModelParameters) = richness(p) + nutrient_richness(p)
 
 """
-Connectance of network: number of links / (number of species)^2
-"""
-connectance(A::AbstractMatrix) = sum(A) / richness(A)^2
-connectance(foodweb::FoodWeb) = connectance(foodweb.A)
-
-"""
 Filter species of the network (`net`) for which `f(species_index, net) = true`.
 """
 Base.filter(f, net::EcologicalNetwork) = filter(i -> f(i, net), 1:richness(net))
@@ -192,7 +186,7 @@ isprey(i, net::MultiplexNetwork) = isprey(i, net.layers[:trophic].A)
 Return indices of the preys of the network (`net`).
 """
 preys(net::EcologicalNetwork) = filter(isprey, net)
-preys(A::AbstractSparseMatrix) = [i for i in 1:size(A, 1) if !isempty(A[:, i].nzval)]
+preys(A::AbstractSparseMatrix) = [i for i in 1:richness(A) if !isempty(A[:, i].nzval)]
 
 """
 Do species `i` and `j` share at least one prey?
@@ -250,7 +244,7 @@ See also [`top_predators`](@ref) and [`trophic_classes`](@ref).
 """
 function trophic_levels(A::AbstractMatrix)
     A = Matrix(A) # Ensure A is dense for inversion.
-    S = size(A, 1) # Species richness.
+    S = richness(A)
     out_degree = sum(A; dims = 2)
     D = -(A ./ out_degree) # Diet matrix.
     D[isnan.(D)] .= 0.0

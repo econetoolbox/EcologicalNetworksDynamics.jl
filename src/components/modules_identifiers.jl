@@ -26,4 +26,14 @@ end
     using .KwargsHelpers
 end
 
+@static if (false)
+    include("../Networks/Networks.jl")
+    using .Networks
+end
+
+@static if (false)
+    include("../Views/Views.jl")
+    using .views
+end
+
 include("./allometry_identifiers.jl")

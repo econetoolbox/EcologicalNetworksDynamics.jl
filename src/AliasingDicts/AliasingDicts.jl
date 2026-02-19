@@ -1,9 +1,10 @@
 module AliasingDicts
 
+import EcologicalNetworksDynamics: Option
+
 using OrderedCollections
 using StringCases
 using MacroTools
-import ..Option
 
 # Design a data structure behaving like a julia's Dict{Symbol, T},
 # but alternate references can be given as a key, aka key aliases.

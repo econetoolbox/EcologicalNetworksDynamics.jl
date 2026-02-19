@@ -5,19 +5,26 @@
 
 module TestComponents
 
-using EcologicalNetworksDynamics
 using SparseArrays
 using OrderedCollections
 using Random
-using Test
 
-using ..TestUser
+using EcologicalNetworksDynamics
+
+using Test
+using Main.TestUser: Value
+using Main: @failswith, @argfails, @sysfails, @labelfails
 
 const EN = EcologicalNetworksDynamics
-import .EN: WriteError
 
 # Many small similar components tests files, although they easily diverge.
-only = [] # Only run these if specified.
+only = [
+    # HERE: have this run again after the large cleanup.
+    "./data_components/species.jl",
+    "./data_components/foodweb.jl",
+    "./data_components/body_mass.jl",
+    "./data_components/metabolic_class.jl",
+] # Only run these if specified.
 if isempty(only)
     for subfolder in ["./data_components", "./code_components"]
         for (folder, _, files) in walkdir(joinpath(dirname(@__FILE__), subfolder))

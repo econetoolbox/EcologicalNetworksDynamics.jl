@@ -6,15 +6,13 @@ import EcologicalNetworksDynamics.Framework:
     CannotImplyConstruct,
     CompType,
     Component,
-    ConflictMacroExecError,
-    ConflictMacroParseError,
+    ConflictMacroError,
     ConflictWithBroughtComponent,
     ConflictWithSystemComponent,
     Framework,
     HookCheckFailure,
     InconsistentForSameComponent,
-    ItemMacroExecError,
-    ItemMacroParseError,
+    ItemMacroError,
     MissingRequiredComponent,
     PropertyError,
     System,
@@ -22,115 +20,60 @@ import EcologicalNetworksDynamics.Framework:
 
 
 const F = Framework
-#-------------------------------------------------------------------------------------------
-# Check failures in macro expansion.
-
-function TestFailures.check_exception(e::ItemMacroParseError, category, message_pattern)
-    e.category == category ||
-        error("Expected '@$category' macro expansion error, got '@$(e.category)'.")
-    TestFailures.check_message(message_pattern, e.message)
-end
-
-# Convenience macros for the test suite.
-macro pbluefails(xp, mess)
-    TestFailures.failswith(
-        __source__,
-        __module__,
-        xp,
-        :($ItemMacroParseError => (:blueprint, $mess)),
-        true,
-    )
-end
-macro pcompfails(xp, mess)
-    TestFailures.failswith(
-        __source__,
-        __module__,
-        xp,
-        :($ItemMacroParseError => (:component, $mess)),
-        true,
-    )
-end
-macro pmethfails(xp, mess)
-    TestFailures.failswith(
-        __source__,
-        __module__,
-        xp,
-        :($ItemMacroParseError => (:method, $mess)),
-        true,
-    )
-end
-export @pbluefails, @pcompfails, @pmethfails
 
 #-------------------------------------------------------------------------------------------
-# Check failures in macro execution.
+# Check failures in macros expansion/execution.
 
-function TestFailures.check_exception(
-    e::ItemMacroExecError,
-    category,
-    item,
-    message_pattern,
-)
+function TestFailures.check_exception(e::ItemMacroError, category, item, message_pattern)
     e.category == category ||
-        error("Expected '@$category' macro execution error, got '@$(e.category)'.")
-    e.item === item ||
-        error("Expected '$item' item in @$category execution error, got $(e.item).")
+        error("Expected '@$category' macro error, got '@$(e.category)'.")
+    e.item === item || error("Expected '$item' item in @$category error, got $(e.item).")
     TestFailures.check_message(message_pattern, e.message)
 end
 
 # Convenience macros for the tests suite.
-macro xbluefails(xp, item, mess)
+macro bluefails(xp, item, mess)
     TestFailures.failswith(
         __source__,
         __module__,
         xp,
-        :($ItemMacroExecError => (:blueprint, $item, $mess)),
+        :($ItemMacroError => (:blueprint, $item, $mess)),
         false,
     )
 end
-macro xcompfails(xp, item, mess)
+macro compfails(xp, item, mess)
     TestFailures.failswith(
         __source__,
         __module__,
         xp,
-        :($ItemMacroExecError => (:component, $item, $mess)),
+        :($ItemMacroError => (:component, $item, $mess)),
         false,
     )
 end
-macro xmethfails(xp, item, mess)
+macro methfails(xp, item, mess)
     TestFailures.failswith(
         __source__,
         __module__,
         xp,
-        :($ItemMacroExecError => (:method, $item, $mess)),
+        :($ItemMacroError => (:method, $item, $mess)),
         false,
     )
 end
-export @xbluefails, @xcompfails, @xmethfails
+export @bluefails, @compfails, @methfails
 
 # Same duo for @conflicts macro.
-TestFailures.check_exception(e::ConflictMacroParseError, mp) =
+TestFailures.check_exception(e::ConflictMacroError, mp) =
     TestFailures.check_message(mp, e.message)
-TestFailures.check_exception(e::ConflictMacroExecError, mp) =
-    TestFailures.check_message(mp, e.message)
-macro pconffails(xp, mess)
+macro conffails(xp, mess)
     TestFailures.failswith(
         __source__,
         __module__,
         xp,
-        :($ConflictMacroParseError => ($mess,)),
-        true,
-    )
-end
-macro xconffails(xp, mess)
-    TestFailures.failswith(
-        __source__,
-        __module__,
-        xp,
-        :($ConflictMacroExecError => ($mess,)),
+        :($ConflictMacroError => ($mess,)),
         false,
     )
 end
-export @pconffails, @xconffails
+export @conffails
 
 #-------------------------------------------------------------------------------------------
 # Test system use errors.

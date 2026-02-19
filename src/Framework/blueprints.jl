@@ -3,10 +3,8 @@
 # The components added during blueprint expansion depend on the blueprint value.
 #
 # The data inside the blueprint is only useful to run the internal `expand!()` method once,
-# and must not lend caller references to the system,
-# for the internal state to not be possibly corrupted later.
-# For now, this is enforced by requiring that all blueprints be copy-able.
-# Only a copy of the caller blueprint is actually used for component(s) expansion.
+# and must not lend caller references to the system
+# or the internal state could possibly be corrupted later.
 #
 # Blueprint values may 'bring' other blueprints than themselves,
 # because they contain enough data to do so.
@@ -43,10 +41,6 @@ componentsof(::B) where {B<:Blueprint} = throw(UnspecifiedComponents{B}())
 
 system_value_type(::Type{<:Blueprint{V}}) where {V} = V
 system_value_type(::Blueprint{V}) where {V} = V
-
-# Blueprints must be copyable, but be careful that the default (deepcopy)
-# is not necessarily what blueprints devs are after.
-Base.copy(b::Blueprint) = deepcopy(b)
 
 #-------------------------------------------------------------------------------------------
 # Requirements.
@@ -90,7 +84,7 @@ function checked_expands_from(bp::Blueprint{V}) where {V}
         Iterators.map(to_reqreason, x)
     end
 end
-struct InvalidBlueprintDependency
+struct InvalidBlueprintDependency <: Exception
     message::String
 end
 
@@ -133,12 +127,14 @@ implies_blueprint_for(b::Blueprint, c::Component) = implies_blueprint_for(b, typ
 # The objective is to avoid failure during expansion,
 # as it could result in inconsistent system state.
 # Raise the dedicated blueprint check exception if not the case.
+# On success, return arbitrary data useful for `expand!`.
 # NOTE: a failure during late check does not compromise the system state consistency,
 #       but it does result in that not all blueprints
 #       brought by the toplevel added blueprint
 #       be added as expected.
 #       This is to avoid the need for making the system mutable and systematically fork it
 #       to possibly revert to original state in case of failure.
+#       TODO: would a swap!(::Network, ::Network) help?
 late_check(_, ::Blueprint) = nothing # No particular constraint to enforce by default.
 
 # Same, but *before* brought blueprints are expanded.
@@ -151,11 +147,12 @@ late_check(_, ::Blueprint) = nothing # No particular constraint to enforce by de
 # TODO: add formal test for this.
 early_check(::Blueprint) = nothing # No particular constraint to enforce by default.
 
-# The expansion step is when and the wrapped system value
-# is finally modified, based on the information contained in the blueprint,
+# The expansion step is when the wrapped system value is finally modified,
+# based on the information contained in the blueprint,
 # to feature the provided components.
 # This is only called if all component addition conditions are met
 # and the above check passed.
+# Expansion feeds from arbitrary data produced by a success in `late_check`.
 # This function must not fail or the system may end up in a corrupt state.
 # TODO: must it also be deterministic?
 #       Or can a random component expansion happen
@@ -163,7 +160,7 @@ early_check(::Blueprint) = nothing # No particular constraint to enforce by defa
 #       Note that random expansion would result in:
 #       (System{Value}() + blueprint).property != (System{Value}() + blueprint).property
 #       which may be confusing.
-expand!(_, ::Blueprint) = nothing # Expanding does nothing by default.
+expand!(_, ::Blueprint, data) = nothing # Expanding does nothing by default.
 
 # NOTE: the above signatures for default functions *could* be more strict
 # like eg. `check(::V, ::Blueprint{V}) where {V}`,
@@ -180,7 +177,7 @@ expand!(_, ::Blueprint) = nothing # Expanding does nothing by default.
 # unless in overriden methods.
 # Issue `CheckError` on failure.
 late_check(v, b::Blueprint, _) = late_check(v, b)
-expand!(v, b::Blueprint, _) = expand!(v, b)
+expand!(v, b::Blueprint, data, _) = expand!(v, b, data)
 
 # ==========================================================================================
 # Explicit terminal display.

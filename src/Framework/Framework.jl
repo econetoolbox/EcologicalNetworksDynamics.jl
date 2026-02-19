@@ -31,7 +31,7 @@
 # When ready, a blueprint can be read by the system, 'check'ed,
 # and 'expand'ed into the actual component(s).
 #
-# No component can be added twice,
+# No component can be added twice to the same system,
 # but blueprints can be read and expanded into different components types.
 # Also, the components they 'provide' may depend on their value
 # and/or the current state of the system.
@@ -51,8 +51,8 @@
 #
 #   s = System{WrappedValue}(blueprints...) # Start from a sequence of initial blueprints.
 #   s += blueprint                          # Provide new component from extra blueprint.
-#   s.property                              # Implicit `get_property(s)`
-#   s.property = value                      # Implicit `set_property(s, value)`
+#   s.property                              # Implicit `get_property(s, :property)`
+#   s.property = value                      # Implicit `set_property!(s, :property, value)`
 #
 # Components and methods are organized into a dependency network,
 # with components requiring each other
@@ -80,16 +80,13 @@
 # This *may* make it useless to ever feature component removal.
 module Framework
 
+import EcologicalNetworksDynamics: I, Option, argerr
+
 using Crayons
 using MacroTools
 using OrderedCollections
 
-# Convenience aliases.
-argerr(m) = throw(ArgumentError(m))
-const Option{T} = Union{T,Nothing}
 struct PhantomData{T} end
-const imap = Iterators.map
-const ifilter = Iterators.filter
 
 # ==========================================================================================
 # Early small types declarations to avoid circular dependencies among code files.
@@ -97,16 +94,14 @@ const ifilter = Iterators.filter
 # Abstract over various exception thrown during inconsistent use of the system.
 abstract type SystemException <: Exception end
 
-# The parametric type 'V' for the component
+# The parametric type 'V' for components and blueprints
 # is the type of the value wrapped by the system.
 abstract type Component{V} end
 abstract type Blueprint{V} end
-
 export Component
 export Blueprint
 
-# Most framework internals work with component types
-# because they can be abstract,
+# Most framework internals work with component types because they can be abstract,
 # most exposed methods work with concrete singleton instance.
 const CompType{V} = Type{<:Component{V}}
 # Abstract over either for exposed inputs.
@@ -118,27 +113,27 @@ const CompRef{V} = Union{Component{V},CompType{V}}
 struct CheckError <: Exception
     message::String
 end
-checkfails(m::String; throw = Base.throw) = throw(CheckError(m))
-checkfails(to_string::Function, e::Exception; throw = Base.throw) =
-    checkfails(to_string(sprint(showerror, e)); throw)
-checkfails(e::Exception; throw = Base.throw) = checkfails(identity, e; throw)
-checkrefails(args...) = checkfails(args...; throw = Base.rethrow)
-export checkfails, checkrefails
+checkfails(m::String, throw = Base.throw) = throw(CheckError(m))
+#  TODO: are the following two still useful?
+checkfails(to_string::Function, e::Exception, throw = Base.throw) =
+    checkfails(to_string(sprint(showerror, e)), throw)
+checkfails(e::Exception, throw = Base.throw) = checkfails(identity, e, throw)
+export checkfails
 
 # ==========================================================================================
-# Display constants.
-component_color = crayon"yellow"
-blueprint_color = crayon"blue"
-field_color = crayon"cyan"
-grayed = crayon"dark_gray"
-reset = crayon"reset"
+# Display.
+
+const component_color = crayon"yellow"
+const blueprint_color = crayon"blue"
+const field_color = crayon"cyan"
+const grayed = crayon"dark_gray"
+const reset = crayon"reset"
 cc(C) = "$component_color$C$reset"
 bc(B) = "$blueprint_color$B$reset"
 fc(C) = "$field_color$C$reset"
 
-
 # Strip paths to identifiers up to some user-defined root(s).
-mod_roots = [] # <- Framework-level config.
+const mod_roots = [] # <- Framework-level config.
 function stripped_path(C::Type)
     name = C.name
     mod = name.module

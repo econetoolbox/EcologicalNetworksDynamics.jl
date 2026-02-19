@@ -1,0 +1,234 @@
+import .N: Network
+
+# For component authors, this is what these should almost always mean.
+const Blueprint = F.Blueprint{Network}
+const BlueprintSum = F.BlueprintSum{Network}
+const CompType = F.CompType{Network}
+const Component = F.Component{Network}
+export Blueprint, Component
+
+# The central type for end users.
+const Model = F.System{Network}
+export Model
+
+# Access underlying network.
+network(m::Model) = F.value(m)
+export network
+
+# Skip _-prefixed properties when listing, and sort alphabetically.
+function properties(m::Model)
+    res = []
+    for (name, _) in F.properties(m)
+        startswith(String(name), '_') && continue
+        push!(res, name)
+    end
+    sort!(res)
+    res
+end
+non_underscore(p::F.PropertySpace) =
+    I.filter(F.properties(p)) do (name, _)
+        !startswith(String(name), '_')
+    end
+properties(p::F.PropertySpace) = collect(I.map(first, non_underscore(p)))
+Base.propertynames(m::Model) = properties(m)
+Base.propertynames(p::F.PropertySpace{name,P,Network}) where {name,P} = properties(p)
+export properties
+
+# Property spaces default to Network.
+macro propspace(path)
+    get = Symbol(:get_, path)
+    eget = esc(get)
+    quote
+        $eget(::Network, s::Model) = F.@PropertySpace($path, $Network)(s)
+        F.@method $get{$Network} read_as($path)
+    end
+end
+export @propspace
+# TODO: @propspace should first be exposed as an underlying Framework primitive, right?
+
+# Property aliases default to network.
+macro alias(old, new)
+    quote
+        F.@alias($old, $new, $Network)
+    end
+end
+export @alias
+
+# ==========================================================================================
+# Display.
+
+push!(F.mod_roots, EN)
+
+Base.show(io::IO, ::Type{Model}) = print(io, "Model")
+
+Base.show(io::IO, ::MIME"text/plain", I::Type{Network}) = Base.show(io, I)
+Base.show(io::IO, ::MIME"text/plain", ::Type{Model}) =
+    print(io, "Model $(crayon"dark_gray")(alias for ${F.System}{$Network})$(crayon"reset")")
+
+# Filter out _-prefixed names.
+Base.show(io::IO, p::F.PropertySpace{name,P,Network}) where {name,P} =
+    F.display_long(io, p, non_underscore)
+
+#-------------------------------------------------------------------------------------------
+# Default display for blueprint fields.
+
+# HERE: Review display after typical field types review in Inputs.jl.
+# Vector.
+function F.display_blueprint_field_short(io::IO, v::AbstractVector, ::Blueprint)
+    print(io, "[$(EN.join_elided(v, ", "))]")
+end
+
+# Matrix.
+function F.display_blueprint_field_short(io::IO, m::AbstractMatrix, ::Blueprint)
+    (p, q) = size(m)
+    print(io, "$p×$q matrix (")
+    min, max = extrema(m)
+    if min == max
+        print(io, "$min")
+    else
+        print(io, "$min to $max")
+    end
+    print(io, ")")
+end
+
+# Sparse matrix.
+function F.display_blueprint_field_short(io::IO, m::EN.SparseMatrix, ::Blueprint)
+    (p, q) = size(m)
+    print(io, "$p×$q ")
+    _, _, values = EN.findnz(m)
+    n = length(values)
+    if n == 0
+        print(io, "empty sparse matrix")
+    else
+        print(io, "sparse matrix with $n values (")
+        min, max = extrema(values)
+        if min == max
+            print(io, "$min")
+        else
+            print(io, "$min to $max")
+        end
+        print(io, ")")
+    end
+end
+
+# Map.
+function F.display_blueprint_field_short(
+    io::IO,
+    map::@GraphData(Map{T}),
+    ::Blueprint,
+) where {T}
+    it = I.map(map) do (k, v)
+        "$k: $v"
+    end
+    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
+end
+
+# Adjacency list.
+function F.display_blueprint_field_short(
+    io::IO,
+    adj::@GraphData(Adjacency{T}),
+    bp::Blueprint,
+) where {T}
+    it = I.map(adj) do (k, v)
+        "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
+    end
+    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
+end
+
+# Binary map.
+function F.display_blueprint_field_short(io::IO, set::@GraphData(Map{:bin}), ::Blueprint)
+    print(io, "{$(EN.join_elided(set, ", "; repr = false))}")
+end
+
+# Binary adjacency list.
+function F.display_blueprint_field_short(
+    io::IO,
+    adj::@GraphData(Adjacency{:bin}),
+    bp::Blueprint,
+)
+    it = I.map(adj) do (k, v)
+        "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
+    end
+    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
+end
+
+# Defer long to short by default.
+F.display_blueprint_field_long(io::IO, v, bp::Blueprint) =
+    F.display_blueprint_field_short(io, v, bp)
+
+# ==========================================================================================
+
+@doc """
+Model is the main object that we hand out to user
+which contains all the information about the underlying ecological model.
+
+# Create a Model
+
+The most straightforward way to create a model is to use [`default_model`](@ref).
+This function only requires you to specify the trophic network.
+
+```julia
+fw = [1 => 2, 2 => 3]
+model = default_model(fw)
+```
+
+This function will help you to create a model with ease,
+however it relies on default values for the parameters,
+which are not always suitable for your specific case,
+even though extracted from the literature.
+
+To create a model with custom parameters, you can pass
+other arguments to `default_model`.
+
+```julia
+model = default_model(fw, BodyMass(; Z = 100))
+```
+
+For instance, the above example creates a model with a
+body mass distribution with a predator-prey mass ratio of 100.
+
+It is also possible to create a model manually by adding the components one by one.
+First, create an empty model:
+
+```julia
+m = Model()
+```
+
+Then add your components one by one.
+Note that you have to add the components in the right order, as some components depend on others.
+Moreover, some components are mandatory.
+Specifically, you need to provide a food web, species body masses, a functional response, metabolic rates and a producer growth function.
+
+```julia
+m = Model()
+m += Foodweb([3 => 2, 2 => 1])
+m += ClassicResponse(; h = 2, M = BodyMass([0.1, 2, 3]))
+m += LogisticGrowth(; r = 1, K = 10)
+m += Metabolism(:Miele2019)
+m += Mortality(0)
+```
+
+# Read and write properties of the model
+
+First all properties contained in the model
+can be listed with:
+
+```julia
+properties(m) # Where m is a Model.
+```
+
+Then, the value of a property can be read with
+`get_<X>` where `X` is the name of the property.
+For instance, to read mortality rates:
+
+```julia
+get_mortality(m) # Equivalent to: m.mortality.
+```
+
+You can also re-write properties of the model using `set_<X>!`.
+However, not all properties can be re-written,
+because some of them are derived from the others.
+For instance, many parameters are derived from species body masses,
+therefore changing body masses would make the model inconsistent.
+However, terminal properties can be re-written, as the species metabolic rate.
+""" Model

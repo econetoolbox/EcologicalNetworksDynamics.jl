@@ -1,8 +1,8 @@
 # Test failures in graph views.
 
-import EcologicalNetworksDynamics.GraphViews
+import EcologicalNetworksDynamics.Views
 
-function TestFailures.check_exception(e::GraphViews.ViewError, type, message_pattern)
+function TestFailures.check_exception(e::Views.Error, type, message_pattern)
     e.type == type ||
         error("Expected error for view type '$type', got '$(e.type)' instead.")
     TestFailures.check_message(message_pattern, eval(e.message))
@@ -13,7 +13,7 @@ macro viewfails(xp, type, mess)
         __source__,
         __module__,
         xp,
-        :($(GraphViews.ViewError) => ($type, $mess)),
+        :($(Views.Error) => ($type, $mess)),
         false,
     )
 end

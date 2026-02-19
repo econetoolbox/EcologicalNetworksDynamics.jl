@@ -19,44 +19,41 @@
 #
 # Minimal use: @conflicts(A, B, C)
 macro conflicts(input...)
-    conflicts_macro(__module__, __source__, input...)
+    mod = __module__
+    src, input = Meta.quot.((__source__, input))
+    quote
+        $conflicts_macro($mod, $src, $input)
+        nothing
+    end
 end
 export @conflicts
 
-# Extract function to ease debugging with Revise.
-function conflicts_macro(__module__, __source__, input...)
+function conflicts_macro(mod, src, input)
 
-    # Push resulting generated code to this variable.
-    res = quote end
-    push_res!(xp) = xp.head == :block ? append!(res.args, xp.args) : push!(res.args, xp)
+    # Raise on failure.
+    err(mess) = throw(ConflictMacroError(src, mess))
 
-    # Raise *during expansion* if parsing fails.
-    perr(mess) = throw(ConflictMacroParseError(__source__, mess))
+    mod, input = parse_module(mod, input...)
 
-    # Raise *during execution* if the macro was invoked with inconsistent input.
-    src = Meta.quot(__source__)
-    push_res!(quote
-        xerr = (mess) -> throw(ConflictMacroExecError($src, mess))
-    end)
+    # Convenience local wrap.
+    ceval(xp, ctx, type) = checked_eval(mod, xp, ctx, err, type)
 
-    # Convenience wrap.
-    tovalue(xp, ctx, type) = to_value(__module__, xp, ctx, :xerr, type)
-    tocomp_novaluetype(xp, ctx) = to_component(__module__, xp, ctx, :xerr)
-    tocomp(xp, ctx) = to_component(__module__, xp, :ValueType, ctx, :xerr)
+    ValueType = Ref{Union{Nothing,DataType}}(nothing) # Refine later.
+    evalcomp(xp, ctx) = eval_component(mod, xp, ValueType[], ctx, err)
+    evalcomp_novaluetype(xp, ctx) = eval_component(mod, xp, ctx, err)
 
     #---------------------------------------------------------------------------------------
-    # Parse macro input,
-    # while also generating code checking invoker input within invocation context.
+    # Parse and check macro input,
 
-    length(input) == 0 && perr("No macro arguments provided. \
-                                Example usage:\n\
-                                |  @conflicts(A, B, ..)\n\
-                                ")
+    length(input) == 0 && err("No macro arguments provided. \
+                               Example usage:\n\
+                               |  @conflicts(A, B, ..)\n\
+                               ")
 
 
     # Infer the underlying system value type from the first argument.
     first_entry = nothing
-    entries = :([])
+    entries = []
     for entry in input
 
         (false) && (local comp, conf, invalid, reasons, mess) # (reassure JuliaLS)
@@ -70,63 +67,49 @@ function conflicts_macro(__module__, __source__, input...)
         )
         #! format: on
         isnothing(conf) || (reasons = [:($conf => $mess)])
-        isnothing(invalid) || perr("Not a list of conflict reasons: $(repr(invalid)).")
+        isnothing(invalid) || err("Not a list of conflict reasons: $(repr(invalid)).")
         isnothing(reasons) && (reasons = [])
 
-        if isnothing(first_entry)
+        C = if isnothing(first_entry)
             ctx = "First conflicting entry"
-            push_res!(quote
-                First = $(tocomp_novaluetype(comp, ctx))
-                ValueType = system_value_type(First)
-            end)
-            first_entry = comp
-            comp = :First
+            First = evalcomp_novaluetype(comp, ctx)
+            ValueType[] = system_value_type(First)
+            first_entry = comp # (save expression for later error message)
+            First
         else
-            comp = tocomp(comp, "Conflicting entry")
+            evalcomp(comp, "Conflicting entry")
         end
 
-        reasons_xp = :([])
-        for reason in reasons
+        reasons = map(reasons) do reason
             @capture(reason, (conf_ => mess_))
             isnothing(conf) &&
-                perr("Not a `Component => \"reason\"` pair: $(repr(reason)).")
-            conf = tocomp(conf, "Reason reference")
-            mess = tovalue(mess, "Reason message", String)
-            push!(reasons_xp.args, :($conf, $mess))
+                err("Not a `Component => \"reason\"` pair: $(repr(reason)).")
+            conf = evalcomp(conf, "Reason reference")
+            mess = ceval(mess, "Reason message", String)
+            (conf, mess)
         end
 
-        push!(entries.args, :($comp, $reasons_xp))
+        push!(entries, (C, reasons))
 
     end
+    ValueType = ValueType[]
 
-    length(entries.args) == 1 &&
-        perr("At least two components are required to declare a conflict \
-              not only $(repr(first_entry)).")
+    length(entries) == 1 &&
+        err("At least two components are required to declare a conflict \
+             not only $(repr(first_entry)).")
 
+    #---------------------------------------------------------------------------------------
     # Declare all conflicts, checking that provided reasons do refer to listed conflicts.
-    push_res!(
-        quote
-            entries = $entries
-            comps = CompType{ValueType}[first(e) for e in entries]
-            keys = OrderedSet{CompType{ValueType}}(comps)
-            for (a, reasons) in entries
-                for (b, message) in reasons
-                    b in keys ||
-                        xerr("Conflict reason does not refer to a component listed \
+    comps = CompType{ValueType}[first(e) for e in entries]
+    keys = OrderedSet{CompType{ValueType}}(comps)
+    for (a, reasons) in entries
+        for (b, message) in reasons
+            b in keys || err("Conflict reason does not refer to a component listed \
                               in the same @conflicts invocation: $b => $(repr(message)).")
-                    declare_conflict(a, b, message, xerr)
-                end
-            end
-            declare_conflicts_clique(xerr, comps)
-        end,
-    )
-
-    # Avoid confusing/leaky return type from macro invocation.
-    push_res!(quote
-        nothing
-    end)
-
-    res
+            declare_conflict(a, b, message, err)
+        end
+    end
+    declare_conflicts_clique(err, comps)
 
 end
 
