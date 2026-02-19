@@ -4,20 +4,20 @@
 Direct view into web data,
 either dense or sparse depending on underlying topology.
 """
-struct EdgesDataView{WF,T} <: AbstractMatrix{T} # WF: (:webname, :fieldname)
+struct EdgesDataView{ed,T} <: AbstractMatrix{T}
     model::Model
     view::N.EdgesView{T}
 end
 function edges_view(m::Model, web::Symbol, data::Symbol)
     view = N.edges_view(value(m), web, data)
-    WF = (web, data)
+    ed = C.EdgeData(web, data)
     T = eltype(view)
-    EdgesDataView{WF,T}(m, view)
+    EdgesDataView{ed,T}(m, view)
 end
 S = EdgesDataView
 N.web(v::S) = v |> view |> web
-webname(::S{WF}) where {WF} = first(WF)
-fieldname(::S{WF}) where {WF} = last(WF)
+webname(s::S) = N.web(dispatcher(s))
+fieldname(s::S) = C.data(dispatcher(s))
 Base.getindex(v::S, i, j) = getindex(view(v), (i, j))
 Base.setindex!(v::S, x, i, j) = setindex!(view(v), x, (i, j))
 extract(v::S; kw...) = N.to_sparse(view(v), kw...)
@@ -29,15 +29,16 @@ extract(v::S; kw...) = N.to_sparse(view(v), kw...)
 
 """
 Indirect, immutable view into edges topology (typically masks).
+Parametrized with an EdgeWeb dispatcher.
 """
-struct EdgesMaskView{W} <: AbstractMatrix{Bool} # W: :webname
+struct EdgesMaskView{ew} <: AbstractMatrix{Bool}
     model::Model
     web::N.Web
 end
 edges_mask_view(m::Model, web::Symbol) = EdgesMaskView{web}(m, N.web(value(m), web))
 S = EdgesMaskView # "Self"
 web(v::S) = getfield(v, :web)
-webname(::S{W}) where {W} = W
+webname(s::S) = C.web(dispatcher(s))
 topology(v::S) = web(v).topology
 Base.getindex(v::S, i::Int, j::Int) = N.is_edge(topology(v), check_range(v, i, j)...)
 Base.setindex!(v::S, _, ::Any, ::Any) = err(v, "Cannot mutate edges topology.")
@@ -51,7 +52,7 @@ extract(v::S) = v |> topology |> N.to_mask
 # ==========================================================================================
 # Common to all edge views.
 
-EdgesView = Union{EdgesDataView,EdgesMaskView}
+EdgesView{d} = Union{EdgesDataView{d},EdgesMaskView{d}}
 S = EdgesView
 topology(v::S) = web(v).topology
 sourcename(v) = web(v).source

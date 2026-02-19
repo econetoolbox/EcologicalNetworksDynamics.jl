@@ -29,6 +29,9 @@ although they should implement the same interface (mutability aside):
       also conceptually wrap data associated with nodes and edges,
       but these are not reified as underlying vectors and are immutable.
       Refer to them as `TopologyView`s and `MaskView`s.
+
+All views are parametrized with a network config dispatcher
+so their behaviour can be fine-tuned by downstream component authors.
 """
 module Views
 
@@ -72,10 +75,10 @@ include("edges_display.jl")
 # ==========================================================================================
 # Common nodes or edge data views.
 
-DataView{CF,T} = Union{AbstractNodesDataView{CF,T},EdgesDataView{CF,T}}
+DataView{d,T} = Union{AbstractNodesDataView{d,T},EdgesDataView{d,T}}
 S = DataView
 view(v::S) = getfield(v, :view)
-fieldname(::S{CF}) where {CF} = last(CF)
+fieldname(s::S) = C.data(dispatcher(s))
 N.entry(v::S) = v |> view |> entry
 
 struct WriteError <: Exception
@@ -100,8 +103,10 @@ display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
 # ==========================================================================================
 #  Common to all views.
 
-AbstractView = Union{NodesView,EdgesView}
+AbstractView{d} = Union{NodesView{d},EdgesView{d}}
 S = AbstractView
+dispatcher(::Type{S{d}}) where {d} = d
+dispatcher(s::S) = dispatcher(typeof(s))
 model(v::S) = getfield(v, :model)
 network(v::S) = v |> model |> value
 Base.getproperty(n::S, ::Symbol) = err(n, "no property to access.")
