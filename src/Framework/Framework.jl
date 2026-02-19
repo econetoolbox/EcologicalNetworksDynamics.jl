@@ -80,15 +80,13 @@
 # This *may* make it useless to ever feature component removal.
 module Framework
 
+import EcologicalNetworksDynamics: I, Option, argerr
+
 using Crayons
 using MacroTools
 using OrderedCollections
 
-# Convenience aliases.
-argerr(m) = throw(ArgumentError(m))
-const Option{T} = Union{T,Nothing}
 struct PhantomData{T} end
-const I = Iterators
 
 # ==========================================================================================
 # Early small types declarations to avoid circular dependencies among code files.

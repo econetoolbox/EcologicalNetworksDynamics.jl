@@ -1,62 +1,21 @@
-# The main value, wrapped into a System, is what we hand out to user as "the model".
-# Use this file to define simplified framework primitives
-# under the hypothesis that the only system value we will work with
-# is the ecological model.
-# The purpose is to make subsequent code in `./components`, `simulate.jl` etc.
-# easier to read and write.
+import .N: Network
 
-# Fine-grained namespace control.
-import .Framework
-const F = Framework # Convenience alias for the whole components library.
-import .F:
-    @blueprint,
-    @component,
-    @conflicts,
-    @method,
-    Brought,
-    CheckError,
-    System,
-    add!,
-    blueprints,
-    checkfails,
-    components,
-    does_bring,
-    does_embed,
-    does_imply,
-    embedded,
-    has_component,
-    implied,
-    isacomponent,
-    value
+# For component authors, this is what these should almost always mean.
+const Blueprint = F.Blueprint{Network}
+const BlueprintSum = F.BlueprintSum{Network}
+const CompType = F.CompType{Network}
+const Component = F.Component{Network}
+export Blueprint, Component
 
-# Direct re-exports from the framework module.
-export add!
-export blueprints
-export components
-export does_bring
-export does_embed
-export does_imply
-export embedded
-export has_component
-export implied
-export isacomponent
-export properties
-
-const N = Networks
-
-# The type wrapped within the system.
-# TODO: "Internal" -> "Network" ?
-const Internal = Networks.Network
-
-const Blueprint = F.Blueprint{Internal}
-const BlueprintSum = F.BlueprintSum{Internal}
-const CompType = F.CompType{Internal}
-const Component = F.Component{Internal}
-
-const Model = F.System{Internal}
+# The central type for end users.
+const Model = F.System{Network}
 export Model
 
-# Skip _-prefixed properties.
+# Access underlying network.
+network(m::Model) = F.value(m)
+export network
+
+# Skip _-prefixed properties when listing, and sort alphabetically.
 function properties(m::Model)
     res = []
     for (name, _) in F.properties(m)
@@ -71,68 +30,52 @@ non_underscore(p::F.PropertySpace) =
         !startswith(String(name), '_')
     end
 properties(p::F.PropertySpace) = collect(I.map(first, non_underscore(p)))
-export properties
 Base.propertynames(m::Model) = properties(m)
-Base.propertynames(p::F.PropertySpace{name,P,Internal}) where {name,P} = properties(p)
+Base.propertynames(p::F.PropertySpace{name,P,Network}) where {name,P} = properties(p)
+export properties
 
-# Convenience macro to define property space.
+# Property spaces default to Network.
 macro propspace(path)
     get = Symbol(:get_, path)
     eget = esc(get)
     quote
-        $eget(::Internal, s::Model) = F.@PropertySpace($path, $Internal)(s)
-        F.@method $get{$Internal} read_as($path)
+        $eget(::Network, s::Model) = F.@PropertySpace($path, $Network)(s)
+        F.@method $get{$Network} read_as($path)
     end
 end
+export @propspace
+# TODO: @propspace should first be exposed as an underlying Framework primitive, right?
 
-# Convenience macro to alias properties.
+# Property aliases default to network.
 macro alias(old, new)
     quote
-        F.@alias($old, $new, $Internal)
+        F.@alias($old, $new, $Network)
     end
 end
-
-#-------------------------------------------------------------------------------------------
-# Defer basic queries to inner network.
-network(m::Model) = value(m)
-for fn in [
-    :class,
-    :web,
-    :index,
-    :n_nodes,
-    :n_edges,
-    :n_fields,
-    :node_labels,
-    :node_indices,
-    :n_sources,
-    :n_targets,
-]
-    eval(quote
-        Networks.$fn(m::Model, args...) = Networks.$fn(network(m), args...)
-    end)
-end
+export @alias
 
 # ==========================================================================================
 # Display.
 
-push!(F.mod_roots, EcologicalNetworksDynamics)
+push!(F.mod_roots, EN)
 
 Base.show(io::IO, ::Type{Model}) = print(io, "Model")
 
-Base.show(io::IO, ::MIME"text/plain", I::Type{Internal}) = Base.show(io, I)
+Base.show(io::IO, ::MIME"text/plain", I::Type{Network}) = Base.show(io, I)
 Base.show(io::IO, ::MIME"text/plain", ::Type{Model}) =
-    print(io, "Model $(crayon"dark_gray")(alias for $System{$Internal})$(crayon"reset")")
+    print(io, "Model $(crayon"dark_gray")(alias for ${F.System}{$Network})$(crayon"reset")")
 
 # Filter out _-prefixed names.
-Base.show(io::IO, p::F.PropertySpace{name,P,Internal}) where {name,P} =
+Base.show(io::IO, p::F.PropertySpace{name,P,Network}) where {name,P} =
     F.display_long(io, p, non_underscore)
 
 #-------------------------------------------------------------------------------------------
 # Default display for blueprint fields.
 
+# HERE: Review display after typical field types review in Inputs.jl.
 # Vector.
 function F.display_blueprint_field_short(io::IO, v::AbstractVector, ::Blueprint)
-    print(io, "[$(join_elided(v, ", "))]")
+    print(io, "[$(EN.join_elided(v, ", "))]")
 end
 
 # Matrix.
@@ -149,10 +92,10 @@ function F.display_blueprint_field_short(io::IO, m::AbstractMatrix, ::Blueprint)
 end
 
 # Sparse matrix.
-function F.display_blueprint_field_short(io::IO, m::SparseMatrix, ::Blueprint)
+function F.display_blueprint_field_short(io::IO, m::EN.SparseMatrix, ::Blueprint)
     (p, q) = size(m)
     print(io, "$p×$q ")
-    _, _, values = findnz(m)
+    _, _, values = EN.findnz(m)
     n = length(values)
     if n == 0
         print(io, "empty sparse matrix")
@@ -177,7 +120,7 @@ function F.display_blueprint_field_short(
     it = I.map(map) do (k, v)
         "$k: $v"
     end
-    print(io, "{$(join_elided(it, ", "; repr = false))}")
+    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
 end
 
 # Adjacency list.
@@ -189,12 +132,12 @@ function F.display_blueprint_field_short(
     it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
-    print(io, "{$(join_elided(it, ", "; repr = false))}")
+    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
 end
 
 # Binary map.
 function F.display_blueprint_field_short(io::IO, set::@GraphData(Map{:bin}), ::Blueprint)
-    print(io, "{$(join_elided(set, ", "; repr = false))}")
+    print(io, "{$(EN.join_elided(set, ", "; repr = false))}")
 end
 
 # Binary adjacency list.
@@ -206,7 +149,7 @@ function F.display_blueprint_field_short(
     it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
-    print(io, "{$(join_elided(it, ", "; repr = false))}")
+    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
 end
 
 # Defer long to short by default.

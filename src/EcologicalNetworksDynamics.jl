@@ -8,8 +8,11 @@ using LinearAlgebra
 using Graphs
 using Distributions
 
+# Common throughout the code.
 const EN = EcologicalNetworksDynamics
 const Option{T} = Union{T,Nothing}
+const SparseMatrix{T} = SparseMatrixCSC{T,Int}
+argerr(message, throw = Base.throw) = throw(ArgumentError(message))
 
 # Common display utils.
 include("./display.jl")
@@ -20,7 +23,7 @@ using .Display
 
 # Data: parsimonious model memory representation.
 include("Networks/Networks.jl")
-using .Networks
+const N = Networks
 
 # Code: efficient model simulation.
 include("Differentials/Differentials.jl")
@@ -28,40 +31,18 @@ using .Differentials
 
 # Interface: ergonomic model manipulation.
 include("./Framework/Framework.jl")
-
-# ==========================================================================================
-# Exposed interface.
-
-# Factorize out common optional argument processing.
 include("./kwargs_helpers.jl")
-using .KwargsHelpers
-
 include("./AliasingDicts/AliasingDicts.jl")
-using .AliasingDicts
-
-# Factorize out common user input data preprocessing.
-include("./GraphDataInputs/GraphDataInputs.jl") # XXX: too much debt in here: snip to assess.
-using .GraphDataInputs
-
 include("./multiplex_api.jl")
-using .MultiplexApi
+const F = Framework
 
-const I = Iterators
-include("./dedicate_framework_to_model.jl")
+# Bring this all together into a library for component authors.
+include("./NetworkFramework/NetworkFramework.jl")
+const NF = NetworkFramework
 
 #-------------------------------------------------------------------------------------------
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
-
-# Define extension points to be later specialized for every class/web/field.
-include("./network_config.jl") # XXX: group with `dedicate_framework_to_model.jl`.
-using .NetworkConfig
-
-# Encapsulated views into internal arrays or pseudo-arrays,
-# configured by the above.
-include("./Views/Views.jl")
-export extract
-using .Views
 
 argerr(mess) = throw(ArgumentError(mess))
 include("./components/main.jl")

@@ -44,7 +44,7 @@
 # TODO: cover with dedicated test instead of relying on use in the package.
 module KwargsHelpers
 
-argerr(mess) = throw(ArgumentError(mess))
+import EcologicalNetworksDynamics: argerr
 
 macro kwargs_helpers(kwargs)
     (

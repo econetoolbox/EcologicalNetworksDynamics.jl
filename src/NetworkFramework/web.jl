@@ -137,10 +137,10 @@ end
 # Extract implementation detail to ease Revise work.
 
 function reflexive_web_expand_from_matrix!(ew::EdgeWeb, raw, A, model)
-    topology = SparseReflexive(A)
+    topology = N.SparseReflexive(A)
     c = sourcename(ew)
     w = web(ew)
-    add_web!(raw, w, (c, c), topology)
+    N.add_web!(raw, w, (c, c), topology)
     # Possible extension point.
     reflexive_web_post_expand!(ew, raw, topology, A, model)
 end
@@ -149,7 +149,7 @@ reflexive_web_post_expand!(::EdgeWeb, network, topology, matrix, model) = nothin
 # Check shape.
 function reflexive_web_matrix_early_check(A::AbstractMatrix)
     n, m = size(A)
-    n == m || checkfails("The adjacency matrix of size $((m, n)) is not squared.")
+    n == m || F.checkfails("The adjacency matrix of size $((m, n)) is not squared.")
 end
 
 function reflexive_web_matrix_late_check(ew::EdgeWeb, A, model)
@@ -159,16 +159,16 @@ function reflexive_web_matrix_late_check(ew::EdgeWeb, A, model)
     if !(n == a == b)
         src = sourcename(ew)
         (are, s) = n == 1 ? ("is", "") : ("are", "s")
-        checkfails("There $are $n $(repr(src)) node$s \
+        F.checkfails("There $are $n $(repr(src)) node$s \
                     but the provided matrix is of size ($a, $b).")
     end
 end
 
-Adjacency = T -> OrderedDict{T,OrderedSet{T}}
 function reflexive_web_adjacency_late_check(ew::EdgeWeb, network, A, model)
     p, _ = propnames(ew)
     class = sourcename(ew)
     index = getproperty(model, class)._index
+    # HERE: this needs simpler rewrite.
     GraphDataInputs.check_list_refs(A, index, nothing, :A, "$p link")
     A
 end
@@ -176,12 +176,13 @@ end
 function reflexive_web_adjacency_expand!(ew::EdgeWeb, raw, A, model)
     class = sourcename(ew)
     index = getproperty(model, class)._index
-    A = to_sparse_matrix(A, index, index)
+    A = to_sparse_matrix(A, index, index) # HERE: this goes to Inputs/expand.jl
     reflexive_web_expand_from_matrix!(ew, raw, A, model)
 end
 
 # Precise edges specifications.
 function reflexive_web_construct(Web::Component, A)
+    # HERE: resurrect these chained conversions, or just try-catch here?
     A = @tographdata A {SparseMatrix, Adjacency}{:bin}
     if A isa AbstractMatrix
         Web.Matrix(A)

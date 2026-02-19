@@ -29,18 +29,10 @@
 #   - Dense edges data.
 #   - Sparse (templated) edges data.
 #   - Behaviour (graph data that actually represents *code* to run the model).
-# XXX: This is now being considered: see `class.jl` for 'Nodes' components.
-
-const C = NetworkConfig
+# XXX: This is now being considered: see `NetworkFramework` module.
 
 # Helpers.
 include("./allometry.jl")
-include("./input.jl") # XXX: Predates `GraphDataInputs` module?
-
-# Templates for typical network components.
-include("./class.jl")
-include("./web.jl")
-include("./nodes.jl")
 
 # Central in the model nodes.
 # First example of a nodes class.

@@ -1,18 +1,16 @@
-# Prior to defining views and components,
-# take height to list here all behaviours
-# that depend on particular classes/webs/data.
-# Specialize them in the next.
-# In other terms, every statically consistent variable information
-# we have about classes/webs/data exposed by the package
-# can be expressed as specialization of the methods defined here.
+"""
+Typical components have most of their behaviour defined generically,
+except for some configurable details whose extension points are defined in this module.
+Phantom data types defined here are parametrized with particular class/web/field names.
+The purpose is that component authors may refine components behaviour
+by specializing implementations for their particular component.
+"""
+module Dispatchers
 
-# XXX does this predate GraphDataInputs.convert etc.?
-
-module NetworkConfig
-
-using EcologicalNetworksDynamics: Networks, Model
+using EcologicalNetworksDynamics: Networks
 using .Networks
 const N = Networks
+const D = Dispatchers
 
 const Option{T} = Union{Nothing,T}
 const Ref = Union{Int,Symbol}
@@ -27,7 +25,8 @@ struct NodeClass{class} end
 export NodeClass
 NodeClass(class::Symbol) = NodeClass{class}()
 S = NodeClass # 'Self'
-N.class(::S{class}) where {class} = class
+class(::S{class}) where {class} = class
+export class
 
 """
 Obtain name variants for nodes in the class, in order:
@@ -53,6 +52,12 @@ Obtain the component providing the class.
 component(::S) = throw("unimplemented")
 export component
 
+# Display.
+function Base.show(io::IO, s::S)
+    class = D.class(s)
+    print(io, "<$class>")
+end
+
 # ==========================================================================================
 # Node mask.
 
@@ -64,14 +69,20 @@ export NodeMask
 NodeMask(class::Symbol, parent::Option{Symbol}) = NodeMask{class,parent}()
 S = NodeMask
 content(::S{class, parent}) where {class, parent} = (class, parent)
-N.class(s::S) = first(content(s))
+class(s::S) = first(content(s))
 parent(s::S) = last(content(s))
-export parent
+export content, parent
 
 """
 Obtain dispatcher to underlying class.
 """
 NodeClass(s::S) = NodeClass(class(s))
+
+# Display.
+function Base.show(io::IO, s::S)
+    class, parent = content(s)
+    print(io, "<$parent:$class>")
+end
 
 # ==========================================================================================
 # Web.
@@ -83,7 +94,8 @@ struct EdgeWeb{web} end
 export EdgeWeb
 EdgeWeb(web::Symbol) = EdgeWeb{web}()
 S = EdgeWeb # 'Self'
-N.web(::S{web}) where {web} = web
+web(::S{web}) where {web} = web
+export web
 
 """
 Obtain name variants for the web, in order:
@@ -129,6 +141,12 @@ Raise for reflexive webs.
 is_reflexive(::S) = throw("unimplemented")
 export is_reflexive
 
+# Display.
+function Base.show(io::IO, s::S)
+    web = D.web(s)
+    print(io, "<$web>")
+end
+
 # ==========================================================================================
 # Node data.
 
@@ -140,10 +158,11 @@ export NodeData
 NodeData(class::Symbol, data::Symbol) = NodeData{class,data}()
 S = NodeData # 'Self'
 content(::S{class,data}) where {class,data} = (class, data)
-N.class(s::S) = first(data(s))
+class(s::S) = first(data(s))
 data(s::S) = last(data(s))
 readonly(::S) = false # By default, or specialize.
-export content, data, readonly
+type(::S) = throw("unimplemented") # Underlying data type.
+export data, type, readonly
 
 """
 Obtain name variants for the data points, in order:
@@ -155,6 +174,7 @@ name_variants(::S) = throw("unimplemented")
 snake_case_singular(s::S) = name_variants(s)[1]
 snake_case_plural(s::S) = name_variants(s)[2]
 
+# XXX: replace with `absorb` later within views.
 """
 Check and convert a node data point without information about the rest of the model.
 Useful within `Framework.early_check`.
@@ -199,6 +219,12 @@ Obtain dispatcher to underlying class.
 """
 NodeClass(s::S) = NodeClass(class(s))
 
+# Display.
+function Base.show(io::IO, s::S)
+    class, data = content(s)
+    print(io, "<$class:$data>")
+end
+
 # ==========================================================================================
 # Expanded node data.
 
@@ -212,9 +238,10 @@ ExpandedNodeData(class::Symbol, data::Symbol, parent::Option{Symbol}) =
     ExpandedNodeData{class,data,parent}()
 S = ExpandedNodeData # 'Self'
 content(::S{class,data,parent}) where {class,data,parent} = (class, data, parent)
-N.class(s::S) = first(content(s))
+class(s::S) = first(content(s))
 data(s::S) = content(s)[2]
 parent(s::S) = last(content(s))
+type(::S) = throw("unimplemented")
 
 """
 Obtain dispatchers to underlying class, mask, data.
@@ -222,6 +249,12 @@ Obtain dispatchers to underlying class, mask, data.
 NodeClass(s::S) = NodeClass(class(s))
 NodeMask(s::S) = NodeMask(class(s), parent(s))
 NodeData(s::S) = NodeData(class(s), data(s))
+
+# Display.
+function Base.show(io::IO, s::S)
+    class, data, parent = content(s)
+    print(io, "<$parent:$class:$data>")
+end
 
 # ==========================================================================================
 # Web data.
@@ -242,12 +275,10 @@ Obtain dispatcher to underlying web.
 """
 EdgeWeb(s::S) = EdgeWeb(web(s))
 
-# ==========================================================================================
 # Display.
-
-function Base.show(io::IO, nd::NodeData)
-    class, data = content(nd)
-    print(io, "<$class:$data>")
+function Base.show(io::IO, s::S)
+    web, data = content(s)
+    print(io, "<$web:$data>")
 end
 
 end

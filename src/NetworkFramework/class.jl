@@ -162,7 +162,7 @@ function class_names_early_check(nc::NodeClass, bp::Blueprint)
     for (i, a) in enumerate(names)
         for j in (i+1):length(names)
             b = names[j]
-            a == b && checkfails("$Class $i and $j are both named $(repr(a)).")
+            a == b && F.checkfails("$Class $i and $j are both named $(repr(a)).")
         end
     end
 end
@@ -173,5 +173,5 @@ function class_shortline(io::IO, model::Model, nc::NodeClass)
     Class = CamelCaseSingular(nc)
     names = getproperty(model, class)._names
     n = length(names)
-    print(io, "$Class: $n ($(join_elided(names, ", ")))")
+    print(io, "$Class: $n ($(EN.join_elided(names, ", ")))")
 end

@@ -1,68 +1,7 @@
-# Convenience explicit conversion to the given union type from constructor arguments.
-
-# The conversions allowed.
-graphdataconvert(::Type{T}, source::T) where {T} = source # Trivial identity.
-export graphdataconvert
-
-# ==========================================================================================
-# Scalar conversions.
-macro allow_convert(Source, Target, f)
-    esc(quote
-        graphdataconvert(::Type{$Target}, v::$Source) = $f(v)
-    end)
-end
-#! format: off
-@allow_convert Symbol         String  String
-@allow_convert Char           String  (c -> "$c")
-@allow_convert AbstractString Symbol  Symbol
-@allow_convert Char           Symbol  Symbol
-#! format: on
-
-# ==========================================================================================
-# Simple collections conversions.
-
-macro allow_convert_all(Source, Target)
-    esc(
-        quote
-        #! format: off
-        @allow_convert $Source                 $Target               $Target
-        @allow_convert Vector{<:$Source}       Vector{$Target}       Vector{$Target}
-        @allow_convert Matrix{<:$Source}       Matrix{$Target}       Matrix{$Target}
-        @allow_convert SparseVector{<:$Source} SparseVector{$Target} SparseVector{$Target}
-        @allow_convert SparseMatrix{<:$Source} SparseMatrix{$Target} SparseMatrix{$Target}
-
-        @allow_convert(
-            Vector{<:$Source},
-            SparseVector{$Target},
-            v -> SparseVector{$Target}(sparse(v)),
-        )
-        @allow_convert(
-            Matrix{<:$Source},
-            SparseMatrix{$Target},
-            m -> SparseMatrix{$Target}(sparse(m)),
-        )
-
-        # Don't shadow the identity case, which should return an alias of the input.
-        @allow_convert $Target               $Target               identity
-        @allow_convert Vector{$Target}       Vector{$Target}       identity
-        @allow_convert Matrix{$Target}       Matrix{$Target}       identity
-        @allow_convert SparseVector{$Target} SparseVector{$Target} identity
-        @allow_convert SparseMatrix{$Target} SparseMatrix{$Target} identity
-        #! format: on
-
-        end,
-    )
-end
-
-@allow_convert_all Real Float64
-@allow_convert_all Integer Int64
-@allow_convert_all Integer Bool
-
-# ==========================================================================================
-# Map/Adjacency conversions.
+# Map/Adjacency lists parsing.
 #
 # Any kind of input is allowed, making these "parsers" very non-type-stable.
-# (call it "parsing" although input is *julia values*, not strings)
+# (call it "parsing" although input data are arbitrary nested *julia values*, not strings)
 # Input is an(y) iterable of (ref, value) pairs for maps,
 # with values elided in the binary case.
 # References may be grouped together, as an iterable of references instead.
@@ -84,7 +23,7 @@ end
 # asking "forgiveness rather than permission".
 # During this diagnosis, normalize any 'plain' input to a (grouped,) input.
 
-# Use this type to hold all temporary status required
+# Use this type to hold all state required
 # during input parsing, especially useful for quality reporting in case of invalid input.
 # This struct is very type-unstable so as to be used for target conversion.
 mutable struct Parser
@@ -177,7 +116,7 @@ function result!(p::Parser)
         p.expected_R
     else
         throw("Cannot construct result without R being inferred: \
-                this is a bug in the package.")
+               this is a bug in the package.")
     end
     p.result = p.target_type(R)()
 end
@@ -186,9 +125,9 @@ end
 # to decide which to report in case of multiple 'forgiveness'es.
 struct Forgiveness <: Exception
     tag::Symbol
-    err::ArgumentError
+    err::InputError
 end
-forgerr(tag, mess, raise = throw) = raise(Forgiveness(tag, ArgumentError(mess)))
+forgerr(tag, mess, throw = throw) = throw(Forgiveness(tag, InputError(mess)))
 
 # Pick the report with highest priority,
 # with subtle special-cased tweaks in case of ex-aequo.
@@ -227,7 +166,7 @@ forgive(f, parser) =
 
 parse_value(p::Parser, input) =
     try
-        graphdataconvert(p.T, input)
+        absorb(p.T, input)
     catch
         forgerr(
             :not_a_value,
@@ -266,21 +205,22 @@ parse_pair(p::Parser, input, what) =
         # Note that [1, 2, 3] would become (1, 2): raise an error instead.
         try
             _1, _2, _3 = input # That shouldn't work with a true "pair".
-            throw(nothing)
+            throw(TripleWorks())
         catch e
-            isnothing(e) && rethrow("more than 2 values in pair parsing input")
+            e isa TripleWorks && rethrow("more than 2 values in pair parsing input")
         end
         return lhs, rhs
     catch _
         forgerr(:not_a_pair, "Not a '$what' pair$(report(p, input)).", rethrow)
     end
+struct TripleWorks end
 
 function parse_plain_ref!(p::Parser, input, what)
     (ref, R, ok) = try
-        (graphdataconvert(Symbol, input), Symbol, true)
+        (absorb(Symbol, input), Symbol, true)
     catch
         try
-            (graphdataconvert(Int, input), Int, true)
+            (absorb(Int, input), Int, true)
         catch
             (nothing, nothing, false)
         end
@@ -341,7 +281,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
         plain_error isa Forgiveness || rethrow(plain_error) # (not to miss bugs)
         try
             f = fork(p, R -> BinMap{R})
-            refs = graphdataconvert(
+            refs = absorb(
                 BinMap{<:Any},
                 input;
                 ExpectedRefType,
@@ -384,7 +324,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
         plain_error isa Forgiveness || rethrow(plain_error)
         try
             f = fork(p, R -> Map{R,p.T})
-            pairs = graphdataconvert(
+            pairs = absorb(
                 Map{<:Any,p.T},
                 input;
                 parser = f,
@@ -424,7 +364,7 @@ parse_grouped_pairs_priorities = priorities([
 #-------------------------------------------------------------------------------------------
 # Parse binary maps.
 
-function graphdataconvert(
+function absorb(
     ::Type{BinMap{<:Any}},
     input;
     ExpectedRefType = nothing,
@@ -460,7 +400,7 @@ function graphdataconvert(
 end
 
 # The binary case *can* accept boolean masks.
-function graphdataconvert(
+function absorb(
     ::Type{BinMap{<:Any}},
     input::AbstractVector{Bool};
     # Match the general case..
@@ -521,7 +461,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse general maps.
 
-function graphdataconvert(
+function absorb(
     ::Type{Map{<:Any,T}},
     input;
     ExpectedRefType = nothing,
@@ -572,7 +512,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse binary adjacency maps.
 
-function graphdataconvert(
+function absorb(
     ::Type{BinAdjacency{<:Any}},
     input;
     ExpectedRefType = nothing,
@@ -643,7 +583,7 @@ function graphdataconvert(
 end
 
 # The binary case *can* accept boolean matrices.
-function graphdataconvert(
+function absorb(
     ::Type{BinAdjacency{<:Any}},
     input::AbstractMatrix{Bool};
     ExpectedRefType = nothing,
@@ -690,7 +630,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse adjacency maps.
 
-function graphdataconvert(
+function absorb(
     ::Type{Adjacency{<:Any,T}},
     input;
     ExpectedRefType = nothing,
@@ -813,92 +753,28 @@ adjacency_map_priorities = priorities([
 
 #-------------------------------------------------------------------------------------------
 # Alias if types matches exactly.
-graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
-graphdataconvert(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
-graphdataconvert(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
-graphdataconvert(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
-graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
-graphdataconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
-graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
-graphdataconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
+absorb(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
+absorb(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
+absorb(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
+absorb(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
+absorb(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
+absorb(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
+absorb(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
+absorb(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.
-function graphdataconvert(::Type{BinMap}, input::Map{R}) where {R}
+function absorb(::Type{BinMap}, input::Map{R}) where {R}
     res = BinMap{R}()
     for (k, _) in input
         push!(res, k)
     end
     res
 end
-function graphdataconvert(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
+function absorb(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
     res = BinAdjacency{R}()
     for (i, sub) in input
-        res[i] = graphdataconvert(BinMap, sub)
+        res[i] = absorb(BinMap, sub)
     end
     res
 end
-
-# ==========================================================================================
-# Convenience macro.
-
-# Example usage:
-#   @tographdata var {Sym, Scal, SpVec}{Float64}
-#   @tographdata var YSN{Float64}
-macro tographdata(var::Symbol, input)
-    @defloc
-    tographdata(loc, var, input)
-end
-function tographdata(loc, var, input)
-    @capture(input, types_{Target_} | types_{})
-    isnothing(types) && argerr("Invalid @tographdata target types at $loc.\n\
-                                Expected @tographdata var {aliases...}{Target}. \
-                                Got $(repr(input)).")
-    targets = parse_types(types, Target, loc)
-    targets = Expr(:vect, targets...)
-    vsym = Meta.quot(var)
-    var = esc(var)
-    :(_tographdata($vsym, $var, $targets))
-end
-function _tographdata(vsym, var, targets)
-    # Try all conversions, first match first served.
-    for Target in targets
-        if applicable(graphdataconvert, Target, var)
-            try
-                return graphdataconvert(Target, var)
-            catch
-                if Target <: Adjacency
-                    T = Target.body.parameters[2].parameters[2]
-                    Target = "adjacency list for '$T' data"
-                elseif Target <: BinAdjacency
-                    Target = "binary adjacency list"
-                elseif Target <: Map
-                    T = Target.body.parameters[2]
-                    Target = "ref-value map for '$T' data"
-                elseif Target <: BinMap
-                    Target = "binary ref-value map"
-                end
-                argerr("Error while attempting to convert \
-                        '$vsym' to $Target \
-                        (details further down the stacktrace). \
-                        Received $(repr(var)) ::$(typeof(var)).")
-            end
-        end
-    end
-    targets =
-        length(targets) == 1 ? "$(first(targets))" : "either $(join(targets, ", ", " or "))"
-    argerr("Could not convert '$vsym' to $targets. \
-            The value received is $(repr(var)) ::$(typeof(var)).")
-end
-export @tographdata
-
-# Convenience to re-bind in local scope, avoiding the akward following pattern:
-#   long_var_name = @tographdata long_var_name <...>
-# In favour of:
-#   @tographdata! long_var_name <...>
-macro tographdata!(var::Symbol, input)
-    @defloc
-    evar = esc(var)
-    :($evar = $(tographdata(loc, var, input)))
-end
-export @tographdata!

@@ -92,14 +92,12 @@ Don't produce views into mutable data that could otherwise break the COW-pattern
 
 module Networks
 
+import EcologicalNetworksDynamics: EN
+import .EN: Option, SparseMatrix
+
 using Crayons
 using OrderedCollections
 using SparseArrays
-
-using ..Display
-
-const Option{T} = Union{Nothing,T}
-const SparseMatrix{T} = SparseMatrixCSC{T,Int}
 
 include("./iterators.jl")
 include("./errors.jl")
