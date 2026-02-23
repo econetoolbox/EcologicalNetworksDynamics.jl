@@ -2,4 +2,4 @@
 # transform absorbed input into final network storage data.
 # These cannot fail as they would abort the system's `expand!` methods.
 
-# HERE: collect after cleanup as the need arises.
+# HERE: come fill as we review typical component code.

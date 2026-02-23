@@ -1,13 +1,42 @@
+# Flexibility is allowed on the input type,
+# with the following conversions implicitly performed:
+
+# - (*) `Real -> Float64` (in particular: `Integer -> Float64`)
+# - (*) `Integer` -> Bool` (let julia guard against values other than `0` or `1`)
+# - (*) `Integer` -> Int64`
+# - `(Symbol, Char) -> String`
+# - `(AbstractString, Char) -> Symbol`
+
+# Conversions marked with (*) are also implicitly performed on collections types.
+# For `Coll` in `{Vector, Matrix, SparseVector, SparseMatrix}`:
+
+# - `Coll{<:Real} -> Coll{Float64}`
+# - `Coll{<:Integer} -> Coll{Bool}`
+# - `Coll{<:Integer} -> Coll{Int64}`
+
+# Additionally:
+
+# - `Vector{*} -> SparseVector{*}`
+# - `Matrix{*} -> SparseMatrix{*}`
+
+# No other conversion is implicitly performed yet.
+
+# Matching julia's `convert` behaviour,
+# if there is no need to construct or convert to a new value,
+# then the original value is used, and so the user keeps an *aliased reference* to it.
+# This makes it possible for user to avoid unnecessary copies
+# at the cost of providing the exact correct type.
+
 """
 Without any context, call with a target type to convert input.
 """
-absorb(::Type, input) = input # Default to identity.
+inputconvert(::Type, input) = input # Default to identity.
 
 # ==========================================================================================
 # Scalar conversions.
 macro allow_convert(Input, Target, f)
     esc(quote
-        absorb(::Type{$Target}, v::$Input) = $f(v)
+        inputconvert(::Type{$Target}, v::$Input) = $f(v)
     end)
 end
 #! format: off

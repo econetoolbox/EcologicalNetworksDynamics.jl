@@ -14,27 +14,85 @@ In other words, typical components in the package are expected to be:
 .. each with their own typical set of blueprints, properties,
 input checking/parsing, semantics.
 This module aims to make it easy for component authors to do that.
+
+User input may take various ergonomic forms, supported by this module,
+but it essentially reflects the underlying graph structure
+so it mostly falls into three categories:
+
+- Network (graph-level) data:
+    - Scalar: *eg.* `5`.
+
+- Class (node-level) data:
+    - Vector: *eg.* `[4, 5, 6]`
+    - Sparse vector for 'masked' classes, considered from the perspective of a parent class:
+      *eg.* `[·, 4, ·, ·, 5, ·, 6]`
+    - Map (key-value pairs) of the form:
+      - `[:a => u, :c => v]`   (using nodes labels)
+      - `[1 => u, 3 => v]`     (using node indices, in the context of one particular class)
+    - For convenience, nodes may be grouped:
+      - `[(:a, :b) => u, (:c, :d) => v]`
+      - `[(1, 2) => u, (3, 4) => v]`
+    - For convenience, binary data are elided:
+      - `[:a, :c]`
+      - `[1, 3]`
+
+- Web (edge-level) data:
+    - Matrix for dense webs.
+    - Sparse matrix for sparse webs.
+    - Matrix for dense webs, but then a default value must be identified
+      and found in every non-entry.
+    - Adjacency lists of the form:
+      - Using node labels:
+        - `[:a => (:b => u, :c => v), :b => (:d => w)]`  (group targets)
+        - `[(:a => u, :b => v) => :c, (:b => w) => :d]`  (group sources)
+        - `[(:a, :b) => (:c => u, :d => v)]`             (group both, target-wise)
+        - `[(:a => u, :b => v) => (:c, :d)]`             (group both, source-wise)
+        - `[(:a => u, :b => v) => :c, :b => (:d => w)]`  (mixing allowed)
+        - `[(:a => u, :b => v) => :c, :b => (:d => w)]`  (mixing allowed)
+      - Using node indices, in the context of one particular (source, target) class pair.
+        - `[1 => (2 => u, 3 => v), 2 => (4 => w)]`       (using nodes indices)
+        - *etc.*                                            ⋮
+      - For convenience, binary data are elided:
+          - `[:a => (:b, :c), :b => (:d,)]`  (group targets)
+          - `[(:a, :b) => :c, (:b,) => :d]`  (group sources)
+          - `[(:a, :b) => (:c, :d)]`         (group both)
+          - `[(:a, :b) => :c, :b => (:d,)]`  (mixing)
+          - `[1 => [2, 3], 2 => [4]]`
+          - *etc.*
+      - For convenience, allow singletons, unambiguous in this context:
+          - `[:a => :b, :b => :d]`
+          - `[1 => 2, 2 => 4]`
 """
 module NetworkFramework
 
 import EcologicalNetworksDynamics: EN, N, F, I, argerr
+const NF = NetworkFramework
 
 using Crayons
 
 # Define extension points to customize components behaviours.
 include("dispatchers.jl")
 using .Dispatchers
-
-# Typical user input data preprocessing.
-include("./Inputs/Inputs.jl") # HERE: into hard-refreshing the whole module.
+const D = Dispatchers
 
 # Dedicate framework to the specific `Network` value.
 include("framework.jl")
+
+# Typical user input data preprocessing.
+include("./convert.jl")
+include("./lists.jl")
+include("./check.jl")
+include("./expand.jl")
+struct InputError <: Exception
+    mess::String
+end
+inerr(m, throw = Base.throw) = throw(InputError(m))
 
 # Typical views into network data.
 include("./Views/Views.jl")
 
 # Templates for typical network components.
+# HERE: update the following after the above review.
 include("./class.jl")
 include("./web.jl")
 include("./nodes.jl")

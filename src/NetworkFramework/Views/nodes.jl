@@ -110,16 +110,16 @@ index(s::S) = class(s).index
 """
 Generic checking logic, assuming checked ref.
 """
-check_write(s::S, x, ref) =
-    if readonly(s)
+check_write(s::S, x, ref) = if readonly(s)
         err(s, "Values of $(repr(fieldname(s))) are readonly.")
     else
         x = try
-            # Dispatch to correct possible check extension.
             d = dispatcher(s)
-            C.check_value(d, model(s), x, ref)
+            T = eltype(s)
+            m = model(s)
+            NF.check_value(d, T, m, x, ref)
         catch e
-            e isa C.ValueError || rethrow(e)
+            e isa InputError || rethrow(e)
             rethrow(WriteError(e, fieldname(s), ref, x))
         end
         x

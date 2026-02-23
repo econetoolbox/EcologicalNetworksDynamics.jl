@@ -72,7 +72,6 @@ Base.show(io::IO, p::F.PropertySpace{name,P,Network}) where {name,P} =
 #-------------------------------------------------------------------------------------------
 # Default display for blueprint fields.
 
-# HERE: Review display after typical field types review in Inputs.jl.
 # Vector.
 function F.display_blueprint_field_short(io::IO, v::AbstractVector, ::Blueprint)
     print(io, "[$(EN.join_elided(v, ", "))]")
@@ -112,11 +111,7 @@ function F.display_blueprint_field_short(io::IO, m::EN.SparseMatrix, ::Blueprint
 end
 
 # Map.
-function F.display_blueprint_field_short(
-    io::IO,
-    map::@GraphData(Map{T}),
-    ::Blueprint,
-) where {T}
+function F.display_blueprint_field_short(io::IO, map::Map, ::Blueprint)
     it = I.map(map) do (k, v)
         "$k: $v"
     end
@@ -124,11 +119,7 @@ function F.display_blueprint_field_short(
 end
 
 # Adjacency list.
-function F.display_blueprint_field_short(
-    io::IO,
-    adj::@GraphData(Adjacency{T}),
-    bp::Blueprint,
-) where {T}
+function F.display_blueprint_field_short(io::IO, adj::Adjacency, bp::Blueprint)
     it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
@@ -136,16 +127,12 @@ function F.display_blueprint_field_short(
 end
 
 # Binary map.
-function F.display_blueprint_field_short(io::IO, set::@GraphData(Map{:bin}), ::Blueprint)
+function F.display_blueprint_field_short(io::IO, set::BinMap, ::Blueprint)
     print(io, "{$(EN.join_elided(set, ", "; repr = false))}")
 end
 
 # Binary adjacency list.
-function F.display_blueprint_field_short(
-    io::IO,
-    adj::@GraphData(Adjacency{:bin}),
-    bp::Blueprint,
-)
+function F.display_blueprint_field_short(io::IO, adj::BinAdjacency, bp::Blueprint)
     it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end

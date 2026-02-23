@@ -22,42 +22,23 @@ although they should implement the same interface (mutability aside):
     - Views into internal network mutable *data* associated with nodes and edges
       directly wrap a `Networks.View` along with a reference to its model.
       Refer to them as `DataView`s.
-      These are generic over the (class/web, field) names,
-      so this may be used for dispatching field-specific behaviour like value checking.
 
     - Views into network *topology* (node names, edges and restriction binary masks)
       also conceptually wrap data associated with nodes and edges,
       but these are not reified as underlying vectors and are immutable.
       Refer to them as `TopologyView`s and `MaskView`s.
 
-All views are parametrized with a network config dispatcher
+View types are parametrized with a dispatcher
 so their behaviour can be fine-tuned by downstream component authors.
 """
 module Views
 
+import EcologicalNetworksDynamics: N, F, I, NetworkFramework, Display, Option
+using .NetworkFramework
+import NetworkFramework: NF, D, Model, Ref, InputError
+
 using SparseArrays
 using Crayons
-
-using ..Networks
-using ..Framework
-using ..Display
-import ..Model
-import ..NetworkConfig
-
-const N = Networks
-const V = Views
-const C = NetworkConfig
-const Option{T} = Union{T,Nothing}
-const Ref = Union{Int,Symbol}
-
-struct Error <: Exception
-    type::Type # (View type)
-    message::String
-end
-err(T::Type, m) = throw(Error(T, m))
-err(t, m, throw = throw) = throw(Error(typeof(t), m))
-Base.showerror(io::IO, e::Error) =
-    print(io, "View error ($(type_info(e.type))): $(e.message)")
 
 """
 Extract an owned copy of the viewed data under a regular dense/sparse vector/matrix form.
@@ -111,5 +92,17 @@ model(v::S) = getfield(v, :model)
 network(v::S) = v |> model |> value
 Base.getproperty(n::S, ::Symbol) = err(n, "no property to access.")
 Base.setproperty!(n::S, ::Symbol) = err(n, "no property to access.")
+
+# ==========================================================================================
+# Dedicated view exception.
+
+struct Error <: Exception
+    type::Type # (View type)
+    mess::String
+end
+err(T::Type, m) = throw(Error(T, m))
+err(t, m, throw = throw) = throw(Error(typeof(t), m))
+Base.showerror(io::IO, e::Error) =
+    print(io, "View error ($(type_info(e.type))):\n$(e.mess)")
 
 end

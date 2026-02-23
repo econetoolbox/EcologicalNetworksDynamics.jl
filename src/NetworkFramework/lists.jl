@@ -1,3 +1,49 @@
+# Any iterable input structured like:
+#
+# ```
+# [
+#   [Ref, T],
+#   [(Ref, ...), T], # (grouped nodes)
+#   ...,
+# ]
+# ```
+#
+# is accepted and parsed as a nodes data map.
+#
+# In the special case of binary data (`T = Bool`), any iterable input like:
+#
+# ```
+# [Ref, ...]
+# ```
+#
+# is accepted and parsed into a nodes mask.
+#
+# In either case, duplicated 'Ref' keys are rejected.
+#
+# ### Parsing adjacency lists.
+#
+# Any iterable input structured like:
+# ```
+# [
+#   [Ref, ([Ref, T], ...)], # (grouped targets)
+#   [([Ref, T], ...), Ref], # (grouped sources)
+#   ...,
+# ]
+# ```
+# is accepted and parsed into an edges data adjacency list.
+#
+# In the special case of binary data (`T = Bool`), any iterable input like:
+# ```
+# [
+#   [Ref, (Ref, ...)], # (grouped targets)
+#   [(Ref, ...), Ref], # (grouped sources)
+#   ...,
+# ]
+# ```
+#
+# is accepted and parsed into an edges adacency list.
+#
+# In either case, duplicated 'Ref' keys are rejected, on source either source or target side.
 # Map/Adjacency lists parsing.
 #
 # Any kind of input is allowed, making these "parsers" very non-type-stable.
@@ -22,6 +68,24 @@
 # attempting to parse as either category,
 # asking "forgiveness rather than permission".
 # During this diagnosis, normalize any 'plain' input to a (grouped,) input.
+
+# Maps and adjacency lists inputs are parsed into values of the following types.
+# The `R`eference type is either inferred to Int (index) or Symbol (label)
+# depending on user input.
+const Ref = Union{Int,Symbol}
+const Map{R,T} = OrderedDict{R,T}
+const BinMap{R} = OrderedSet{R}
+const Adjacency{R,T} = OrderedDict{R,OrderedDict{R,T}}
+const BinAdjacency{R} = OrderedDict{R,OrderedSet{R}}
+export Map, Adjacency, BinMap, BinAdjacency
+reftype(::Type{Map{R}}) where {R} = R
+reftype(::Type{Adjacency{R}}) where {R} = R
+reftype(::Type{BinMap{R}}) where {R} = R
+reftype(::Type{BinAdjacency{R}}) where {R} = R
+valtype(::Type{Map{R,T}}) where {R,T} = T
+valtype(::Type{Adjacency{R,T}}) where {R,T} = T
+valtype(::Type{BinMap}) = Bool
+valtype(::Type{BinAdjacency}) = Bool
 
 # Use this type to hold all state required
 # during input parsing, especially useful for quality reporting in case of invalid input.
@@ -166,7 +230,7 @@ forgive(f, parser) =
 
 parse_value(p::Parser, input) =
     try
-        absorb(p.T, input)
+        inputconvert(p.T, input)
     catch
         forgerr(
             :not_a_value,
@@ -217,10 +281,10 @@ struct TripleWorks end
 
 function parse_plain_ref!(p::Parser, input, what)
     (ref, R, ok) = try
-        (absorb(Symbol, input), Symbol, true)
+        (inputconvert(Symbol, input), Symbol, true)
     catch
         try
-            (absorb(Int, input), Int, true)
+            (inputconvert(Int, input), Int, true)
         catch
             (nothing, nothing, false)
         end
@@ -281,7 +345,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
         plain_error isa Forgiveness || rethrow(plain_error) # (not to miss bugs)
         try
             f = fork(p, R -> BinMap{R})
-            refs = absorb(
+            refs = parse(
                 BinMap{<:Any},
                 input;
                 ExpectedRefType,
@@ -324,7 +388,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
         plain_error isa Forgiveness || rethrow(plain_error)
         try
             f = fork(p, R -> Map{R,p.T})
-            pairs = absorb(
+            pairs = parse(
                 Map{<:Any,p.T},
                 input;
                 parser = f,
@@ -364,7 +428,7 @@ parse_grouped_pairs_priorities = priorities([
 #-------------------------------------------------------------------------------------------
 # Parse binary maps.
 
-function absorb(
+function parse(
     ::Type{BinMap{<:Any}},
     input;
     ExpectedRefType = nothing,
@@ -400,7 +464,7 @@ function absorb(
 end
 
 # The binary case *can* accept boolean masks.
-function absorb(
+function parse(
     ::Type{BinMap{<:Any}},
     input::AbstractVector{Bool};
     # Match the general case..
@@ -461,7 +525,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse general maps.
 
-function absorb(
+function parse(
     ::Type{Map{<:Any,T}},
     input;
     ExpectedRefType = nothing,
@@ -512,7 +576,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse binary adjacency maps.
 
-function absorb(
+function parse(
     ::Type{BinAdjacency{<:Any}},
     input;
     ExpectedRefType = nothing,
@@ -583,7 +647,7 @@ function absorb(
 end
 
 # The binary case *can* accept boolean matrices.
-function absorb(
+function parse(
     ::Type{BinAdjacency{<:Any}},
     input::AbstractMatrix{Bool};
     ExpectedRefType = nothing,
@@ -630,7 +694,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse adjacency maps.
 
-function absorb(
+function parse(
     ::Type{Adjacency{<:Any,T}},
     input;
     ExpectedRefType = nothing,
@@ -753,28 +817,28 @@ adjacency_map_priorities = priorities([
 
 #-------------------------------------------------------------------------------------------
 # Alias if types matches exactly.
-absorb(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
-absorb(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
-absorb(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
-absorb(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
-absorb(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
-absorb(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
-absorb(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
-absorb(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
+parse(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
+parse(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
+parse(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
+parse(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
+parse(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
+parse(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
+parse(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
+parse(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.
-function absorb(::Type{BinMap}, input::Map{R}) where {R}
+function parse(::Type{BinMap}, input::Map{R}) where {R}
     res = BinMap{R}()
     for (k, _) in input
         push!(res, k)
     end
     res
 end
-function absorb(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
+function parse(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
     res = BinAdjacency{R}()
     for (i, sub) in input
-        res[i] = absorb(BinMap, sub)
+        res[i] = parse(BinMap, sub)
     end
     res
 end

@@ -64,9 +64,10 @@ struct AddState{V}
     brought::Dict{CompType{V},Vector{Node}}
 
     # Keep track of the fully checked blueprints,
-    # along with the brought blueprints that need to be expanded *prior* to themselves.
+    # along with the brought blueprints that need to be expanded *prior* to themselves,
+    # and the arbitrary data created by `early_check`.
     # Populated during post-order traversal.
-    checked::OrderedDict{CompType{V},Tuple{Node,Requirements{V}}}
+    checked::OrderedDict{CompType{V},Tuple{Node,Requirements{V},Any}}
 
     # Bring defaults.
     # The callables signature is (caller_status, if_unbrought) -> Blueprint:
@@ -243,7 +244,7 @@ function check!(add::AddState, node::Node)
         end
 
         # Run exposed hook for further checking.
-        try
+        data = try
             early_check(blueprint)
         catch e
             if e isa CheckError
@@ -256,7 +257,7 @@ function check!(add::AddState, node::Node)
         # Record as a fully checked node, along with the list of nodes
         # to expand prior to itself.
         checked[C] =
-            (node, OrderedSet(R for (R, _, _) in reqs if !has_component(target, R)))
+            (node, OrderedSet(R for (R, _, _) in reqs if !has_component(target, R)), data)
     end
 
 end
@@ -381,33 +382,33 @@ function add!(
         end
 
         # Order the checked blueprints so their requirements are met prior to expansion.
-        expand = OrderedSet{CompType{V}}()
+        expand = OrderedSet{Tuple{CompType{V},Any}}()
         while !isempty(checked)
             # Search for the first component
             # whose bringer blueprint has all requirements met.
-            (C, (_, reqs)) = first(checked)
+            (C, (_, reqs, data)) = first(checked)
             while true
                 for R in reqs
                     R in expand && continue
                     C = R
-                    _, reqs = checked[R]
+                    _, reqs, data = checked[R]
                     break
                 end
                 break
             end
             # Expand it before the others.
             pop!(checked, C)
-            push!(expand, C)
+            push!(expand, (C, data))
         end
 
         # Expand them all in correct order.
-        for C in expand
+        for (C, data) in expand
             node = first(brought[C])
             blueprint = node.blueprint
 
             # Last check hook against current system value.
             data = try
-                late_check(value(system), blueprint, system)
+                late_check(value(system), blueprint, system, data)
             catch e
                 if e isa CheckError
                     rethrow(HookCheckFailure(node, e.message, true))

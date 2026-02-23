@@ -118,6 +118,18 @@ implies_blueprint_for(b::Blueprint, c::Component) = implies_blueprint_for(b, typ
 #-------------------------------------------------------------------------------------------
 # Conflicts.
 
+# Framework users will use this method to verify blueprint value
+# before brought blueprints are expanded.
+# When this runs, it is guaranteed
+# that there is no conflicting component in the system
+# and that all required components are met,
+# but, as it cannot be assumed that required components have already been expanded,
+# the check should not depend on the system value.
+# Issue `CheckError` on failure.
+# On success, return arbitrary data useful for `late_check`.
+# TODO: add formal test for this.
+early_check(::Blueprint) = nothing # No particular constraint to enforce by default.
+
 # Assuming that all component addition / blueprint expansion conditions are met,
 # and that brought blueprints have already been expanded,
 # verify that the internal system value can still receive it.
@@ -135,17 +147,7 @@ implies_blueprint_for(b::Blueprint, c::Component) = implies_blueprint_for(b, typ
 #       This is to avoid the need for making the system mutable and systematically fork it
 #       to possibly revert to original state in case of failure.
 #       TODO: would a swap!(::Network, ::Network) help?
-late_check(_, ::Blueprint) = nothing # No particular constraint to enforce by default.
-
-# Same, but *before* brought blueprints are expanded.
-# When this runs, it is guaranteed
-# that there is no conflicting component in the system
-# and that all required components are met,
-# but, as it cannot be assumed that required components have already been expanded,
-# the check should not depend on the system value.
-# Issue `CheckError` on failure.
-# TODO: add formal test for this.
-early_check(::Blueprint) = nothing # No particular constraint to enforce by default.
+late_check(_, ::Blueprint, early_check_data) = nothing
 
 # The expansion step is when the wrapped system value is finally modified,
 # based on the information contained in the blueprint,
@@ -160,7 +162,7 @@ early_check(::Blueprint) = nothing # No particular constraint to enforce by defa
 #       Note that random expansion would result in:
 #       (System{Value}() + blueprint).property != (System{Value}() + blueprint).property
 #       which may be confusing.
-expand!(_, ::Blueprint, data) = nothing # Expanding does nothing by default.
+expand!(_, ::Blueprint, late_check_data) = nothing # Expanding does nothing by default.
 
 # NOTE: the above signatures for default functions *could* be more strict
 # like eg. `check(::V, ::Blueprint{V}) where {V}`,
@@ -176,8 +178,10 @@ expand!(_, ::Blueprint, data) = nothing # Expanding does nothing by default.
 # This third argument is ignored by default,
 # unless in overriden methods.
 # Issue `CheckError` on failure.
-late_check(v, b::Blueprint, _) = late_check(v, b)
+late_check(v, b::Blueprint, data, _) = late_check(v, b, data)
 expand!(v, b::Blueprint, data, _) = expand!(v, b, data)
+# TODO: avoid this and directly receive the system value,
+# having users resort to `F.value` to obtain the underlying raw value to mutate.
 
 # ==========================================================================================
 # Explicit terminal display.
