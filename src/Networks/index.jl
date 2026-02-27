@@ -8,13 +8,14 @@ struct Index
     Index(f, r) = new(f, r)
 end
 S = Index
-Base.keys(v::S) = keys(v.forward)
-Base.length(v::S) = length(v.forward)
-fork(v::Index) = Index(copy(v.forward), copy(v.reverse))
-labels(v::S) = keys(v.forward)
-to_index(v::S, l::Symbol) = v.forward[l]
-to_label(v::S, i::Int) = v.reverse[i]
-export to_index, to_label
+Base.keys(s::S) = keys(s.forward)
+Base.length(s::S) = length(s.forward)
+fork(s::Index) = Index(copy(s.forward), copy(s.reverse))
+labels(s::S) = keys(s.forward)
+to_index(s::S, l::Symbol) = s.forward[l]
+to_label(s::S, i::Int) = s.reverse[i]
+is_label(s::S, l::Symbol) = haskey(s.forward, l)
+is_index(s::S, i::Int) = 1 <= i <= length(s)
 
 """
 Build from a parent index and a restriction, assuming they are consistent.

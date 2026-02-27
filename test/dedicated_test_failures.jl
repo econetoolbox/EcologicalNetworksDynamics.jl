@@ -12,6 +12,6 @@ export @failswith, @xargfails, @argfails
 include("./dedicated_test_failures/network.jl")
 include("./dedicated_test_failures/aliasing.jl")
 include("./dedicated_test_failures/framework.jl")
-include("./dedicated_test_failures/views.jl")
+#  include("./dedicated_test_failures/views.jl")
 
 end

@@ -283,6 +283,22 @@ function SparseReflexive(m::AbstractMatrix{Bool})
     SparseReflexive(nodes, n_edges)
 end
 
+"""
+Construct from adjacency list iterable, assuming valid, non-duplicate indices.
+"""
+function SparseReflexive(n_nodes::Int, adj)
+    nodes = [(Map(), Map()) for _ in 1:n_nodes]
+    n_edges = 0
+    for (source, sub) in adj
+        for target in sub
+            n_edges += 1
+            nodes[source][2][target] = n_edges
+            nodes[target][1][source] = n_edges
+        end
+    end
+    SparseReflexive(nodes, n_edges)
+end
+
 # ==========================================================================================
 struct SparseSymmetric <: SymmetricTopology
     nodes::Vector{Map} # [node: {neighbour: edge}]

@@ -1,5 +1,6 @@
-# Expansion utils: assuming absorption succeeded,
-# transform absorbed input into final network storage data.
-# These cannot fail as they would abort the system's `expand!` methods.
+# Expansion utils: assuming early and late checks succeeded,
+# transform input into final network storage data.
+# These cannot fail as they would abort the system's `expand!` methods,
+# but they may assume correctly parsed/checked input.
 
-# HERE: come fill as we review typical component code.
+# HERE: really needed?

@@ -31,8 +31,8 @@ function define_node_data_component(
     flat_blueprint = nothing,
 )
     #---------------------------------------------------------------------------------------
-    class, data = content(nd)
-    Class, Data = content(ND)
+    class, data = D.content(nd)
+    Class, Data = D.content(ND)
     Data_ = Symbol(Data, :_) # Blueprints module name.
     _Data = Symbol(:_, Data) # Component type name.
     # Dispatch to this node class field.
@@ -47,20 +47,12 @@ function define_node_data_component(
                 quote
                     module $Data_
                     import EcologicalNetworksDynamics:
-                        Blueprint,
-                        Framework,
-                        Networks,
-                        GraphDataInputs,
-                        Views,
-                        @blueprint,
-                        NetworkConfig
+                        Blueprint, Framework, Networks, Views, @blueprint, NetworkConfig
                     using .Networks
                     using .Framework
-                    using .GraphDataInputs
                     using .NetworkConfig
                     const N = Networks
                     const F = Framework
-                    const T = GraphDataInputs # "T"ypes.
                     const Class = $mod.$Class
                     const _Class = typeof(Class)
                     const nd = $nd
@@ -77,11 +69,10 @@ function define_node_data_component(
             mutable struct Raw <: Blueprint
                 $field::Vector{$T}
                 $class::Brought(Class)
-                Raw($field, $class = _Class) =
-                    new(graphdataconvert(Vector{$T}, $field), $class)
+                Raw($field, $class = _Class) = new(construct(Vector{$T}, $field), $class)
             end
             F.implied_blueprint_for(bp::Raw, ::_Class) = Class(length(bp.$field))
-            F.early_check(bp::Raw) = nodes_raw_early_check(nd, bp.$field)
+            F.early_check(bp::Raw) = $nodes_raw_early_check(nd, bp.$field)
             F.late_check(raw, bp::Raw, model) =
                 nodes_raw_late_check(nd, raw, bp.$field, model)
             F.expand!(raw, ::Raw, values) = expand_from_vector!(raw, values)
@@ -95,9 +86,9 @@ function define_node_data_component(
     blueprints.eval(
         quote
             mutable struct Map <: Blueprint
-                $field::T.Map{$T}
+                $field::Map{$T}
                 $class::Brought(Class)
-                Map($field, sp = _Class) = new(graphdataconvert(T.Map{$T}, $field), sp)
+                Map($field, sp = _Class) = new(graphdataconvert(Map{$T}, $field), sp)
             end
             F.implied_blueprint_for(bp::Map, ::_Class) = Class(refspace(bp.$field))
             F.early_check(bp::Map) = nodes_map_early_check(nd, bp.$field)
@@ -193,62 +184,130 @@ function define_node_data_component(
 end
 
 # ==========================================================================================
-# Extract implementation detail to ease Revise work.
+# Extract implementation detail to ease Revise work + specify extension points.
 
 #-------------------------------------------------------------------------------------------
-# Raw blueprint.
+# Check data values without model information, against the target type.
 
-nodes_raw_early_check(nd::NodeData, values::Vector) =
-    for (i, value) in enumerate(values)
-        try
-            check_value(nd, value)
-        catch e
-            e isa ValueError && checkfails(
-                "When checking vector data for $nd \
-                 at index [$i]:\n$(e.message)",
-                rethrow,
-            )
-            rethrow(e)
-        end
+check(::Dispatcher, T::Type, value) = inputconvert(T, value)
+check_with_ref(d::Dispatcher, T::Type, value, i::Int) =
+    try
+        check(d, T, value)
+    catch e
+        e isa InputError || rethrow(e)
+        inerr("At node index [$i]:\n$(e.mess)", rethrow)
+    end
+check_with_ref(d::Dispatcher, T::Type, value, l::Symbol) =
+    try
+        check(d, T, value)
+    catch e
+        e isa InputError || rethrow(e)
+        inerr("At node with label $(repr(l)):\n$(e.mess)", rethrow)
     end
 
-function nodes_raw_late_check(nd::NodeData, raw::Network, values::Vector, model::Model)
-    # Check number of values first.
-    n = n_nodes(raw, class)
-    l = length(values)
-    n == l || checkfails("Wrong number of values received for $nd: expected $n, got $l.")
-    labels = node_labels(raw, class)
-    # Then convert values one by one.
-    map(enumerate(zip(labels, values))) do (i, (label, value))
+#-------------------------------------------------------------------------------------------
+# Check against a model value, assuming the type and raw value is already correct.
+
+check(::Dispatcher, ::Model, value) = value # Nothing to check by default.
+
+function check_with_ref(d::NodeData, m::Model, value, i::Int, l::Symbol)
+    try
+        check(d, m, value, l)
+    catch e
+        e isa InputError || rethrow(e)
+        inerr("At node with label $(repr(l)) ([$i]):\n$(e.mess)", rethrow)
+    end
+end
+
+# Specialize the above, and automatically infer any reference type from the other one.
+function check_with_ref(d::NodeData, m::Model, value, i::Int)
+    network = F.value(m)
+    class = D.class(d)
+    index = N.index(network, class)
+    l = N.to_label(index, i)
+    check_with_ref(d, value, m, l, i)
+end
+function check_with_ref(d::NodeData, m::Model, value, l::Symbol)
+    network = F.value(m)
+    class = D.class(d)
+    index = N.index(network, class)
+    i = N.to_index(index, l)
+    check_with_ref(d, value, m, l, i)
+end
+
+#-------------------------------------------------------------------------------------------
+# Construct: any input is possible, but we don't know anything about the model yet.
+
+construct(::Dispatcher, T::Type, value) = check(T, value)
+construct_with_ref(d::NodeData, T::Type, value, r::Ref) = check_with_ref(d, T, value, r)
+construct_from_iterable(d::NodeData, T::Type, iter) =
+    try
+        [construct_with_ref(d, T, value, i) for (i, value) in enumerate(iter)]
+    catch e
+        e isa InputError || rethrow(e)
+        inerr("When constructing $d from iterable:\n$(e.mess)", rethrow)
+    end
+construct_from_map(d::NodeData, T::Type, map) =
+    try
+        parse(Map{<:Any,T}, map)
+    catch e
+        e isa InputError || rethrow(e)
+        inerr("When constructing $d from map:\n$(e.mess)", rethrow)
+    end
+
+#-------------------------------------------------------------------------------------------
+# Early-check: correct type, unchecked values, no model information yet.
+
+function early_check(d::NodeData, vec::Vector)
+    T = eltype(vec)
+    data = T[]
+    for (i, value) in enumerate(vec)
         try
-            check_value(nd, model, value, label, i)
+            push!(data, check_with_ref(d, T, value, i))
         catch e
-            e isa ValueError && checkfails(
-                "Incorrect value at index [$i] ($(repr(label))):\n$(e.message)",
-                rethrow,
-            )
-            rethrow(e)
+            e isa InputError || rethrow(e)
+            F.checkfails("When checking $d values array:\n$(e.mess)", rethrow)
         end
+    end
+    data
+end
+
+function early_check(d::NodeData, map::Map)
+    R, T = reftype(map), valtype(map)
+    try
+        parse(Map{R,T}, map) # Re-parse in case blueprint was mutated.
+    catch e
+        e isa InputError || rethrow(e)
+        inerr("When checking $d values map:\n$(e.message)", rethrow)
     end
 end
 
 #-------------------------------------------------------------------------------------------
-# Map blueprint.
+# Late-check: correct type, checked values, model information is now available.
 
-nodes_map_early_check(nd::NodeData, values::Vector) =
-    for (label, value) in values
+function late_check(nd::NodeData, m::Model, values::Vector)
+    # Check number of values first.
+    network = NF.network(m)
+    class = D.class(nd)
+    n = N.n_nodes(network, class)
+    l = length(values)
+    n == l || F.checkfails("Wrong number of values received for $nd: expected $n, got $l.")
+    labels = N.node_labels(network, class)
+    # Then convert values one by one.
+    map(enumerate(zip(labels, values))) do (i, (label, value))
         try
-            check_value(nd, label)
+            check(nd, m, value, label, i)
         catch e
-            e isa ValueError && checkfails(
-                "When checking map data for $nd \
-                 for label [$(repr(label))]:\n$(e.message)",
+            e isa InputError || rethrow(e)
+            F.checkfails(
+                "Incorrect value at index [$i] ($(repr(label))):\n$(e.message)",
                 rethrow,
             )
-            rethrow(e)
         end
     end
+end
 
+# HERE: review and fit into the above.
 function nodes_map_late_check(nd::NodeData, raw::Network, map::Map, model::Model)
     # Check labels first.
     labels = node_labels(raw, class)
@@ -280,6 +339,37 @@ function nodes_map_late_check(nd::NodeData, raw::Network, map::Map, model::Model
     end
 end
 
+# HERE: merge with the above?
+function late_check_vec(d::Dispatcher, m::Model, vec::Vector)
+    net = F.value(m)
+    class = D.class(d)
+    index = N.index(net, class)
+    names = N.labels(index)
+    try
+        for (name, (i, value)) in zip(names, enumerate(vec))
+            check_with_ref(d)
+        end
+    catch e
+        e isa InputError || rethrow(e)
+        F.checkfails("When checking $d values array against model:\n$(e.message)", rethrow)
+    end
+    vec
+end
+
+#-------------------------------------------------------------------------------------------
+# Mutation: called when setting through a view.
+# Input may be anything, but the underlying model value can be assumed to be correct.
+
+# HERE: use.
+mutate_check(d::Dispatcher, T::Type, m::Model, value, ref) =
+    try
+        value = check_with_ref(d, T, value, ref)
+        check_with_ref(d, m, value, ref)
+    catch e
+        e isa InputError || rethrow(e)
+        inerr("When attempting to mutate $d node value:\n$(e.message)", rethrow)
+    end
+
 #-------------------------------------------------------------------------------------------
 # Display.
 
@@ -292,3 +382,4 @@ function nodes_shortline(io::IO, model::Model, nd::NodeData, Data::Symbol)
         print(io, "$Data: [$(join_elided(data, ", "))]")
     end
 end
+

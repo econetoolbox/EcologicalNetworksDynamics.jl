@@ -10,6 +10,7 @@ using Distributions
 
 # Common throughout the code.
 const EN = EcologicalNetworksDynamics
+const I = Iterators
 const Option{T} = Union{T,Nothing}
 const SparseMatrix{T} = SparseMatrixCSC{T,Int}
 argerr(message, throw = Base.throw) = throw(ArgumentError(message))

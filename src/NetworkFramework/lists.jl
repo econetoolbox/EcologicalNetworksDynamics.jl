@@ -345,7 +345,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
         plain_error isa Forgiveness || rethrow(plain_error) # (not to miss bugs)
         try
             f = fork(p, R -> BinMap{R})
-            refs = parse(
+            refs = inputconvert(
                 BinMap{<:Any},
                 input;
                 ExpectedRefType,
@@ -388,7 +388,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
         plain_error isa Forgiveness || rethrow(plain_error)
         try
             f = fork(p, R -> Map{R,p.T})
-            pairs = parse(
+            pairs = inputconvert(
                 Map{<:Any,p.T},
                 input;
                 parser = f,
@@ -428,7 +428,7 @@ parse_grouped_pairs_priorities = priorities([
 #-------------------------------------------------------------------------------------------
 # Parse binary maps.
 
-function parse(
+function inputconvert(
     ::Type{BinMap{<:Any}},
     input;
     ExpectedRefType = nothing,
@@ -464,7 +464,7 @@ function parse(
 end
 
 # The binary case *can* accept boolean masks.
-function parse(
+function inputconvert(
     ::Type{BinMap{<:Any}},
     input::AbstractVector{Bool};
     # Match the general case..
@@ -525,7 +525,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse general maps.
 
-function parse(
+function inputconvert(
     ::Type{Map{<:Any,T}},
     input;
     ExpectedRefType = nothing,
@@ -576,7 +576,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse binary adjacency maps.
 
-function parse(
+function inputconvert(
     ::Type{BinAdjacency{<:Any}},
     input;
     ExpectedRefType = nothing,
@@ -647,7 +647,7 @@ function parse(
 end
 
 # The binary case *can* accept boolean matrices.
-function parse(
+function inputconvert(
     ::Type{BinAdjacency{<:Any}},
     input::AbstractMatrix{Bool};
     ExpectedRefType = nothing,
@@ -694,7 +694,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse adjacency maps.
 
-function parse(
+function inputconvert(
     ::Type{Adjacency{<:Any,T}},
     input;
     ExpectedRefType = nothing,
@@ -817,28 +817,28 @@ adjacency_map_priorities = priorities([
 
 #-------------------------------------------------------------------------------------------
 # Alias if types matches exactly.
-parse(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
-parse(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
-parse(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
-parse(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
-parse(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
-parse(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
-parse(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
-parse(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
+inputconvert(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
+inputconvert(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
+inputconvert(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
+inputconvert(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
+inputconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
+inputconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
+inputconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
+inputconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.
-function parse(::Type{BinMap}, input::Map{R}) where {R}
+function inputconvert(::Type{BinMap}, input::Map{R}) where {R}
     res = BinMap{R}()
     for (k, _) in input
         push!(res, k)
     end
     res
 end
-function parse(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
+function inputconvert(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
     res = BinAdjacency{R}()
     for (i, sub) in input
-        res[i] = parse(BinMap, sub)
+        res[i] = inputconvert(BinMap, sub)
     end
     res
 end

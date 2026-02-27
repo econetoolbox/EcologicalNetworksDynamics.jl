@@ -2,10 +2,10 @@
 Typical setup for a component bringing a new class to the network.
 """
 function define_class_component(mod::Module, nc::NodeClass)
-    short_prefix, singular, plural, Singular, Plural = name_variants(nc)
+    short_prefix, singular, plural, Singular, Plural = D.name_variants(nc)
     Plural_ = Symbol(Plural, :_) # Blueprints module name.
     _Plural = Symbol(:_, Plural) # Component type name.
-    s, S, sp = Meta.quot.((plural, Plural, short_prefix)) # Symbol names.
+    s, S, short_prefix = Meta.quot.((plural, Plural, short_prefix)) # Symbol names.
 
     # ======================================================================================
     # Blueprints for the component.
@@ -17,9 +17,8 @@ function define_class_component(mod::Module, nc::NodeClass)
                 quote
                     module $Plural_
                     import EcologicalNetworksDynamics:
-                        Blueprint, Framework, Networks, GraphDataInputs, @blueprint
+                        Blueprint, Framework, Networks, @blueprint
                     const F = Framework
-                    const G = GraphDataInputs
                     const nc = $nc
                     end
                 end
@@ -28,36 +27,28 @@ function define_class_component(mod::Module, nc::NodeClass)
 
     #---------------------------------------------------------------------------------------
     # Construct from a given set of names.
-    blueprints.eval(quote
-        mutable struct Names <: Blueprint
-            names::Vector{Symbol}
-
-            # Convert anything to symbols.
-            Names(names) = new(G.graphdataconvert(Vector{Symbol}, names))
-            Names(names...) = new(Symbol.(collect(names)))
-
-            # From an index (useful when implied).
-            function Names(index::AbstractDict{Symbol,Int})
-                G.check_index(index)
-                new(G.to_dense_refs(index))
+    blueprints.eval(
+        quote
+            mutable struct Names <: Blueprint
+                names::Vector{Symbol}
+                Names(names) = new(construct_from_iterable(nc, Vector{Symbol}, names))
+                Names(names...) = new(construct_from_iterable(nc, Vector{Symbol}, names))
+                Names(names::Vector{Symbol}) = new(names) # Alias if type-exact.
             end
 
-            # Don't own data if useful to user.
-            Names(names::Vector{Symbol}) = new(names)
-        end
+            # Declare as a blueprint.
+            @blueprint Names "raw $($s) names"
+            export Names
 
-        # Declare as a blueprint.
-        @blueprint Names "raw $($s) names"
-        export Names
+            # Verify blueprint values.
+            F.early_check(bp::Names) = $early_check(nc, bp.names)
 
-        # Verify blueprint values.
-        F.early_check(bp::Names) = $class_names_early_check(nc, bp)
+            # Expand into a new compartment.
+            F.expand!(model, bp::Names, _) =
+                Networks.add_class!(network(model), $s, bp.names)
 
-        # Expand into a new compartment.
-        F.expand!(raw, bp::Names, _) = expand_from_vector!(raw, bp.names)
-        expand_from_vector!(raw, vec) = Networks.add_class!(raw, $s, vec)
-
-    end)
+        end,
+    )
 
     #---------------------------------------------------------------------------------------
     # Construct from a plain number and generate dummy names.
@@ -68,8 +59,10 @@ function define_class_component(mod::Module, nc::NodeClass)
             end
             @blueprint Number "number of $($s)"
             export Number
-            F.expand!(raw, bp::Number, _) =
-                expand_from_vector!(raw, [Symbol($sp, i) for i in 1:bp.n])
+            F.expand!(model, bp::Number, _) = expand_from_vector!(
+                network(model),
+                (Symbol($short_prefix, i) for i in 1:bp.n),
+            )
         end,
     )
 
@@ -106,7 +99,7 @@ function define_class_properties(
     nc::NodeClass,
     deps::Expr, # As in a regular call to @method.
 )
-    short_prefix, singular, plural, Singular, Plural = name_variants(nc)
+    short_prefix, singular, plural, Singular, Plural = D.name_variants(nc)
     s = Meta.quot(plural)
     M = Symbol(Plural, :Methods) # Create submodule to not pollute invocation scope..
     m = :(mod($mod)) # .. but still evaluate dependencies within the invocation module.
@@ -156,21 +149,23 @@ end
 # Extract implementation detail to ease Revise work.
 
 # Forbid duplicates (triangular check).
-function class_names_early_check(nc::NodeClass, bp::Blueprint)
-    Class = CamelCaseSingular(nc)
-    (; names) = bp
-    for (i, a) in enumerate(names)
-        for j in (i+1):length(names)
-            b = names[j]
-            a == b && F.checkfails("$Class $i and $j are both named $(repr(a)).")
+function early_check(nc::NodeClass, names::Vector{Symbol})
+    Class = D.CamelCaseSingular(nc)
+    already = OrderedDict{Symbol,Int}() # {name: index}
+    for (i, name) in enumerate(names)
+        if haskey(already, name)
+            j = already[name]
+            F.checkfails("$Class $i and $j are both named $(repr(name)).")
         end
+        already[name] = i
     end
+    names
 end
 
 # Display.
 function class_shortline(io::IO, model::Model, nc::NodeClass)
-    class = snake_case_plural(nc)
-    Class = CamelCaseSingular(nc)
+    class = D.snake_case_plural(nc)
+    Class = D.CamelCaseSingular(nc)
     names = getproperty(model, class)._names
     n = length(names)
     print(io, "$Class: $n ($(EN.join_elided(names, ", ")))")

@@ -85,3 +85,25 @@ end
 @allow_convert_all Real Float64
 @allow_convert_all Integer Int64
 @allow_convert_all Integer Bool
+
+# ==========================================================================================
+# Try successive conversions until one succeeds, applying the corresponding function then.
+
+function input_try(input, tries...) # [(Type, Function(conversion_result) -> _)]
+    for (T, then) in tries
+        x = try
+            inputconvert(T, input)
+        catch e
+            e isa InputError || rethrow(e)
+            continue
+        end
+        return then(x)
+    end
+    mess = IOBuffer()
+    print(mess, "Cannot convert input to either:")
+    for (T, _) in tries
+        print(mess, "\n  - $T")
+    end
+    mess = String(take!(mess))
+    inerr(mess)
+end
