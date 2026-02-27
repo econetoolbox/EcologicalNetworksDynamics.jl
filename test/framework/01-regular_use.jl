@@ -38,7 +38,7 @@ mutable struct NLines <: Blueprint{Value}
 end
 F.early_check(nl::NLines) =
     nl.n > 0 || checkfails("Not a positive number of lines: $(nl.n).")
-F.expand!(v, nl::NLines) = (v._n = nl.n)
+F.expand!(s, nl::NLines) = (value(s)._n = nl.n)
 @blueprint NLines
 @component Size{Value} blueprints(N::NLines)
 export NLines, Size, _Size
@@ -58,7 +58,7 @@ using EcologicalNetworksDynamics.Framework
 mutable struct Uniform <: Blueprint{Value}
     value::Float64
 end
-F.expand!(v, u::Uniform) = (v._dict[:a] = [u.value for _ in 1:v.n])
+F.expand!(s, u::Uniform) = (value(s)._dict[:a] = [u.value for _ in 1:s.n])
 @blueprint Uniform
 
 mutable struct Raw <: Blueprint{Value}
@@ -67,12 +67,12 @@ mutable struct Raw <: Blueprint{Value}
     Raw(a) = new(a, _Size) # Default to implying brought blueprint.
 end
 F.implied_blueprint_for(r::Raw, ::_Size) = NLines(length(r.a))
-function F.late_check(v, raw::Raw)
+function F.late_check(s, raw::Raw)
     na = length(raw.a)
-    nv = v.n # <- Use properties there thanks to unchecked_[gs]etproperty(!).
+    nv = s.n
     na == nv || checkfails("Cannot expand $na 'a' values into $nv lines.")
 end
-F.expand!(v, r::Raw) = (v._dict[:a] = deepcopy(r.a))
+F.expand!(s, r::Raw) = (value(s)._dict[:a] = deepcopy(r.a))
 @blueprint Raw
 
 end # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -98,9 +98,9 @@ using EcologicalNetworksDynamics.Framework
 mutable struct Uniform <: Blueprint{Value}
     value::Float64
 end
-F.late_check(v, u::Uniform) =
-    maximum(v.a) <= u.value || checkfails("Values 'b' not larger than maximum 'a' values.")
-F.expand!(v, u::Uniform) = (v._dict[:b] = [u.value for _ in 1:v.n])
+F.late_check(s, u::Uniform) =
+    maximum(s.a) <= u.value || checkfails("Values 'b' not larger than maximum 'a' values.")
+F.expand!(s, u::Uniform) = (value(s)._dict[:b] = [u.value for _ in 1:s.n])
 @blueprint Uniform
 
 mutable struct Raw <: Blueprint{Value}
@@ -114,7 +114,7 @@ function F.late_check(v, raw::Raw)
     nb == nv || checkfails("Cannot expand $nb 'a' values into $nv lines.")
     maximum(v.a) <= minimum(raw.b) || checkfails("Values 'b' too small wrt 'a'.")
 end
-F.expand!(v, r::Raw) = (v._dict[:b] = deepcopy(r.b))
+F.expand!(s, r::Raw) = (value(s)._dict[:b] = deepcopy(r.b))
 Basics.NLines(r::Raw) = NLines(length(r.b))
 F.implied_blueprint_for(r::Raw, ::_Size) = NLines(length(r.b))
 @blueprint Raw
@@ -145,21 +145,19 @@ struct SparseMark <: Blueprint{Value} end
 # One component whose expansion / checking depends on other components within the system.
 
 struct ReflectionMark <: Blueprint{Value} end
-function F.late_check(_, ::ReflectionMark, system)
-    if !has_component(system, A) && !has_component(system, B)
+F.late_check(s, ::ReflectionMark) = if !has_component(s, A) && !has_component(s, B)
         checkfails("Cannot reflect from no data.")
     end
-end
-function F.expand!(v, ::ReflectionMark, system)
+function F.expand!(s, ::ReflectionMark)
     rf = Char[]
-    if has_component(system, A)
+    if has_component(s, A)
         push!(rf, 'A')
     end
-    if has_component(system, B)
+    if has_component(s, B)
         push!(rf, 'B')
     end
-    rf = collect(Iterators.take(Iterators.cycle(rf), v.n))
-    v._dict[:reflection] = rf
+    rf = collect(Iterators.take(Iterators.cycle(rf), s.n))
+    value(s)._dict[:reflection] = rf
 end
 @blueprint ReflectionMark
 
@@ -168,8 +166,9 @@ end
 # so it does not *require* A,
 # but it needs A to expand.
 struct ReflectFromB <: Blueprint{Value} end
-function F.expand!(v, ::ReflectFromB)
-    v._dict[:reflection] = collect(first.(repr.(Iterators.take(Iterators.cycle(v.a), v.n))))
+function F.expand!(s, ::ReflectFromB)
+    value(s)._dict[:reflection] =
+        collect(first.(repr.(Iterators.take(Iterators.cycle(s.a), s.n))))
 end
 @blueprint ReflectFromB "" depends(A)
 @component begin

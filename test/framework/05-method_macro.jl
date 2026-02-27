@@ -31,7 +31,7 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
     struct Unf_b <: Blueprint{Value} end
     @blueprint Unf_b
     @component Unf{Value} blueprints(b::Unf_b)
-    Framework.expand!(v, ::Unf_b) = (v._member = 0)
+    Framework.expand!(s, ::Unf_b) = (value(s)._member = 0)
     s = System{Value}(Unf.b())
 
     # Simple valid invocation.

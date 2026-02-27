@@ -382,14 +382,14 @@ function add!(
         end
 
         # Order the checked blueprints so their requirements are met prior to expansion.
-        expand = OrderedSet{Tuple{CompType{V},Any}}()
+        expand = OrderedDict{CompType{V},Any}()
         while !isempty(checked)
             # Search for the first component
             # whose bringer blueprint has all requirements met.
             (C, (_, reqs, data)) = first(checked)
             while true
                 for R in reqs
-                    R in expand && continue
+                    haskey(expand, R) && continue
                     C = R
                     _, reqs, data = checked[R]
                     break
@@ -398,7 +398,7 @@ function add!(
             end
             # Expand it before the others.
             pop!(checked, C)
-            push!(expand, (C, data))
+            expand[C] = data
         end
 
         # Expand them all in correct order.
@@ -408,7 +408,7 @@ function add!(
 
             # Last check hook against current system value.
             data = try
-                late_check(value(system), blueprint, system, data)
+                late_check(system, blueprint, data)
             catch e
                 if e isa CheckError
                     rethrow(HookCheckFailure(node, e.message, true))
@@ -419,7 +419,7 @@ function add!(
 
             # Expand.
             try
-                expand!(value(system), blueprint, data, system)
+                expand!(system, blueprint, data)
             catch _
                 throw(ExpansionAborted(node))
             end

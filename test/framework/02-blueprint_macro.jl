@@ -186,7 +186,8 @@ using Logging
         u::Int64
         v::Int64
     end
-    function F.expand!(v, ejp::Ejp_b)
+    function F.expand!(s, ejp::Ejp_b)
+        v = value(s)
         v.d[:u] = ejp.u
         v.d[:v] = ejp.v
     end

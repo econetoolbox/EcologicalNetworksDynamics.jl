@@ -147,7 +147,8 @@ early_check(::Blueprint) = nothing # No particular constraint to enforce by defa
 #       This is to avoid the need for making the system mutable and systematically fork it
 #       to possibly revert to original state in case of failure.
 #       TODO: would a swap!(::Network, ::Network) help?
-late_check(_, ::Blueprint, early_check_data) = nothing
+late_check(s, bp::Blueprint, _early_check_data) = late_check(s, bp)
+late_check(_, ::Blueprint) = nothing # Ignore additional data by default.
 
 # The expansion step is when the wrapped system value is finally modified,
 # based on the information contained in the blueprint,
@@ -162,26 +163,13 @@ late_check(_, ::Blueprint, early_check_data) = nothing
 #       Note that random expansion would result in:
 #       (System{Value}() + blueprint).property != (System{Value}() + blueprint).property
 #       which may be confusing.
-expand!(_, ::Blueprint, late_check_data) = nothing # Expanding does nothing by default.
+expand!(s, bp::Blueprint, late_check_data) = expand!(s, bp)
+expand!(_, ::Blueprint) = nothing # Ignore additional data by default.
 
 # NOTE: the above signatures for default functions *could* be more strict
-# like eg. `check(::V, ::Blueprint{V}) where {V}`,
+# like eg. `check(::System{V}, ::Blueprint{V}) where {V}`,
 # but this would force framework users to always specify the first argument type
 # or concrete calls to `check(system, myblueprint)` would be ambiguous.
-
-# When components "optionally depend" on others,
-# it may be useful to check whether they are present in the system
-# within the methods above.
-# To this end, an optional, additional argument
-# can be received with a reference to the system,
-# and can be queried for eg. `has_component(system, component)`.
-# This third argument is ignored by default,
-# unless in overriden methods.
-# Issue `CheckError` on failure.
-late_check(v, b::Blueprint, data, _) = late_check(v, b, data)
-expand!(v, b::Blueprint, data, _) = expand!(v, b, data)
-# TODO: avoid this and directly receive the system value,
-# having users resort to `F.value` to obtain the underlying raw value to mutate.
 
 # ==========================================================================================
 # Explicit terminal display.
