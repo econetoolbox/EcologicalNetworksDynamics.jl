@@ -10,14 +10,14 @@ struct EdgesDataView{ed,T} <: AbstractMatrix{T}
 end
 function edges_view(m::Model, web::Symbol, data::Symbol)
     view = N.edges_view(value(m), web, data)
-    ed = C.EdgeData(web, data)
+    ed = D.EdgeData(web, data)
     T = eltype(view)
     EdgesDataView{ed,T}(m, view)
 end
 S = EdgesDataView
 N.web(v::S) = v |> view |> web
 webname(s::S) = N.web(dispatcher(s))
-fieldname(s::S) = C.data(dispatcher(s))
+fieldname(s::S) = D.data(dispatcher(s))
 Base.getindex(v::S, i, j) = getindex(view(v), (i, j))
 Base.setindex!(v::S, x, i, j) = setindex!(view(v), x, (i, j))
 extract(v::S; kw...) = N.to_sparse(view(v), kw...)
@@ -38,7 +38,7 @@ end
 edges_mask_view(m::Model, web::Symbol) = EdgesMaskView{web}(m, N.web(value(m), web))
 S = EdgesMaskView # "Self"
 web(v::S) = getfield(v, :web)
-webname(s::S) = C.web(dispatcher(s))
+webname(s::S) = D.web(dispatcher(s))
 topology(v::S) = web(v).topology
 Base.getindex(v::S, i::Int, j::Int) = N.is_edge(topology(v), check_range(v, i, j)...)
 Base.setindex!(v::S, _, ::Any, ::Any) = err(v, "Cannot mutate edges topology.")

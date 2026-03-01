@@ -29,14 +29,17 @@ using .Differentials # XXX: move after components definitions so they may rely o
 
 # Interface: ergonomic model manipulation.
 include("./Framework/Framework.jl")
-include("./kwargs_helpers.jl")
-include("./AliasingDicts/AliasingDicts.jl")
-include("./multiplex_api.jl")
 const F = Framework
 
 # Bring this all together into a library for component authors.
 include("./NetworkFramework/NetworkFramework.jl")
 using .NetworkFramework
+
+# Additional utils to construct components interface.
+include("./kwargs_helpers.jl")
+include("./AliasingDicts/AliasingDicts.jl")
+include("./multiplex_api.jl")
+using .KwargsHelpers
 
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.

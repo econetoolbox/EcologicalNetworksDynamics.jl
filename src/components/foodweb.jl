@@ -113,8 +113,8 @@ function trophic_levels(A::AbstractMatrix{Bool})
     inverse(D) * ones(S)
 end
 # Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
-level(m::Model) = N.nodes_view(m, :species, :trophic_level)
-level_entry(m::Model) = class(m, :species).data[:trophic_level]
+level(::Network, m::Model) = N.nodes_view(m, :species, :trophic_level)
+level_entry(n::Network) = class(n, :species).data[:trophic_level]
 @method level read_as(trophic.level) depends(Foodweb)
 @method level_entry read_as(trophic._level) depends(Foodweb)
 

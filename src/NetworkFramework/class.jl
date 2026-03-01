@@ -17,8 +17,7 @@ function define_class_component(mod::Module, nc::NodeClass)
                 quote
                     module $Plural_
                     import EcologicalNetworksDynamics:
-                        Blueprint, Framework, Networks, @blueprint
-                    const F = Framework
+                        N, F, NF, Blueprint, @blueprint, @component
                     const nc = $nc
                     end
                 end
@@ -75,7 +74,7 @@ function define_class_component(mod::Module, nc::NodeClass)
 
     NC = typeof(nc)
     mod.eval(quote
-        C.component(::$NC) = $Plural
+        D.component(::$NC) = $Plural
         # Build from a number or default to names.
         (::$_Plural)(n::Integer) = $Plural.Number(n)
         (::$_Plural)(names) = $Plural.Names(names)
@@ -108,26 +107,21 @@ function define_class_properties(
         @propspace $plural
 
         module $M
-        import EcologicalNetworksDynamics: Model, Networks, Network, Framework, Views
-        using .Networks
-        using .Framework
-        using .Views
-
-        using OrderedCollections
+        import EcologicalNetworksDynamics: N, Network, Model, @method, Views
 
         # Nodes counts and nodes labels.
         # The 'ref' variant is more efficient but unexposed.
-        get_number(m::Network) = n_nodes(m, $s)
-        ref_names(m::Network) = class(m, $s).index.reverse
-        get_names(::Network, m::Model) = nodes_names_view(m, $s)
+        get_number(m::Network) = N.n_nodes(m, $s)
+        ref_names(m::Network) = N.class(m, $s).index.reverse
+        get_names(::Network, m::Model) = Views.nodes_names_view(m, $s)
         @method $m $M.get_number $deps read_as($plural.number)
         @method $m $M.ref_names $deps read_as($plural._names)
         @method $m $M.get_names $deps read_as($plural.names)
 
         # Ordered index.
-        ref_index(m::Network) = class(m, $s).index.forward
-        get_index(m::Network) = deepcopy(ref_index(m))
-        indices(m::Network) = Networks.node_indices(m, $s)
+        ref_index(m::Network) = N.class(m, $s).index.forward
+        get_index(m::Network) = deepcopy(N.ref_index(m))
+        indices(m::Network) = N.node_indices(m, $s)
         get_parent_index(m::Network) =
             OrderedDict(l => i for (l, i) in zip(ref_names(m), indices(m)))
         @method $m $M.ref_index $deps read_as($plural._index)
@@ -136,7 +130,7 @@ function define_class_properties(
         @method $m $M.get_parent_index $deps read_as($plural.parent_index)
 
         # Mask within parent class.
-        mask(i::Network, m::Model) = nodes_mask_view(m, ($s, class(i, $s).parent))
+        mask(i::Network, m::Model) = N.nodes_mask_view(m, ($s, class(i, $s).parent))
         @method $m $M.mask $deps read_as($plural.mask)
 
         end

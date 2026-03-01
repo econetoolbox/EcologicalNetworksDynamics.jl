@@ -16,7 +16,7 @@ struct NodesDataView{nd,T} <: AbstractVector{T}
 end
 function N.nodes_view(m::Model, class::Symbol, fieldname::Symbol)
     view = N.nodes_view(value(m), class, fieldname)
-    nd = C.NodeData(class, fieldname)
+    nd = D.NodeData(class, fieldname)
     T = eltype(view)
     NodesDataView{nd,T}(m, view)
 end
@@ -48,12 +48,12 @@ function N.nodes_view(
     fieldname::Symbol,
 )
     view = N.nodes_view(value(m), class, fieldname)
-    xnd = C.ExpandedNodeData(class, fieldname, parent)
+    xnd = D.ExpandedNodeData(class, fieldname, parent)
     T = eltype(view)
     ExpandedNodesDataView{xnd,T}(m, view)
 end
 S = ExpandedNodesDataView # "Self"
-C.parent(s::S) = C.parent(dispatcher(s))
+D.parent(s::S) = D.parent(dispatcher(s))
 restriction(s::S) = N.restriction(network(s), classname(s), parent(s))
 Base.size(s::S) = (n_nodes(network(s), parent(s)),)
 Base.getindex(s::S, l::Symbol) = getindex(view(s), check_label(s, l))
@@ -78,8 +78,8 @@ function restrict_index(s::S, i::Int)
     check_index(s, i)
     r = restriction(s)
     if !(i in r)
-        class = repr(C.class(s).name)
-        parent = repr(C.parent(s))
+        class = repr(D.class(s).name)
+        parent = repr(D.parent(s))
         err(s, "Node $i in $parent is not a node in $class.")
     end
     N.tolocal(i, r)
@@ -140,7 +140,7 @@ struct NodesNamesView{nc} <: AbstractVector{Symbol}
 end
 function nodes_names_view(m::Model, class::Symbol)
     index = N.class(value(m), class).index
-    nc = C.NodeClass(class)
+    nc = D.NodeClass(class)
     NodesNamesView{nc}(m, index)
 end
 S = NodesNamesView
@@ -164,11 +164,11 @@ struct NodesMaskView{nm} <: AbstractVector{Bool}
 end
 function nodes_mask_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}})
     r = N.restriction(value(m), class, parent)
-    nm = C.NodeMask(class, parent)
+    nm = D.NodeMask(class, parent)
     NodesMaskView{nm}(m, r)
 end
 S = NodesMaskView
-C.parent(s::S) = C.parent(dispatcher(s))
+D.parent(s::S) = D.parent(dispatcher(s))
 parentclass(s::S) = N.class(network(s), parent(s))
 restriction(s::S) = getfield(s, :restriction)
 Base.size(s::S) =
@@ -192,9 +192,8 @@ end
 #-------------------------------------------------------------------------------------------
 # Common to topology node views.
 
-NodeTopologyView{C} = Union{NodesNamesView{C},NodesMaskView{C}}
+NodeTopologyView{d} = Union{NodesNamesView{d},NodesMaskView{d}}
 S = NodeTopologyView
-classname(::S{C}) where {C} = C
 readonly(::S) = true
 N.class(s::S) = class(network(s), classname(s))
 

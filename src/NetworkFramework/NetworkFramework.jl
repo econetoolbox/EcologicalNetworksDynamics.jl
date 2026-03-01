@@ -27,6 +27,7 @@ so it mostly falls into three categories:
   - Class (node-level) data:
 
       + Vector: *eg.* `[4, 5, 6]`
+
       + Sparse vector for 'masked' classes, considered from the perspective of a parent class:
         *eg.* `[·, 4, ·, ·, 5, ·, 6]`
       + Map (key-value pairs) of the form:
@@ -44,6 +45,7 @@ so it mostly falls into three categories:
   - Web (edge-level) data:
 
       + Matrix for dense webs.
+
       + Sparse matrix for sparse webs.
       + Matrix for dense webs, but then a default value must be identified
         and found in every non-entry.
@@ -57,6 +59,7 @@ so it mostly falls into three categories:
               - `[(:a => u, :b => v) => (:c, :d)]`             (group both, source-wise)
               - `[(:a => u, :b => v) => :c, :b => (:d => w)]`  (mixing allowed)
               - `[(:a => u, :b => v) => :c, :b => (:d => w)]`  (mixing allowed)
+
           * Using node indices, in the context of one particular (source, target) class pair.
 
               - `[1 => (2 => u, 3 => v), 2 => (4 => w)]`       (using nodes indices)
@@ -76,11 +79,16 @@ so it mostly falls into three categories:
 """
 module NetworkFramework
 
-import EcologicalNetworksDynamics: EN, N, F, I, argerr, SparseMatrix
-const NF = NetworkFramework
+import EcologicalNetworksDynamics:
+    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option
+using .Networks
+using .Framework
 
 using Crayons
 using OrderedCollections
+using SparseArrays
+
+const NF = NetworkFramework
 
 # Define extension points to customize components behaviours.
 include("dispatchers.jl")
@@ -91,12 +99,12 @@ const D = Dispatchers
 include("framework.jl")
 
 # Typical user input data preprocessing.
-include("./convert.jl")
-include("./lists.jl")
 struct InputError <: Exception
     mess::String
 end
 inerr(m, throw = Base.throw) = throw(InputError(m))
+include("./convert.jl")
+include("./lists.jl")
 
 # Typical views into network data.
 include("./Views/Views.jl")
@@ -105,6 +113,8 @@ include("./Views/Views.jl")
 include("./class.jl")
 include("./web.jl")
 include("./nodes.jl")
+
+include("./display.jl")
 
 # ==========================================================================================
 # Frequent specializations for checking values.
@@ -123,9 +133,18 @@ function name_among(expected, input)
 end
 
 # ==========================================================================================
-# Export to component authors.
+# Re-export to component authors.
+
+# Working with networks.
+export Network, Topology
+
+# Working with the framework.
+export Brought, @blueprint, @component, @method
+
+# Working with both.
 export NF, D, Model, Views
 export NodeClass, NodeMask, EdgeWeb, NodeData, ExpandedNodeData, EdgeData
+export Map, BinMap, Adjacency, BinAdjacency
 export inerr
 
 end

@@ -23,21 +23,19 @@ function define_reflexive_web_component(mod::Module, ew::EdgeWeb)
                 quote
                     module $Web_
                     import EcologicalNetworksDynamics:
+                        SparseMatrix,
+                        N,
+                        Network,
+                        F,
+                        Brought,
                         Blueprint,
-                        Framework,
-                        Networks,
                         @blueprint,
-                        NetworkConfig,
-                        NetworkFramework
-                    using .Network
-                    using .Framework
-                    using .NetworkFramework
-                    const F = Framework
-                    const N = Network
-                    const NF = NetworkFramework
+                        NF,
+                        BinAdjacency,
+                        Model
                     const ew = $ew
                     const nc = $nc
-                    const Class = $(C.component(nc))
+                    const Class = $(D.component(nc))
                     const _Class = typeof(Class)
                     end
                 end
@@ -88,7 +86,7 @@ function define_reflexive_web_component(mod::Module, ew::EdgeWeb)
     Class = D.CamelCasePlural(nc)
     mod.eval(quote
         @component $Web{Network} requires($Class) blueprints($Web_)
-        C.component(::$EW) = $Web
+        $D.component(::$EW) = $Web
         (::$_Web)(A) = $construct($ew, $Web, A)
     end)
 
@@ -112,15 +110,12 @@ function define_web_properties(
         @propspace $prop
 
         module $M
-        import EcologicalNetworksDynamics: Model, Networks, Network, Framework, Views
-        using .Networks
-        using .Framework
-        using .Views
+        import EcologicalNetworksDynamics: N, Network, Model, Views, @method
 
         web(m::Network) = Networks.web(m, $w)
         topology(m::Network) = web(m).topology
         number(m::Network) = m |> topology |> n_edges
-        mask(::Network, m::Model) = edges_mask_view(m, $w)
+        mask(::Network, m::Model) = Views.edges_mask_view(m, $w)
         @method $m $M.topology $deps read_as($prop._topology)
         @method $m $M.mask $deps read_as($prop.matrix, $prop.mask)
         @method $m $M.number $deps read_as($prop.n_links, $prop.n_edges)

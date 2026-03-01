@@ -34,8 +34,7 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics: N, F, I, NetworkFramework, Display, Option
-using .NetworkFramework
-import NetworkFramework: NF, D, Model, Ref, InputError
+import .NetworkFramework: NF, D, Model, Ref, InputError
 
 using SparseArrays
 using Crayons
@@ -59,7 +58,7 @@ include("edges_display.jl")
 DataView{d,T} = Union{AbstractNodesDataView{d,T},EdgesDataView{d,T}}
 S = DataView
 view(v::S) = getfield(v, :view)
-fieldname(s::S) = C.data(dispatcher(s))
+fieldname(s::S) = D.data(dispatcher(s))
 N.entry(v::S) = v |> view |> entry
 
 struct WriteError <: Exception
