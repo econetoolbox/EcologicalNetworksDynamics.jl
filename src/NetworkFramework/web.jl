@@ -87,7 +87,7 @@ function define_reflexive_web_component(mod::Module, ew::EdgeWeb)
     EW = typeof(ew)
     Class = D.CamelCasePlural(nc)
     mod.eval(quote
-        @component $Web{Internal} requires($Class) blueprints($Web_)
+        @component $Web{Network} requires($Class) blueprints($Web_)
         C.component(::$EW) = $Web
         (::$_Web)(A) = $construct($ew, $Web, A)
     end)
@@ -112,15 +112,15 @@ function define_web_properties(
         @propspace $prop
 
         module $M
-        import EcologicalNetworksDynamics: Internal, Model, Networks, Framework, Views
+        import EcologicalNetworksDynamics: Model, Networks, Network, Framework, Views
         using .Networks
         using .Framework
         using .Views
 
-        web(m::Internal) = Networks.web(m, $w)
-        topology(m::Internal) = web(m).topology
-        number(m::Internal) = m |> topology |> n_edges
-        mask(::Internal, m::Model) = edges_mask_view(m, $w)
+        web(m::Network) = Networks.web(m, $w)
+        topology(m::Network) = web(m).topology
+        number(m::Network) = m |> topology |> n_edges
+        mask(::Network, m::Model) = edges_mask_view(m, $w)
         @method $m $M.topology $deps read_as($prop._topology)
         @method $m $M.mask $deps read_as($prop.matrix, $prop.mask)
         @method $m $M.number $deps read_as($prop.n_links, $prop.n_edges)
@@ -137,7 +137,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct.
 
-construct(::EdgeWed, Web::Component, A) =
+construct(::EdgeWeb, Web::Component, A) =
     input_try(A, SparseMatrix => Web.Matrix, Adjacency => Web.Adjacency)
 
 #-------------------------------------------------------------------------------------------

@@ -160,10 +160,12 @@ Obtain name variants for the data points, in order:
 
   - snake_case singular
   - snake_case plural
+  - short field name
 """
 name_variants(::S) = throw("unimplemented")
 snake_case_singular(s::S) = name_variants(s)[1]
 snake_case_plural(s::S) = name_variants(s)[2]
+short_field_name(s::S) = name_variants(s)[3]
 
 """
 Obtain dispatcher to underlying class.

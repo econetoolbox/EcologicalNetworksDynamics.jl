@@ -108,16 +108,17 @@ N.class(s::S) = s |> view |> class
 index(s::S) = class(s).index
 
 """
-Generic checking logic, assuming checked ref.
+Generic checking logic, assuming checked ref,
+delegating to the `mutate_check` function later defined with typical node data components.
 """
-check_write(s::S, x, ref) = if readonly(s)
+check_write(s::S, x, ref) =
+    if readonly(s)
         err(s, "Values of $(repr(fieldname(s))) are readonly.")
     else
         x = try
             d = dispatcher(s)
-            T = eltype(s)
             m = model(s)
-            NF.check_value(d, T, m, x, ref)
+            NF.mutate_check(d, m, x, ref)
         catch e
             e isa InputError || rethrow(e)
             rethrow(WriteError(e, fieldname(s), ref, x))
@@ -194,7 +195,7 @@ end
 NodeTopologyView{C} = Union{NodesNamesView{C},NodesMaskView{C}}
 S = NodeTopologyView
 classname(::S{C}) where {C} = C
-readonly(::S) = C.readonly()
+readonly(::S) = true
 N.class(s::S) = class(network(s), classname(s))
 
 # ==========================================================================================

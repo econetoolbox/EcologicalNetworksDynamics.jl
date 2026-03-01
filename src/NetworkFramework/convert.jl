@@ -107,3 +107,16 @@ function input_try(input, tries...) # [(Type, Function(conversion_result) -> _)]
     mess = String(take!(mess))
     inerr(mess)
 end
+
+# ==========================================================================================
+# Execute one or the other block named by end user.
+function from_name(input, tries...) # [(Symbol, Function() -> _)]
+    name = inputconvert(Symbol, input)
+    expected = Symbol[]
+    for (attempt, fn) in tries
+        name == attempt && return fn()
+        push!(expected, attempt)
+    end
+    inerr("Expected one of [$(EN.join_elided(expected, ", ", " or "))], \
+           received instead: $(repr(input))")
+end

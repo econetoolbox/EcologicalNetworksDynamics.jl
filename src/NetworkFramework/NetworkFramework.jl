@@ -93,8 +93,6 @@ include("framework.jl")
 # Typical user input data preprocessing.
 include("./convert.jl")
 include("./lists.jl")
-include("./check.jl")
-include("./expand.jl")
 struct InputError <: Exception
     mess::String
 end
@@ -107,5 +105,27 @@ include("./Views/Views.jl")
 include("./class.jl")
 include("./web.jl")
 include("./nodes.jl")
+
+# ==========================================================================================
+# Frequent specializations for checking values.
+
+function non_negative(T, input)
+    v = inputconvert(T, input)
+    v < 0 && inerr("Value cannot be negative. Received: $(repr(input))")
+    v
+end
+
+function name_among(expected, input)
+    name = inputconvert(Symbol, input)
+    name in expected || inerr("Expected one of $(EN.join_elided(expected, ", ", " or ")), \
+                               received instead: $(repr(input))")
+    name
+end
+
+# ==========================================================================================
+# Export to component authors.
+export NF, D, Model, Views
+export NodeClass, NodeMask, EdgeWeb, NodeData, ExpandedNodeData, EdgeData
+export inerr
 
 end

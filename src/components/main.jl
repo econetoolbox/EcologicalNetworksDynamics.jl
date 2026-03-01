@@ -1,51 +1,37 @@
-# Make use of the `Framework` module to encapsulate `Networks.Network`
-# and the simulation code generation in `Differentials`
-# into an exposed `System` with associated blueprints/components library.
+# Consume `NetworkFramework` to specify the components handed out to end users.
 
 # Mostly, separate "data" components (typically, biorates)
 # from "functional" components (typically functional responses):
 # data components bring data to the model (≈ fields in `Network`),
 # while functional components specify the behaviour of the model (≈ code in `Differentials`)
 # based on the data they depend on.
-# TODO: reify these two sorts of components?
+# TODO: reify these two sorts of components in `NetworkFramework`?
 #       In the end: data requires behaviour and other data to be *built*,
 #       so it's a blueprint expansion requirement,
 #       but behaviour requires data to be *ran*, so it's a true component requirement?
 
 # To best understand subsequent code,
 # and until proper documentation is written,
-# I would advise that the following files be skimmed in order
+# I would advise that the following files be read in order
 # as later comments build upon earlier ones.
-
-# TODO there is heavy replication going on in components specification,
-# and boilerplate that could be greatly reduced
-# once the legacy internals have refactored and simplified.
-# Maybe only a few archetypes components are needed:
-#   - Graph data.
-#   - Nodes.
-#   - Dense nodes data.
-#   - Sparse (templated) nodes data.
-#   - Edges.
-#   - Dense edges data.
-#   - Sparse (templated) edges data.
-#   - Behaviour (graph data that actually represents *code* to run the model).
-# XXX: This is now being considered: see `NetworkFramework` module.
 
 # Helpers.
 include("./allometry.jl")
 
-# Central in the model nodes.
 # First example of a nodes class.
 include("./species.jl")
 
-# Trophic links, structuring the whole network.
 # First example of an edges web.
 include("./foodweb.jl")
 
-# Biorates and other values parametrizing the ODE.
-include("./body_mass.jl") # (typical example 'nodes' data)
-#  include("./metabolic_class.jl")
-#  include("./growth_rate.jl") # (typical example 'sub-nodes' data)
+# First example of nodes data.
+include("./body_mass.jl")
+
+# Non-numeric nodes data, that require checking against model values.
+include("./metabolic_class.jl")
+
+# Nodes data only relevant to a sub-class.
+#  include("./growth_rate.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================

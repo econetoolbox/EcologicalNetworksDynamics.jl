@@ -3,20 +3,15 @@
 # (reassure JuliaLS)
 (false) && (local BodyMass, _BodyMass)
 
-nd = C.NodeData(:species, :body_mass)
-Nd = C.NodeData(:Species, :BodyMass)
-
-# Values constraint.
+nd = NodeData(:species, :body_mass)
 ND = typeof(nd)
-C.check_value(::ND, x) = non_negative(Float64, x)
+D.name_variants(::ND) = (:body_mass, :body_masses, :M)
+D.type(::ND) = Float64
+NF.check_value(::ND, input) = NF.non_negative(Float64, input)
 
-define_node_data_component(
+NF.define_node_data_component(
     EN,
-    :M,
-    Float64,
-    nd,
-    Nd;
-    flat_blueprint = Real,
+    nd;
     #---------------------------------------------------------------------------------------
     # One extra blueprint to build from trophic levels.
     Blueprints = quote
@@ -34,11 +29,11 @@ define_node_data_component(
                                   with a negative value of Z: $Z.")
         end
 
-        function F.expand!(raw, bp::Z, model)
+        function F.expand!(model, bp::Z)
             M = read(model.trophic._level) do level
                 bp.Z .^ (level .- 1) # Credit to Ismaël Lajaaiti.
             end
-            expand_from_vector!(raw, M)
+            $NF.expand!($nd, model, M)
         end
     end,
 )

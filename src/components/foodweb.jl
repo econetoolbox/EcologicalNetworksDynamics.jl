@@ -10,12 +10,12 @@
 
 ew = EdgeWeb(:foodweb)
 EW = typeof(ew)
-C.sidenames(::EW) = (:species, :species)
-C.name_variants(::EW) = (:foodweb, :Foodweb)
-C.propnames(::EW) = (:trophic, :Trophic)
-C.is_reflexive(::EW) = true
+D.sidenames(::EW) = (:species, :species)
+D.name_variants(::EW) = (:foodweb, :Foodweb)
+D.propnames(::EW) = (:trophic, :Trophic)
+D.is_reflexive(::EW) = true
 
-define_reflexive_web_component(EN, ew)
+NF.define_reflexive_web_component(EN, ew)
 
 # Community consistency aliases.
 const (TrophicLayer, _TrophicLayer) = (Foodweb, _Foodweb)
@@ -27,43 +27,44 @@ export Foodweb, TrophicLayer
 # ==========================================================================================
 # Web-derived classes and webs.
 
-function reflexive_web_post_expand!(::EW, model)
-    N = Networks
+function reflexive_web_post_expand!(::EW, model, topology)
+    network = NF.network(model)
 
     # Every node becomes associated with a trophic level.
-    levels = EN.trophic_levels(A)
-    add_field!(raw, :species, :trophic_level, levels)
+    A = N.to_mask(topology)
+    levels = trophic_levels(A)
+    N.add_field!(network, :species, :trophic_level, levels)
 
     # The foodweb defines new categories of species.
-    add_subclass!(raw, :tops, :species, sources_mask(topology))
-    add_subclass!(raw, :producers, :species, sinks_mask(topology))
-    add_subclass!(raw, :preys, :species, nonsources_mask(topology))
-    add_subclass!(raw, :consumers, :species, nonsinks_mask(topology))
+    N.add_subclass!(network, :tops, :species, N.sources_mask(topology))
+    N.add_subclass!(network, :producers, :species, N.sinks_mask(topology))
+    N.add_subclass!(network, :preys, :species, N.nonsources_mask(topology))
+    N.add_subclass!(network, :consumers, :species, N.nonsinks_mask(topology))
 
     # And also new webs with special trophic links highlighted.
     S = model.S
 
     # Producers matrix.
-    prods = node_indices(raw, :producers)
+    prods = N.node_indices(network, :producers)
     mat = spzeros(Bool, S, S)
     for i in prods, j in prods
         mat[i, j] = true
     end
-    add_web!(raw, :producers_web, (:species, :species), SparseSymmetric(mat))
+    N.add_web!(network, :producers_web, (:species, :species), N.SparseSymmetric(mat))
 
     # Herbivory matrix: consumers-to-producers.
     mat = spzeros(Bool, S, S)
     for (pred, prey) in N.edges(topology)
-        is_sink(topology, prey) && (mat[pred, prey] = true)
+        N.is_sink(topology, prey) && (mat[pred, prey] = true)
     end
-    add_web!(raw, :herbivory, (:species, :species), SparseReflexive(mat))
+    N.add_web!(network, :herbivory, (:species, :species), N.SparseReflexive(mat))
 
     # Carnivory matrix: consumers-to-consumers.
     mat = spzeros(Bool, S, S)
     for (pred, prey) in N.edges(topology)
-        is_sink(topology, prey) || (mat[pred, prey] = true)
+        N.is_sink(topology, prey) || (mat[pred, prey] = true)
     end
-    add_web!(raw, :carnivory, (:species, :species), SparseReflexive(mat))
+    N.add_web!(network, :carnivory, (:species, :species), N.SparseReflexive(mat))
 end
 
 deps = :(depends(Foodweb))
@@ -72,24 +73,24 @@ c = NodeClass(:consumer)
 t = NodeClass(:top)
 r = NodeClass(:prey)
 # TODO: fix that there is no need for a short prefix for them: subclasses.
-C.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
-C.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
-C.name_variants(::typeof(t)) = (:_, :top, :tops, :Top, :Tops)
-C.name_variants(::typeof(r)) = (:_, :prey, :preys, :Preys, :Preys)
-define_class_properties(EN, p, deps)
-define_class_properties(EN, c, deps)
-define_class_properties(EN, t, deps)
-define_class_properties(EN, r, deps)
+D.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
+D.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
+D.name_variants(::typeof(t)) = (:_, :top, :tops, :Top, :Tops)
+D.name_variants(::typeof(r)) = (:_, :prey, :preys, :Preys, :Preys)
+NF.define_class_properties(EN, p, deps)
+NF.define_class_properties(EN, c, deps)
+NF.define_class_properties(EN, t, deps)
+NF.define_class_properties(EN, r, deps)
 
 p = EdgeWeb(:producers_web)
 h = EdgeWeb(:herbivory)
 c = EdgeWeb(:carnivory)
-C.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
-C.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
-C.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
-define_web_properties(EN, p, deps)
-define_web_properties(EN, h, deps)
-define_web_properties(EN, c, deps)
+D.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
+D.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
+D.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
+NF.define_web_properties(EN, p, deps)
+NF.define_web_properties(EN, h, deps)
+NF.define_web_properties(EN, c, deps)
 
 @alias producers_web.matrix producers.matrix
 @alias herbivory trophic.herbivory
@@ -112,8 +113,8 @@ function trophic_levels(A::AbstractMatrix{Bool})
     inverse(D) * ones(S)
 end
 # Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
-level(::Internal, m::Model) = nodes_view(m, :species, :trophic_level)
-level_entry(raw::Internal) = class(raw, :species).data[:trophic_level]
+level(m::Model) = N.nodes_view(m, :species, :trophic_level)
+level_entry(m::Model) = class(m, :species).data[:trophic_level]
 @method level read_as(trophic.level) depends(Foodweb)
 @method level_entry read_as(trophic._level) depends(Foodweb)
 
@@ -121,7 +122,7 @@ level_entry(raw::Internal) = class(raw, :species).data[:trophic_level]
 # Construct Matrix blueprint from a random model.
 include("./structural_models.jl")
 function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
-    model = @tographdata model Y{}
+    model = NF.inputconvert(Symbol, model)
     @kwargs_helpers kwargs
 
     given(:S) || argerr("Random foodweb models require a number of species 'S'.")
@@ -132,27 +133,29 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
     rd = take_or!(:reject_if_disconnected, true)
     max = take_or!(:max_iterations, 10^5)
 
-    A = @expand_symbol(
+    A = NF.from_name(
         model,
 
         #-----------------------------------------------------------------------------------
         # Niche model.
 
-        :niche => begin
+        :niche =>
+            () -> begin
 
-            (given(:C) || given(:L)) ||
-                argerr("The niche model requires either a connectance value 'C' \
-                        or a number of links 'L'.")
+                (given(:C) || given(:L)) || argerr(
+                    "The niche model requires either a connectance value 'C' \
+                     or a number of links 'L'.",
+                )
 
-            (given(:C) && given(:L)) &&
-                argerr("Cannot provide both a connectance 'C' \
-                        and a number of links 'L'.")
+                (given(:C) && given(:L)) &&
+                    argerr("Cannot provide both a connectance 'C' \
+                            and a number of links 'L'.")
 
-            if given(:C)
+                if given(:C)
 
-                C = take!(:C, Float64)
-                tol = take_or!(:tol_C, 0.1 * C)
-                no_unused_arguments()
+                    C = take!(:C, Float64)
+                    tol = take_or!(:tol_C, 0.1 * C)
+                    no_unused_arguments()
 
                     #! format: off
                     model_foodweb_from_C(
@@ -161,11 +164,11 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
                         tol, rc, rd, max,
                     )
                     #! format: on
-            else
+                else
 
-                L = take!(:L, Int64)
-                tol = take_or!(:tol_L, round(Int64, 0.1 * L))
-                no_unused_arguments()
+                    L = take!(:L, Int64)
+                    tol = take_or!(:tol_L, round(Int64, 0.1 * L))
+                    no_unused_arguments()
 
                     #! format: off
                     model_foodweb_from_L(
@@ -174,19 +177,20 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
                         tol, rc, rd, max,
                     )
                     #! format: on
-            end
-        end,
+                end
+            end,
 
         #-----------------------------------------------------------------------------------
         # Cascade model.
 
-        :cascade => begin
+        :cascade =>
+            () -> begin
 
-            given(:C) || argerr("The cascade model requires a connectance value 'C'.")
+                given(:C) || argerr("The cascade model requires a connectance value 'C'.")
 
-            C = take!(:C)
-            tol = take_or!(:tol_C, 0.1 * C)
-            no_unused_arguments()
+                C = take!(:C)
+                tol = take_or!(:tol_C, 0.1 * C)
+                no_unused_arguments()
 
                 #! format: off
                 model_foodweb_from_C(
@@ -195,7 +199,7 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
                     tol, rc, rd, max,
                 )
                 #! format: on
-        end
+            end,
     )
 
     Foodweb.Matrix(A)

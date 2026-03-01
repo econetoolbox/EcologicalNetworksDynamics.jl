@@ -6,8 +6,8 @@
 # Typical, vanilla class component.
 nc = NodeClass(:species)
 NC = typeof(nc)
-C.name_variants(::NC) = (:s, :species, :species, :Species, :Species)
-define_class_component(EN, nc)
+D.name_variants(::NC) = (:s, :species, :species, :Species, :Species)
+NF.define_class_component(EN, nc)
 export Species
 
 # Extra aliases used by the community.

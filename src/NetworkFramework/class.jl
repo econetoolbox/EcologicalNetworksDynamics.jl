@@ -70,7 +70,7 @@ function define_class_component(mod::Module, nc::NodeClass)
     # The component itself and generic blueprints constructors.
     mod.eval(quote
         # XXX: if all components wrap like this, no need for the macro anymore?
-        @component $Plural{Internal} blueprints($Plural_)
+        @component $Plural{Network} blueprints($Plural_)
     end) # Need to reach toplevel first to access generated values, right?
 
     NC = typeof(nc)
@@ -108,7 +108,7 @@ function define_class_properties(
         @propspace $plural
 
         module $M
-        import EcologicalNetworksDynamics: Internal, Model, Networks, Framework, Views
+        import EcologicalNetworksDynamics: Model, Networks, Network, Framework, Views
         using .Networks
         using .Framework
         using .Views
@@ -117,18 +117,18 @@ function define_class_properties(
 
         # Nodes counts and nodes labels.
         # The 'ref' variant is more efficient but unexposed.
-        get_number(m::Internal) = n_nodes(m, $s)
-        ref_names(m::Internal) = class(m, $s).index.reverse
-        get_names(::Internal, m::Model) = nodes_names_view(m, $s)
+        get_number(m::Network) = n_nodes(m, $s)
+        ref_names(m::Network) = class(m, $s).index.reverse
+        get_names(::Network, m::Model) = nodes_names_view(m, $s)
         @method $m $M.get_number $deps read_as($plural.number)
         @method $m $M.ref_names $deps read_as($plural._names)
         @method $m $M.get_names $deps read_as($plural.names)
 
         # Ordered index.
-        ref_index(m::Internal) = class(m, $s).index.forward
-        get_index(m::Internal) = deepcopy(ref_index(m))
-        indices(m::Internal) = Networks.node_indices(m, $s)
-        get_parent_index(m::Internal) =
+        ref_index(m::Network) = class(m, $s).index.forward
+        get_index(m::Network) = deepcopy(ref_index(m))
+        indices(m::Network) = Networks.node_indices(m, $s)
+        get_parent_index(m::Network) =
             OrderedDict(l => i for (l, i) in zip(ref_names(m), indices(m)))
         @method $m $M.ref_index $deps read_as($plural._index)
         @method $m $M.get_index $deps read_as($plural.index)
@@ -136,7 +136,7 @@ function define_class_properties(
         @method $m $M.get_parent_index $deps read_as($plural.parent_index)
 
         # Mask within parent class.
-        mask(i::Internal, m::Model) = nodes_mask_view(m, ($s, class(i, $s).parent))
+        mask(i::Network, m::Model) = nodes_mask_view(m, ($s, class(i, $s).parent))
         @method $m $M.mask $deps read_as($plural.mask)
 
         end

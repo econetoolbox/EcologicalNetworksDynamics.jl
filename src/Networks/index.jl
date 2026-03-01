@@ -12,6 +12,10 @@ Base.keys(s::S) = keys(s.forward)
 Base.length(s::S) = length(s.forward)
 fork(s::Index) = Index(copy(s.forward), copy(s.reverse))
 labels(s::S) = keys(s.forward)
+
+# Assuming correct input.
+to_index(::S, i::Int) = i
+to_label(::S, l::Symbol) = l
 to_index(s::S, l::Symbol) = s.forward[l]
 to_label(s::S, i::Int) = s.reverse[i]
 is_label(s::S, l::Symbol) = haskey(s.forward, l)
