@@ -143,7 +143,7 @@ export Brought, @blueprint, @component, @method
 
 # Working with both.
 export NF, D, Model, Views
-export NodeClass, NodeMask, EdgeWeb, NodeData, ExpandedNodeData, EdgeData
+export NodeClass, NodeMask, EdgeWeb, NodeField, ExpandedNodeField, EdgeField
 export Map, BinMap, Adjacency, BinAdjacency
 export inerr
 

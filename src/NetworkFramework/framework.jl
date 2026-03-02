@@ -47,9 +47,9 @@ export @propspace
 # TODO: @propspace should first be exposed as an underlying Framework primitive, right?
 
 # Property aliases default to network.
-macro alias(old, new)
+macro alias(new, old)
     quote
-        F.@alias($old, $new, $Network)
+        F.@alias($new, $old, $Network)
     end
 end
 export @alias

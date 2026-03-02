@@ -3,18 +3,18 @@
 # (reassure JuliaLS)
 (false) && (local BodyMass, _BodyMass)
 
-nd = NodeData(:species, :body_mass)
-ND = typeof(nd)
-D.name_variants(::ND) = (:body_mass, :body_masses, :M)
-D.type(::ND) = Float64
-NF.check_value(::ND, input) = NF.non_negative(Float64, input)
+d = NodeField(:species, :body_mass)
+DT = typeof(d)
+D.name_variants(::DT) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
+D.type(::DT) = Float64
+NF.check(::DT, input) = NF.non_negative(Float64, input)
 
-NF.define_node_data_component(
+NF.define_node_field_component(
     EN,
-    nd;
+    d;
     #---------------------------------------------------------------------------------------
     # One extra blueprint to build from trophic levels.
-    Blueprints = quote
+    blueprints = quote
         Foodweb = $Foodweb
 
         mutable struct Z <: Blueprint
@@ -33,13 +33,13 @@ NF.define_node_data_component(
             M = read(model.trophic._level) do level
                 bp.Z .^ (level .- 1) # Credit to Ismaël Lajaaiti.
             end
-            $NF.expand!($nd, model, M)
+            $NF.expand!($d, model, M)
         end
     end,
 )
 
 # Community convenience alias.
-@alias body_mass M
+@alias M body_mass
 
 # Extra constructor dispatch to the extra blueprint.
 function (::_BodyMass)(; Z = nothing)

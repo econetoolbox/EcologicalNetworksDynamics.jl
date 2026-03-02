@@ -58,7 +58,7 @@ include("edges_display.jl")
 DataView{d,T} = Union{AbstractNodesDataView{d,T},EdgesDataView{d,T}}
 S = DataView
 view(v::S) = getfield(v, :view)
-fieldname(s::S) = D.data(dispatcher(s))
+fieldname(s::S) = D.field(dispatcher(s))
 N.entry(v::S) = v |> view |> entry
 
 struct WriteError <: Exception

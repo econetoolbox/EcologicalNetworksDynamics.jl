@@ -1,8 +1,8 @@
 """
 Typical setup for a component bringing a new class to the network.
 """
-function define_class_component(mod::Module, nc::NodeClass)
-    short_prefix, singular, plural, Singular, Plural = D.name_variants(nc)
+function define_class_component(mod::Module, d::NodeClass)
+    short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
     Plural_ = Symbol(Plural, :_) # Blueprints module name.
     _Plural = Symbol(:_, Plural) # Component type name.
     s, S, short_prefix = Meta.quot.((plural, Plural, short_prefix)) # Symbol names.
@@ -18,7 +18,7 @@ function define_class_component(mod::Module, nc::NodeClass)
                     module $Plural_
                     import EcologicalNetworksDynamics:
                         N, F, NF, Blueprint, @blueprint, @component
-                    const nc = $nc
+                    const d = $d
                     end
                 end
             ).args
@@ -30,8 +30,8 @@ function define_class_component(mod::Module, nc::NodeClass)
         quote
             mutable struct Names <: Blueprint
                 names::Vector{Symbol}
-                Names(names) = new(construct_from_iterable(nc, Vector{Symbol}, names))
-                Names(names...) = new(construct_from_iterable(nc, Vector{Symbol}, names))
+                Names(names) = new(construct_from_iterable(d, Vector{Symbol}, names))
+                Names(names...) = new(construct_from_iterable(d, Vector{Symbol}, names))
                 Names(names::Vector{Symbol}) = new(names) # Alias if type-exact.
             end
 
@@ -40,7 +40,7 @@ function define_class_component(mod::Module, nc::NodeClass)
             export Names
 
             # Verify blueprint values.
-            F.early_check(bp::Names) = $early_check(nc, bp.names)
+            F.early_check(bp::Names) = $early_check(d, bp.names)
 
             # Expand into a new compartment.
             F.expand!(model, bp::Names, _) =
@@ -72,9 +72,9 @@ function define_class_component(mod::Module, nc::NodeClass)
         @component $Plural{Network} blueprints($Plural_)
     end) # Need to reach toplevel first to access generated values, right?
 
-    NC = typeof(nc)
+    DT = typeof(d)
     mod.eval(quote
-        D.component(::$NC) = $Plural
+        D.component(::$DT) = $Plural
         # Build from a number or default to names.
         (::$_Plural)(n::Integer) = $Plural.Number(n)
         (::$_Plural)(names) = $Plural.Names(names)
@@ -84,21 +84,21 @@ function define_class_component(mod::Module, nc::NodeClass)
     mod.eval(
         quote
             Framework.shortline(io::IO, model::Model, ::$_Plural) =
-                $class_shortline(io, model, nc)
+                $class_shortline(io, model, d)
         end,
     )
 
-    define_class_properties(mod, nc, :(depends($Plural)))
+    define_class_properties(mod, d, :(depends($Plural)))
 end
 
 # ==========================================================================================
 
 function define_class_properties(
     mod::Module,
-    nc::NodeClass,
+    d::NodeClass,
     deps::Expr, # As in a regular call to @method.
 )
-    short_prefix, singular, plural, Singular, Plural = D.name_variants(nc)
+    short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
     s = Meta.quot(plural)
     M = Symbol(Plural, :Methods) # Create submodule to not pollute invocation scope..
     m = :(mod($mod)) # .. but still evaluate dependencies within the invocation module.
@@ -143,8 +143,8 @@ end
 # Extract implementation detail to ease Revise work.
 
 # Forbid duplicates (triangular check).
-function early_check(nc::NodeClass, names::Vector{Symbol})
-    Class = D.CamelCaseSingular(nc)
+function early_check(d::NodeClass, names::Vector{Symbol})
+    Class = D.CamelCaseSingular(d)
     already = OrderedDict{Symbol,Int}() # {name: index}
     for (i, name) in enumerate(names)
         if haskey(already, name)
@@ -157,9 +157,9 @@ function early_check(nc::NodeClass, names::Vector{Symbol})
 end
 
 # Display.
-function class_shortline(io::IO, model::Model, nc::NodeClass)
-    class = D.snake_case_plural(nc)
-    Class = D.CamelCaseSingular(nc)
+function class_shortline(io::IO, model::Model, d::NodeClass)
+    class = D.snake_case_plural(d)
+    Class = D.CamelCaseSingular(d)
     names = getproperty(model, class)._names
     n = length(names)
     print(io, "$Class: $n ($(EN.join_elided(names, ", ")))")

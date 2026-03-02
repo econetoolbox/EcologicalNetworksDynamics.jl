@@ -16,7 +16,7 @@ struct NodesDataView{nd,T} <: AbstractVector{T}
 end
 function N.nodes_view(m::Model, class::Symbol, fieldname::Symbol)
     view = N.nodes_view(value(m), class, fieldname)
-    nd = D.NodeData(class, fieldname)
+    nd = D.NodeField(class, fieldname)
     T = eltype(view)
     NodesDataView{nd,T}(m, view)
 end
@@ -48,7 +48,7 @@ function N.nodes_view(
     fieldname::Symbol,
 )
     view = N.nodes_view(value(m), class, fieldname)
-    xnd = D.ExpandedNodeData(class, fieldname, parent)
+    xnd = D.ExpandedNodeField(class, fieldname, parent)
     T = eltype(view)
     ExpandedNodesDataView{xnd,T}(m, view)
 end

@@ -183,6 +183,24 @@ function set_write_property!(P::PropertyTargetType, name::Symbol, fn::Function)
     end)
 end
 
+# Do both within the same call, useful to avoid world age inconsistency.
+function set_property!(
+    P::PropertyTargetType,
+    name::Symbol,
+    fn::Function,
+    fn!::Function,
+)
+    REVISING ||
+        has_read_property(P, Val(name)) && properr(P, name, "Property already exists.")
+    name = Meta.quot(name)
+    eval(quote
+        read_property(::Type{$P}, ::Val{$name}) = $fn
+        write_property(::Type{$P}, ::Val{$name}) = $fn!
+    end)
+end
+# Only do the read part if no set! function is provided.
+set_property!(P, name, fn, ::Nothing) = set_read_property!(P, name, fn)
+
 # ==========================================================================================
 # List all properties and associated functions for this type.
 # Yields (property_name, fn_read, Option{fn_write}, iterator{dependencies...}).

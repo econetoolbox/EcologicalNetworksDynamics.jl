@@ -39,7 +39,7 @@ Obtain name variants for nodes in the class, in order:
   - CamelCase singular
   - CamelCase plural
 """
-name_variants(::S) = throw("unimplemented")
+name_variants(s::S) = throw("Name variants unspecified for $s.")
 short_prefix(s::S) = name_variants(s)[1]
 snake_case_singular(s::S) = name_variants(s)[2]
 snake_case_plural(s::S) = name_variants(s)[3]
@@ -49,7 +49,7 @@ CamelCasePlural(s::S) = name_variants(s)[5]
 """
 Obtain the component providing the class.
 """
-component(::S) = throw("unimplemented")
+component(s::S) = throw("Component unspeficied for $s.")
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -100,7 +100,7 @@ Obtain name variants for the web, in order:
   - snake_case
   - CamelCase
 """
-name_variants(::S) = throw("unimplemented")
+name_variants(s::S) = throw("Name variants unspecified for $s.")
 snake_case(s::S) = name_variants(s)[1]
 CamelCase(s::S) = name_variants(s)[2]
 
@@ -112,12 +112,12 @@ propnames(s::S) = (snake_case(s), CamelCase(s))
 """
 Obtain the component providing the web.
 """
-component(::S) = throw("unimplemented")
+component(s::S) = throw("Component unspecified for $s.")
 
 """
 Names of the (source, target) classes.
 """
-sidenames(::S) = throw("unimplemented")
+sidenames(s::S) = throw("Source and target classes unspecified for $s.")
 sourcename(s::S) = first(sidenames(s))
 targetname(s::S) = last(sidenames(s))
 
@@ -129,9 +129,12 @@ source(s::S) = NodeClass(sourcename(s))
 target(s::S) = NodeClass(targetname(s))
 
 """
-Raise for reflexive webs.
+Raise for symmetric webs.
 """
-is_reflexive(::S) = throw("unimplemented")
+is_reflexive(s::S) = source(s) == target(s)
+is_symmetric(s::S) =
+    is_reflexive(s) ? throw("Unspecified whether $s reflexive web topology is symmetric.") :
+    false
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -140,32 +143,36 @@ function Base.show(io::IO, s::S)
 end
 
 # ==========================================================================================
-# Node data.
+# Node field.
 
 """
-Dispatch extension point to particular class data.
+Dispatch extension point to particular class field data.
 """
-struct NodeData{class,data} <: Dispatcher end
-export NodeData
-NodeData(class::Symbol, data::Symbol) = NodeData{class,data}()
-S = NodeData # 'Self'
-content(::S{class,data}) where {class,data} = (class, data)
-class(s::S) = first(data(s))
-data(s::S) = last(data(s))
+struct NodeField{class,field} <: Dispatcher end
+export NodeField
+NodeField(class::Symbol, field::Symbol) = NodeField{class,field}()
+S = NodeField # 'Self'
+content(::S{class,field}) where {class,field} = (class, field)
+class(s::S) = first(content(s))
+field(s::S) = last(content(s))
 readonly(::S) = false # By default, or specialize.
-type(::S) = throw("unimplemented") # Underlying data type.
+type(s::S) = throw("Data type unspecified for $s.") # Underlying data type.
 
 """
 Obtain name variants for the data points, in order:
 
   - snake_case singular
   - snake_case plural
+  - CamelCase singular
+  - CamelCase plural
   - short field name
 """
-name_variants(::S) = throw("unimplemented")
+name_variants(s::S) = throw("Name variants unspecified for $s.")
 snake_case_singular(s::S) = name_variants(s)[1]
 snake_case_plural(s::S) = name_variants(s)[2]
-short_field_name(s::S) = name_variants(s)[3]
+CamelCaseSingular(s::S) = name_variants(s)[3]
+CamelCasePlural(s::S) = name_variants(s)[4]
+short_field_name(s::S) = name_variants(s)[5]
 
 """
 Obtain dispatcher to underlying class.
@@ -174,54 +181,54 @@ NodeClass(s::S) = NodeClass(class(s))
 
 # Display.
 function Base.show(io::IO, s::S)
-    class, data = content(s)
-    print(io, "<$class:$data>")
+    class, field = content(s)
+    print(io, "<$class:$field>")
 end
 
 # ==========================================================================================
-# Expanded node data.
+# Expanded node field data.
 
 """
-Dispatch extension point to particular class data
+Dispatch extension point to particular class field data
 from the perspective of a parent class.
 """
-struct ExpandedNodeData{class,data,parent} <: Dispatcher end
-export ExpandedNodeData
-ExpandedNodeData(class::Symbol, data::Symbol, parent::Option{Symbol}) =
-    ExpandedNodeData{class,data,parent}()
-S = ExpandedNodeData # 'Self'
-content(::S{class,data,parent}) where {class,data,parent} = (class, data, parent)
+struct ExpandedNodeField{class,field,parent} <: Dispatcher end
+export ExpandedNodeField
+ExpandedNodeField(class::Symbol, field::Symbol, parent::Option{Symbol}) =
+    ExpandedNodeField{class,field,parent}()
+S = ExpandedNodeField # 'Self'
+content(::S{class,field,parent}) where {class,field,parent} = (class, field, parent)
 class(s::S) = first(content(s))
-data(s::S) = content(s)[2]
+field(s::S) = content(s)[2]
 parent(s::S) = last(content(s))
-type(::S) = throw("unimplemented")
+type(s::S) = throw("Data type unspecified for $s.")
 
 """
-Obtain dispatchers to underlying class, mask, data.
+Obtain dispatchers to underlying class, mask, field.
 """
 NodeClass(s::S) = NodeClass(class(s))
 NodeMask(s::S) = NodeMask(class(s), parent(s))
-NodeData(s::S) = NodeData(class(s), data(s))
+NodeField(s::S) = NodeField(class(s), field(s))
 
 # Display.
 function Base.show(io::IO, s::S)
-    class, data, parent = content(s)
-    print(io, "<$parent:$class:$data>")
+    class, field, parent = content(s)
+    print(io, "<$parent:$class:$field>")
 end
 
 # ==========================================================================================
-# Web data.
+# Web field.
 
 """
-Dispatch extension point to particular web data.
+Dispatch extension point to particular web field data.
 """
-struct EdgeData{web,data} <: Dispatcher end
-export EdgeData
-EdgeData(web::Symbol, data::Symbol) = EdgeData{web,data}()
-S = EdgeData # 'Self'
-content(::S{web,data}) where {web,data} = (web, data)
-N.web(s::S) = first(data(s))
-data(s::S) = last(data(s))
+struct EdgeField{web,field} <: Dispatcher end
+export EdgeField
+EdgeField(web::Symbol, field::Symbol) = EdgeField{web,field}()
+S = EdgeField # 'Self'
+content(::S{web,field}) where {web,field} = (web, field)
+N.web(s::S) = first(content(s))
+field(s::S) = last(content(s))
 
 """
 Obtain dispatcher to underlying web.
@@ -230,8 +237,8 @@ EdgeWeb(s::S) = EdgeWeb(web(s))
 
 # Display.
 function Base.show(io::IO, s::S)
-    web, data = content(s)
-    print(io, "<$web:$data>")
+    web, field = content(s)
+    print(io, "<$web:$field>")
 end
 
 end

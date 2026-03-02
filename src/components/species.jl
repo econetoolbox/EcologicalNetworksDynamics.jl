@@ -4,16 +4,16 @@
 (false) && (local Species, _Species)
 
 # Typical, vanilla class component.
-nc = NodeClass(:species)
-NC = typeof(nc)
-D.name_variants(::NC) = (:s, :species, :species, :Species, :Species)
-NF.define_class_component(EN, nc)
+d = NodeClass(:species)
+DT = typeof(d)
+D.name_variants(::DT) = (:s, :species, :species, :Species, :Species)
+NF.define_class_component(EN, d)
 export Species
 
 # Extra aliases used by the community.
-@alias species.number S
-@alias S richness
-@alias S species.richness
+@alias S species.number
+@alias richness S
+@alias species.richness S
 
 @doc """
 The Species component adds the most basic nodes compartment into the model: species.

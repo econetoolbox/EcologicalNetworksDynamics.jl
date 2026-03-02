@@ -8,16 +8,16 @@ struct EdgesDataView{ed,T} <: AbstractMatrix{T}
     model::Model
     view::N.EdgesView{T}
 end
-function edges_view(m::Model, web::Symbol, data::Symbol)
-    view = N.edges_view(value(m), web, data)
-    ed = D.EdgeData(web, data)
+function edges_view(m::Model, web::Symbol, field::Symbol)
+    view = N.edges_view(value(m), web, field)
+    ed = D.EdgeField(web, field)
     T = eltype(view)
     EdgesDataView{ed,T}(m, view)
 end
 S = EdgesDataView
 N.web(v::S) = v |> view |> web
 webname(s::S) = N.web(dispatcher(s))
-fieldname(s::S) = D.data(dispatcher(s))
+fieldname(s::S) = D.field(dispatcher(s))
 Base.getindex(v::S, i, j) = getindex(view(v), (i, j))
 Base.setindex!(v::S, x, i, j) = setindex!(view(v), x, (i, j))
 extract(v::S; kw...) = N.to_sparse(view(v), kw...)

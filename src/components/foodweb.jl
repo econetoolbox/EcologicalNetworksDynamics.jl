@@ -8,26 +8,26 @@
 # (reassure JuliaLS)
 (false) && (local Foodweb, _Foodweb)
 
-ew = EdgeWeb(:foodweb)
-EW = typeof(ew)
-D.sidenames(::EW) = (:species, :species)
-D.name_variants(::EW) = (:foodweb, :Foodweb)
-D.propnames(::EW) = (:trophic, :Trophic)
-D.is_reflexive(::EW) = true
+d = EdgeWeb(:foodweb)
+DT = typeof(d)
+D.sidenames(::DT) = (:species, :species)
+D.name_variants(::DT) = (:foodweb, :Foodweb)
+D.propnames(::DT) = (:trophic, :Trophic)
+D.is_symmetric(::DT) = false
 
-NF.define_reflexive_web_component(EN, ew)
+NF.define_reflexive_web_component(EN, d)
 
 # Community consistency aliases.
 const (TrophicLayer, _TrophicLayer) = (Foodweb, _Foodweb)
 export Foodweb, TrophicLayer
-@alias trophic foodweb
-@alias trophic.matrix A
-@alias A trophic.A
+@alias foodweb trophic
+@alias A trophic.matrix
+@alias trophic.A A
 
 # ==========================================================================================
 # Web-derived classes and webs.
 
-function reflexive_web_post_expand!(::EW, model, topology)
+function reflexive_web_post_expand!(::DT, model, topology)
     network = NF.network(model)
 
     # Every node becomes associated with a trophic level.
@@ -92,9 +92,9 @@ NF.define_web_properties(EN, p, deps)
 NF.define_web_properties(EN, h, deps)
 NF.define_web_properties(EN, c, deps)
 
-@alias producers_web.matrix producers.matrix
-@alias herbivory trophic.herbivory
-@alias carnivory trophic.carnivory
+@alias producers.matrix producers_web.matrix
+@alias trophic.herbivory herbivory
+@alias trophic.carnivory carnivory
 
 # ==========================================================================================
 """

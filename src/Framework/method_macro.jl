@@ -475,10 +475,10 @@ end
 
 # Call later to append aliases.
 # TODO: this is only tested by the above client package yet. Test within framework tests.
-macro alias(old, new, V)
-    old, new = Meta.quot.((old, new))
+macro alias(new, old, V)
+    new, old = Meta.quot.((new, old))
     quote
-        $alias_property!($old, $new, $V)
+        $alias_property!($new, $old, $V)
     end
 end
 export @alias
@@ -487,9 +487,7 @@ function alias_property!(a, b, V)
     (A, B) = property_space_type.((a, b), (V,))
     (Pa, Pb) = super.((A, B))
     (na, nb) = last_in_path.((a, b))
-    fn_a = read_property(Pa, Val(na)) # Checked.
-    fn_a! = possible_write_property(Pa, Val(na))
-    set_read_property!(Pb, nb, fn_a)
-    isnothing(fn_a!) && return
-    set_write_property!(Pb, nb, fn_a!)
+    fn_b = read_property(Pb, Val(nb)) # Checked.
+    fn_b! = possible_write_property(Pb, Val(nb))
+    set_property!(Pa, na, fn_b, fn_b!)
 end

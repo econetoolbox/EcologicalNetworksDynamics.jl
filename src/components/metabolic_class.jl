@@ -9,18 +9,20 @@
 
 (false) && (local MetabolicClass, _MetabolicClass, MetabolicClass_) # (reassure JuliaLS)
 
-nd = NodeData(:species, :metabolic_class)
-ND = typeof(nd)
-D.name_variants(::ND) = (:metabolic_class, :metabolic_classes, :class)
+d = NodeField(:species, :metabolic_class)
+DT = typeof(d)
+D.type(::DT) = Symbol
+D.name_variants(::DT) =
+    (:metabolic_class, :metabolic_classes, :MetabolicClass, :MetabolicClasses, :class)
 
 # Forbid flattening of classes because it r(b)arely makes sense.
-NF.flat(::ND) = nothing
+NF.flat(::DT) = nothing
 
 # Inputs are checked against aliasing dict.
-NF.check(::ND, input) = aliasing_symbol(MetabolicClassDict, input)
+NF.check(::DT, input) = aliasing_symbol(MetabolicClassDict, input)
 
 # If model value is available, they are checked against species trophic status.
-function NF.check_with_ref(::ND, model, class, sp::Symbol)
+function NF.check_with_ref(::DT, model, class, sp::Symbol)
     network = NF.network(model)
     is_producer = N.is_label(network, sp, :producers)
     prod_class = AliasingDicts.is(class, :producer, MetabolicClassDict)
@@ -35,13 +37,13 @@ function NF.check_with_ref(::ND, model, class, sp::Symbol)
 end
 
 
-NF.define_node_data_component(
+NF.define_node_field_component(
     EN,
-    nd;
+    d;
     requires = (Foodweb,),
     #---------------------------------------------------------------------------------------
     # Construct from foodweb with a favourite consumer class.
-    Blueprints = quote
+    blueprints = quote
         Foodweb = $Foodweb
         mutable struct Favor <: Blueprint
             favourite::Symbol
@@ -62,7 +64,7 @@ F.early_check(bp::Favor) =
 function F.expand!(model, bp::Favor)
     f = bp.name == :all_invertebrate ? :invertebrate : :ectotherm
     classes = [is_prod ? :producer : f for is_prod in model.producers.mask]
-    NF.expand!(nd, model, classes)
+    NF.expand!(d, model, classes)
 end
 
 # Constructors.
