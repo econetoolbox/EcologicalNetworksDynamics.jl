@@ -3,7 +3,7 @@ module TestUser
 Value = Main.EcologicalNetworksDynamics.Internal # To make @sysfails work.
 
 # Run all .jl files we can find except the current one (and without recursing).
-only = ["02-views.jl", "03-components.jl"] # Unless some files are specified here, in which case only run these.
+only = ["01-input.jl", "02-views.jl", "03-components.jl"] # Unless some files are specified here, in which case only run these.
 if isempty(only)
     folder = dirname(@__FILE__)
     for file in readdir(folder)

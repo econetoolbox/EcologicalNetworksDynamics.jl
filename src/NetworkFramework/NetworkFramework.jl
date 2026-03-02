@@ -103,6 +103,7 @@ struct InputError <: Exception
     mess::String
 end
 inerr(m, throw = Base.throw) = throw(InputError(m))
+Base.showerror(io::IO, e::InputError) = print(io, "Input error: $(e.mess)")
 include("./convert.jl")
 include("./lists.jl")
 
@@ -145,6 +146,6 @@ export Brought, @blueprint, @component, @method
 export NF, D, Model, Views
 export NodeClass, NodeMask, EdgeWeb, NodeField, ExpandedNodeField, EdgeField
 export Map, BinMap, Adjacency, BinAdjacency
-export inerr
+export inputconvert, input_try, InputError, inerr
 
 end

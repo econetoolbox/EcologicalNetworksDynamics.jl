@@ -30,14 +30,26 @@
 """
 Without any context, call with a target type to convert input.
 """
-inputconvert(::Type, input) = input # Default to identity.
+inputconvert(T, input) = inerr("Cannot convert from $(typeof(input)) to $T.")
+inputconvert(::Type{T}, input::T) where {T} = input
 
 # ==========================================================================================
 # Scalar conversions.
 macro allow_convert(Input, Target, f)
-    esc(quote
-        inputconvert(::Type{$Target}, v::$Input) = $f(v)
-    end)
+    esc(
+        quote
+            inputconvert(::Type{$Target}, v::$Input) =
+                try
+                    $f(v)
+                catch e
+                    e isa InputError && rethrow(e)
+                    inerr("Error when attempting to convert input \
+                           (detail down the stacktrace):\n\
+                           Target type was $($Target).\n\
+                           Input was: $(repr(v)) ::$(typeof(v))")
+                end
+        end,
+    )
 end
 #! format: off
 @allow_convert Symbol         String  String
@@ -104,6 +116,7 @@ function input_try(input, tries...) # [(Type, Function(conversion_result) -> _)]
     for (T, _) in tries
         print(mess, "\n  - $T")
     end
+    print(mess, "\nReceived value: $(repr(input)) ::$(typeof(input)).")
     mess = String(take!(mess))
     inerr(mess)
 end

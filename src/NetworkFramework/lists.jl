@@ -73,17 +73,17 @@
 # The `R`eference type is either inferred to Int (index) or Symbol (label)
 # depending on user input.
 const Ref = Union{Int,Symbol}
-const Map{R,T} = OrderedDict{R,T}
+const Map{T,R} = OrderedDict{R,T}
 const BinMap{R} = OrderedSet{R}
-const Adjacency{R,T} = OrderedDict{R,OrderedDict{R,T}}
+const Adjacency{T,R} = OrderedDict{R,OrderedDict{R,T}}
 const BinAdjacency{R} = OrderedDict{R,OrderedSet{R}}
 export Map, Adjacency, BinMap, BinAdjacency
-reftype(::Type{Map{R}}) where {R} = R
-reftype(::Type{Adjacency{R}}) where {R} = R
+reftype(::Type{Map{T,R}}) where {T,R} = R
+reftype(::Type{Adjacency{T,R}}) where {T,R} = R
 reftype(::Type{BinMap{R}}) where {R} = R
 reftype(::Type{BinAdjacency{R}}) where {R} = R
-valtype(::Type{Map{R,T}}) where {R,T} = T
-valtype(::Type{Adjacency{R,T}}) where {R,T} = T
+valtype(::Type{Map{T}}) where {T} = T
+valtype(::Type{Adjacency{T}}) where {T} = T
 valtype(::Type{BinMap}) = Bool
 valtype(::Type{BinAdjacency}) = Bool
 
@@ -387,9 +387,9 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
     catch plain_error
         plain_error isa Forgiveness || rethrow(plain_error)
         try
-            f = fork(p, R -> Map{R,p.T})
+            f = fork(p, R -> Map{p.T,R})
             pairs = inputconvert(
-                Map{<:Any,p.T},
+                Map{p.T},
                 input;
                 parser = f,
                 what = (;
@@ -526,7 +526,7 @@ end
 # Parse general maps.
 
 function inputconvert(
-    ::Type{Map{<:Any,T}},
+    ::Type{Map{T}},
     input;
     ExpectedRefType = nothing,
     parser = nothing,
@@ -534,7 +534,7 @@ function inputconvert(
 ) where {T}
     forgive(parser) do
 
-        p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{R,T}) : parser
+        p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{T,R}) : parser
         it = parse_iterable(p, input, what.whole)
         isnothing(it) && return empty_result(p)
 
@@ -695,14 +695,14 @@ end
 # Parse adjacency maps.
 
 function inputconvert(
-    ::Type{Adjacency{<:Any,T}},
+    ::Type{Adjacency{T}},
     input;
     ExpectedRefType = nothing,
     parser = nothing,
 ) where {T}
     forgive(parser) do
 
-        p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{R,T}) : parser
+        p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{T,R}) : parser
         it = parse_iterable(p, input, "adjacency map")
         isnothing(it) && return empty_result(p)
 
@@ -817,14 +817,11 @@ adjacency_map_priorities = priorities([
 
 #-------------------------------------------------------------------------------------------
 # Alias if types matches exactly.
-inputconvert(::Type{Map{<:Any,T}}, input::Map{Symbol,T}) where {T} = input
-inputconvert(::Type{Map{<:Any,T}}, input::Map{Int,T}) where {T} = input
-inputconvert(::Type{BinMap{<:Any}}, input::BinMap{Int}) = input
-inputconvert(::Type{BinMap{<:Any}}, input::BinMap{Symbol}) = input
-inputconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Symbol,T}) where {T} = input
-inputconvert(::Type{Adjacency{<:Any,T}}, input::Adjacency{Int,T}) where {T} = input
-inputconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Symbol}) = input
-inputconvert(::Type{BinAdjacency{<:Any}}, input::BinAdjacency{Int}) = input
+# Resolves the ambiguity introduced by *not* typing `input` in the methods above.
+inputconvert(::Type{BinMap}, input::BinMap) = input
+inputconvert(::Type{BinAdjacency}, input::BinAdjacency) = input
+inputconvert(::Type{Map{T}}, input::Map{T}) where {T} = input
+inputconvert(::Type{Adjacency{T}}, input::Adjacency{T}) where {T} = input
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.

@@ -189,7 +189,7 @@ function Base.show(io::IO, ::MIME"text/plain", net::Network)
             if name != :root
                 n = n_nodes(class)
                 labels = sort(collect(keys(class.index)))
-                labels = join_elided(labels, ", ")
+                labels = EN.join_elided(labels, ", ")
                 print(io, " ($n): [$labels]")
             else
                 print(io, ":")
