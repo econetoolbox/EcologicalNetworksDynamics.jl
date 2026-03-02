@@ -298,7 +298,7 @@ function Base.showerror(io::IO, e::PropertyError{P}) where {P}
     V = system_value_type(P)
     pth = path(P)
     isnothing(pth) && (pth = "")
-    println(io, "In property `$pth.$name` of '$V': $message")
+    println(io, "In property `$pth.$name` of `$(System{V})`: $message")
 end
 
 properr(P, n, m) = throw(PropertyError(P, n, m))

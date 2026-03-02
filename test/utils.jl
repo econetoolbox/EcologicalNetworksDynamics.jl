@@ -2,6 +2,7 @@ module TestUtils
 
 using Test
 using Crayons
+using StringManipulation
 blue = crayon"blue"
 red = crayon"red"
 bold = crayon"bold"
@@ -19,6 +20,7 @@ export eprint, eprintln
 # with helful summary in case of mismatch.
 function is_repr(x, expected)
     actual = repr(x)
+    actual = remove_decorations(actual)
     actual == expected && return true
     eprintln("$(bold)CHECK FAILED:$reset The two console representations differ:\n\
               $(blue)expected:$reset $expected\n\
@@ -31,6 +33,7 @@ function is_disp(x, expected)
     io = IOBuffer()
     actual = show(IOContext(io, :limit => true, :displaysize => (20, 40)), "text/plain", x)
     actual = String(take!(io))
+    actual = remove_decorations(actual)
     actual == expected && return true
     eprintln("$(bold)CHECK FAILED:$reset The two console display differ:\n\
               $expected\n$bold---- ^^^ expected ^^^ | vvv actual vvv ----$reset\n$actual")

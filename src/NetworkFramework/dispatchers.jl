@@ -28,7 +28,7 @@ struct NodeClass{class} <: Dispatcher end
 export NodeClass
 NodeClass(class::Symbol) = NodeClass{class}()
 S = NodeClass # 'Self'
-class(::S{class}) where {class} = class
+class(::S{cl}) where {cl} = cl
 
 """
 Obtain name variants for nodes in the class, in order:

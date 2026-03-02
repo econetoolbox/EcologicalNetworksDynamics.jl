@@ -12,11 +12,10 @@ include("./dedicated_test_failures/network.jl")
 include("./dedicated_test_failures/aliasing.jl")
 include("./dedicated_test_failures/framework.jl")
 include("./dedicated_test_failures/network_framework.jl")
-#  include("./dedicated_test_failures/views.jl") # XXX on hold?
 
 export @netfails, @labelfails
 export @xaliasfails, @aliasfails
 export @bluefails, @methfails, @compfails, @conffails, @sysfails
-export @inputfails
+export @inputfails, @viewfails
 
 end

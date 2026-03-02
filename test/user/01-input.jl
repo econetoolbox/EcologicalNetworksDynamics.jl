@@ -1,14 +1,16 @@
 module TestInput
 
+# What user should only need to import.
 using EcologicalNetworksDynamics
+
 using SparseArrays
 using Random
 using Test
 
-Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
-import ..Main: @sysfails, @failswith, @argfails
-
-const EN = EcologicalNetworksDynamics
+# Technical additial imports for testing.
+import Main: @sysfails, @failswith, @argfails
+import EcologicalNetworksDynamics: EN, Network
+Value = EN.Network # To make @sysfails work.
 
 # Components input is supposed to be flexible but checked.
 # Check these here, by testing various inputs either supposed to error

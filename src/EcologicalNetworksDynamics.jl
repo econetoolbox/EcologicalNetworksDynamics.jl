@@ -34,6 +34,7 @@ const F = Framework
 # Bring this all together into a library for component authors.
 include("./NetworkFramework/NetworkFramework.jl")
 using .NetworkFramework
+export Model
 
 # Additional utils to construct components interface.
 include("./kwargs_helpers.jl")

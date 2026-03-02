@@ -147,5 +147,6 @@ export NF, D, Model, Views
 export NodeClass, NodeMask, EdgeWeb, NodeField, ExpandedNodeField, EdgeField
 export Map, BinMap, Adjacency, BinAdjacency
 export inputconvert, input_try, InputError, inerr
+export Views
 
 end

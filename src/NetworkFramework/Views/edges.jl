@@ -4,15 +4,17 @@
 Direct view into web data,
 either dense or sparse depending on underlying topology.
 """
-struct EdgesDataView{ed,T} <: AbstractMatrix{T}
+struct EdgesDataView{d,T} <: AbstractMatrix{T}
     model::Model
     view::N.EdgesView{T}
 end
+export EdgesDataView
 function edges_view(m::Model, web::Symbol, field::Symbol)
-    view = N.edges_view(value(m), web, field)
-    ed = D.EdgeField(web, field)
+    n = NF.network(m)
+    view = N.edges_view(n, web, field)
+    d = D.EdgeField(web, field)
     T = eltype(view)
-    EdgesDataView{ed,T}(m, view)
+    EdgesDataView{d,T}(m, view)
 end
 S = EdgesDataView
 N.web(v::S) = v |> view |> web
@@ -31,11 +33,17 @@ extract(v::S; kw...) = N.to_sparse(view(v), kw...)
 Indirect, immutable view into edges topology (typically masks).
 Parametrized with an EdgeWeb dispatcher.
 """
-struct EdgesMaskView{ew} <: AbstractMatrix{Bool}
+struct EdgesMaskView{d} <: AbstractMatrix{Bool}
     model::Model
     web::N.Web
 end
-edges_mask_view(m::Model, web::Symbol) = EdgesMaskView{web}(m, N.web(value(m), web))
+export EdgesMaskView
+function edges_mask_view(m::Model, web::Symbol)
+    n = NF.network(m)
+    d = EdgesMaskView(web)
+    web = N.web(n, web)
+    EdgesMaskView{d}(m, web)
+end
 S = EdgesMaskView # "Self"
 web(v::S) = getfield(v, :web)
 webname(s::S) = D.web(dispatcher(s))

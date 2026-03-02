@@ -43,8 +43,7 @@ function define_class_component(mod::Module, d::NodeClass)
             F.early_check(bp::Names) = $early_check(d, bp.names)
 
             # Expand into a new compartment.
-            F.expand!(model, bp::Names, _) =
-                Networks.add_class!(network(model), $s, bp.names)
+            F.expand!(model, bp::Names, _) = $expand!(d, model, bp.names)
 
         end,
     )
@@ -58,10 +57,8 @@ function define_class_component(mod::Module, d::NodeClass)
             end
             @blueprint Number "number of $($s)"
             export Number
-            F.expand!(model, bp::Number, _) = expand_from_vector!(
-                network(model),
-                (Symbol($short_prefix, i) for i in 1:bp.n),
-            )
+            F.expand!(model, bp::Number, _) =
+                $expand!(d, model, (Symbol($short_prefix, i) for i in 1:bp.n))
         end,
     )
 
@@ -84,7 +81,7 @@ function define_class_component(mod::Module, d::NodeClass)
     mod.eval(
         quote
             Framework.shortline(io::IO, model::Model, ::$_Plural) =
-                $class_shortline(io, model, d)
+                $class_shortline($d, io, model)
         end,
     )
 
@@ -156,8 +153,14 @@ function early_check(d::NodeClass, names::Vector{Symbol})
     names
 end
 
+function expand!(d::NodeClass, model::Model, names)
+    class = D.class(d)
+    network = NF.network(model)
+    N.add_class!(network, class, names)
+end
+
 # Display.
-function class_shortline(io::IO, model::Model, d::NodeClass)
+function class_shortline(d::NodeClass, io::IO, model::Model)
     class = D.snake_case_plural(d)
     Class = D.CamelCaseSingular(d)
     names = getproperty(model, class)._names

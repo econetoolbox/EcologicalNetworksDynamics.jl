@@ -35,6 +35,7 @@ module Views
 
 import EcologicalNetworksDynamics: N, F, I, NetworkFramework, Display, Option
 import .NetworkFramework: NF, D, Model, Ref, InputError
+const V = Views
 
 using SparseArrays
 using Crayons
@@ -85,12 +86,12 @@ display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
 
 AbstractView{d} = Union{NodesView{d},EdgesView{d}}
 S = AbstractView
-dispatcher(::Type{S{d}}) where {d} = d
+dispatcher(::Type{<:S{d}}) where {d} = d
 dispatcher(s::S) = dispatcher(typeof(s))
-model(v::S) = getfield(v, :model)
-network(v::S) = v |> model |> value
-Base.getproperty(n::S, ::Symbol) = err(n, "no property to access.")
-Base.setproperty!(n::S, ::Symbol) = err(n, "no property to access.")
+model(s::S) = getfield(s, :model)
+network(s::S) = s |> model |> value
+Base.getproperty(s::S, ::Symbol) = err(s, "no property to access.")
+Base.setproperty!(s::S, ::Symbol) = err(s, "no property to access.")
 
 # ==========================================================================================
 # Dedicated view exception.
