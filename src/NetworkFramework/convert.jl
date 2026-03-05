@@ -35,8 +35,8 @@ inputconvert(::Type{T}, input::T) where {T} = input
 
 # ==========================================================================================
 # Scalar conversions.
-macro allow_convert(Input, Target, f)
-    esc(
+function allow_convert(Target, Input, f)
+    eval(
         quote
             inputconvert(::Type{$Target}, v::$Input) =
                 try
@@ -51,52 +51,60 @@ macro allow_convert(Input, Target, f)
         end,
     )
 end
-#! format: off
-@allow_convert Symbol         String  String
-@allow_convert Char           String  (c -> "$c")
-@allow_convert AbstractString Symbol  Symbol
-@allow_convert Char           Symbol  Symbol
-#! format: on
+ac = allow_convert
 
 # ==========================================================================================
 # Simple collections conversions.
 
-macro allow_convert_all(Input, Target)
-    esc(
-        quote
-        #! format: off
-        @allow_convert $Input                 $Target               $Target
-        @allow_convert Vector{<:$Input}       Vector{$Target}       Vector{$Target}
-        @allow_convert Matrix{<:$Input}       Matrix{$Target}       Matrix{$Target}
-        @allow_convert SparseVector{<:$Input} SparseVector{$Target} SparseVector{$Target}
-        @allow_convert SparseMatrix{<:$Input} SparseMatrix{$Target} SparseMatrix{$Target}
+to_dense(f) = array -> [f(e) for e in array]
+function ac_dense(Target, pairs...) # (Input, convert_function)...
+    for (Input, f) in pairs
+        ac(Target, Input, f)
+        ac(Vector{Target}, Vector{<:Input}, to_dense(f))
+        ac(Matrix{Target}, Matrix{<:Input}, to_dense(f))
+    end
 
-        @allow_convert(
-            Vector{<:$Input},
-            SparseVector{$Target},
-            v -> SparseVector{$Target}(sparse(v)),
-        )
-        @allow_convert(
-            Matrix{<:$Input},
-            SparseMatrix{$Target},
-            m -> SparseMatrix{$Target}(sparse(m)),
-        )
-
-        # Don't shadow the identity case, which should return an alias of the input.
-        @allow_convert $Target               $Target               identity
-        @allow_convert Vector{$Target}       Vector{$Target}       identity
-        @allow_convert Matrix{$Target}       Matrix{$Target}       identity
-        @allow_convert SparseVector{$Target} SparseVector{$Target} identity
-        @allow_convert SparseMatrix{$Target} SparseMatrix{$Target} identity
-        #! format: on
-
-        end,
-    )
+    # Don't shadow the identity case, which should return an alias of the input.
+    ac(Target, Target, identity)
+    ac(Vector{Target}, Vector{Target}, identity)
+    ac(Matrix{Target}, Matrix{Target}, identity)
 end
 
-@allow_convert_all Real Float64
-@allow_convert_all Integer Int64
-@allow_convert_all Integer Bool
+# Textual values have no julia `zero` and don't make sense in sparse structures.
+ac_dense(String, (Symbol, String), (Char, c -> "$c"))
+ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
+
+# No custom conversion function for sparse arrays
+# because it does not necessarily translate in term of julia's `iszero`,
+# required for sparse structures.
+to_sparse(Target, Input) = array -> begin
+    res = spzeros(Input, size(array))
+    for (i, e) in enumerate(array)
+        iszero(e) && continue
+        res[i] = Target(e)
+    end
+    res
+end
+function ac_sparse(Target, Input)
+    ac(SparseVector{Target}, SparseVector{<:Input}, SparseVector{Target})
+    ac(SparseMatrix{<:Input}, SparseMatrix{Target}, SparseMatrix{Target})
+
+    ac(Vector{<:Input}, SparseVector{Target}, to_sparse(Target, Input))
+    ac(Matrix{<:Input}, SparseMatrix{Target}, to_sparse(Target, Input))
+
+    # Don't shadow the identity case, which should return an alias of the input.
+    ac(SparseVector{Target}, SparseVector{Target}, identity)
+    ac(SparseMatrix{Target}, SparseMatrix{Target}, identity)
+end
+
+function ac_all(Target, Input)
+    ac_dense(Target, (Input, Target))
+    ac_sparse(Target, Input)
+end
+
+ac_all(Float64, Real)
+ac_all(Int64, Integer)
+ac_all(Bool, Integer)
 
 # ==========================================================================================
 # Try successive conversions until one succeeds, applying the corresponding function then.

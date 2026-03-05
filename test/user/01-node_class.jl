@@ -93,8 +93,10 @@ const Value = Network # To have @sysfails work.
         """,
     )
 
-    # Convert.
-    @test Species(['a', 'b', 'c']) # HERE: fix and keep testing.
+    # Convert from various input types.
+    @test Species(['a', 'b', 'c']) == bp
+    @test Species(["a", "b", "c"]) == bp
+    # HERE: keep testing.
 
 end
 

@@ -30,8 +30,8 @@ function define_class_component(mod::Module, d::NodeClass)
         quote
             mutable struct Names <: Blueprint
                 names::Vector{Symbol}
-                Names(names) = new(construct_from_iterable(d, Vector{Symbol}, names))
-                Names(names...) = new(construct_from_iterable(d, Vector{Symbol}, names))
+                Names(names) = new(NF.inputconvert(Vector{Symbol}, names))
+                Names(names...) = new([NF.inputconvert(Symbol, n) for n in names])
                 Names(names::Vector{Symbol}) = new(names) # Alias if type-exact.
             end
 
