@@ -166,7 +166,13 @@ const Value = Network # To have @sysfails work.
         """,
     )
 
-    # XXX: test the above two with a non-root class.
+    # The above makes more sense with a non-root class, like producers here.
+    m = Model(Foodweb([:a => (:b, :c), :d => :e]))
+    @test m.producers.names == [:b, :c, :e]
+    @test m.producers.number == 3
+    @test m.producers.index == OrderedDict(:b => 1, :c => 2, :e => 3)
+    @test m.producers.parent_index == OrderedDict(:b => 2, :c => 3, :e => 5)
+    @test m.producers.mask == [0, 1, 1, 0, 1]
 
 end
 

@@ -27,8 +27,10 @@ export Foodweb, TrophicLayer
 # ==========================================================================================
 # Web-derived classes and webs.
 
-function reflexive_web_post_expand!(::DT, model, topology)
-    network = NF.network(model)
+function NF.post_expand!(d::DT, model)
+    network = EN.network(model)
+    web = D.web(d)
+    topology = N.web(network, web).topology
 
     # Every node becomes associated with a trophic level.
     A = N.to_mask(topology)
