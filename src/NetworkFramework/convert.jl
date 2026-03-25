@@ -77,8 +77,8 @@ ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 # No custom conversion function for sparse arrays
 # because it does not necessarily translate in term of julia's `iszero`,
 # required for sparse structures.
-to_sparse(Target, Input) = array -> begin
-    res = spzeros(Input, size(array))
+to_sparse(Target) = array -> begin
+    res = spzeros(Target, size(array))
     for (i, e) in enumerate(array)
         iszero(e) && continue
         res[i] = Target(e)
@@ -87,10 +87,10 @@ to_sparse(Target, Input) = array -> begin
 end
 function ac_sparse(Target, Input)
     ac(SparseVector{Target}, SparseVector{<:Input}, SparseVector{Target})
-    ac(SparseMatrix{<:Input}, SparseMatrix{Target}, SparseMatrix{Target})
+    ac(SparseMatrix{Target}, SparseMatrix{<:Input}, SparseMatrix{Target})
 
-    ac(Vector{<:Input}, SparseVector{Target}, to_sparse(Target, Input))
-    ac(Matrix{<:Input}, SparseMatrix{Target}, to_sparse(Target, Input))
+    ac(SparseVector{Target}, Vector{<:Input}, to_sparse(Target))
+    ac(SparseMatrix{Target}, Matrix{<:Input}, to_sparse(Target))
 
     # Don't shadow the identity case, which should return an alias of the input.
     ac(SparseVector{Target}, SparseVector{Target}, identity)
