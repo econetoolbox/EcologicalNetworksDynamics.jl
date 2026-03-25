@@ -87,6 +87,8 @@ const Value = Network # To have @sysfails work.
         "Label does not refer to a node in :species class: :x.\n\
          Valid labels: [:a, :b, :c]."
     )
+    @viewfails(v[], V, "Cannot index into nodes with 0 dimensions: [].")
+    @viewfails(v[1, 2], V, "Cannot index into nodes with 2 dimensions: [1, 2].")
 
     # Immutable.
     mess = "Cannot change :species nodes names after they have been set."
@@ -98,7 +100,7 @@ const Value = Network # To have @sysfails work.
     bp.names[2] = :x
     @test Model(bp).species.names == [:a, :x, :c]
 
-    # Failed construct from names.
+    # Fail construct from names.
     @sysfails(
         Model(Species([:a, :b, :b])),
         Check(early, [Species.Names], "Species 3 and 2 are both named :b.")
@@ -125,7 +127,7 @@ const Value = Network # To have @sysfails work.
     bp.n = 3
     @test Model(bp).species.names == [:s1, :s2, :s3]
 
-    # Failed construct from numbers.
+    # Fail construct from numbers.
     @sysfails(
         Model(Species(-3)),
         Check(

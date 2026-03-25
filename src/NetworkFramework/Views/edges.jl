@@ -40,7 +40,7 @@ end
 export EdgesMaskView
 function edges_mask_view(m::Model, web::Symbol)
     n = NF.network(m)
-    d = EdgesMaskView(web)
+    d = D.EdgeWeb(web)
     web = N.web(n, web)
     EdgesMaskView{d}(m, web)
 end
@@ -70,13 +70,16 @@ target(v::S) = N.class(network(v), targetname(v))
 source_index(v::S) = source(v).index
 target_index(v::S) = target(v).index
 Base.size(v::S) = v |> web |> size
+Base.getindex(v::S) = erredgesdim(v, ())
+Base.setindex!(v::S, _) = erredgesdim(v, ())
 Base.getindex(v::S, i::Ref) = erredgesdim(v, (i,))
 Base.setindex!(v::S, _, i::Ref) = erredgesdim(v, (i,))
 Base.getindex(v::S, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(v, (i, j, k, l...))
 Base.setindex!(v::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(v, (i, j, k, l...))
 erredgesdim(v::S, i) = err(
     v,
-    "Two indices are required to index into webs. Received $(length(i)): $(repr(i)).",
+    "Two indices are required to index into webs. \
+     Received $(length(i)): [$(EN.join_elided(i, ", "))].",
 )
 
 function check_range(v::S, i::Int, j::Int)
@@ -93,10 +96,10 @@ end
 
 function check_range(v::S, a::Symbol, b::Symbol)
     for (side, l, class) in [("source", a, source(v)), ("target", b, target(v))]
-        l in keys(class.index.forward) || err(
+        N.is_label(class.index, l) || err(
             v,
             "Cannot index with $(repr((a, b))) \
-             into a web view for $(repr(webname(v))) data \
+             into a web view for $(repr(webname(v))) \
              because $(repr(l)) is not a node label in $side class $(repr(class.name)).",
         )
     end

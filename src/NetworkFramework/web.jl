@@ -42,38 +42,42 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
             ).args
         ) |> last
 
+    #---------------------------------------------------------------------------------------
     # From matrix.
     blueprints.eval(
         quote
             mutable struct Matrix <: Blueprint
                 A::SparseMatrix{Bool}
                 $class::Brought(Class)
-                Matrix(A, $class = Class) =
-                    new(inputconvert(SparseMatrix{Bool}, A), $class)
+                Matrix(A, $class) = new(to_matrix(A), $class)
+                Matrix(A; $class = Class) = new(to_matrix(A), $class)
             end
+            to_matrix(A) = NF.inputconvert(SparseMatrix{Bool}, A)
             # Infer number of class nodes from matrix size.
             F.implied_blueprint_for(bp::Matrix, ::_Class) = Class(size(bp.A, 1))
-            F.early_check(bp::Matrix) = $early_check(bp.A)
-            F.late_check(_, bp::Matrix, model) = $late_check(d, bp.A, model)
-            F.expand!(model, bp::Matrix, _) = $expand!(d, model, bp.A)
+            F.early_check(bp::Matrix) = $early_check(d, bp.A)
+            F.late_check(model, bp::Matrix) = $late_check(d, model, bp.A)
+            F.expand!(model, bp::Matrix) = $expand!(d, model, bp.A)
             @blueprint Matrix "boolean matrix of $($w) links"
             export Matrix
         end,
     )
 
+    #---------------------------------------------------------------------------------------
     # From ajacency list.
     blueprints.eval(
         quote
             mutable struct Adjacency <: Blueprint
                 A::BinAdjacency
                 $class::Brought(Class)
-                Adjacency(A, $class = Class) = new(parse(BinAdjacency, A), $class)
+                Adjacency(A, $class = Class) =
+                    new(NF.inputconvert(BinAdjacency, A), $class)
             end
             # Infer number or names of class nodes from the lists.
-            F.implied_blueprint_for(bp::Adjacency, ::_Class) = Class(refspace(bp.A))
-            F.early_check(bp::Adjacency) = $early_check(d, bp.A)
-            F.late_check(model, bp::Adjacency, data) = $late_check(d, model, data)
-            F.expand!(model, bp::Adjacency, _) = $expand!(d, model, bp.A)
+            F.implied_blueprint_for(bp::Adjacency, ::_Class) =
+                Class(collect(NF.all_refs(bp.A)))
+            F.late_check(model, bp::Adjacency) = $late_check(d, model, bp.A)
+            F.expand!(model, bp::Adjacency) = $expand!(d, model, bp.A)
             @blueprint Adjacency "adjacency list of $($w) links"
             export Adjacency
         end,
@@ -87,7 +91,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     mod.eval(quote
         @component $Web{Network} requires($Class) blueprints($Web_)
         $D.component(::$DT) = $Web
-        (::$_Web)(A) = $construct($d, $Web, A)
+        (::$_Web)(args...; kwargs...) = $construct($d, $Web, args...; kwargs...)
     end)
 
     define_web_properties(mod, d, :(depends($Web)))
@@ -112,9 +116,9 @@ function define_web_properties(
         module $M
         import EcologicalNetworksDynamics: N, Network, Model, Views, @method
 
-        web(m::Network) = Networks.web(m, $w)
+        web(m::Network) = N.web(m, $w)
         topology(m::Network) = web(m).topology
-        number(m::Network) = m |> topology |> n_edges
+        number(m::Network) = m |> topology |> N.n_edges
         mask(::Network, m::Model) = Views.edges_mask_view(m, $w)
         @method $m $M.topology $deps read_as($prop._topology)
         @method $m $M.mask $deps read_as($prop.matrix, $prop.mask)
@@ -132,8 +136,11 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct.
 
-construct(::EdgeWeb, Web::Component, A) =
-    input_try(A, SparseMatrix => Web.Matrix, Adjacency => Web.Adjacency)
+construct(::EdgeWeb, Web::Component, A, args...; kwargs...) = input_try(
+    A,
+    SparseMatrix{Bool} => A -> Web.Matrix(A, args...; kwargs...),
+    BinAdjacency => (A -> Web.Adjacency(A, args...; kwargs...), rethrow),
+)
 
 #-------------------------------------------------------------------------------------------
 # Early check.
@@ -143,23 +150,13 @@ function early_check(::EdgeWeb, A::AbstractMatrix)
     n == m || F.checkfails("The adjacency matrix of size $((m, n)) is not squared.")
 end
 
-function early_check(d::EdgeWeb, A)
-    try
-        # Re-parse in case the blueprint was mutated prior to expansion.
-        parse(Adjacency, A)
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails("When early checking adjacency-list for $d:\n$(e.mess)", rethrow)
-    end
-end
-
 #-------------------------------------------------------------------------------------------
 # Late check.
 
 function late_check(d::EdgeWeb, m::Model, A::SparseMatrix{Bool})
     a, b = size(A)
     src = D.source(d)
-    class = D.snake_case_singular()
+    class = D.snake_case_singular(src)
     n = getproperty(m, class).number
     if !(n == a == b)
         src = D.sourcename(d)
@@ -172,7 +169,7 @@ end
 function late_check(d::EdgeWeb, m::Model, adj::BinAdjacency{Symbol})
     class = D.sourcename(d)
     index = getproperty(m, class)._index
-    check_refs(adj) do (side, lab)
+    check_refs(d, adj) do side, lab
         N.is_label(index, lab) ||
             F.checkfails("Not a $side label among $(repr(class)): $(repr(lab))")
     end
@@ -182,7 +179,7 @@ function late_check(d::EdgeWeb, m::Model, adj::BinAdjacency{Int})
     class = D.sourcename(d)
     index = getproperty(m, class)._index
     n = length(index)
-    check_refs(d, adj) do (side, i)
+    check_refs(d, adj) do side, i
         N.is_index(index, i) ||
             F.checkfails("Not a valid $side $(repr(class)) index among $n nodes: [$i].")
     end
@@ -209,7 +206,7 @@ function expand!(d::EdgeWeb, model, adj)
     index = getproperty(model, class)._index
     to_i(label) = N.to_index(index, label)
     topology = N.SparseReflexive(length(index), I.map(adj) do (src, sub)
-        (to_i(sub), I.map(to_i, sub))
+        (to_i(src), I.map(to_i, sub))
     end)
     expand!(d, model, topology)
 end

@@ -69,6 +69,9 @@
 # asking "forgiveness rather than permission".
 # During this diagnosis, normalize any 'plain' input to a (grouped,) input.
 
+# ==========================================================================================
+# Target types.
+
 # Maps and adjacency lists inputs are parsed into values of the following types.
 # The `R`eference type is either inferred to Int (index) or Symbol (label)
 # depending on user input.
@@ -86,6 +89,19 @@ valtype(::Type{Map{T}}) where {T} = T
 valtype(::Type{Adjacency{T}}) where {T} = T
 valtype(::Type{BinMap}) = Bool
 valtype(::Type{BinAdjacency}) = Bool
+reftype(a) = reftype(typeof(a))
+valtype(a) = valtype(typeof(a))
+
+#-------------------------------------------------------------------------------------------
+# Basic queries.
+source_refs(a::BinAdjacency) = keys(a)
+target_refs(a::BinAdjacency) = OrderedSet{reftype(a)}(I.flatten(values(a)))
+all_refs(a::BinAdjacency) = OrderedSet{reftype(a)}(I.map(a) do (src, targets)
+    ((src,), targets) |> I.flatten
+end |> I.flatten)
+
+# ==========================================================================================
+# Parse.
 
 # Use this type to hold all state required
 # during input parsing, especially useful for quality reporting in case of invalid input.
@@ -259,7 +275,7 @@ function parse_iterable(p::Parser, input::Pair, _)
         :pair_as_iterable,
         "The pair at $(path(p)) is just considered an iterable in this context, \
          which may be confusing. \
-         Consider using an explicit vector instead like [$(repr(a)), $(repr(b))].",
+         Consider grouping with an explicit vector instead like [$(repr(a)), $(repr(b))].",
     )
 end
 

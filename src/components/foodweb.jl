@@ -211,10 +211,10 @@ end
 # Display.
 function F.shortline(io::IO, model::Model, ::_Foodweb)
     l = model.trophic.n_links
-    p = model.producers.number
-    c = model.consumers.number
-    r = model.preys.number
-    t = model.tops.number
+    p = model.producer.number
+    c = model.consumer.number
+    r = model.prey.number
+    t = model.top.number
     n(n) = n > 0 ? "$n" : "no"
     s(n) = n > 1 ? "s" : ""
     print(

@@ -145,7 +145,8 @@ struct SparseMark <: Blueprint{Value} end
 # One component whose expansion / checking depends on other components within the system.
 
 struct ReflectionMark <: Blueprint{Value} end
-F.late_check(s, ::ReflectionMark) = if !has_component(s, A) && !has_component(s, B)
+F.late_check(s, ::ReflectionMark) =
+    if !has_component(s, A) && !has_component(s, B)
         checkfails("Cannot reflect from no data.")
     end
 function F.expand!(s, ::ReflectionMark)

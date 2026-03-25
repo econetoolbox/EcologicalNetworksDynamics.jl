@@ -43,7 +43,7 @@ function define_class_component(mod::Module, d::NodeClass)
             F.early_check(bp::Names) = $early_check(d, bp.names)
 
             # Expand into a new compartment.
-            F.expand!(model, bp::Names, _) = $expand!(d, model, bp.names)
+            F.expand!(model, bp::Names) = $expand!(d, model, bp.names)
 
         end,
     )
@@ -58,7 +58,7 @@ function define_class_component(mod::Module, d::NodeClass)
             @blueprint Number "number of $($s)"
             export Number
             F.early_check(bp::Number) = $early_check(d, bp.n)
-            F.expand!(model, bp::Number, _) =
+            F.expand!(model, bp::Number) =
                 $expand!(d, model, (Symbol($short_prefix, i) for i in 1:bp.n))
         end,
     )
@@ -111,15 +111,15 @@ function define_class_properties(
         # Nodes counts and nodes labels.
         # The 'ref' variant is more efficient but unexposed.
         get_number(n::Network) = N.n_nodes(n, $s)
-        ref_names(n::Network) = N.class(n, $s).index.reverse
+        ref_names(n::Network) = ref_index(n).reverse
         get_names(::Network, m::Model) = Views.nodes_names_view(m, $s)
         @method $m $M.get_number $deps read_as($plural.number)
         @method $m $M.ref_names $deps read_as($plural._names)
         @method $m $M.get_names $deps read_as($plural.names)
 
         # Ordered index.
-        ref_index(n::Network) = N.class(n, $s).index.forward
-        get_index(n::Network) = deepcopy(ref_index(n))
+        ref_index(n::Network) = N.class(n, $s).index
+        get_index(n::Network) = deepcopy(ref_index(n).forward)
         indices(n::Network) = N.node_indices(n, $s)
         get_parent_index(n::Network) =
             OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))

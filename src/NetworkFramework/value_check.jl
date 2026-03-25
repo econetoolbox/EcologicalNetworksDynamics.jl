@@ -60,4 +60,3 @@ function check_symbol(loc, var, list)
     end
 end
 export @check_symbol
-

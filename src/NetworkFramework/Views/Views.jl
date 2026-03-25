@@ -33,7 +33,7 @@ so their behaviour can be fine-tuned by downstream component authors.
 """
 module Views
 
-import EcologicalNetworksDynamics: N, F, I, NetworkFramework, Display, Option
+import EcologicalNetworksDynamics: EN, N, F, I, NetworkFramework, Display, Option
 import .NetworkFramework: NF, D, Model, Ref, InputError
 const V = Views
 

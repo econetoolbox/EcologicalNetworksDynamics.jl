@@ -92,7 +92,7 @@ struct EdgeWeb{web} <: Dispatcher end
 export EdgeWeb
 EdgeWeb(web::Symbol) = EdgeWeb{web}()
 S = EdgeWeb # 'Self'
-web(::S{web}) where {web} = web
+D.web(::S{web}) where {web} = web
 
 """
 Obtain name variants for the web, in order:

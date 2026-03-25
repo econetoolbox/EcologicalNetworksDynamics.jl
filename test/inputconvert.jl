@@ -389,7 +389,7 @@ Alias = _Alias() # Use as an unambiguous keyword.
         cv(BinMap, :a => :b),
         "The pair at [] is just considered an iterable in this context, \
          which may be confusing. \
-         Consider using an explicit vector instead like [:a, :b]."
+         Consider grouping with an explicit vector instead like [:a, :b]."
     )
 
     @inputfails( #  :not_a_ref
@@ -612,14 +612,14 @@ Alias = _Alias() # Use as an unambiguous keyword.
         cv(BinAdjacency, [(:a => :b) => :c], Symbol),
         "The pair at [1][left] is just considered an iterable in this context, \
          which may be confusing. \
-         Consider using an explicit vector instead like [:a, :b].",
+         Consider grouping with an explicit vector instead like [:a, :b].",
     )
 
     @inputfails( #   :pair_as_iterable (grouped targets)
         cv(BinAdjacency, [:a => :b => :c], Symbol),
         "The pair at [1][right] is just considered an iterable in this context, \
          which may be confusing. \
-         Consider using an explicit vector instead like [:b, :c].",
+         Consider grouping with an explicit vector instead like [:b, :c].",
     )
 
     @inputfails( #  :inconsistent_ref_type (grouped sources)

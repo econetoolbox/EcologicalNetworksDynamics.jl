@@ -45,7 +45,7 @@ end
 
 function Base.show(io::IO, v::EdgesMaskView)
     print(io, inline_info(v))
-    l, (m, n) = n_edges(web(v)), size(v)
+    l, (m, n) = N.n_edges(web(v)), size(v)
     print(io, "($m×$n: ")
     if l == 0
         print(io, "no edges")
@@ -69,7 +69,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::EdgesDataView)
     for i in 1:m
         line = []
         for j in 1:n
-            f = if is_edge(top, i, j)
+            f = if N.is_edge(top, i, j)
                 x = view[(i, j)]
                 repr(x)
             else
@@ -91,7 +91,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", v::EdgesMaskView)
     print(io, display_info(v))
-    l, (m, n) = n_edges(web(v)), size(v)
+    l, (m, n) = N.n_edges(web(v)), size(v)
     l, s = ns(l)
     top = topology(v)
     print(io, " ($m×$n: $l edge$s)")
@@ -100,7 +100,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::EdgesMaskView)
     for i in 1:m
         line = []
         for j in 1:n
-            f = if is_edge(top, i, j)
+            f = if N.is_edge(top, i, j)
                 "1"
             else
                 "·"

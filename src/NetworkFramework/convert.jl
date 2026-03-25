@@ -109,12 +109,35 @@ ac_all(Bool, Integer)
 # ==========================================================================================
 # Try successive conversions until one succeeds, applying the corresponding function then.
 
-function input_try(input, tries...) # [(Type, Function(conversion_result) -> _)]
-    for (T, then) in tries
+# "Tries" mean:
+# [
+#   (T, f) = (Type, Function(conversion_result) -> _),
+#   T sugar for (Type, identity),
+#   (T, (f, e)) = (T, (f, function(error))),
+#   ...
+# ]
+function input_try(input, tries...)
+    for t in tries
+
+        (T, then) = try
+            a, b = t
+            a, b
+        catch _
+            (t, identity)
+        end
+
+        (then, err) = try
+            a, b = then
+            a, b
+        catch _
+            (then, identity)
+        end
+
         x = try
             inputconvert(T, input)
         catch e
             e isa InputError || rethrow(e)
+            err(e)
             continue
         end
         return then(x)

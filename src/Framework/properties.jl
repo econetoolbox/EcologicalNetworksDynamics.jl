@@ -184,12 +184,7 @@ function set_write_property!(P::PropertyTargetType, name::Symbol, fn::Function)
 end
 
 # Do both within the same call, useful to avoid world age inconsistency.
-function set_property!(
-    P::PropertyTargetType,
-    name::Symbol,
-    fn::Function,
-    fn!::Function,
-)
+function set_property!(P::PropertyTargetType, name::Symbol, fn::Function, fn!::Function)
     REVISING ||
         has_read_property(P, Val(name)) && properr(P, name, "Property already exists.")
     name = Meta.quot(name)
