@@ -37,6 +37,7 @@ NF.define_node_field_component(
         end
     end,
 )
+export BodyMass
 
 # Community convenience alias.
 @alias M body_mass

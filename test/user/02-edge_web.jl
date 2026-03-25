@@ -62,7 +62,7 @@ const Value = Network # To have @sysfails work.
     # Explicit species names.
     bp.species = collect("abc")
 
-    # Expand into a name component.
+    # Expand into a web component.
     m = Model(bp)
 
     # The names property becomes available as a view.
@@ -112,6 +112,7 @@ const Value = Network # To have @sysfails work.
         "Cannot index with (:a, :y) into a web view for :foodweb \
          because :y is not a node label in target class :species."
     )
+    v[nothing] # HERE: test error message now.
 
     # Immutable.
     mess = "Cannot mutate edges topology."

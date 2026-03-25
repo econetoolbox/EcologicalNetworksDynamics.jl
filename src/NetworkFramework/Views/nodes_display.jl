@@ -56,7 +56,7 @@ type_info(::Type{<:NodesMaskView}) = "nodes mask"
 function Base.show(io::IO, v::NodesDataView)
     print(io, inline_info(v))
     print(io, '[')
-    read(entry(v)) do raw
+    read(N.entry(v)) do raw
         for (i, v) in enumerate(raw)
             print(io, repr(v))
             if i < length(raw)
@@ -72,7 +72,7 @@ function Base.show(io::IO, v::ExpandedNodesDataView)
     print(io, '[')
     n = length(v)
     mask = N.mask(network(v), class(v).name, parent(v))
-    read(entry(v)) do raw
+    read(N.entry(v)) do raw
         i_raw = 0
         for (i_m, m) in enumerate(mask)
             if m
@@ -125,7 +125,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodesDataView)
     n, s = ns(length(v))
     w = readonly(v) ? " readonly" : ""
     print(io, " ($n$w value$s)")
-    read(entry(v)) do raw
+    read(N.entry(v)) do raw
         for v in raw
             print(io, "\n ")
             print(io, repr(v))
@@ -138,7 +138,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::ExpandedNodesDataView)
     mask = N.mask(network(v), class(v).name, parent(v))
     n, _ = ns(length(v))
     w = readonly(v) ? " (readonly)" : ""
-    read(entry(v)) do raw
+    read(N.entry(v)) do raw
         (nz, s) = ns(length(raw))
         print(io, " ($nz/$n$w value$s)")
         i_raw = 0

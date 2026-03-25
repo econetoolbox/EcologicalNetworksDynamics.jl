@@ -170,7 +170,7 @@ function define_node_field_component(
     mod.eval(
         quote
             $Framework.shortline(io::IO, model::Model, ::$_Value) =
-                nodes_shortline(io, model, $d, $(Meta.quot(Value)))
+                $nodes_shortline(io, model, $d, $(Meta.quot(Value)))
         end,
     )
 end
@@ -324,7 +324,7 @@ function late_check(d::NodeField, model::Model, vec::Vector)
     # Then check values one by one, with context to produce useful reports.
     map(enumerate(zip(labels, vec))) do (i, (label, value))
         try
-            check_with_ref(d, model, value, label, i)
+            check_with_ref(d, model, value, i, label)
         catch e
             e isa InputError || rethrow(e)
             F.checkfails("When checking $d values array against model:\n$(e.mess)", rethrow)
@@ -355,7 +355,7 @@ function late_check(d::NodeField, model::Model, map::Map)
     try
         Base.map(labels) do label
             value = map[label]
-            F.check_with_ref(d, model, value, label)
+            check_with_ref(d, model, value, label)
         end
     catch e
         e isa InputError || rethrow(e)

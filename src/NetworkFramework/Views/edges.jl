@@ -17,12 +17,12 @@ function edges_view(m::Model, web::Symbol, field::Symbol)
     EdgesDataView{d,T}(m, view)
 end
 S = EdgesDataView
-N.web(v::S) = v |> view |> web
+N.web(s::S) = s |> view |> web
 webname(s::S) = N.web(dispatcher(s))
 fieldname(s::S) = D.field(dispatcher(s))
-Base.getindex(v::S, i, j) = getindex(view(v), (i, j))
-Base.setindex!(v::S, x, i, j) = setindex!(view(v), x, (i, j))
-extract(v::S; kw...) = N.to_sparse(view(v), kw...)
+Base.getindex(s::S, i, j) = getindex(view(s), check_refs(s, i, j))
+Base.setindex!(s::S, x, i, j) = setindex!(view(s), x, check_refs(s, i, j))
+extract(s::S; kw...) = N.to_sparse(view(s), kw...)
 
 # TODO: do we need an ExpandedEdgesView? Maybe refactor components first to figure this.
 
@@ -45,63 +45,68 @@ function edges_mask_view(m::Model, web::Symbol)
     EdgesMaskView{d}(m, web)
 end
 S = EdgesMaskView # "Self"
-web(v::S) = getfield(v, :web)
+web(s::S) = getfield(s, :web)
 webname(s::S) = D.web(dispatcher(s))
-topology(v::S) = web(v).topology
-Base.getindex(v::S, i::Int, j::Int) = N.is_edge(topology(v), check_range(v, i, j)...)
-Base.setindex!(v::S, _, ::Any, ::Any) = err(v, "Cannot mutate edges topology.")
-function Base.getindex(v::S, a::Symbol, b::Symbol)
-    check_range(v, a, b)
-    N.is_edge(topology(v), source_index(v).forward[a], target_index(v).forward[b])
+topology(s::S) = web(s).topology
+Base.getindex(s::S, i::Int, j::Int) = N.is_edge(topology(s), check_refs(s, i, j)...)
+Base.setindex!(s::S, _, ::Any, ::Any) = err(s, "Cannot mutate edges topology.")
+function Base.getindex(s::S, a::Symbol, b::Symbol)
+    check_refs(s, a, b)
+    N.is_edge(topology(s), source_index(s).forward[a], target_index(s).forward[b])
 end
 export edges_mask_view
-extract(v::S) = v |> topology |> N.to_mask
+extract(s::S) = s |> topology |> N.to_mask
 
 # ==========================================================================================
 # Common to all edge views.
 
 EdgesView{d} = Union{EdgesDataView{d},EdgesMaskView{d}}
 S = EdgesView
-topology(v::S) = web(v).topology
-sourcename(v) = web(v).source
-targetname(v) = web(v).target
-source(v::S) = N.class(network(v), sourcename(v))
-target(v::S) = N.class(network(v), targetname(v))
-source_index(v::S) = source(v).index
-target_index(v::S) = target(v).index
-Base.size(v::S) = v |> web |> size
-Base.getindex(v::S) = erredgesdim(v, ())
-Base.setindex!(v::S, _) = erredgesdim(v, ())
-Base.getindex(v::S, i::Ref) = erredgesdim(v, (i,))
-Base.setindex!(v::S, _, i::Ref) = erredgesdim(v, (i,))
-Base.getindex(v::S, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(v, (i, j, k, l...))
-Base.setindex!(v::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(v, (i, j, k, l...))
-erredgesdim(v::S, i) = err(
-    v,
+topology(s::S) = web(s).topology
+sourcename(s) = web(s).source
+targetname(s) = web(s).target
+source(s::S) = N.class(network(s), sourcename(s))
+target(s::S) = N.class(network(s), targetname(s))
+source_index(s::S) = source(s).index
+target_index(s::S) = target(s).index
+Base.size(s::S) = s |> web |> size
+Base.getindex(s::S) = erredgesdim(s, ())
+Base.setindex!(s::S, _) = erredgesdim(s, ())
+Base.getindex(s::S, i::Ref) = erredgesdim(s, (i,))
+Base.setindex!(s::S, _, i::Ref) = erredgesdim(s, (i,))
+Base.getindex(s::S, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
+Base.setindex!(s::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
+erredgesdim(s::S, i) = err(
+    s,
     "Two indices are required to index into webs. \
      Received $(length(i)): [$(EN.join_elided(i, ", "))].",
 )
 
-function check_range(v::S, i::Int, j::Int)
-    for (i, class) in [(i, source(v)), (j, target(v))]
-        n = length(class)
-        i in 1:n || err(
-            v,
-            "Cannot index with $((i, j)) \
-             into a web view for $(repr(webname(v))) of size $(size(web(v))).",
-        )
-    end
-    (i, j)
+check_refs(s::S, src, tgt) =
+    (check_ref(s, src, Val(source)), check_ref(s, tgt, Val(target)))
+check_ref(s, ref, _) = check_ref(s, ref)
+
+function check_ref(s::S, i::Int, ::Val{side}) where {side}
+    class = side(s)
+    m = class.name
+    n = length(class)
+    w = webname(s)
+    d = disp_index(i, Val(side))
+    s = Symbol(side)
+    i in 1:n || err(s, "Cannot index with $d into a $w web with $n $m $s nodes.")
 end
 
-function check_range(v::S, a::Symbol, b::Symbol)
-    for (side, l, class) in [("source", a, source(v)), ("target", b, target(v))]
-        N.is_label(class.index, l) || err(
-            v,
-            "Cannot index with $(repr((a, b))) \
-             into a web view for $(repr(webname(v))) \
-             because $(repr(l)) is not a node label in $side class $(repr(class.name)).",
-        )
-    end
-    (a, b)
+function check_ref(s::S, l::Symbol, ::Val{side}) where {side}
+    class = side(s)
+    m = class.name
+    w = webname(s)
+    d = disp_index(l, Val(side))
+    s = Symbol(side)
+    N.is_label(class.index, l) || err(
+        s,
+        "Cannot index with $d into a $w web '
+     because it is not a node label in $s $m class.",
+    )
 end
+disp_index(ref, ::Val{target}) = "[·, $(repr(ref))]"
+disp_index(ref, ::Val{source}) = "[$(repr(ref)), ·]"

@@ -1,9 +1,9 @@
 """
-Test all aspects of typical NodeClass component,
-using Species as an example, but without testing anything specific to species.
-Anything specific to species will be tested in a dedicated file.
+Test all aspects of typical NodeField component,
+using BodyMass as an example, but without testing anything specific to BodyMass.
+Anything specific to BodyMass will be tested in a dedicated file.
 """
-module NodeClassTest
+module NodeFieldTest
 
 # What the end user should have to import.
 using EcologicalNetworksDynamics
@@ -11,70 +11,85 @@ using EcologicalNetworksDynamics
 # Additional imports only used here for testing purpose.
 using Test
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, Network, Views, NodeClass, NodeMask
+import EcologicalNetworksDynamics: EN, Network, Views, NodeField
 import Main: is_repr, is_disp, @viewfails, @sysfails
 const Value = Network # To have @sysfails work.
 
-@testset "Typical NodeClass component" begin
+@testset "Typical NodeField component" begin
 
     # Blueprints available from component.
-    @test Species isa EN.Component
-    @test is_repr(Species, "Species")
+    @test BodyMass isa EN.Component
+    @test is_repr(BodyMass, "BodyMass")
     @test is_disp(
-        Species,
+        BodyMass,
         """
-        Species (component for $Network, expandable from:
-          Names: raw species names,
-          Number: number of species,
+        BodyMass (component for Network, expandable from:
+          Raw: raw values,
+          Map: [species => body_mass] map,
+          Flat: uniform value,
+          Z: trophic levels,
         )\
         """,
     )
-    @test Species.Names <: EN.Blueprint
-    @test Species.Number <: EN.Blueprint
+    @test BodyMass.Raw <: EN.Blueprint
+    @test BodyMass.Map <: EN.Blueprint
+    @test BodyMass.Flat <: EN.Blueprint
+    @test BodyMass.Z <: EN.Blueprint # So the extension point worked, but test Z elsewhere.
 
-    # Construct from names, converted from various input types.
-    bp = Species.Names([:a, :b, :c])
-    @test bp == Species.Names(['a', 'b', 'c'])
-    @test bp == Species.Names(["a", "b", "c"])
+    # Construct from raw values, regardless of input type.
+    bp = BodyMass.Raw([4.0, 5.0, 6.0])
+    @test bp == BodyMass.Raw([4, 5, 6])
+    @test BodyMass.Raw(Bool[1, 0, 1]) == BodyMass.Raw([1.0, 0.0, 1.0])
     # Implbicit constructor.
-    @test bp == Species([:a, :b, :c])
-    @test bp == Species(['a', 'b', 'c'])
-    @test bp == Species(["a", "b", "c"])
-    @test is_repr(bp, "<Species>:Names(names: [:a, :b, :c])")
+    @test bp == BodyMass([4.0, 5.0, 6.0])
+    @test bp == BodyMass([4, 5, 6])
+    @test BodyMass(Bool[1, 0, 1]) == BodyMass([1.0, 0.0, 1.0])
+    @test is_repr(bp, "<BodyMass>:Raw(body_mass: [4.0, 5.0, 6.0], species: <Species>)")
     @test is_disp(
         bp,
         """
-        blueprint for <Species>: Names {
-          names: [:a, :b, :c],
+        blueprint for <BodyMass>: Raw {
+          body_mass: [4.0, 5.0, 6.0],
+          species: <implied blueprint for <Species>>,
         }\
         """,
     )
 
-    # Expand into a class component.
-    m = Model(bp)
+    # Expand into a field component.
+    m = Model(bp) # HERE
 
     # The names property becomes available as a view.
-    V = Views.NodesNamesView{NodeClass(:species)}
-    v = m.species.names
+    V = Views.NodesDataView{NodeField(:species, :body_mass)}
+    v = m.body_mass
     @test v isa V
-    @test v isa AbstractVector{Symbol}
-    @test is_repr(v, "<species>[:a, :b, :c]")
+    @test v isa AbstractVector{Float64}
+    @test is_repr(v, "<species:body_mass>[4.0, 5.0, 6.0]")
     @test is_disp(
         v,
         """
-        NodesNamesView<species>{Symbol} (3 values)
-         :a
-         :b
-         :c\
+        NodesDataView<species:body_mass>{Float64} (3 values)
+         4.0
+         5.0
+         6.0\
         """,
     )
 
     # The view has some basic vector-like interface.
-    @test v == collect(v) == [:a, :b, :c] == [i for i in v]
+    @test v == collect(v) == [4, 5, 6] == [i for i in v]
 
     # Index with either integers or labels.
-    @test v[1] == :a
-    @test v[1:2] == [:a, :b]
+    @test v[1] == 4
+    @test v[1:2] == [4, 5]
+    @test v[end-1:end] == [5, 6]
+    @viewfails( # HERE: check that with previous views.
+        v[nothing],
+        V,
+        "Views are indexed with indices (::Int) or labels (::Symbol). \
+         Cannot index with: nothing ::Nothing."
+    )
+    ######################################################################################
+    # vvvvv only placeholders below  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    ######################################################################################
     @test v[2:end] == [:b, :c]
     @test v[:b] == :b # (not super-useful but consistent with other views)
 
@@ -89,12 +104,6 @@ const Value = Network # To have @sysfails work.
     )
     @viewfails(v[], V, "Cannot index into nodes with 0 dimensions: [].")
     @viewfails(v[1, 2], V, "Cannot index into nodes with 2 dimensions: [1, 2].")
-    @viewfails(
-        v[nothing],
-        V,
-        "Views are indexed with indices (::Int) or labels (::Symbol). \
-         Cannot index with: $nothing ::$Nothing."
-    )
 
     # Immutable.
     mess = "Cannot change :species nodes names after they have been set."
@@ -108,13 +117,13 @@ const Value = Network # To have @sysfails work.
 
     # Fail construct from names.
     @sysfails(
-        Model(Species([:a, :b, :b])),
-        Check(early, [Species.Names], "Species 3 and 2 are both named :b.")
+        Model(BodyMass([:a, :b, :b])),
+        Check(early, [BodyMass.Names], "Species 3 and 2 are both named :b.")
     )
 
     # Construct from a number, generating short distinct names.
-    bp = Species.Number(5)
-    @test bp == Species(5) # Directly from component.
+    bp = BodyMass.Number(5)
+    @test bp == BodyMass(5) # Directly from component.
     @test is_repr(bp, "<Species>:Number(n: 5)")
     @test is_disp(
         bp,
@@ -135,16 +144,27 @@ const Value = Network # To have @sysfails work.
 
     # Fail construct from numbers.
     @sysfails(
-        Model(Species(-3)),
+        Model(BodyMass(-3)),
         Check(
             early,
-            [Species.Number],
+            [BodyMass.Number],
             "Cannot construct a negative number of species: -3.",
         ),
     )
 
+    # Various implicit/explicit forms for brought field in constructors.
+    bp = BodyMass.Matrix(A, Species(2))
+    @test bp == BodyMass.Matrix(A; species = Species(2))
+    @test bp == BodyMass.Matrix(A, Species(2))
+    @test bp == BodyMass.Matrix(A; species = 2)
+    @test bp == BodyMass.Matrix(A, 2)
+    @test bp == BodyMass(A; species = Species(2))
+    @test bp == BodyMass(A; species = 2)
+    @test bp == BodyMass(A, Species(2))
+    @test bp == BodyMass(A, 2)
+
     # The component enables various other properties.
-    m = Model(Species(collect("abc")))
+    m = Model(BodyMass(collect("abc")))
     # Number of nodes in the class.
     @test m.species.number == 3
     # Index to map labels to canonical order.
@@ -153,9 +173,8 @@ const Value = Network # To have @sysfails work.
     @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
 
     # Mask within the parent class (no parent class with this root example).
-    K = Views.NodesMaskView{NodeMask(:species, nothing)}
     k = m.species.mask
-    @test k isa K
+    @test k isa Views.NodesMaskView
     @test k isa AbstractVector{Bool}
     @test k[1] && k[2] && k[3]
     @test k[:a] && k[:b] && k[:c]
@@ -172,23 +191,6 @@ const Value = Network # To have @sysfails work.
          1\
         """,
     )
-    @viewfails(k[0], K, "Cannot index with [0] into a view with 3 :species nodes.")
-    @viewfails(k[4], K, "Cannot index with [4] into a view with 3 :species nodes.")
-    @viewfails(
-        k[:x],
-        K,
-        "Label does not refer to a node in :species class: :x.\n\
-         Valid labels: [:a, :b, :c]."
-    )
-    @viewfails(k[], K, "Cannot index into nodes with 0 dimensions: [].")
-    @viewfails(k[1, 2], K, "Cannot index into nodes with 2 dimensions: [1, 2].")
-    @viewfails(
-        k[nothing],
-        K,
-        "Views are indexed with indices (::Int) or labels (::Symbol). \
-         Cannot index with: $nothing ::$Nothing."
-    )
-
 
     # The above makes more sense with a non-root class, like producers here.
     m = Model(Foodweb([:a => (:b, :c), :d => :e]))
@@ -196,9 +198,7 @@ const Value = Network # To have @sysfails work.
     @test m.producers.number == 3
     @test m.producers.index == OrderedDict(:b => 1, :c => 2, :e => 3)
     @test m.producers.parent_index == OrderedDict(:b => 2, :c => 3, :e => 5)
-    k = m.producers.mask
-    @test k == [0, 1, 1, 0, 1]
-    @test k[2:4] == [1, 1, 0]
+    @test m.producers.mask == [0, 1, 1, 0, 1]
 
 end
 

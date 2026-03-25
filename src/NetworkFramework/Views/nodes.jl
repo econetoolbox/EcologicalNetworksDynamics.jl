@@ -15,7 +15,7 @@ struct NodesDataView{d,T} <: AbstractVector{T}
     view::N.NodesView{T}
 end
 export NodesDataView
-function N.nodes_view(m::Model, class::Symbol, fieldname::Symbol)
+function nodes_view(m::Model, class::Symbol, fieldname::Symbol)
     n = NF.network(m)
     view = N.nodes_view(n, class, fieldname)
     d = D.NodeField(class, fieldname)
@@ -45,7 +45,7 @@ struct ExpandedNodesDataView{d,T} <: AbstractSparseVector{T,Int}
     view::N.NodesView{T}
 end
 export ExpandedNodesDataView
-function N.nodes_view(
+function nodes_view(
     m::Model,
     (class, parent)::Tuple{Symbol,Option{Symbol}},
     fieldname::Symbol,
@@ -60,26 +60,27 @@ S = ExpandedNodesDataView # "Self"
 D.parent(s::S) = D.parent(dispatcher(s))
 restriction(s::S) = N.restriction(network(s), classname(s), D.parent(s))
 Base.size(s::S) = (N.n_nodes(network(s), D.parent(s)),)
-Base.getindex(s::S, l::Symbol) = getindex(view(s), check_label(s, l))
+Base.getindex(s::S, l::Symbol) = getindex(view(s), check_ref(s, l))
 function Base.setindex!(s::S, x, l::Symbol)
-    l = check_label(s, l)
+    l = check_ref(s, l)
     x = check_write(s, x, l)
     setindex!(view(s), x, l)
 end
 
 function Base.getindex(s::S, i::Int)
+    i = check_ref(s, i)
     i = restrict_index(s, i)
-    read(entry(s), getindex, i)
+    read(N.entry(s), getindex, i)
 end
 
 function Base.setindex!(s::S, x, i::Int)
+    i = check_ref(s, i)
     i = restrict_index(s, i)
     x = check_write(s, x, i)
-    mutate!(entry(s), setindex!, x, i)
+    mutate!(N.entry(s), setindex!, x, i)
 end
 
 function restrict_index(s::S, i::Int)
-    check_index(s, i)
     r = restriction(s)
     if !(i in r)
         class = repr(D.class(s).name)
@@ -151,8 +152,8 @@ end
 S = NodesNamesView
 index(s::S) = getfield(s, :index)
 Base.size(s::S) = (s |> index |> length,)
-Base.getindex(s::S, i::Int) = N.to_label(s, check_index(s, i))
-Base.getindex(s::S, l::Symbol) = check_label(s, l) # (not exactly useful but consistent)
+Base.getindex(s::S, i::Int) = N.to_label(s, check_ref(s, i))
+Base.getindex(s::S, l::Symbol) = check_ref(s, l) # (not exactly useful but consistent)
 Base.setindex!(s::S, _, ::Any) =
     err(s, "Cannot change :$(classname(s)) nodes names after they have been set.")
 export nodes_names_view
@@ -185,9 +186,9 @@ function Base.size(s::S)
     n = isnothing(p) ? N.n_nodes(net) : length(N.class(net, p))
     (n,)
 end
-Base.getindex(s::S, i::Int) = check_index(s, i) in restriction(s)
+Base.getindex(s::S, i::Int) = check_ref(s, i) in restriction(s)
 Base.getindex(s::S, l::Symbol) = N.is_label(
-    isnothing(D.parent(s)) ? check_label(s, l) : N.check_label(s, parentclass(s)),
+    isnothing(D.parent(s)) ? check_ref(s, l) : N.check_label(s, parentclass(s)),
     N.class(s),
 )
 Base.setindex!(s::S, _, ::Any) =
@@ -207,12 +208,14 @@ NodeTopologyView{d} = Union{NodesNamesView{d},NodesMaskView{d}}
 S = NodeTopologyView
 readonly(::S) = true
 N.class(s::S) = N.class(network(s), classname(s))
+Base.getindex(s::S, ref) = @invoke getindex(s::AbstractVector, check_ref(s, ref))
 
 # ==========================================================================================
 # Common to all node views.
 
 NodesView{d} = Union{AbstractNodesDataView{d},NodesNamesView{d},NodesMaskView{d}}
 S = NodesView
+readonly(s::S) = D.readonly(dispatcher(s))
 index(s::S) = N.class(s).index
 classname(s::S) = D.class(dispatcher(s))
 Base.getindex(s::S) = errnodesdim(s, ())
@@ -223,6 +226,18 @@ errnodesdim(s, i) = err(
     s,
     "Cannot index into nodes with $(length(i)) dimensions: [$(EN.join_elided(i, ", "))].",
 )
+
+# Entrypoint for all direct indices.
+check_ref(s::S, i::Int) = check_index(s, i)
+check_ref(s::S, l::Symbol) = check_label(s, l)
+
+function check_index(s::S, i::Int)
+    class = repr(classname(s))
+    n, s_ = ns(length(s))
+    i in 1:n || err(s, "Cannot index with [$i] into a class with $n $class node$s_.")
+    i
+end
+
 check_label(s::S, l::Symbol) =
     try
         N.check_label(l, index(s), classname(s))
@@ -230,20 +245,6 @@ check_label(s::S, l::Symbol) =
         e isa N.LabelError || rethrow(e)
         err(s, sprint(showerror, e), rethrow)
     end
-check_ref(s::S, i::Int) = check_index(s, i)
-check_ref(s::S, l::Symbol) = check_label(s, l)
-check_ref(s::S, x::Any) = err(
-    s,
-    "Views are indexed with indices (::Int) or labels (::Symbol).
-     Cannot index with: $(repr(x)) ::$(typeof(x)).",
-)
-
-function check_index(s::S, i::Int)
-    class = repr(classname(s))
-    n, s_ = ns(length(s))
-    i in 1:n || err(s, "Cannot index with [$i] into a view with $n $class node$s_.")
-    i
-end
 
 # Assuming checked input.
 N.to_label(s::S, i) = N.to_label(index(s), i)
