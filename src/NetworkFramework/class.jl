@@ -53,10 +53,11 @@ function define_class_component(mod::Module, d::NodeClass)
     blueprints.eval(
         quote
             mutable struct Number <: Blueprint
-                n::UInt
+                n::Int
             end
             @blueprint Number "number of $($s)"
             export Number
+            F.early_check(bp::Number) = $early_check(d, bp.n)
             F.expand!(model, bp::Number, _) =
                 $expand!(d, model, (Symbol($short_prefix, i) for i in 1:bp.n))
         end,
@@ -69,10 +70,10 @@ function define_class_component(mod::Module, d::NodeClass)
         @component $Plural{Network} blueprints($Plural_)
     end) # Need to reach toplevel first to access generated values, right?
 
+    # Dispatch to correct constructor depending on input given to direct call on component.
     DT = typeof(d)
     mod.eval(quote
         D.component(::$DT) = $Plural
-        # Build from a number or default to names.
         (::$_Plural)(n::Integer) = $Plural.Number(n)
         (::$_Plural)(names) = $Plural.Names(names)
     end)
@@ -104,30 +105,31 @@ function define_class_properties(
         @propspace $plural
 
         module $M
-        import EcologicalNetworksDynamics: N, Network, Model, @method, Views
+        using OrderedCollections
+        import EcologicalNetworksDynamics: N, Network, Model, @method, V, Views
 
         # Nodes counts and nodes labels.
         # The 'ref' variant is more efficient but unexposed.
-        get_number(m::Network) = N.n_nodes(m, $s)
-        ref_names(m::Network) = N.class(m, $s).index.reverse
+        get_number(n::Network) = N.n_nodes(n, $s)
+        ref_names(n::Network) = N.class(n, $s).index.reverse
         get_names(::Network, m::Model) = Views.nodes_names_view(m, $s)
         @method $m $M.get_number $deps read_as($plural.number)
         @method $m $M.ref_names $deps read_as($plural._names)
         @method $m $M.get_names $deps read_as($plural.names)
 
         # Ordered index.
-        ref_index(m::Network) = N.class(m, $s).index.forward
-        get_index(m::Network) = deepcopy(N.ref_index(m))
-        indices(m::Network) = N.node_indices(m, $s)
-        get_parent_index(m::Network) =
-            OrderedDict(l => i for (l, i) in zip(ref_names(m), indices(m)))
+        ref_index(n::Network) = N.class(n, $s).index.forward
+        get_index(n::Network) = deepcopy(ref_index(n))
+        indices(n::Network) = N.node_indices(n, $s)
+        get_parent_index(n::Network) =
+            OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
         @method $m $M.ref_index $deps read_as($plural._index)
         @method $m $M.get_index $deps read_as($plural.index)
         @method $m $M.indices $deps read_as($plural.indices)
         @method $m $M.get_parent_index $deps read_as($plural.parent_index)
 
         # Mask within parent class.
-        mask(i::Network, m::Model) = N.nodes_mask_view(m, ($s, class(i, $s).parent))
+        mask(n::Network, m::Model) = V.nodes_mask_view(m, ($s, N.class(n, $s).parent))
         @method $m $M.mask $deps read_as($plural.mask)
 
         end
@@ -151,6 +153,12 @@ function early_check(d::NodeClass, names::Vector{Symbol})
         already[name] = i
     end
     names
+end
+
+# Forbid negative number of nodes.
+function early_check(d::NodeClass, n::Int)
+    class = D.snake_case_plural(d)
+    n >= 0 || F.checkfails("Cannot construct a negative number of $class: $n.")
 end
 
 function expand!(d::NodeClass, model::Model, names)

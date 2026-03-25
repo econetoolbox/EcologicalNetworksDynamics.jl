@@ -23,7 +23,7 @@ function N.nodes_view(m::Model, class::Symbol, fieldname::Symbol)
     NodesDataView{d,T}(m, view)
 end
 S = NodesDataView # "Self"
-restriction(s::S) = class(s).restriction
+restriction(s::S) = N.class(s).restriction
 Base.size(s::S) = (s |> view |> length,)
 Base.getindex(s::S, ref) = getindex(view(s), check_ref(s, ref))
 function Base.setindex!(s::S, x, ref)
@@ -58,8 +58,8 @@ function N.nodes_view(
 end
 S = ExpandedNodesDataView # "Self"
 D.parent(s::S) = D.parent(dispatcher(s))
-restriction(s::S) = N.restriction(network(s), classname(s), parent(s))
-Base.size(s::S) = (n_nodes(network(s), parent(s)),)
+restriction(s::S) = N.restriction(network(s), classname(s), D.parent(s))
+Base.size(s::S) = (N.n_nodes(network(s), D.parent(s)),)
 Base.getindex(s::S, l::Symbol) = getindex(view(s), check_label(s, l))
 function Base.setindex!(s::S, x, l::Symbol)
     l = check_label(s, l)
@@ -108,7 +108,7 @@ end
 AbstractNodesDataView{d,T} = Union{NodesDataView{d,T},ExpandedNodesDataView{d,T}}
 S = AbstractNodesDataView
 N.class(s::S) = s |> view |> class
-index(s::S) = class(s).index
+index(s::S) = N.class(s).index
 
 """
 Generic checking logic, assuming checked ref,
@@ -174,20 +174,24 @@ function nodes_mask_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}}
     d = D.NodeMask(class, parent)
     NodesMaskView{d}(m, r)
 end
+export nodes_mask_view
 S = NodesMaskView
 D.parent(s::S) = D.parent(dispatcher(s))
-parentclass(s::S) = N.class(network(s), parent(s))
+parentclass(s::S) = N.class(network(s), D.parent(s))
 restriction(s::S) = getfield(s, :restriction)
-Base.size(s::S) =
-    (isnothing(parent(s)) ? n_nodes(network(s)) : length(class(network(s), parent(s))),)
+function Base.size(s::S)
+    net = network(s)
+    p = D.parent(s)
+    n = isnothing(p) ? N.n_nodes(net) : length(N.class(net, p))
+    (n,)
+end
 Base.getindex(s::S, i::Int) = check_index(s, i) in restriction(s)
 Base.getindex(s::S, l::Symbol) = N.is_label(
-    isnothing(parent(s)) ? check_label(s, l) : N.check_label(s, parentclass(s)),
-    class(s),
+    isnothing(D.parent(s)) ? check_label(s, l) : N.check_label(s, parentclass(s)),
+    N.class(s),
 )
 Base.setindex!(s::S, _, ::Any) =
     err(s, "Cannot change :$(classname(s)) nodes mask after it has been set.")
-export nodes_mask_view
 function extract(s::S)
     res = spzeros(Bool, length(s))
     for i in s |> restriction |> N.indices
@@ -202,14 +206,14 @@ end
 NodeTopologyView{d} = Union{NodesNamesView{d},NodesMaskView{d}}
 S = NodeTopologyView
 readonly(::S) = true
-N.class(s::S) = class(network(s), classname(s))
+N.class(s::S) = N.class(network(s), classname(s))
 
 # ==========================================================================================
 # Common to all node views.
 
 NodesView{d} = Union{AbstractNodesDataView{d},NodesNamesView{d},NodesMaskView{d}}
 S = NodesView
-index(s::S) = class(s).index
+index(s::S) = N.class(s).index
 classname(s::S) = D.class(dispatcher(s))
 Base.getindex(s::S) = errnodesdim(s, ())
 Base.setindex!(s::S, _) = errnodesdim(s, ())

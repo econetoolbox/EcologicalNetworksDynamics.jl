@@ -109,6 +109,7 @@ include("./lists.jl")
 
 # Typical views into network data.
 include("./Views/Views.jl")
+const V = Views
 
 # Templates for typical network components.
 include("./class.jl")
@@ -143,10 +144,10 @@ export Network, Topology
 export Brought, @blueprint, @component, @method
 
 # Working with both.
-export NF, D, Model, Views
+export NF, D, Model
 export NodeClass, NodeMask, EdgeWeb, NodeField, ExpandedNodeField, EdgeField
 export Map, BinMap, Adjacency, BinAdjacency
 export inputconvert, input_try, InputError, inerr
-export Views
+export Views, V
 
 end

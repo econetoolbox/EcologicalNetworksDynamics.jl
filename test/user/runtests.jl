@@ -1,7 +1,5 @@
 module TestUser
 
-Value = Main.EcologicalNetworksDynamics.Internal # To make @sysfails work.
-
 # Run all .jl files we can find except the current one (and without recursing).
 only = ["01-input.jl", "02-views.jl", "03-components.jl"] # XXX: replacing these test files with more generic ones.
 only = ["01-node_class.jl"] # Unless some files are specified here, in which case only run these.

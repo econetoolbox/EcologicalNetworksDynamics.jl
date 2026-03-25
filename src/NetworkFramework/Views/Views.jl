@@ -89,7 +89,7 @@ S = AbstractView
 dispatcher(::Type{<:S{d}}) where {d} = d
 dispatcher(s::S) = dispatcher(typeof(s))
 model(s::S) = getfield(s, :model)
-network(s::S) = s |> model |> value
+network(s::S) = s |> model |> F.value
 Base.getproperty(s::S, ::Symbol) = err(s, "no property to access.")
 Base.setproperty!(s::S, ::Symbol) = err(s, "no property to access.")
 

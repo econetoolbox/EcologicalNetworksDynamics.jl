@@ -19,7 +19,7 @@ end
 
 function inline_info(v::NodesMaskView)
     class = classname(v)
-    parent = V.parent(v)
+    parent = D.parent(v)
     parent = isnothing(parent) ? ":" : parent
     "<$parent:$class>"
 end
