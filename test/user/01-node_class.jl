@@ -14,6 +14,7 @@ using OrderedCollections
 import EcologicalNetworksDynamics: EN, Network, Views, NodeClass, NodeMask
 import Main: is_repr, is_disp, @viewfails, @sysfails
 const Value = Network # To have @sysfails work.
+const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
 
 @testset "Typical NodeClass component" begin
 
@@ -54,7 +55,6 @@ const Value = Network # To have @sysfails work.
     m = Model(bp)
 
     # The names property becomes available as a view.
-    V = Views.NodesNamesView{NodeClass(:species)}
     v = m.species.names
     @test v isa V
     @test v isa AbstractVector{Symbol}
@@ -79,8 +79,8 @@ const Value = Network # To have @sysfails work.
     @test v[:b] == :b # (not super-useful but consistent with other views)
 
     # Wrong access.
-    @viewfails(v[0], V, "Cannot index with [0] into a view with 3 :species nodes.")
-    @viewfails(v[4], V, "Cannot index with [4] into a view with 3 :species nodes.")
+    @viewfails(v[0], V, "Cannot index with [0] into a class with 3 :species nodes.")
+    @viewfails(v[4], V, "Cannot index with [4] into a class with 3 :species nodes.")
     @viewfails(
         v[:x],
         V,
@@ -172,8 +172,8 @@ const Value = Network # To have @sysfails work.
          1\
         """,
     )
-    @viewfails(k[0], K, "Cannot index with [0] into a view with 3 :species nodes.")
-    @viewfails(k[4], K, "Cannot index with [4] into a view with 3 :species nodes.")
+    @viewfails(k[0], K, "Cannot index with [0] into a class with 3 :species nodes.")
+    @viewfails(k[4], K, "Cannot index with [4] into a class with 3 :species nodes.")
     @viewfails(
         k[:x],
         K,

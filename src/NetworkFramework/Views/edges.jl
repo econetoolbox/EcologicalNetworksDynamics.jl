@@ -52,7 +52,10 @@ Base.getindex(s::S, i::Int, j::Int) = N.is_edge(topology(s), check_refs(s, i, j)
 Base.setindex!(s::S, _, ::Any, ::Any) = err(s, "Cannot mutate edges topology.")
 function Base.getindex(s::S, a::Symbol, b::Symbol)
     check_refs(s, a, b)
-    N.is_edge(topology(s), source_index(s).forward[a], target_index(s).forward[b])
+    t = topology(s)
+    a = source_index(s).forward[a]
+    b = target_index(s).forward[b]
+    N.is_edge(t, a, b)
 end
 export edges_mask_view
 extract(s::S) = s |> topology |> N.to_mask
@@ -81,6 +84,14 @@ erredgesdim(s::S, i) = err(
     "Two indices are required to index into webs. \
      Received $(length(i)): [$(EN.join_elided(i, ", "))].",
 )
+Base.getindex(s::S, i) = @invoke getindex(s::AbstractMatrix, check_ref(s, i))
+function Base.getindex(s::S, i, j)
+    i = check_ref(s, i)
+    j = check_ref(s, j)
+    @invoke getindex(s::AbstractMatrix, i, j)
+end
+# HERE: equivalent setindex! for r/w views.
+
 
 check_refs(s::S, src, tgt) =
     (check_ref(s, src, Val(source)), check_ref(s, tgt, Val(target)))
@@ -92,8 +103,9 @@ function check_ref(s::S, i::Int, ::Val{side}) where {side}
     n = length(class)
     w = webname(s)
     d = disp_index(i, Val(side))
-    s = Symbol(side)
-    i in 1:n || err(s, "Cannot index with $d into a $w web with $n $m $s nodes.")
+    y = Symbol(side)
+    i in 1:n || err(s, "Cannot index with $d into a web $(repr(w)) with $n $m $y nodes.")
+    i
 end
 
 function check_ref(s::S, l::Symbol, ::Val{side}) where {side}
@@ -101,12 +113,13 @@ function check_ref(s::S, l::Symbol, ::Val{side}) where {side}
     m = class.name
     w = webname(s)
     d = disp_index(l, Val(side))
-    s = Symbol(side)
+    y = Symbol(side)
     N.is_label(class.index, l) || err(
         s,
-        "Cannot index with $d into a $w web '
-     because it is not a node label in $s $m class.",
+        "Cannot index with $d into a web $(repr(w)) \
+         because $(repr(l)) is not a node label in $y class $(repr(m)).",
     )
+    l
 end
 disp_index(ref, ::Val{target}) = "[·, $(repr(ref))]"
 disp_index(ref, ::Val{source}) = "[$(repr(ref)), ·]"

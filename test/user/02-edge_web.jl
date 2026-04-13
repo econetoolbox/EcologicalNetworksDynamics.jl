@@ -13,6 +13,7 @@ using Test
 import EcologicalNetworksDynamics: EN, Network, Views, EdgeWeb
 import Main: is_repr, is_disp, @viewfails, @sysfails, @inputfails
 const Value = Network # To have @sysfails work.
+const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
 
 @testset "Typical EdgeWeb component" begin
 
@@ -66,7 +67,6 @@ const Value = Network # To have @sysfails work.
     m = Model(bp)
 
     # The names property becomes available as a view.
-    V = Views.EdgesMaskView{EdgeWeb(:foodweb)}
     v = m.foodweb.mask
     @test v isa V
     @test v isa AbstractMatrix{Bool}
@@ -98,21 +98,28 @@ const Value = Network # To have @sysfails work.
     @viewfails(
         v[0, 1],
         V,
-        "Cannot index with (0, 1) into a web view for :foodweb of size (3, 3)."
+        "Cannot index with [0, ·] into a web :foodweb with 3 species source nodes."
     )
     @viewfails(
         v[:x, :b],
         V,
-        "Cannot index with (:x, :b) into a web view for :foodweb \
+        "Cannot index with [:x, ·] into a web :foodweb \
          because :x is not a node label in source class :species."
     )
     @viewfails(
         v[:a, :y],
         V,
-        "Cannot index with (:a, :y) into a web view for :foodweb \
+        "Cannot index with [·, :y] into a web :foodweb \
          because :y is not a node label in target class :species."
     )
-    v[nothing] # HERE: test error message now.
+    for index in (() -> v[nothing], () -> v[nothing, 1], () -> v[1, nothing])
+        @viewfails(
+            index(),
+            V,
+            "Views are indexed with indices (::Int) or labels (::Symbol). \
+             Cannot index with: $nothing ::$Nothing."
+        )
+    end
 
     # Immutable.
     mess = "Cannot mutate edges topology."

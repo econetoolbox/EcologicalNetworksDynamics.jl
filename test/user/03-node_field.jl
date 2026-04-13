@@ -1,6 +1,6 @@
 """
 Test all aspects of typical NodeField component,
-using BodyMass as an example, but without testing anything specific to BodyMass.
+using BodyMass as an example but without testing anything specific to BodyMass.
 Anything specific to BodyMass will be tested in a dedicated file.
 """
 module NodeFieldTest
@@ -14,6 +14,7 @@ using OrderedCollections
 import EcologicalNetworksDynamics: EN, Network, Views, NodeField
 import Main: is_repr, is_disp, @viewfails, @sysfails
 const Value = Network # To have @sysfails work.
+const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested view type.
 
 @testset "Typical NodeField component" begin
 
@@ -56,10 +57,21 @@ const Value = Network # To have @sysfails work.
     )
 
     # Expand into a field component.
-    m = Model(bp) # HERE
+    m = Model(bp)
+
+    # Brings dummy node class names if not specified.
+    @test m.species.names == [:s1, :s2, :s3]
+
+    # Or else we do specify during expansion.
+    m = Model(Species([:a, :b, :c]), bp)
+    @test m.species.names == [:a, :b, :c]
+
+    # Or else we do specify within the blueprint itself.
+    bp.species = [:a, :b, :c]
+    m = Model(bp)
+    @test m.species.names == [:a, :b, :c]
 
     # The names property becomes available as a view.
-    V = Views.NodesDataView{NodeField(:species, :body_mass)}
     v = m.body_mass
     @test v isa V
     @test v isa AbstractVector{Float64}
@@ -81,21 +93,15 @@ const Value = Network # To have @sysfails work.
     @test v[1] == 4
     @test v[1:2] == [4, 5]
     @test v[end-1:end] == [5, 6]
-    @viewfails( # HERE: check that with previous views.
+    @test v[:b] == 5
+    @viewfails(
         v[nothing],
         V,
         "Views are indexed with indices (::Int) or labels (::Symbol). \
          Cannot index with: nothing ::Nothing."
     )
-    ######################################################################################
-    # vvvvv only placeholders below  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    ######################################################################################
-    @test v[2:end] == [:b, :c]
-    @test v[:b] == :b # (not super-useful but consistent with other views)
-
-    # Wrong access.
-    @viewfails(v[0], V, "Cannot index with [0] into a view with 3 :species nodes.")
-    @viewfails(v[4], V, "Cannot index with [4] into a view with 3 :species nodes.")
+    @viewfails(v[0], V, "Cannot index with [0] into a class with 3 :species nodes.")
+    @viewfails(v[4], V, "Cannot index with [4] into a class with 3 :species nodes.")
     @viewfails(
         v[:x],
         V,
@@ -104,6 +110,11 @@ const Value = Network # To have @sysfails work.
     )
     @viewfails(v[], V, "Cannot index into nodes with 0 dimensions: [].")
     @viewfails(v[1, 2], V, "Cannot index into nodes with 2 dimensions: [1, 2].")
+
+    error("HERE: resume testing.")
+    ######################################################################################
+    # vvvvv only placeholders below  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    ######################################################################################
 
     # Immutable.
     mess = "Cannot change :species nodes names after they have been set."

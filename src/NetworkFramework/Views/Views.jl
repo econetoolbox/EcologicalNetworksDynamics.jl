@@ -92,7 +92,11 @@ model(s::S) = getfield(s, :model)
 network(s::S) = s |> model |> F.value
 Base.getproperty(s::S, ::Symbol) = err(s, "no property to access.")
 Base.setproperty!(s::S, ::Symbol) = err(s, "no property to access.")
-check_ref(::S, u::UnitRange) = u # Delegate to AbstractVector.
+
+# Delegate indexing to native abstract arrays unless we get really unexpected types.
+check_ref(::S, r::Ref) = r
+check_ref(::S, u::UnitRange) = u
+check_ref(::S, c::CartesianIndex) = c
 check_ref(s::S, x::Any) = err(
     s,
     "Views are indexed with indices (::Int) or labels (::Symbol). \

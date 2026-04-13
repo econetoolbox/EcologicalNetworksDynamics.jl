@@ -108,7 +108,7 @@ end
 
 AbstractNodesDataView{d,T} = Union{NodesDataView{d,T},ExpandedNodesDataView{d,T}}
 S = AbstractNodesDataView
-N.class(s::S) = s |> view |> class
+N.class(s::S) = s |> view |> N.class
 index(s::S) = N.class(s).index
 
 """
@@ -209,6 +209,7 @@ S = NodeTopologyView
 readonly(::S) = true
 N.class(s::S) = N.class(network(s), classname(s))
 Base.getindex(s::S, ref) = @invoke getindex(s::AbstractVector, check_ref(s, ref))
+# HERE: equivalent setindex! for r/w views.
 
 # ==========================================================================================
 # Common to all node views.
