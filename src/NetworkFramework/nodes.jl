@@ -82,7 +82,7 @@ function define_node_field_component(
         quote
             mutable struct Map <: Blueprint
                 $field::EN.Map{$T}
-                $class::Brought(Class)
+                $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
                 Map($field, $class) = new($construct_map(d, $field), $class)
                 Map($field; $class = _Class) = Map($field, $class)
             end
@@ -102,9 +102,9 @@ function define_node_field_component(
                 mutable struct Flat <: Blueprint
                     $field::$T
                 end
-                F.early_check(bp::Flat) = $early_check(d, bp.$field)
+                F.early_check(bp::Flat) = $early_check_flat(d, bp.$field)
                 F.late_check(model, bp::Flat, early_data) =
-                    $late_check(d, model, early_data)
+                    $late_check_flat(d, model, early_data)
                 F.expand!(model, bp::Flat, late_data) = $expand_flat!(d, model, late_data)
                 @blueprint Flat "uniform value" depends(Class)
                 export Flat
@@ -325,6 +325,15 @@ function early_check(d::NodeField, map::Map)
     end
 end
 
+function early_check_flat(d::NodeField, value)
+    try
+        check(d, value)
+    catch e
+        e isa InputError || rethrow(e)
+        F.checkfails("When checking $d flat value:\n$(e.mess)", rethrow)
+    end
+end
+
 #-------------------------------------------------------------------------------------------
 # Late-check: correct type, checked values, model information is now available.
 
@@ -380,6 +389,8 @@ function late_check(d::NodeField, model::Model, map::Map)
     end
 end
 
+# Not much to do by default in this situation, just keep as an extension point.
+late_check_flat(::NodeField, ::Model, value) = value
 
 #-------------------------------------------------------------------------------------------
 # Expansion: input is completely trusted, just fill the inner network from late data.

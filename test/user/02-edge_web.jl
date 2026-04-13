@@ -7,6 +7,7 @@ module EdgeWebTest
 
 # What the end user should have to import.
 using EcologicalNetworksDynamics
+using SparseArrays
 
 # Additional imports only used here for testing purpose.
 using Test

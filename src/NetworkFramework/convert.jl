@@ -151,7 +151,7 @@ function input_try(input, tries...)
         print(mess, "\n  - $T")
     end
     print(mess, "\nReceived value: $(repr(input)) ::$(typeof(input)).")
-    mess = String(take!(mess))
+    mess = String(Base.take!(mess))
     inerr(mess)
 end
 

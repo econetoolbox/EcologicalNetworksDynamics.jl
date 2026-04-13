@@ -356,10 +356,10 @@ Alias = _Alias() # Use as an unambiguous keyword.
 
     input = 5
     @inputfails(
-        (input_try(input, Symbol => id, Vector{Float64} => id)),
+        (input_try(input, Symbol => id, Vector{String} => id)),
         "Cannot convert input to either:\n  \
          - $Symbol\n  \
-         - $(Vector{Float64})\n\
+         - $(Vector{String})\n\
          Received value: 5 ::$Int.",
     )
 

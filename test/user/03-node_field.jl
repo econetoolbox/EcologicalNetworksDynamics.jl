@@ -256,6 +256,12 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     @test m.species.names == [:a, :b, :c]
     @test m.body_mass == [4, 5, 6]
 
+    # Brought node class.
+    bp = BodyMass.Map(map, 3)
+    @test bp.species == Species(3)
+    @test bp == BodyMass.Map(map; species = 3)
+    @test bp == BodyMass(map; species = 3)
+
     # Alias blueprints if exact input type is used.
     input = bp.body_mass
     bp = BodyMass(input)
@@ -276,71 +282,20 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
         )
     )
 
-    ######################################################################################
-    # vvvvv only placeholders below  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    ######################################################################################
-
-    # Mutating blueprint is always possible.
-    bp.n = 3
-    @test Model(bp).species.names == [:s1, :s2, :s3]
-
-    # Fail construct from numbers.
+    # Construct from a flat value.
+    bp = BodyMass.Flat(3)
+    m = Model(Species(5), bp)
+    @test m.body_mass == [3, 3, 3, 3, 3]
+    bp.body_mass *= -1 # Mutable.
     @sysfails(
-        Model(BodyMass(-3)),
+        Model(Species(5), bp),
         Check(
             early,
-            [BodyMass.Number],
-            "Cannot construct a negative number of species: -3.",
-        ),
+            [BodyMass.Flat],
+            "When checking <species:body_mass> flat value:\n\
+             Value cannot be negative. Received: -3.0",
+        )
     )
-
-    # Various implicit/explicit forms for brought field in constructors.
-    bp = BodyMass.Matrix(A, Species(2))
-    @test bp == BodyMass.Matrix(A; species = Species(2))
-    @test bp == BodyMass.Matrix(A, Species(2))
-    @test bp == BodyMass.Matrix(A; species = 2)
-    @test bp == BodyMass.Matrix(A, 2)
-    @test bp == BodyMass(A; species = Species(2))
-    @test bp == BodyMass(A; species = 2)
-    @test bp == BodyMass(A, Species(2))
-    @test bp == BodyMass(A, 2)
-
-    # The component enables various other properties.
-    m = Model(BodyMass(collect("abc")))
-    # Number of nodes in the class.
-    @test m.species.number == 3
-    # Index to map labels to canonical order.
-    @test m.species.index == OrderedDict(:a => 1, :b => 2, :c => 3)
-    # Same within the parent class (no parent class for this root example).
-    @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
-
-    # Mask within the parent class (no parent class with this root example).
-    k = m.species.mask
-    @test k isa Views.NodesMaskView
-    @test k isa AbstractVector{Bool}
-    @test k[1] && k[2] && k[3]
-    @test k[:a] && k[:b] && k[:c]
-    @test k == Bool[1, 1, 1]
-    @test k[1:2] == Bool[1, 1]
-    @test k[end-1:end] == Bool[1, 1]
-    @test is_repr(k, "<::species>[1, 1, 1]")
-    @test is_disp(
-        k,
-        """
-        NodesMaskView<::species>{Bool} (3/3 values)
-         1
-         1
-         1\
-        """,
-    )
-
-    # The above makes more sense with a non-root class, like producers here.
-    m = Model(Foodweb([:a => (:b, :c), :d => :e]))
-    @test m.producers.names == [:b, :c, :e]
-    @test m.producers.number == 3
-    @test m.producers.index == OrderedDict(:b => 1, :c => 2, :e => 3)
-    @test m.producers.parent_index == OrderedDict(:b => 2, :c => 3, :e => 5)
-    @test m.producers.mask == [0, 1, 1, 0, 1]
 
 end
 

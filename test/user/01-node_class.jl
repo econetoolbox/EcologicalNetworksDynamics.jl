@@ -116,7 +116,10 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
     # It is (still) ok to break values checking afterwards..
     input[3] = :x
     # .. but then expansion fails.
-    @sysfails(Model(bp), Check(early, [Species.Names], "Species 3 and 2 are both named :x"))
+    @sysfails(
+        Model(bp),
+        Check(early, [Species.Names], "Species 3 and 2 are both named :x.")
+    )
 
     # Construct from a number, generating short distinct names.
     bp = Species.Number(5)
