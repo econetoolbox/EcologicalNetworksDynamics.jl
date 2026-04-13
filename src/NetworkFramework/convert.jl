@@ -74,6 +74,9 @@ end
 ac_dense(String, (Symbol, String), (Char, c -> "$c"))
 ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 
+# From iterators.
+inputconvert(::Type{Vector{T}}, input) where {T} = T[inputconvert(T, v) for v in input]
+
 # No custom conversion function for sparse arrays
 # because it does not necessarily translate in term of julia's `iszero`,
 # required for sparse structures.

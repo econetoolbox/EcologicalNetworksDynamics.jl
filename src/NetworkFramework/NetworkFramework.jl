@@ -80,9 +80,10 @@ so it mostly falls into three categories:
 module NetworkFramework
 
 import EcologicalNetworksDynamics:
-    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option
+    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers
 using .Networks
 using .Framework
+using .KwargsHelpers
 
 using Crayons
 using OrderedCollections

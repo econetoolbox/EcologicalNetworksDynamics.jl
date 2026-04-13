@@ -65,8 +65,8 @@ function define_node_field_component(
             mutable struct Raw <: Blueprint
                 $field::Vector{$T}
                 $class::Brought(Class)
-                Raw($field, $class = _Class) = new($construct_raw(d, $field), $class)
-                Raw($field::Vector{$T}, $class = _Class) = new($field, $class) # Alias.
+                Raw($field, $class) = new($construct_raw(d, $field), $class)
+                Raw($field; $class = _Class) = Raw($field, $class)
             end
             F.implied_blueprint_for(bp::Raw, ::_Class) = Class(length(bp.$field))
             F.early_check(bp::Raw) = $early_check(d, bp.$field)
@@ -83,7 +83,8 @@ function define_node_field_component(
             mutable struct Map <: Blueprint
                 $field::EN.Map{$T}
                 $class::Brought(Class)
-                Map($field, sp = _Class) = new($construct_map(d, $field), sp)
+                Map($field, $class) = new($construct_map(d, $field), $class)
+                Map($field; $class = _Class) = Map($field, $class)
             end
             F.implied_blueprint_for(bp::Map, ::_Class) = Class(keys(bp.$field))
             F.early_check(bp::Map) = $early_check(d, bp.$field)
@@ -122,7 +123,8 @@ function define_node_field_component(
         quote
             @component $Value{Network} requires($Class, $(requires...)) blueprints($Value_)
             D.component(::$DT) = $Value
-            (::$_Value)($field) = $construct($d, $Value, $field)
+            (::$_Value)($field, args...; kwargs...) =
+                $construct($d, $Value, $field, args...; kwargs...)
         end,
     )
 
@@ -249,29 +251,46 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct: any input is possible, but we don't know anything about the model yet.
 
-construct(d::NodeField, value) = check(d, value)
-construct_with_ref(d::NodeField, value, r::Ref) = check_with_ref(d, value, r)
-function construct_raw(d::NodeField, iter)
+function construct_raw(d::NodeField, raw)
+    T = D.type(d)
     try
-        [construct_with_ref(d, value, i) for (i, value) in enumerate(iter)]
+        v = inputconvert(Vector{T}, raw)
+        for (i, value) in enumerate(v)
+            check_with_ref(d, value, i)
+        end
+        v
     catch e
         e isa InputError || rethrow(e)
-        inerr("When constructing $d from iterable:\n$(e.mess)", rethrow)
+        inerr("When constructing $d from raw values:\n$(e.mess)", rethrow)
     end
 end
+
 function construct_map(d::NodeField, map)
     T = D.type(d)
     try
-        parse(Map{<:Any,T}, map)
+        map = inputconvert(Map{T}, map)
+        for (l, v) in map
+            check_with_ref(d, v, l)
+        end
+        map
     catch e
         e isa InputError || rethrow(e)
         inerr("When constructing $d from map:\n$(e.mess)", rethrow)
     end
 end
 
-function construct(d::NodeField, Data::Component, input)
+function construct(d::NodeField, Data::Component, input; kwargs...)
+    @kwargs_helpers(kwargs)
+    nc = NodeClass(d)
+    class = D.class(nc)
+    Class = take_or!(class, D.component(nc), Any)
+    kwargs = [class => Class]
     T = D.type(d)
-    input_try(input, Vector{T} => Data.Raw, Map{Ref,T} => Data.Map)
+    input_try(
+        input,
+        Vector{T} => v -> Data.Raw(v; kwargs...),
+        Map{T} => m -> Data.Map(m; kwargs...),
+    )
 end
 
 #-------------------------------------------------------------------------------------------

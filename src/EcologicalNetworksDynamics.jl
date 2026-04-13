@@ -31,16 +31,16 @@ using .Differentials # XXX: move after components definitions so they may rely o
 include("./Framework/Framework.jl")
 const F = Framework
 
-# Bring this all together into a library for component authors.
-include("./NetworkFramework/NetworkFramework.jl")
-using .NetworkFramework
-export Model
-
 # Additional utils to construct components interface.
 include("./kwargs_helpers.jl")
 include("./AliasingDicts/AliasingDicts.jl")
 include("./multiplex_api.jl")
 using .KwargsHelpers
+
+# Bring this all together into a library for component authors.
+include("./NetworkFramework/NetworkFramework.jl")
+using .NetworkFramework
+export Model
 
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.

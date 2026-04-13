@@ -163,7 +163,7 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
     # Construct from adjacency matrix.
     A = [:a => (:b, :c), (:d, :c) => (:b, :e)]
     bp = Foodweb.Adjacency(A)
-    @test bp == Foodweb(A) # Implicit constructor.
+    @test bp == Foodweb(A) # Directly dispatched from component.
     @test is_repr(
         bp,
         "<Foodweb>:Adjacency(A: {a: {b, c}, d: {b, e}, c: {b, e}}, species: <Species>)",

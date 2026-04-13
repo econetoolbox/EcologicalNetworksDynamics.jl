@@ -114,7 +114,7 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
 
     # Construct from a number, generating short distinct names.
     bp = Species.Number(5)
-    @test bp == Species(5) # Directly from component.
+    @test bp == Species(5) # Directly dispatched from component.
     @test is_repr(bp, "<Species>:Number(n: 5)")
     @test is_disp(
         bp,

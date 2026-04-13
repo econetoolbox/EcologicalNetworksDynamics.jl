@@ -703,7 +703,7 @@ function Base.showerror(io::IO, e::HookCheckFailure)
         footer = path
     end
     it = crayon"italics"
-    print(io, "$header:\n  $it$message$reset\n$footer")
+    print(io, "$header:\n$it$message$reset\n$footer")
 end
 
 function Base.showerror(io::IO, e::UnexpectedHookFailure)

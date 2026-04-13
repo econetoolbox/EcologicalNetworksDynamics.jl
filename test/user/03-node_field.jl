@@ -12,7 +12,7 @@ using EcologicalNetworksDynamics
 using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, Network, Views, NodeField
-import Main: is_repr, is_disp, @sysfails, @viewfails, @writefails
+import Main: is_repr, is_disp, @inputfails, @sysfails, @viewfails, @writefails
 const Value = Network # To have @sysfails work.
 const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested view type.
 
@@ -165,36 +165,103 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
          Value cannot be negative. Received: -1.0"
     )
 
-    ######################################################################################
-    # vvvvv only placeholders below  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    ######################################################################################
-
-    # But the *blueprint* can be mutated.
-    bp.names[2] = :x
-    @test Model(bp).species.names == [:a, :x, :c]
-
-    # Fail construct from names.
-    @sysfails(
-        Model(BodyMass([:a, :b, :b])),
-        Check(early, [BodyMass.Names], "Species 3 and 2 are both named :b.")
+    # And all regular index guards are set.
+    @viewfails(
+        v[nothing] = 1,
+        V,
+        "Views are indexed with indices (::Int) or labels (::Symbol). \
+         Cannot index with: nothing ::Nothing."
     )
+    @viewfails(v[0] = 1, V, "Cannot index with [0] into a class with 3 :species nodes.")
+    @viewfails(v[4] = 1, V, "Cannot index with [4] into a class with 3 :species nodes.")
+    @viewfails(
+        v[:x] = 1,
+        V,
+        "Label does not refer to a node in :species class: :x.\n\
+         Valid labels: [:a, :b, :c]."
+    )
+    @viewfails(v[] = 1, V, "Cannot index into nodes with 0 dimensions: [].")
+    @viewfails(v[1, 2] = 1, V, "Cannot index into nodes with 2 dimensions: [1, 2].")
 
-    # Construct from a number, generating short distinct names.
-    bp = BodyMass.Number(5)
-    @test bp == BodyMass(5) # Directly from component.
-    @test is_repr(bp, "<Species>:Number(n: 5)")
+    # Fail constructing from raw values.
+    input = [4, -1, 2]
+    for invalid in (() -> BodyMass.Raw(input), () -> BodyMass(input))
+        @inputfails(
+            invalid(),
+            "When constructing <species:body_mass> from raw values:\n\
+             At node index [2]:\n\
+             Value cannot be negative. Received: -1.0",
+        )
+    end
+
+    # Alias to the value inside the blueprint if exact type match.
+    input = Float64[1, 2, 3]
+    bp = BodyMass(input)
+    input[2] *= 10
+    @test bp.body_mass == [1, 20, 3] # HERE: also test for bare class/web components.
+
+    # It is (still) ok to break values checking afterwards..
+    input[3] *= -1 # (TODO: make this fail? Would require sophisticated blueprint guards.
+    #                       Maybe not worth it.)
+    # .. but then expansion fails.
+    @sysfails(
+        Model(bp),
+        Check(
+            early,
+            [BodyMass.Raw],
+            "When checking <species:body_mass> values array:\n\
+             At node index [3]:\n\
+             Value cannot be negative. Received: -3.0",
+        )
+    )
+    # HERE: also test for previous typical components.
+
+    # Brought node class.
+    bp = BodyMass.Raw([1, 2, 3], [:a, :b, :c])
+    @test bp.species == Species([:a, :b, :c])
+    @test bp == BodyMass.Raw([1, 2, 3]; species = [:a, :b, :c])
+    @test bp == BodyMass([1, 2, 3]; species = [:a, :b, :c])
+    # HERE: also test for previous typical components.
+
+    # Inconsistency are (still) okay..
+    bp = BodyMass([4, 1, 2]; species = 2) # (TODO: make this fail? require too much checking)
+    # .. but then expansion fails.
+    @sysfails(
+        Model(bp),
+        Check(
+            late,
+            [BodyMass.Raw],
+            "Wrong number of values received for <species:body_mass>: expected 2, got 3.",
+        )
+    )
+    # HERE: also test for previous typical components.
+
+    # Construct from mapped values.
+    map = [:a => 4, :b => 5, :c => 6]
+    bp = BodyMass.Map(map)
+    @test bp == BodyMass(map) # Directly dispatched from component.
+    @test is_repr(
+        bp,
+        "<BodyMass>:Map(body_mass: {a: 4.0, b: 5.0, c: 6.0}, species: <Species>)",
+    )
     @test is_disp(
         bp,
         """
-        blueprint for <Species>: Number {
-          n: 5,
+        blueprint for <BodyMass>: Map {\n  \
+          body_mass: {a: 4.0, b: 5.0, c: 6.0},\n  \
+          species: <implied blueprint for <Species>>,\n\
         }\
         """,
     )
 
     # Expand into the same component.
-    m = Model(bp)
-    @test m.species.names == [:s1, :s2, :s3, :s4, :s5]
+    m = Model(bp) #  HERE: into debugging Map expansion.
+    @test m.species.names == [:a, :b, :c]
+    @test m.body_mass == [4, 5, 6]
+
+    ######################################################################################
+    # vvvvv only placeholders below  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    ######################################################################################
 
     # Mutating blueprint is always possible.
     bp.n = 3

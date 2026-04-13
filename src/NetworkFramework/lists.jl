@@ -85,12 +85,14 @@ reftype(::Type{Map{T,R}}) where {T,R} = R
 reftype(::Type{Adjacency{T,R}}) where {T,R} = R
 reftype(::Type{BinMap{R}}) where {R} = R
 reftype(::Type{BinAdjacency{R}}) where {R} = R
-valtype(::Type{Map{T}}) where {T} = T
-valtype(::Type{Adjacency{T}}) where {T} = T
-valtype(::Type{BinMap}) = Bool
-valtype(::Type{BinAdjacency}) = Bool
+valtype(::Type{<:Map{T}}) where {T} = T
+valtype(::Type{<:Adjacency{T}}) where {T} = T
+valtype(::Type{<:BinMap}) = Bool
+valtype(::Type{<:BinAdjacency}) = Bool
 reftype(a) = reftype(typeof(a))
 valtype(a) = valtype(typeof(a))
+reftype(T::Type) = throw("Unimplemented for $T.")
+valtype(T::Type) = throw("Unimplemented for $T.")
 
 #-------------------------------------------------------------------------------------------
 # Basic queries.
