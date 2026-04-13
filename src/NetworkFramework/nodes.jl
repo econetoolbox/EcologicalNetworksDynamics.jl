@@ -220,6 +220,7 @@ end
 # Abstract over either whole check or just-model check.
 function check_with_ref(d::NodeField, against, value, i::Int, l::Symbol)
     try
+        check(d, value)
         check(d, against, value)
     catch e
         e isa InputError || rethrow(e)
@@ -234,7 +235,7 @@ function check_with_ref(d::NodeField, against, value, i::Int)
     class = D.class(d)
     index = N.index(network, class)
     l = N.to_label(index, i)
-    check_with_ref(d, value, model, l, i)
+    check_with_ref(d, model, value, i, l)
 end
 function check_with_ref(d::NodeField, against, value, l::Symbol)
     model = get_model(against)
@@ -242,7 +243,7 @@ function check_with_ref(d::NodeField, against, value, l::Symbol)
     class = D.class(d)
     index = N.index(network, class)
     i = N.to_index(index, l)
-    check_with_ref(d, value, model, l, i)
+    check_with_ref(d, model, value, i, l)
 end
 
 #-------------------------------------------------------------------------------------------

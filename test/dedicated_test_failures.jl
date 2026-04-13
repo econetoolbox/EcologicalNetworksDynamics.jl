@@ -16,6 +16,6 @@ include("./dedicated_test_failures/network_framework.jl")
 export @netfails, @labelfails
 export @xaliasfails, @aliasfails
 export @bluefails, @methfails, @compfails, @conffails, @sysfails
-export @inputfails, @viewfails
+export @inputfails, @viewfails, @writefails
 
 end

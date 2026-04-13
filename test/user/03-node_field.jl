@@ -12,7 +12,7 @@ using EcologicalNetworksDynamics
 using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, Network, Views, NodeField
-import Main: is_repr, is_disp, @viewfails, @sysfails
+import Main: is_repr, is_disp, @sysfails, @viewfails, @writefails
 const Value = Network # To have @sysfails work.
 const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested view type.
 
@@ -24,7 +24,7 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     @test is_disp(
         BodyMass,
         """
-        BodyMass (component for Network, expandable from:
+        BodyMass (component for $Network, expandable from:
           Raw: raw values,
           Map: [species => body_mass] map,
           Flat: uniform value,
@@ -111,16 +111,63 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     @viewfails(v[], V, "Cannot index into nodes with 0 dimensions: [].")
     @viewfails(v[1, 2], V, "Cannot index into nodes with 2 dimensions: [1, 2].")
 
-    error("HERE: resume testing.")
+    # The field is *mutable* through the view.
+    w = m.body_mass # Alternate view to the same model.
+    alt = copy(m) # Forked model.
+    a = alt.body_mass # Alternate view to the forked model.
+    @test a == w == [4, 5, 6] # All synced (same underlying storage).
+
+    # Mutate, invoking COW.
+    v[1] *= 10
+    v[:b] += 100
+    @test v == w == m.body_mass == [40, 105, 6] # All views to model impacted, old and new.
+    @test a == alt.body_mass == [4, 5, 6] # Forked model unchanged, or any view to it.
+
+    # Support various mutating operations like regular julia arrays.
+    v[1:2] .= 8
+    v[end-1:end] .*= 100
+    @test v == w == m.body_mass == [8, 800, 600]
+    @test a == alt.body_mass == [4, 5, 6]
+
+    v .= [5, 4, 3]
+    @test v == w == m.body_mass == [5, 4, 3]
+    @test a == alt.body_mass == [4, 5, 6]
+
+    for invalid_set in (() -> v[1:2] = 8, () -> v[end:end-1] *= 10)
+        @viewfails(
+            invalid_set(),
+            V,
+            "Indexed assignment with a single value to possibly many locations \
+             is not supported; perhaps use broadcasting `.=` instead?"
+        )
+    end
+
+    # The value is still checked.
+    @writefails(
+        v[2] = -1,
+        body_mass[2] = -1,
+        "When attempting to mutate <species:body_mass> node value:\n\
+         At node with label :b ([2]):\n\
+         Value cannot be negative. Received: -1"
+    )
+    @writefails(
+        v[:b] = -10,
+        body_mass[:b] = -10,
+        "When attempting to mutate <species:body_mass> node value:\n\
+         At node with label :b ([2]):\n\
+         Value cannot be negative. Received: -10"
+    )
+    @writefails(
+        v .-= 4,
+        body_mass[3] = -1,
+        "When attempting to mutate <species:body_mass> node value:\n\
+         At node with label :c ([3]):\n\
+         Value cannot be negative. Received: -1.0"
+    )
+
     ######################################################################################
     # vvvvv only placeholders below  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     ######################################################################################
-
-    # Immutable.
-    mess = "Cannot change :species nodes names after they have been set."
-    @viewfails((v[1] = :u), V, mess)
-    @viewfails((v[:a] = :u), V, mess)
-    @viewfails((v[:a] = 2), V, mess)
 
     # But the *blueprint* can be mutated.
     bp.names[2] = :x

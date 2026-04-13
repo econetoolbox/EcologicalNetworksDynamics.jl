@@ -62,25 +62,6 @@ view(v::S) = getfield(v, :view)
 fieldname(s::S) = D.field(dispatcher(s))
 N.entry(v::S) = v |> view |> N.entry
 
-struct WriteError <: Exception
-    message::String
-    fieldname::Symbol
-    index::Any
-    value::Any
-end
-function Base.showerror(io::IO, e::WriteError)
-    (; fieldname, index, value, message) = e
-    it, reset = crayon"italics", crayon"reset"
-    print(
-        io,
-        "Cannot set node data $fieldname$(display_index(index)):\n\
-         $it  $message$reset\n\
-         Received value: $(repr(value)) ::$(typeof(value))",
-    )
-end
-display_index(i...) = display_index(i)
-display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
-
 # ==========================================================================================
 #  Common to all views.
 
@@ -114,5 +95,24 @@ err(T::Type, m) = throw(Error(T, m))
 err(t, m, throw = throw) = throw(Error(typeof(t), m))
 Base.showerror(io::IO, e::Error) =
     print(io, "View error ($(type_info(e.type))):\n$(e.mess)")
+
+struct WriteError <: Exception
+    message::String
+    fieldname::Symbol
+    index::Any
+    value::Any
+end
+function Base.showerror(io::IO, e::WriteError)
+    (; fieldname, index, value, message) = e
+    it, reset = crayon"italics", crayon"reset"
+    print(
+        io,
+        "Cannot set node data $fieldname$(display_index(index)):\n\
+         $it$message$reset\n\
+         Received value: $(repr(value)) ::$(typeof(value))",
+    )
+end
+display_index(i...) = display_index(i)
+display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
 
 end

@@ -125,10 +125,17 @@ check_write(s::S, x, ref) =
             NF.mutate_check(d, m, x, ref)
         catch e
             e isa InputError || rethrow(e)
-            rethrow(WriteError(e, fieldname(s), ref, x))
+            rethrow(V.WriteError(e.mess, fieldname(s), ref, x))
         end
         x
     end
+
+# Mirror Julia's error in this case.
+check_write(s::S, _, ::UnitRange) = err(
+    s,
+    "Indexed assignment with a single value to possibly many locations \
+     is not supported; perhaps use broadcasting `.=` instead?",
+)
 
 # ==========================================================================================
 # Immutable topology views.
