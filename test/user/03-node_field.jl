@@ -197,12 +197,12 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     # Alias to the value inside the blueprint if exact type match.
     input = Float64[1, 2, 3]
     bp = BodyMass(input)
+    @test bp.body_mass === input
     input[2] *= 10
-    @test bp.body_mass == [1, 20, 3] # HERE: also test for bare class/web components.
+    @test bp.body_mass == [1, 20, 3]
 
     # It is (still) ok to break values checking afterwards..
-    input[3] *= -1 # (TODO: make this fail? Would require sophisticated blueprint guards.
-    #                       Maybe not worth it.)
+    input[3] *= -1
     # .. but then expansion fails.
     @sysfails(
         Model(bp),
@@ -214,17 +214,15 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
              Value cannot be negative. Received: -3.0",
         )
     )
-    # HERE: also test for previous typical components.
 
     # Brought node class.
     bp = BodyMass.Raw([1, 2, 3], [:a, :b, :c])
     @test bp.species == Species([:a, :b, :c])
     @test bp == BodyMass.Raw([1, 2, 3]; species = [:a, :b, :c])
     @test bp == BodyMass([1, 2, 3]; species = [:a, :b, :c])
-    # HERE: also test for previous typical components.
 
-    # Inconsistency are (still) okay..
-    bp = BodyMass([4, 1, 2]; species = 2) # (TODO: make this fail? require too much checking)
+    # Inconsistencies are (still) okay..
+    bp = BodyMass([4, 1, 2]; species = 2)
     # .. but then expansion fails.
     @sysfails(
         Model(bp),
@@ -234,7 +232,6 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
             "Wrong number of values received for <species:body_mass>: expected 2, got 3.",
         )
     )
-    # HERE: also test for previous typical components.
 
     # Construct from mapped values.
     map = [:a => 4, :b => 5, :c => 6]
@@ -255,9 +252,29 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     )
 
     # Expand into the same component.
-    m = Model(bp) #  HERE: into debugging Map expansion.
+    m = Model(bp)
     @test m.species.names == [:a, :b, :c]
     @test m.body_mass == [4, 5, 6]
+
+    # Alias blueprints if exact input type is used.
+    input = bp.body_mass
+    bp = BodyMass(input)
+    @test bp.body_mass === input
+    input[:x] = 15
+    @test bp.body_mass == OrderedDict([:a => 4, :b => 5, :c => 6, :x => 15])
+
+    # Fail constructing from mapped.
+    input[:x] *= -1
+    @sysfails(
+        Model(bp),
+        Check(
+            early,
+            [BodyMass.Map],
+            "When checking <species:body_mass> values map:\n\
+             At node with label :x:\n\
+             Value cannot be negative. Received: -15.0",
+        )
+    )
 
     ######################################################################################
     # vvvvv only placeholders below  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv

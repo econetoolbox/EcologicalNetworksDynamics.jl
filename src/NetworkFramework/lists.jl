@@ -836,10 +836,16 @@ adjacency_map_priorities = priorities([
 #-------------------------------------------------------------------------------------------
 # Alias if types matches exactly.
 # Resolves the ambiguity introduced by *not* typing `input` in the methods above.
-inputconvert(::Type{BinMap}, input::BinMap) = input
-inputconvert(::Type{BinAdjacency}, input::BinAdjacency) = input
-inputconvert(::Type{Map{T}}, input::Map{T}) where {T} = input
-inputconvert(::Type{Adjacency{T}}, input::Adjacency{T}) where {T} = input
+inputconvert(::Type{BinMap{R}}, i::BinMap{R}) where {R} = i
+inputconvert(::Type{BinAdjacency{R}}, i::BinAdjacency{R}) where {R} = i
+inputconvert(::Type{Map{T,R}}, i::Map{T,R}) where {T,R} = i
+inputconvert(::Type{Adjacency{T,R}}, i::Adjacency{T,R}) where {T,R} = i
+
+# Also alias if the expected ref type is not explicit.
+inputconvert(::Type{BinMap}, i::BinMap{<:Ref}) = i
+inputconvert(::Type{BinAdjacency}, i::BinAdjacency{<:Ref}) = i
+inputconvert(::Type{Map{T}}, i::Map{T,<:Ref}) where {T} = i
+inputconvert(::Type{Adjacency{T}}, i::Adjacency{T,<:Ref}) where {T} = i
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.

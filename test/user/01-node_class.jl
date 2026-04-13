@@ -106,11 +106,17 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
     bp.names[2] = :x
     @test Model(bp).species.names == [:a, :x, :c]
 
-    # Fail construct from names.
-    @sysfails(
-        Model(Species([:a, :b, :b])),
-        Check(early, [Species.Names], "Species 3 and 2 are both named :b.")
-    )
+    # Alias to the value inside the blueprint if exact type match.
+    input = Symbol[:a, :b, :c]
+    bp = Species(input)
+    @test input === bp.names
+    input[2] = :x
+    @test bp.names == [:a, :x, :c]
+
+    # It is (still) ok to break values checking afterwards..
+    input[3] = :x
+    # .. but then expansion fails.
+    @sysfails(Model(bp), Check(early, [Species.Names], "Species 3 and 2 are both named :x"))
 
     # Construct from a number, generating short distinct names.
     bp = Species.Number(5)
@@ -134,8 +140,9 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
     @test Model(bp).species.names == [:s1, :s2, :s3]
 
     # Fail construct from numbers.
+    bp.n = -3
     @sysfails(
-        Model(Species(-3)),
+        Model(bp),
         Check(
             early,
             [Species.Number],

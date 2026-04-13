@@ -268,11 +268,11 @@ end
 function construct_map(d::NodeField, map)
     T = D.type(d)
     try
-        map = inputconvert(Map{T}, map)
-        for (l, v) in map
+        out = inputconvert(Map{T}, map)
+        for (l, v) in out
             check_with_ref(d, v, l)
         end
-        map
+        out
     catch e
         e isa InputError || rethrow(e)
         inerr("When constructing $d from map:\n$(e.mess)", rethrow)
@@ -312,16 +312,16 @@ function early_check(d::NodeField, vec::Vector)
 end
 
 function early_check(d::NodeField, map::Map)
-    R, T = reftype(map), valtype(map)
+    T, R = valtype(map), reftype(map)
     try
-        map = parse(Map{R,T}, map) # Re-parse in case the map was mutated.
+        map = inputconvert(Map{T,R}, map) # Re-parse in case the map was mutated.
         for (label, value) in map
             map[label] = check_with_ref(d, value, label)
         end
         map
     catch e
         e isa InputError || rethrow(e)
-        inerr("When checking $d values map:\n$(e.message)", rethrow)
+        F.checkfails("When checking $d values map:\n$(e.mess)", rethrow)
     end
 end
 
@@ -373,10 +373,7 @@ function late_check(d::NodeField, model::Model, map::Map)
     end
     # Then reorder values one by one into a vector.
     try
-        Base.map(labels) do label
-            value = map[label]
-            check_with_ref(d, model, value, label)
-        end
+        [check_with_ref(d, model, map[label], label) for label in labels]
     catch e
         e isa InputError || rethrow(e)
         F.checkfails("When checking $d values map against model:\n$(e.mess)", rethrow)

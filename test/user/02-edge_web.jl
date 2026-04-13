@@ -131,6 +131,13 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
     bp.A[1, 1] = true
     @test Model(bp).foodweb.mask == [1 1 1; 1 0 0; 1 1 0]
 
+    # Alias to the value inside the blueprint if exact type match.
+    input = sparse(Bool[0 0; 0 0])
+    bp = Foodweb(input)
+    @test bp.A === input
+    input[1, 2] = 1
+    @test bp.A == [0 1; 0 0]
+
     # Fail construct from matrix.
     @sysfails(
         Model(Foodweb([1 1 1; 0 0 0])),
