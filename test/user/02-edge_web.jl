@@ -81,6 +81,13 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
          1 1 ·\
         """,
     )
+    @sysfails( # Unless the component is missing, as all properties.
+        Model().foodweb.mask,
+        Property(
+            trophic.mask, # (alias)
+            "Component $(EN._Foodweb) is required to read this property.",
+        ),
+    )
 
     # The view has some basic vector-like interface.
     @test v == collect(v) == A == [i for i in v]

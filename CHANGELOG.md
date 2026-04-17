@@ -43,6 +43,10 @@
   - `model.M[2:3] *= 10` used to work, but is not supported anymore.
   - `model.M[2:3] .*= 10` continues to work.
 
+- Cannot create species blueprints from an index anymore,
+  so `Species(Dict([:a => 1, :b => 2]))` stops working.
+  But any iterator is accepted now like `Species("sp_$i" for i in 1:5)`.
+
 # Bugfixes
 
 - Fix world count in Framework `@conflicts` macro with Julia 1.12.

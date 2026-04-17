@@ -1,29 +1,15 @@
-# Test every component behaviour/views specificities.
-# Try not to repeat tests already covered by the view/input tests,
-# and in general tests covering similar inner calls
-# to @component/@method/@expose_data macros/@kwargs_helpers.
+# Test every component behaviour/views specificities,
+# not already tested as 'typical components' before.
 
 module TestComponents
 
-using SparseArrays
-using OrderedCollections
-using Random
-
-using EcologicalNetworksDynamics
-
-using Test
-using Main.TestUser: Value
-using Main: @failswith, @argfails, @sysfails, @labelfails
-
-const EN = EcologicalNetworksDynamics
-
 # Many small similar components tests files, although they easily diverge.
 only = [
-    # HERE: have this run again after the large cleanup.
     "./data_components/species.jl",
-    "./data_components/foodweb.jl",
-    "./data_components/body_mass.jl",
-    "./data_components/metabolic_class.jl",
+    # HERE: have it work.
+    #  "./data_components/foodweb.jl",
+    #  "./data_components/body_mass.jl",
+    #  "./data_components/metabolic_class.jl",
 ] # Only run these if specified.
 if isempty(only)
     for subfolder in ["./data_components", "./code_components"]

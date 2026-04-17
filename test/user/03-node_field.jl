@@ -85,6 +85,10 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
          6.0\
         """,
     )
+    @sysfails( # Unless the component is missing, as all properties.
+        Model().body_mass,
+        Property(body_mass, "Component $(EN._BodyMass) is required to read this property."),
+    )
 
     # The view has some basic vector-like interface.
     @test v == collect(v) == [4, 5, 6] == [i for i in v]

@@ -11,7 +11,7 @@ using EcologicalNetworksDynamics
 # Additional imports only used here for testing purpose.
 using Test
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, Network, Views, NodeClass, NodeMask
+import EcologicalNetworksDynamics: EN, F, Network, Views, NodeClass, NodeMask
 import Main: is_repr, is_disp, @viewfails, @sysfails
 const Value = Network # To have @sysfails work.
 const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
@@ -53,6 +53,13 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
 
     # Expand into a class component.
     m = Model(bp)
+    @test is_disp(
+        m,
+        """
+        Model (alias for $(F.System){$(EN.Network)}) with 1 component:
+          - Species: 3 (:a, :b, :c)\
+        """,
+    )
 
     # The names property becomes available as a view.
     v = m.species.names
@@ -67,6 +74,13 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
          :b
          :c\
         """,
+    )
+    @sysfails( # Unless the component is missing, as all properties.
+        Model().species.names,
+        Property(
+            species.names,
+            "Component $(EN._Species) is required to read this property.",
+        ),
     )
 
     # The view has some basic vector-like interface.
