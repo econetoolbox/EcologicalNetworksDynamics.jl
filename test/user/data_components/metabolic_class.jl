@@ -1,90 +1,109 @@
+module MetabolicClassTest
+
+using EcologicalNetworksDynamics
+
+using Test
+using EcologicalNetworksDynamics: F, N
+using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
+
 @testset "Metabolic class component." begin
 
     base = Model(Foodweb([:a => :b, :b => :c]))
 
-    #---------------------------------------------------------------------------------------
-    # Construct from aliased values.
-
-    mc = MetabolicClass([:i, :e, :p])
-    m = base + mc
+    # Values are symbols, checked and expanded against aliasing dict.
+    bp = MetabolicClass(collect("iep"))
+    @test bp.metabolic_class == [:i, :e, :p]
+    m = base + bp
+    @test is_disp(
+        m,
+        """
+        Model (alias for $(F.System){$(N.Network)}) with 3 components:
+          - Species: 3 (:a, :b, :c)
+          - Foodweb: 2 links, 1 producer, 2 consumers, 2 preys, 1 top.
+          - MetabolicClass: [:invertebrate, :ectotherm, :producer]\
+        """,
+    )
     @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]
-    @test typeof(mc) == MetabolicClass.Raw
 
-    # With an explicit map.
-    ## Integer keys.
-    mc = MetabolicClass([2 => :inv, 3 => :ect, 1 => :prod])
-    m = base + mc
-    @test m.metabolic_class == [:producer, :invertebrate, :ectotherm]
-    @test typeof(mc) == MetabolicClass.Map
+    # Mutable classes, with expansion/conversion on.
+    m.metabolic_class[1] = :e
+    m.metabolic_class[:b] = 'i'
+    @test m.metabolic_class == [:ectotherm, :invertebrate, :producer]
 
-    ## Symbol keys.
-    mc = MetabolicClass([:a => :inv, :b => :ect, :c => :prod])
-    m = base + mc
-    @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]
-    @test typeof(mc) == MetabolicClass.Map
+    # Checked against the *whole model* for consistency.
+    @sysfails(
+        (base + MetabolicClass([:p, :p, :p])),
+        Check(
+            late,
+            [MetabolicClass.Raw],
+            """
+            When checking <species:metabolic_class> values array against model:
+            At node with label :a ([1]):
+            Metabolic class for species :a cannot be :producer since it is a consumer.\
+           """,
+        )
+    )
+    @sysfails(
+        (base + MetabolicClass([:e, :e, :e])),
+        Check(
+            late,
+            [MetabolicClass.Raw],
+            """
+            When checking <species:metabolic_class> values array against model:
+            At node with label :c ([3]):
+            Metabolic class for species :c cannot be :ectotherm since it is a producer.\
+           """,
+        )
+    )
+    # Even during late edition.
+    @writefails(
+        m.metabolic_class[:c] = :i,
+        metabolic_class[:c] = :i,
+        """
+        When attempting to mutate <species:metabolic_class> node value:
+        At node with label :c ([3]):
+        Metabolic class for species :c cannot be :invertebrate since it is a producer.\
+        """
+    )
+    @writefails(
+        m.metabolic_class[:a] = :p,
+        metabolic_class[:a] = :p,
+        """
+        When attempting to mutate <species:metabolic_class> node value:
+        At node with label :a ([1]):
+        Metabolic class for species :a cannot be :producer since it is a consumer.\
+        """
+    )
 
-    # Default to homogeneous classes.
-    mc = MetabolicClass(:all_ectotherms)
-    m = base + mc
+    # No flat component. But a 'Favourite' instead.
+    bp = MetabolicClass(:all_ectotherms)
+    @test bp == MetabolicClass.Favour(:all_ectotherms)
+    @test is_repr(bp, "<MetabolicClass>:Favour(favourite: :all_ectotherms)")
+    @test is_disp(
+        bp,
+        """
+         blueprint for <MetabolicClass>: Favour {
+           favourite: :all_ectotherms,
+         }\
+        """,
+    )
+    m = base + bp
     @test m.metabolic_class == [:ectotherm, :ectotherm, :producer]
-    mc = MetabolicClass(:all_invertebrates)
-    m = base + mc
-    @test m.metabolic_class == [:invertebrate, :invertebrate, :producer]
-    @test typeof(mc) == MetabolicClass.Favor
-
-    # Editable property.
-    m.metabolic_class[2] = "e" # Conversion on.
-    @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]
-    m.metabolic_class[1:2] .= :inv
-    @test m.metabolic_class == [:invertebrate, :invertebrate, :producer]
-
-    #---------------------------------------------------------------------------------------
-    # Input guards.
-
+    bp.favourite = :all_invertebrates
+    @test (base + bp).metabolic_class == [:invertebrate, :invertebrate, :producer]
+    @inputfails(
+        MetabolicClass(:whatever),
+        "Expected one of :all_invertebrates or :all_ectotherms, \
+         received instead: :whatever."
+    )
+    bp.favourite = :corrupted # (possible after blueprint creation)
     @sysfails(
-        base + MetabolicClass([:i, :x]),
+        (base + bp),
         Check(
             early,
-            [MetabolicClass.Raw],
-            "Invalid reference in aliasing system for \"metabolic class\": class[2] = :x",
-        )
-    )
-
-    @sysfails(
-        base + MetabolicClass([:a => :i, :b => :x]),
-        Check(
-            early,
-            [MetabolicClass.Map],
-            "Invalid reference in aliasing system for \"metabolic class\": class[:b] = :x",
-        )
-    )
-
-    @sysfails(
-        base + MetabolicClass(:invalid_favor),
-        Check(
-            early,
-            [MetabolicClass.Favor],
-            "Invalid symbol received for 'favourite': :invalid_favor. \
-             Expected either :all_invertebrates or :all_ectotherms instead.",
-        )
-    )
-
-    # Checked against the foodweb.
-    @sysfails(
-        base + MetabolicClass([:p, :e, :i]),
-        Check(
-            late,
-            [MetabolicClass.Raw],
-            "Metabolic class for species :a cannot be 'p' since it is a consumer.",
-        )
-    )
-
-    @sysfails(
-        base + MetabolicClass([:i, :e, :inv]),
-        Check(
-            late,
-            [MetabolicClass.Raw],
-            "Metabolic class for species :c cannot be 'inv' since it is a producer.",
+            [MetabolicClass.Favour],
+            "Expected one of :all_invertebrates or :all_ectotherms, \
+             received instead: :corrupted.",
         )
     )
 
@@ -94,37 +113,6 @@
         Missing(Foodweb, MetabolicClass, [MetabolicClass.Raw], nothing),
     )
 
-    #---------------------------------------------------------------------------------------
-    # Edition guards.
-
-    @failswith(
-        (m.metabolic_class[2] = 4),
-        EN.Views.WriteError(
-            "Invalid reference in aliasing system for \"metabolic class\"",
-            :metabolic_class,
-            2,
-            4,
-        ),
-    )
-
-    @failswith(
-        (m.metabolic_class[2] = :p),
-        EN.Views.WriteError(
-            "Metabolic class for species :b cannot be 'producer' since it is a consumer.",
-            :metabolic_class,
-            2,
-            :p,
-        ),
-    )
-
-    @failswith(
-        (m.metabolic_class[:c] = :i),
-        EN.Views.WriteError(
-            "Metabolic class for species :c cannot be 'invertebrate' since it is a producer.",
-            :metabolic_class,
-            :c,
-            :i,
-        ),
-    )
+end
 
 end

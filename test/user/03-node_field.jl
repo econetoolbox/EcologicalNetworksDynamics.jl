@@ -12,9 +12,8 @@ using EcologicalNetworksDynamics
 using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, Network, Views, NodeField
-import Main: is_repr, is_disp, @inputfails, @sysfails, @viewfails, @writefails
-const Value = Network # To have @sysfails work.
-const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested view type.
+import Main: is_repr, is_disp, @inputfails, @viewfails, @writefails, @sysfails, Value
+const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested viewtype.
 
 @testset "Typical NodeField component" begin
 
@@ -73,7 +72,7 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
 
     # The names property becomes available as a view.
     v = m.body_mass
-    @test v isa V
+    @test v isa View
     @test v isa AbstractVector{Float64}
     @test is_repr(v, "<species:body_mass>[4.0, 5.0, 6.0]")
     @test is_disp(
@@ -105,20 +104,20 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     @test v[:b] == 5
     @viewfails(
         v[nothing],
-        V,
+        View,
         "Views are indexed with indices (::Int) or labels (::Symbol). \
          Cannot index with: nothing ::Nothing."
     )
-    @viewfails(v[0], V, "Cannot index with [0] into a class with 3 :species nodes.")
-    @viewfails(v[4], V, "Cannot index with [4] into a class with 3 :species nodes.")
+    @viewfails(v[0], View, "Cannot index with [0] into a class with 3 :species nodes.")
+    @viewfails(v[4], View, "Cannot index with [4] into a class with 3 :species nodes.")
     @viewfails(
         v[:x],
-        V,
+        View,
         "Label does not refer to a node in :species class: :x.\n\
          Valid labels: [:a, :b, :c]."
     )
-    @viewfails(v[], V, "Cannot index into nodes with 0 dimensions: [].")
-    @viewfails(v[1, 2], V, "Cannot index into nodes with 2 dimensions: [1, 2].")
+    @viewfails(v[], View, "Cannot index into nodes with 0 dimensions: [].")
+    @viewfails(v[1, 2], View, "Cannot index into nodes with 2 dimensions: [1, 2].")
 
     # The field is *mutable* through the view.
     w = m.body_mass # Alternate view to the same model.
@@ -145,7 +144,7 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     for invalid_set in (() -> v[1:2] = 8, () -> v[end:end-1] *= 10)
         @viewfails(
             invalid_set(),
-            V,
+            View,
             "Indexed assignment with a single value to possibly many locations \
              is not supported; perhaps use broadcasting `.=` instead?"
         )
@@ -177,20 +176,20 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     # And all regular index guards are set.
     @viewfails(
         v[nothing] = 1,
-        V,
+        View,
         "Views are indexed with indices (::Int) or labels (::Symbol). \
          Cannot index with: nothing ::Nothing."
     )
-    @viewfails(v[0] = 1, V, "Cannot index with [0] into a class with 3 :species nodes.")
-    @viewfails(v[4] = 1, V, "Cannot index with [4] into a class with 3 :species nodes.")
+    @viewfails(v[0] = 1, View, "Cannot index with [0] into a class with 3 :species nodes.")
+    @viewfails(v[4] = 1, View, "Cannot index with [4] into a class with 3 :species nodes.")
     @viewfails(
         v[:x] = 1,
-        V,
+        View,
         "Label does not refer to a node in :species class: :x.\n\
          Valid labels: [:a, :b, :c]."
     )
-    @viewfails(v[] = 1, V, "Cannot index into nodes with 0 dimensions: [].")
-    @viewfails(v[1, 2] = 1, V, "Cannot index into nodes with 2 dimensions: [1, 2].")
+    @viewfails(v[] = 1, View, "Cannot index into nodes with 0 dimensions: [].")
+    @viewfails(v[1, 2] = 1, View, "Cannot index into nodes with 2 dimensions: [1, 2].")
 
     # Fail constructing from raw values.
     input = [4, -1, 2]
@@ -259,11 +258,63 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
         }\
         """,
     )
-
     # Expand into the same component.
     m = Model(bp)
     @test m.species.names == [:a, :b, :c]
     @test m.body_mass == [4, 5, 6]
+
+    # Late-check against node names.
+    m = Model(Species(m.species.names))
+    @sysfails(
+        m + BodyMass([:a => 5, :x => 6, :y => 7]),
+        Check(
+            late,
+            [BodyMass.Map],
+            "Missing for <species:body_mass>, no value provided for :b and :c.",
+        )
+    )
+    @sysfails(
+        m + BodyMass([:a => 5, :b => 6, :c => 7, :x => 8, :y => 9]),
+        Check(late, [BodyMass.Map], "Not :species names: :x and :y.")
+    )
+
+    # Same with index references.
+    imap = [1 => 4, 2 => 5, 3 => 6]
+    bp = BodyMass.Map(imap)
+    @test bp == BodyMass(imap)
+    @test is_repr(
+        bp,
+        "<BodyMass>:Map(body_mass: {1: 4.0, 2: 5.0, 3: 6.0}, species: <Species>)",
+    )
+    @test is_disp(
+        bp,
+        """
+        blueprint for <BodyMass>: Map {\n  \
+          body_mass: {1: 4.0, 2: 5.0, 3: 6.0},\n  \
+          species: <implied blueprint for <Species>>,\n\
+        }\
+        """,
+    )
+    m = Model(bp)
+    @test m.species.names == [:s1, :s2, :s3] # Default names obtained.
+    @test m.body_mass == [4, 5, 6]
+    m = Model(Species(m.species.number))
+    @sysfails(
+        m + BodyMass([1 => 5, 4 => 6, 5 => 7]),
+        Check(
+            late,
+            [BodyMass.Map],
+            "Missing for <species:body_mass>, no value provided for nodes 2 and 3.",
+        )
+    )
+    @sysfails(
+        m + BodyMass([1 => 5, 2 => 6, 3 => 7, 4 => 8, 5 => 9]),
+        Check(
+            late,
+            [BodyMass.Map],
+            "Invalid indices for class :species with 3 nodes: 4 and 5.",
+        )
+    )
 
     # Brought node class.
     bp = BodyMass.Map(map, 3)

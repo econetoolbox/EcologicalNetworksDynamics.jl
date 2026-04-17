@@ -68,7 +68,8 @@ function define_node_field_component(
                 Raw($field, $class) = new($construct_raw(d, $field), $class)
                 Raw($field; $class = _Class) = Raw($field, $class)
             end
-            F.implied_blueprint_for(bp::Raw, ::_Class) = Class(length(bp.$field))
+            F.implied_blueprint_for(bp::Raw, ::_Class) =
+                $implied_class_from_raw(d, Class, bp.$field)
             F.early_check(bp::Raw) = $early_check(d, bp.$field)
             F.late_check(model, bp::Raw, early_data) = $late_check(d, model, early_data)
             F.expand!(model, ::Raw, late_data) = $expand!(d, model, late_data)
@@ -86,7 +87,8 @@ function define_node_field_component(
                 Map($field, $class) = new($construct_map(d, $field), $class)
                 Map($field; $class = _Class) = Map($field, $class)
             end
-            F.implied_blueprint_for(bp::Map, ::_Class) = Class(keys(bp.$field))
+            F.implied_blueprint_for(bp::Map, ::_Class) =
+                $implied_class_from_map(d, Class, bp.$field)
             F.early_check(bp::Map) = $early_check(d, bp.$field)
             F.late_check(model, bp::Map, early_data) = $late_check(d, model, early_data)
             F.expand!(model, bp::Map, late_data) = $expand!(d, model, late_data)
@@ -203,7 +205,7 @@ check_with_ref(d::NodeField, value, l::Symbol) =
 #-------------------------------------------------------------------------------------------
 # Check against a model value, assuming the type and raw value is already correct.
 
-check(::NodeField, ::Model, value) = value # Nothing to check by default.
+check(::NodeField, ::Model, value, ::Int, ::Symbol) = value # Nothing to check by default.
 
 #-------------------------------------------------------------------------------------------
 # Check against both the type and then immediately the model (useful for mutating).
@@ -220,10 +222,10 @@ function check(d::NodeField, whole::WholeCheck, value)
 end
 
 # Abstract over either whole check or just-model check.
-function check_with_ref(d::NodeField, against, value, i::Int, l::Symbol)
+function check_with_ref(d::NodeField, against::Model, value, i::Int, l::Symbol)
     try
-        check(d, value)
-        check(d, against, value)
+        value = check(d, value)
+        check(d, against, value, i, l)
     catch e
         e isa InputError || rethrow(e)
         inerr("At node with label $(repr(l)) ([$i]):\n$(e.mess)", rethrow)
@@ -365,7 +367,7 @@ function late_check(d::NodeField, model::Model, vec::Vector)
 end
 
 # Typical map case for Map blueprint.
-function late_check(d::NodeField, model::Model, map::Map)
+function late_check(d::NodeField, model::Model, map::Map{<:Any,Symbol})
     # Check labels first.
     network = NF.network(model)
     class = D.class(d)
@@ -379,7 +381,7 @@ function late_check(d::NodeField, model::Model, map::Map)
     end
     unexp = setdiff(act, exp)
     if !isempty(unexp)
-        unexp = EN.join_elided(sort!(collect(miss)), ", ", " and ")
+        unexp = EN.join_elided(sort!(collect(unexp)), ", ", " and ")
         a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
         F.checkfails("Not$a $(repr(class)) name$s: $unexp.")
     end
@@ -392,8 +394,61 @@ function late_check(d::NodeField, model::Model, map::Map)
     end
 end
 
+# Same with index references instead.
+function late_check(d::NodeField, model::Model, map::Map{<:Any,Int})
+    # Check indices first.
+    network = NF.network(model)
+    class = D.class(d)
+    n = N.n_nodes(network, class)
+    miss = Int[]
+    for exp in 1:n
+        haskey(map, exp) && continue
+        push!(miss, exp)
+    end
+    if !isempty(miss)
+        miss = EN.join_elided(miss, ", ", " and ")
+        s = length(miss) == 1 ? "" : "s"
+        F.checkfails("Missing for $d, no value provided for node$s $miss.")
+    end
+    unexp = miss
+    for act in keys(map)
+        act in 1:n && continue
+        push!(unexp, act)
+    end
+    if !isempty(unexp)
+        unexp = EN.join_elided(unexp, ", ", " and ")
+        indices, s = length(unexp) == 1 ? ("index", "") : ("indices", "s")
+        F.checkfails("Invalid $indices for class $(repr(class)) with $n node$s: $unexp.")
+    end
+    # Then reorder values one by one into a vector.
+    try
+        [check_with_ref(d, model, map[i], i) for i in 1:n]
+    catch e
+        e isa InputError || rethrow(e)
+        F.checkfails("When checking $d values map against model:\n$(e.mess)", rethrow)
+    end
+end
+
 # Not much to do by default in this situation, just keep as an extension point.
 late_check_flat(::NodeField, ::Model, value) = value
+
+#-------------------------------------------------------------------------------------------
+# Implied class blueprint.
+
+function implied_class_from_raw(::NodeField, Class, raw)
+    n = length(raw)
+    Class.Number(n)
+end
+
+function implied_class_from_map(::NodeField, Class, map::Map{<:Any,Symbol})
+    refs = NF.keys(map)
+    Class.Names(collect(refs))
+end
+
+function implied_class_from_map(::NodeField, Class, map::Map{<:Any,Int})
+    n = length(map) # (assuming no hole) TODO: how is that enforced?
+    Class.Number(n)
+end
 
 #-------------------------------------------------------------------------------------------
 # Expansion: input is completely trusted, just fill the inner network from late data.

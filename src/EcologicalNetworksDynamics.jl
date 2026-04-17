@@ -36,6 +36,7 @@ include("./kwargs_helpers.jl")
 include("./AliasingDicts/AliasingDicts.jl")
 include("./multiplex_api.jl")
 using .KwargsHelpers
+const AD = AliasingDicts
 
 # Bring this all together into a library for component authors.
 include("./NetworkFramework/NetworkFramework.jl")

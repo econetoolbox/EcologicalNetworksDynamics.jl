@@ -80,7 +80,7 @@ so it mostly falls into three categories:
 module NetworkFramework
 
 import EcologicalNetworksDynamics:
-    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers
+    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD
 using .Networks
 using .Framework
 using .KwargsHelpers
@@ -132,9 +132,18 @@ end
 function name_among(expected, input)
     name = inputconvert(Symbol, input)
     name in expected || inerr("Expected one of $(EN.join_elided(expected, ", ", " or ")), \
-                               received instead: $(repr(input))")
+                               received instead: $(repr(input)).")
     name
 end
+
+# Pick symbols from an aliased dict.
+aliasing_symbol(dict, input) =
+    try
+        AD.standardize(input, dict)
+    catch e
+        e isa AD.AliasingError || rethrow(e)
+        inerr(sprint(showerror, e), rethrow)
+    end
 
 # ==========================================================================================
 # Re-export to component authors.

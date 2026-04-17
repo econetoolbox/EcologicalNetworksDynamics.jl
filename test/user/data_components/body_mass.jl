@@ -4,8 +4,7 @@ using EcologicalNetworksDynamics
 
 using Test
 using EcologicalNetworksDynamics: Network
-using Main: is_disp, is_repr, @sysfails, @argfails
-const Value = Network
+using Main: is_disp, is_repr, @argfails, @sysfails, Value
 
 @testset "Body mass component." begin
 

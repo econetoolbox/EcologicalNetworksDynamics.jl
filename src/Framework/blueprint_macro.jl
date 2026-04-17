@@ -543,7 +543,7 @@ end
 display_blueprint_field_short(io::IO, value, bp::Blueprint, ::Val) =
     display_blueprint_field_short(io, value, bp)
 # Ignore field name by default.
-display_blueprint_field_short(io::IO, value, ::Blueprint) = print(io, value)
+display_blueprint_field_short(io::IO, value, ::Blueprint) = print(io, repr(value))
 
 function display_blueprint_field_long(
     io::IO,

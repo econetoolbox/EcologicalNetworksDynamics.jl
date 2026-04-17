@@ -12,8 +12,7 @@ using EcologicalNetworksDynamics
 using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, F, Network, Views, NodeClass, NodeMask
-import Main: is_repr, is_disp, @viewfails, @sysfails
-const Value = Network # To have @sysfails work.
+import Main: is_repr, is_disp, @viewfails, @sysfails, Value
 const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
 
 @testset "Typical NodeClass component" begin

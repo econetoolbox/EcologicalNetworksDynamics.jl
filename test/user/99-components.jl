@@ -8,8 +8,7 @@ only = [
     "./data_components/species.jl",
     "./data_components/foodweb.jl",
     "./data_components/body_mass.jl",
-    # HERE: have it work.
-    #  "./data_components/metabolic_class.jl",
+    "./data_components/metabolic_class.jl",
 ] # Only run these if specified.
 if isempty(only)
     for subfolder in ["./data_components", "./code_components"]

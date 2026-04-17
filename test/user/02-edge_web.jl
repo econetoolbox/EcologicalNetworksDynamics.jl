@@ -12,8 +12,7 @@ using SparseArrays
 # Additional imports only used here for testing purpose.
 using Test
 import EcologicalNetworksDynamics: EN, Network, Views, EdgeWeb, SparseMatrix
-import Main: is_repr, is_disp, @viewfails, @sysfails, @inputfails
-const Value = Network # To have @sysfails work.
+import Main: is_repr, is_disp, @viewfails, @inputfails, @sysfails, Value
 const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
 
 @testset "Typical EdgeWeb component" begin

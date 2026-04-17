@@ -1,4 +1,4 @@
-import EcologicalNetworksDynamics: InputError, Views
+import EcologicalNetworksDynamics: InputError, Views, Network
 
 function TestFailures.check_exception(e::InputError, message_pattern)
     TestFailures.check_message(message_pattern, e.mess)
@@ -50,3 +50,6 @@ macro writefails(xp, expected, mess)
     )
 end
 export @writefails
+
+const Value = Network # Import to have @sysfail works for model.
+export Value
