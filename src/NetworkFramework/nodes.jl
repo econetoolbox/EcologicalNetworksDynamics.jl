@@ -284,13 +284,16 @@ function construct(d::NodeField, Data::Component, input; kwargs...)
     nc = NodeClass(d)
     class = D.class(nc)
     Class = take_or!(class, D.component(nc), Any)
+    no_unused_arguments()
     kwargs = [class => Class]
     T = D.type(d)
-    input_try(
-        input,
-        Vector{T} => v -> Data.Raw(v; kwargs...),
-        Map{T} => m -> Data.Map(m; kwargs...),
-    )
+    tries = []
+    if may_flat(d)
+        push!(tries, T => v -> Data.Flat(v))
+    end
+    push!(tries, Vector{T} => v -> Data.Raw(v; kwargs...))
+    push!(tries, Map{T} => m -> Data.Map(m; kwargs...))
+    input_try(input, tries...)
 end
 
 #-------------------------------------------------------------------------------------------

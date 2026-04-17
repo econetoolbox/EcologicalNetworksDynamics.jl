@@ -14,7 +14,6 @@ D.sidenames(::DT) = (:species, :species)
 D.name_variants(::DT) = (:foodweb, :Foodweb)
 D.propnames(::DT) = (:trophic, :Trophic)
 D.is_symmetric(::DT) = false
-
 NF.define_reflexive_web_component(EN, d)
 
 # Community consistency aliases.
@@ -116,14 +115,16 @@ function trophic_levels(A::AbstractMatrix{Bool})
 end
 # Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
 # TODO: ease that boilerplate.
-d_levels = D.NodeField(:species, :trophic_level) # (careful of name conflicts for that variable..
-DT = typeof(d_levels)
-D.type(::DT) = Float64
-D.readonly(::DT) = true
-level(::Network, m::Model) = V.nodes_view(m, d_levels) #  .. captured there)
-level_entry(n::Network) = class(n, :species).data[:trophic_level]
-@method level read_as(trophic.level) depends(Foodweb)
-@method level_entry read_as(trophic._level) depends(Foodweb)
+let d = D.NodeField(:species, :trophic_level)
+    # (d is captured in node_views: protect from later rebindings)
+    DT = typeof(d)
+    D.type(::DT) = Float64
+    D.readonly(::DT) = true
+    global level(::Network, m::Model) = V.nodes_view(m, d)
+    global level_entry(n::Network) = N.class(n, :species).data[:trophic_level]
+    @method level read_as(trophic.level) depends(Foodweb)
+    @method level_entry read_as(trophic._level) depends(Foodweb)
+end
 
 # ==========================================================================================
 # Construct Matrix blueprint from a random model.

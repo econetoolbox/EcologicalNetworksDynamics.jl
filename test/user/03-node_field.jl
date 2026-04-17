@@ -293,6 +293,7 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
 
     # Construct from a flat value.
     bp = BodyMass.Flat(3)
+    @test bp == BodyMass(3)
     m = Model(Species(5), bp)
     @test m.body_mass == [3, 3, 3, 3, 3]
     bp.body_mass *= -1 # Mutable.
@@ -305,6 +306,8 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
              Value cannot be negative. Received: -3.0",
         )
     )
+    # But then it needs the class.
+    @sysfails(Model(bp), Missing(Species, BodyMass, [BodyMass.Flat], nothing))
 
 end
 

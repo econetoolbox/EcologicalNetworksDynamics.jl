@@ -66,8 +66,9 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
 
     # Expand into a web component.
     m = Model(bp)
+    @test m.trophic.n_edges == m.trophic.n_links == 5
 
-    # The names property becomes available as a view.
+    # The adjacence property becomes available as a view.
     v = m.foodweb.mask
     @test v isa V
     @test v isa AbstractMatrix{Bool}
@@ -204,7 +205,15 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
          is just considered an iterable in this context, which may be confusing. \
          Consider grouping with an explicit vector instead like [:b, :c]."
     )
-    @test Model(bp).species.names == [:a, :b, :c, :d, :e]
+    m = Model(bp)
+    @test m.species.names == [:a, :b, :c, :d, :e]
+    @test m.trophic.matrix == [
+        0 1 1 0 0
+        0 0 0 0 0
+        0 1 0 0 1
+        0 1 0 0 1
+        0 0 0 0 0
+    ]
 
     # Same with only indices instead.
     A = [1 => (2, 3), (4, 3) => (2, 5)]
@@ -229,7 +238,6 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
     )
     m = Model(bp)
     @test m.species.names == [:s1, :s2, :s3, :s4, :s5]
-
     @test m.trophic.mask ==
           m.trophic.matrix ==
           [
@@ -240,10 +248,18 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
               0 0 0 0 0
           ]
 
-    # The component enables other properties.
-    @test m.trophic.n_edges == m.trophic.n_links == 6
+    # Interpolate identifiers if some are missing.
+    @test Model(Foodweb([5 => 3, 6 => 8])).trophic.matrix == [
+        0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0
+        0 0 1 0 0 0 0 0
+        0 0 0 0 0 0 0 1
+        0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0
+    ]
 
 end
-
 
 end
