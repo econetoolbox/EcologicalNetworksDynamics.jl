@@ -116,6 +116,7 @@ const V = Views
 include("./class.jl")
 include("./web.jl")
 include("./nodes.jl")
+include("./sparse_nodes.jl")
 
 include("./display.jl")
 
