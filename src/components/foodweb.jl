@@ -8,7 +8,7 @@
 # (reassure JuliaLS)
 (false) && (local Foodweb, _Foodweb)
 
-d = EdgeWeb(:foodweb)
+d = D.EdgeWeb(:foodweb)
 DT = typeof(d)
 D.sidenames(::DT) = (:species, :species)
 D.name_variants(::DT) = (:foodweb, :Foodweb)
@@ -70,10 +70,10 @@ function NF.post_expand!(d::DT, model)
 end
 
 deps = :(depends(Foodweb))
-p = NodeClass(:producer)
-c = NodeClass(:consumer)
-t = NodeClass(:top)
-r = NodeClass(:prey)
+p = NodeClass(:producers)
+c = NodeClass(:consumers)
+t = NodeClass(:tops)
+r = NodeClass(:preys)
 # TODO: fix that there is no need for a short prefix for them: subclasses.
 D.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
 D.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
@@ -115,7 +115,12 @@ function trophic_levels(A::AbstractMatrix{Bool})
     inverse(D) * ones(S)
 end
 # Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
-level(::Network, m::Model) = N.nodes_view(m, :species, :trophic_level)
+# TODO: ease that boilerplate.
+d_levels = D.NodeField(:species, :trophic_level) # (careful of name conflicts for that variable..
+DT = typeof(d_levels)
+D.type(::DT) = Float64
+D.readonly(::DT) = true
+level(::Network, m::Model) = V.nodes_view(m, d_levels) #  .. captured there)
 level_entry(n::Network) = class(n, :species).data[:trophic_level]
 @method level read_as(trophic.level) depends(Foodweb)
 @method level_entry read_as(trophic._level) depends(Foodweb)
@@ -213,10 +218,10 @@ end
 # Display.
 function F.shortline(io::IO, model::Model, ::_Foodweb)
     l = model.trophic.n_links
-    p = model.producer.number
-    c = model.consumer.number
-    r = model.prey.number
-    t = model.top.number
+    p = model.producers.number
+    c = model.consumers.number
+    r = model.preys.number
+    t = model.tops.number
     n(n) = n > 0 ? "$n" : "no"
     s(n) = n > 1 ? "s" : ""
     print(

@@ -11,7 +11,7 @@ using SparseArrays
 
 # Additional imports only used here for testing purpose.
 using Test
-import EcologicalNetworksDynamics: EN, Network, Views, EdgeWeb
+import EcologicalNetworksDynamics: EN, Network, Views, EdgeWeb, SparseMatrix
 import Main: is_repr, is_disp, @viewfails, @sysfails, @inputfails
 const Value = Network # To have @sysfails work.
 const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
@@ -89,8 +89,13 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
         ),
     )
 
-    # The view has some basic vector-like interface.
+    # The view has some basic matrix-like interface.
     @test v == collect(v) == A == [i for i in v]
+
+    # The view may be extracted into a regular sparse matrix.
+    e = extract(v)
+    @test e isa SparseMatrix{Bool}
+    @test e == v
 
     # Index with either integers or labels.
     @test v[1, 1] == false
@@ -199,8 +204,32 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
          is just considered an iterable in this context, which may be confusing. \
          Consider grouping with an explicit vector instead like [:b, :c]."
     )
+    @test Model(bp).species.names == [:a, :b, :c, :d, :e]
 
+    # Same with only indices instead.
+    A = [1 => (2, 3), (4, 3) => (2, 5)]
+    bp = Foodweb.Adjacency(A)
+    @test bp == Foodweb(A) # Directly dispatched from component.
+    @test is_repr(
+        bp,
+        "<Foodweb>:Adjacency(A: {1: {2, 3}, 4: {2, 5}, 3: {2, 5}}, species: <Species>)",
+    )
+    @test is_disp(
+        bp,
+        """
+        blueprint for <Foodweb>: Adjacency {
+          A: {1: {2, 3}, 4: {2, 5}, 3: {2, 5}},
+          species: <implied blueprint for <Species>>,
+        }\
+        """,
+    )
+    @inputfails(
+        Foodweb([1 => (2, 2)]),
+        "Duplicated target node reference at [1][right][2]: 2 ::$Int."
+    )
     m = Model(bp)
+    @test m.species.names == [:s1, :s2, :s3, :s4, :s5]
+
     @test m.trophic.mask ==
           m.trophic.matrix ==
           [

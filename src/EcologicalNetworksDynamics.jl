@@ -40,7 +40,7 @@ using .KwargsHelpers
 # Bring this all together into a library for component authors.
 include("./NetworkFramework/NetworkFramework.jl")
 using .NetworkFramework
-export Model
+export Model, extract
 
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.

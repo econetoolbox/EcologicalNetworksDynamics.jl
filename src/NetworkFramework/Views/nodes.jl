@@ -15,10 +15,10 @@ struct NodesDataView{d,T} <: AbstractVector{T}
     view::N.NodesView{T}
 end
 export NodesDataView
-function nodes_view(m::Model, class::Symbol, fieldname::Symbol)
+function nodes_view(m::Model, d::D.NodeField)
+    (class, fieldname) = D.content(d)
     n = NF.network(m)
     view = N.nodes_view(n, class, fieldname)
-    d = D.NodeField(class, fieldname)
     T = eltype(view)
     NodesDataView{d,T}(m, view)
 end
@@ -45,14 +45,10 @@ struct ExpandedNodesDataView{d,T} <: AbstractSparseVector{T,Int}
     view::N.NodesView{T}
 end
 export ExpandedNodesDataView
-function nodes_view(
-    m::Model,
-    (class, parent)::Tuple{Symbol,Option{Symbol}},
-    fieldname::Symbol,
-)
+function nodes_view(m::Model, d::D.ExpandedNodeField)
+    (class, _, fieldname) = D.content(d)
     n = NF.network(m)
     view = N.nodes_view(n, class, fieldname)
-    d = D.ExpandedNodeField(class, fieldname, parent)
     T = eltype(view)
     ExpandedNodesDataView{d,T}(m, view)
 end
@@ -150,10 +146,10 @@ struct NodesNamesView{d} <: AbstractVector{Symbol}
     index::N.Index # Cache an underlying class index alias.
 end
 export NodesNamesView
-function nodes_names_view(m::Model, class::Symbol)
+function nodes_names_view(m::Model, d::D.NodeClass)
     n = NF.network(m)
+    class = D.class(d)
     index = N.class(n, class).index
-    d = D.NodeClass(class)
     NodesNamesView{d}(m, index)
 end
 S = NodesNamesView
@@ -176,10 +172,10 @@ struct NodesMaskView{d} <: AbstractVector{Bool}
     restriction::N.Restriction
 end
 export NodesMaskView
-function nodes_mask_view(m::Model, (class, parent)::Tuple{Symbol,Option{Symbol}})
+function nodes_mask_view(m::Model, d::D.NodeMask)
+    (class, parent) = D.content(d)
     n = NF.network(m)
     r = N.restriction(n, class, parent)
-    d = D.NodeMask(class, parent)
     NodesMaskView{d}(m, r)
 end
 export nodes_mask_view

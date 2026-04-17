@@ -9,10 +9,10 @@ struct EdgesDataView{d,T} <: AbstractMatrix{T}
     view::N.EdgesView{T}
 end
 export EdgesDataView
-function edges_view(m::Model, web::Symbol, field::Symbol)
+function edges_view(m::Model, d::D.EdgeField)
+    (web, field) = D.content(d)
     n = NF.network(m)
     view = N.edges_view(n, web, field)
-    d = D.EdgeField(web, field)
     T = eltype(view)
     EdgesDataView{d,T}(m, view)
 end
@@ -38,9 +38,9 @@ struct EdgesMaskView{d} <: AbstractMatrix{Bool}
     web::N.Web
 end
 export EdgesMaskView
-function edges_mask_view(m::Model, web::Symbol)
+function edges_mask_view(m::Model, d::D.EdgeWeb)
+    web = D.web(d)
     n = NF.network(m)
-    d = D.EdgeWeb(web)
     web = N.web(n, web)
     EdgesMaskView{d}(m, web)
 end

@@ -96,11 +96,23 @@ valtype(T::Type) = throw("Unimplemented for $T.")
 
 #-------------------------------------------------------------------------------------------
 # Basic queries.
-source_refs(a::BinAdjacency) = keys(a)
-target_refs(a::BinAdjacency) = OrderedSet{reftype(a)}(I.flatten(values(a)))
-all_refs(a::BinAdjacency) = OrderedSet{reftype(a)}(I.map(a) do (src, targets)
+
+# Deduplicate to obtain marginal references.
+source_refs(a::BinAdjacency{Symbol}) = _source_refs(a)
+target_refs(a::BinAdjacency{Symbol}) = OrderedSet{Symbol}(_target_refs(a))
+all_refs(a::BinAdjacency{Symbol}) = OrderedSet{Symbol}(_all_refs(a))
+
+# Indices not appearing in the list are inferred to exist anyway.
+source_refs(a::BinAdjacency{Int}) = 1:maximum(_source_refs(a))
+target_refs(a::BinAdjacency{Int}) = 1:maximum(_target_refs(a))
+all_refs(a::BinAdjacency{Int}) = 1:maximum(_all_refs(a))
+
+# Raw, non-deduplicated iterators.
+_source_refs(a::BinAdjacency) = keys(a)
+_target_refs(a::BinAdjacency) = I.flatten(values(a))
+_all_refs(a::BinAdjacency) = I.map(a) do (src, targets)
     ((src,), targets) |> I.flatten
-end |> I.flatten)
+end |> I.flatten
 
 # ==========================================================================================
 # Parse.

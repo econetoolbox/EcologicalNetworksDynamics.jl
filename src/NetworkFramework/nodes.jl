@@ -151,7 +151,7 @@ function define_node_field_component(
                     const d = $d
                     const (class, field) = D.content(d)
 
-                    $get_value(::Network, m::Model) = Views.nodes_view(m, class, field)
+                    $get_value(::Network, m::Model) = Views.nodes_view(m, d)
                     @method $m $M.$get_value read_as($value) depends($Value)
 
                     end

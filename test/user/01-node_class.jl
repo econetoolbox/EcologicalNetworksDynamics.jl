@@ -85,6 +85,10 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
 
     # The view has some basic vector-like interface.
     @test v == collect(v) == [:a, :b, :c] == [i for i in v]
+    # The view may be extracted into a regular vector.
+    e = extract(v)
+    @test e isa Vector{Symbol}
+    @test e == v
 
     # Index with either integers or labels.
     @test v[1] == :a
@@ -213,7 +217,6 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
          Cannot index with: $nothing ::$Nothing."
     )
 
-
     # The above makes more sense with a non-root class, like producers here.
     m = Model(Foodweb([:a => (:b, :c), :d => :e]))
     @test m.producers.names == [:b, :c, :e]
@@ -225,6 +228,5 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
     @test k[2:4] == [1, 1, 0]
 
 end
-
 
 end

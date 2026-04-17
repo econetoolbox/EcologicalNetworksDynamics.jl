@@ -112,7 +112,7 @@ function define_class_properties(
         # The 'ref' variant is more efficient but unexposed.
         get_number(n::Network) = N.n_nodes(n, $s)
         ref_names(n::Network) = ref_index(n).reverse
-        get_names(::Network, m::Model) = Views.nodes_names_view(m, $s)
+        get_names(::Network, m::Model) = Views.nodes_names_view(m, $d)
         @method $m $M.get_number $deps read_as($plural.number)
         @method $m $M.ref_names $deps read_as($plural._names)
         @method $m $M.get_names $deps read_as($plural.names)
@@ -129,7 +129,8 @@ function define_class_properties(
         @method $m $M.get_parent_index $deps read_as($plural.parent_index)
 
         # Mask within parent class.
-        mask(n::Network, m::Model) = V.nodes_mask_view(m, ($s, N.class(n, $s).parent))
+        mask(n::Network, m::Model) =
+            V.nodes_mask_view(m, $D.NodeMask($s, N.class(n, $s).parent))
         @method $m $M.mask $deps read_as($plural.mask)
 
         end

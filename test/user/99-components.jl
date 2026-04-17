@@ -6,8 +6,8 @@ module TestComponents
 # Many small similar components tests files, although they easily diverge.
 only = [
     "./data_components/species.jl",
+    "./data_components/foodweb.jl",
     # HERE: have it work.
-    #  "./data_components/foodweb.jl",
     #  "./data_components/body_mass.jl",
     #  "./data_components/metabolic_class.jl",
 ] # Only run these if specified.

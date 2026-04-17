@@ -93,6 +93,11 @@ const V = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested 
     # The view has some basic vector-like interface.
     @test v == collect(v) == [4, 5, 6] == [i for i in v]
 
+    # The view may be extracted into a regular sparse matrix.
+    e = extract(v)
+    @test e isa Vector{Float64}
+    @test e == v
+
     # Index with either integers or labels.
     @test v[1] == 4
     @test v[1:2] == [4, 5]

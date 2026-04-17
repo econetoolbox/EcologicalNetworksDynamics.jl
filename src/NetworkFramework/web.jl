@@ -54,7 +54,8 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
             end
             to_matrix(A) = NF.inputconvert(SparseMatrix{Bool}, A)
             # Infer number of class nodes from matrix size.
-            F.implied_blueprint_for(bp::Matrix, ::_Class) = Class(size(bp.A, 1))
+            F.implied_blueprint_for(bp::Matrix, ::_Class) =
+                $implied_class_from_matrix(d, Class, bp.A)
             F.early_check(bp::Matrix) = $early_check(d, bp.A)
             F.late_check(model, bp::Matrix) = $late_check(d, model, bp.A)
             F.expand!(model, bp::Matrix) = $expand!(d, model, bp.A)
@@ -75,7 +76,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
             end
             # Infer number or names of class nodes from the lists.
             F.implied_blueprint_for(bp::Adjacency, ::_Class) =
-                Class(collect(NF.all_refs(bp.A)))
+                $implied_class_from_adjacency(d, Class, bp.A)
             F.late_check(model, bp::Adjacency) = $late_check(d, model, bp.A)
             F.expand!(model, bp::Adjacency) = $expand!(d, model, bp.A)
             @blueprint Adjacency "adjacency list of $($w) links"
@@ -119,7 +120,7 @@ function define_web_properties(
         web(m::Network) = N.web(m, $w)
         topology(m::Network) = web(m).topology
         number(m::Network) = m |> topology |> N.n_edges
-        mask(::Network, m::Model) = Views.edges_mask_view(m, $w)
+        mask(::Network, m::Model) = Views.edges_mask_view(m, $d)
         @method $m $M.topology $deps read_as($prop._topology)
         @method $m $M.mask $deps read_as($prop.matrix, $prop.mask)
         @method $m $M.number $deps read_as($prop.n_links, $prop.n_edges)
@@ -193,6 +194,24 @@ function check_refs(check, ::EdgeWeb, adj::BinAdjacency)
         end
     end
     adj
+end
+
+#-------------------------------------------------------------------------------------------
+# Implied class blueprint.
+
+function implied_class_from_matrix(::EdgeWeb, Class, A)
+    n = size(A, 1)
+    Class.Number(n)
+end
+
+function implied_class_from_adjacency(::EdgeWeb, Class, adj::BinAdjacency{Symbol})
+    refs = NF.all_refs(adj)
+    Class.Names(collect(refs))
+end
+
+function implied_class_from_adjacency(::EdgeWeb, Class, adj::BinAdjacency{Int})
+    refs = NF.all_refs(adj)
+    Class.Number(last(refs))
 end
 
 #-------------------------------------------------------------------------------------------
