@@ -68,7 +68,7 @@ function NF.post_expand!(d::DT, model)
     N.add_web!(network, :carnivory, (:species, :species), N.SparseReflexive(mat))
 end
 
-deps = :(depends(Foodweb))
+depends = [Foodweb]
 p = NodeClass(:producers)
 c = NodeClass(:consumers)
 t = NodeClass(:tops)
@@ -78,10 +78,10 @@ D.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers
 D.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
 D.name_variants(::typeof(t)) = (:_, :top, :tops, :Top, :Tops)
 D.name_variants(::typeof(r)) = (:_, :prey, :preys, :Preys, :Preys)
-NF.define_class_properties(EN, p, deps)
-NF.define_class_properties(EN, c, deps)
-NF.define_class_properties(EN, t, deps)
-NF.define_class_properties(EN, r, deps)
+NF.define_class_properties(EN, p; depends)
+NF.define_class_properties(EN, c; depends)
+NF.define_class_properties(EN, t; depends)
+NF.define_class_properties(EN, r; depends)
 
 p = EdgeWeb(:producers_web)
 h = EdgeWeb(:herbivory)
@@ -89,9 +89,9 @@ c = EdgeWeb(:carnivory)
 D.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
 D.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
 D.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
-NF.define_web_properties(EN, p, deps)
-NF.define_web_properties(EN, h, deps)
-NF.define_web_properties(EN, c, deps)
+NF.define_web_properties(EN, p; depends)
+NF.define_web_properties(EN, h; depends)
+NF.define_web_properties(EN, c; depends)
 
 @alias producers.matrix producers_web.matrix
 @alias trophic.herbivory herbivory
@@ -122,8 +122,8 @@ let d = D.NodeField(:species, :trophic_level)
     D.readonly(::DT) = true
     global level(::Network, m::Model) = V.nodes_view(m, d)
     global level_entry(n::Network) = N.class(n, :species).data[:trophic_level]
-    @method level read_as(trophic.level) depends(Foodweb)
-    @method level_entry read_as(trophic._level) depends(Foodweb)
+    NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
+    NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])
 end
 
 # ==========================================================================================

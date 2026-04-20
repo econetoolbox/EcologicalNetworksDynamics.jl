@@ -14,11 +14,10 @@ let d = D.NodeField(:species, :body_mass) # Captured within bodies.
         d;
         # One extra blueprint to build from trophic levels.
         blueprints = quote
-            Foodweb = $Foodweb
             mutable struct Z <: Blueprint
                 Z::Float64
             end
-            @blueprint Z "trophic levels" depends(Foodweb)
+            NF.define_blueprint(Z, "trophic levels"; depends = [$Foodweb])
             export Z
         end,
     )

@@ -6,13 +6,13 @@ import EcologicalNetworksDynamics.Framework:
     CannotImplyConstruct,
     CompType,
     Component,
-    ConflictMacroError,
+    ConflictError,
     ConflictWithBroughtComponent,
     ConflictWithSystemComponent,
     Framework,
     HookCheckFailure,
     InconsistentForSameComponent,
-    ItemMacroError,
+    ItemError,
     MissingRequiredComponent,
     PropertyError,
     System,
@@ -22,11 +22,11 @@ import EcologicalNetworksDynamics.Framework:
 const F = Framework
 
 #-------------------------------------------------------------------------------------------
-# Check failures in macros expansion/execution.
+# Check failures in definition methods.
 
-function TestFailures.check_exception(e::ItemMacroError, category, item, message_pattern)
+function TestFailures.check_exception(e::ItemError, category, item, message_pattern)
     e.category == category ||
-        error("Expected '@$category' macro error, got '@$(e.category)'.")
+        error("Expected 'define_$category' method error, got '@$(e.category)'.")
     e.item === item || error("Expected '$item' item in @$category error, got $(e.item).")
     TestFailures.check_message(message_pattern, e.message)
 end
@@ -37,7 +37,7 @@ macro bluefails(xp, item, mess)
         __source__,
         __module__,
         xp,
-        :($ItemMacroError => (:blueprint, $item, $mess)),
+        :($ItemError => (:blueprint, $item, $mess)),
         false,
     )
 end
@@ -46,7 +46,7 @@ macro compfails(xp, item, mess)
         __source__,
         __module__,
         xp,
-        :($ItemMacroError => (:component, $item, $mess)),
+        :($ItemError => (:component, $item, $mess)),
         false,
     )
 end
@@ -55,23 +55,17 @@ macro methfails(xp, item, mess)
         __source__,
         __module__,
         xp,
-        :($ItemMacroError => (:method, $item, $mess)),
+        :($ItemError => (:method, $item, $mess)),
         false,
     )
 end
 export @bluefails, @compfails, @methfails
 
-# Same duo for @conflicts macro.
-TestFailures.check_exception(e::ConflictMacroError, mp) =
+# Same duo for define_conflicts() method.
+TestFailures.check_exception(e::ConflictError, mp) =
     TestFailures.check_message(mp, e.message)
 macro conffails(xp, mess)
-    TestFailures.failswith(
-        __source__,
-        __module__,
-        xp,
-        :($ConflictMacroError => ($mess,)),
-        false,
-    )
+    TestFailures.failswith(__source__, __module__, xp, :($ConflictError => ($mess,)), false)
 end
 export @conffails
 

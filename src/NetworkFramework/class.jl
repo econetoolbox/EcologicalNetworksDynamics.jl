@@ -11,51 +11,46 @@ function define_class_component(mod::Module, d::NodeClass)
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    blueprints =
-        mod.eval.(
-            (
-                quote
-                    module $Plural_
-                    import EcologicalNetworksDynamics:
-                        N, F, NF, Blueprint, @blueprint, @component
-                    const d = $d
-                    end
+    bpmod =
+        mod.eval.((
+            quote
+                module $Plural_
+                import EcologicalNetworksDynamics: N, F, NF, Blueprint
+                const d = $d
                 end
-            ).args
-        ) |> last
+            end
+        ).args) |> last
 
     #---------------------------------------------------------------------------------------
     # Construct from a given set of names.
-    blueprints.eval(
-        quote
-            mutable struct Names <: Blueprint
-                names::Vector{Symbol}
-                Names(names) = new(NF.inputconvert(Vector{Symbol}, names))
-                Names(names...) = new([NF.inputconvert(Symbol, n) for n in names])
-                Names(names::Vector{Symbol}) = new(names) # Alias if type-exact.
-            end
+    bpmod.eval(quote
+        mutable struct Names <: Blueprint
+            names::Vector{Symbol}
+            Names(names) = new(NF.inputconvert(Vector{Symbol}, names))
+            Names(names...) = new([NF.inputconvert(Symbol, n) for n in names])
+            Names(names::Vector{Symbol}) = new(names) # Alias if type-exact.
+        end
 
-            # Declare as a blueprint.
-            @blueprint Names "raw $($s) names"
-            export Names
+        # Declare as a blueprint.
+        NF.define_blueprint(Names, "raw $($s) names")
+        export Names
 
-            # Verify blueprint values.
-            F.early_check(bp::Names) = $early_check(d, bp.names)
+        # Verify blueprint values.
+        F.early_check(bp::Names) = $early_check(d, bp.names)
 
-            # Expand into a new compartment.
-            F.expand!(model, bp::Names) = $expand!(d, model, bp.names)
+        # Expand into a new compartment.
+        F.expand!(model, bp::Names) = $expand!(d, model, bp.names)
 
-        end,
-    )
+    end)
 
     #---------------------------------------------------------------------------------------
     # Construct from a plain number and generate dummy names.
-    blueprints.eval(
+    bpmod.eval(
         quote
             mutable struct Number <: Blueprint
                 n::Int
             end
-            @blueprint Number "number of $($s)"
+            NF.define_blueprint(Number, "number of $($s)")
             export Number
             F.early_check(bp::Number) = $early_check(d, bp.n)
             F.expand!(model, bp::Number) =
@@ -65,78 +60,81 @@ function define_class_component(mod::Module, d::NodeClass)
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
-    mod.eval(quote
-        # XXX: if all components wrap like this, no need for the macro anymore?
-        @component $Plural{Network} blueprints($Plural_)
-    end) # Need to reach toplevel first to access generated values, right?
+    comp = mod.eval(
+        quote # Need to reach toplevel first to access generated values.
+            $NF.define_component($(Meta.quot(Plural)), $mod; blueprints = [$bpmod])
+        end,
+    )
+    C = typeof(comp)
 
     # Dispatch to correct constructor depending on input given to direct call on component.
     DT = typeof(d)
     mod.eval(quote
-        D.component(::$DT) = $Plural
-        (::$_Plural)(n::Integer) = $Plural.Number(n)
-        (::$_Plural)(names) = $Plural.Names(names)
+        D.component(::$DT) = $comp
+        (::$C)(n::Integer) = $comp.Number(n)
+        (::$C)(names) = $comp.Names(names)
     end)
 
     # Display.
-    mod.eval(
-        quote
-            Framework.shortline(io::IO, model::Model, ::$_Plural) =
-                $class_shortline($d, io, model)
-        end,
-    )
+    mod.eval(quote
+        $F.shortline(io::IO, model::Model, ::$C) = $class_shortline($d, io, model)
+    end)
 
-    define_class_properties(mod, d, :(depends($Plural)))
+    define_class_properties(mod, d; depends = [C])
 end
 
 # ==========================================================================================
 
-function define_class_properties(
-    mod::Module,
-    d::NodeClass,
-    deps::Expr, # As in a regular call to @method.
-)
+function define_class_properties(mod::Module, d::NodeClass; depends = [])
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
-    s = Meta.quot(plural)
-    M = Symbol(Plural, :Methods) # Create submodule to not pollute invocation scope..
-    m = :(mod($mod)) # .. but still evaluate dependencies within the invocation module.
-    xp = quote
 
-        @propspace $plural
+    p = Meta.quot(plural)
+    NF.define_propspace(plural)
+    defmeth(fn, s) = NF.define_method(fn; depends, read_as = [:($plural.$s)])
 
-        module $M
-        using OrderedCollections
-        import EcologicalNetworksDynamics: N, Network, Model, @method, V, Views
+    # Wrap all within a separate module
+    # or identical definitions end up being considered the same functions.
+    # https://julialang.zulipchat.com/#narrow/channel/137791-general/topic/Identity.20of.20local.20functions.2E/with/590238482
+    M = Symbol(Plural, :Methods)
+    xp =
+        (
+            quote
+                module $M
+                using EcologicalNetworksDynamics: N, V, D, Network, Model
+                using OrderedCollections
+                const defmeth = $defmeth
+                const d = $d
 
-        # Nodes counts and nodes labels.
-        # The 'ref' variant is more efficient but unexposed.
-        get_number(n::Network) = N.n_nodes(n, $s)
-        ref_names(n::Network) = ref_index(n).reverse
-        get_names(::Network, m::Model) = Views.nodes_names_view(m, $d)
-        @method $m $M.get_number $deps read_as($plural.number)
-        @method $m $M.ref_names $deps read_as($plural._names)
-        @method $m $M.get_names $deps read_as($plural.names)
+                # Ordered index.
+                ref_index(n::Network) = N.class(n, $p).index
+                get_index(n::Network) = deepcopy(ref_index(n).forward)
+                indices(n::Network) = N.node_indices(n, $p)
 
-        # Ordered index.
-        ref_index(n::Network) = N.class(n, $s).index
-        get_index(n::Network) = deepcopy(ref_index(n).forward)
-        indices(n::Network) = N.node_indices(n, $s)
-        get_parent_index(n::Network) =
-            OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
-        @method $m $M.ref_index $deps read_as($plural._index)
-        @method $m $M.get_index $deps read_as($plural.index)
-        @method $m $M.indices $deps read_as($plural.indices)
-        @method $m $M.get_parent_index $deps read_as($plural.parent_index)
+                # Nodes counts and nodes labels.
+                # The 'ref' variant is more efficient but unexposed.
+                get_number(n::Network) = N.n_nodes(n, $p)
+                ref_names(n::Network) = ref_index(n).reverse
+                get_names(::Network, m::Model) = V.nodes_names_view(m, d)
 
-        # Mask within parent class.
-        mask(n::Network, m::Model) =
-            V.nodes_mask_view(m, $D.NodeMask($s, N.class(n, $s).parent))
-        @method $m $M.mask $deps read_as($plural.mask)
+                # Mask within parent class.
+                get_parent_index(n::Network) =
+                    OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
+                mask(n::Network, m::Model) =
+                    V.nodes_mask_view(m, D.NodeMask($p, N.class(n, $p).parent))
 
-        end
-    end
+                defmeth(get_number, :number)
+                defmeth(ref_names, :_names)
+                defmeth(get_names, :names)
+                defmeth(ref_index, :_index)
+                defmeth(get_index, :index)
+                defmeth(indices, :indices)
+                defmeth(get_parent_index, :parent_index)
+                defmeth(mask, :mask)
+                end
+            end
+        ).args |> last
 
-    mod.eval.(xp.args)
+    mod.eval(xp)
 end
 
 # ==========================================================================================

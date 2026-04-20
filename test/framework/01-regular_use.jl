@@ -39,12 +39,12 @@ end
 F.early_check(nl::NLines) =
     nl.n > 0 || checkfails("Not a positive number of lines: $(nl.n).")
 F.expand!(s, nl::NLines) = (value(s)._n = nl.n)
-@blueprint NLines
-@component Size{Value} blueprints(N::NLines)
+define_blueprint(NLines)
+define_component(:Size, Value, Basics; blueprints = [:N => NLines])
 export NLines, Size, _Size
 
 get_n(v::Value) = v._n
-@method get_n depends(Size) read_as(n)
+define_method(get_n; depends = [Size], read_as = [:n])
 
 #-------------------------------------------------------------------------------------------
 # One component to bring 'a' data.
@@ -59,7 +59,7 @@ mutable struct Uniform <: Blueprint{Value}
     value::Float64
 end
 F.expand!(s, u::Uniform) = (value(s)._dict[:a] = [u.value for _ in 1:s.n])
-@blueprint Uniform
+define_blueprint(Uniform)
 
 mutable struct Raw <: Blueprint{Value}
     a::Vector{Float64}
@@ -73,18 +73,20 @@ function F.late_check(s, raw::Raw)
     na == nv || checkfails("Cannot expand $na 'a' values into $nv lines.")
 end
 F.expand!(s, r::Raw) = (value(s)._dict[:a] = deepcopy(r.a))
-@blueprint Raw
+define_blueprint(Raw)
 
 end # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # The component gathers all blueprints from the above module.
-@component begin
-    A{Value}
-    requires(Size)
-    blueprints(Uniform::ABlueprints.Uniform, Raw::ABlueprints.Raw)
-end
+define_component(
+    :A,
+    Value,
+    Basics;
+    requires = [Size],
+    blueprints = [:Uniform => ABlueprints.Uniform, :Raw => ABlueprints.Raw],
+)
 get_a(v::Value) = v._dict[:a]
-@method get_a depends(A) read_as(a)
+define_method(get_a; depends = [A], read_as = [:a])
 
 #-------------------------------------------------------------------------------------------
 # One component to bring 'b' data,
@@ -101,7 +103,7 @@ end
 F.late_check(s, u::Uniform) =
     maximum(s.a) <= u.value || checkfails("Values 'b' not larger than maximum 'a' values.")
 F.expand!(s, u::Uniform) = (value(s)._dict[:b] = [u.value for _ in 1:s.n])
-@blueprint Uniform
+define_blueprint(Uniform)
 
 mutable struct Raw <: Blueprint{Value}
     b::Vector{Float64}
@@ -117,29 +119,31 @@ end
 F.expand!(s, r::Raw) = (value(s)._dict[:b] = deepcopy(r.b))
 Basics.NLines(r::Raw) = NLines(length(r.b))
 F.implied_blueprint_for(r::Raw, ::_Size) = NLines(length(r.b))
-@blueprint Raw
+define_blueprint(Raw)
 
 end # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-@component begin
-    B{Value}
-    requires(Size, A)
-    blueprints(Uniform::BBlueprints.Uniform, Raw::BBlueprints.Raw)
-end
+define_component(
+    :B,
+    Value,
+    Basics;
+    requires = [Size, A],
+    blueprints = [:Uniform => BBlueprints.Uniform, :Raw => BBlueprints.Raw],
+)
 get_b(v::Value) = v._dict[:b]
-@method get_b depends(B) read_as(b)
+define_method(get_b; depends = [B], read_as = [:b])
 
 # One method that uses both components.
 get_sum(v::Value) = v.a .+ v.b
-@method get_sum depends(A, B) read_as(sum)
+define_method(get_sum; depends = [A, B], read_as = [:sum])
 
 #-------------------------------------------------------------------------------------------
 # One 'marker' component incompatible with others.
 
 struct SparseMark <: Blueprint{Value} end
-@blueprint SparseMark
-@component Sparse{Value} blueprints(Mark::SparseMark)
-@conflicts(Sparse, Size)
+define_blueprint(SparseMark)
+define_component(:Sparse, Value, Basics; blueprints = [:Mark => SparseMark])
+define_conflicts(Sparse, Size)
 
 #-------------------------------------------------------------------------------------------
 # One component whose expansion / checking depends on other components within the system.
@@ -160,7 +164,7 @@ function F.expand!(s, ::ReflectionMark)
     rf = collect(Iterators.take(Iterators.cycle(rf), s.n))
     value(s)._dict[:reflection] = rf
 end
-@blueprint ReflectionMark
+define_blueprint(ReflectionMark)
 
 # This alternate blueprint
 # does not bring data that *don't make sense* without A,
@@ -171,22 +175,24 @@ function F.expand!(s, ::ReflectFromB)
     value(s)._dict[:reflection] =
         collect(first.(repr.(Iterators.take(Iterators.cycle(s.a), s.n))))
 end
-@blueprint ReflectFromB "" depends(A)
-@component begin
-    Reflection{Value}
-    requires(Size)
-    blueprints(Mark::ReflectionMark, B::ReflectFromB)
-end
+define_blueprint(ReflectFromB; depends = [A])
+define_component(
+    :Reflection,
+    Value,
+    Basics;
+    requires = [Size],
+    blueprints = [:Mark => ReflectionMark, :B => ReflectFromB],
+)
 
 # Read property with aliases.
 get_reflection(v::Value) = v._dict[:reflection]
-@method get_reflection depends(Reflection) read_as(reflection, ref)
+define_method(get_reflection; depends = [Reflection], read_as = [:reflection, :ref])
 
 # One writeable property.
 function set_reflection!(v::Value, rhs::String)
     v._dict[:reflection] = collect(Iterators.take(Iterators.cycle(rhs), v.n))
 end
-@method set_reflection! depends(Reflection) write_as(reflection, ref)
+define_method(set_reflection!; depends = [Reflection], write_as = [:reflection, :ref])
 
 # ==========================================================================================
 # Test actual use of the system.

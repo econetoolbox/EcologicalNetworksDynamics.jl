@@ -95,7 +95,7 @@ brought(b::Blueprint) = throw("Blueprints brought by $(typeof(b)) are unspecifie
 # Implied blueprints need to be constructed from the value on-demand,
 # for a target component.
 # Define no default method, so it can be checked
-# whether it has been set from within the @blueprint macro.
+# whether it has been set from within the `define_blueprint()`.
 function implied_blueprint_for end # (blueprint, comptype) -> blueprint for this component.
 # Raise this error when "brought" blueprints can be 'embedded' or 'missing' but not implied.
 struct _CannotImplyConstruct <: Exception end

@@ -17,7 +17,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    blueprints =
+    bpmod =
         mod.eval.(
             (
                 quote
@@ -29,7 +29,6 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
                         F,
                         Brought,
                         Blueprint,
-                        @blueprint,
                         NF,
                         BinAdjacency,
                         Model
@@ -44,7 +43,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
 
     #---------------------------------------------------------------------------------------
     # From matrix.
-    blueprints.eval(
+    bpmod.eval(
         quote
             mutable struct Matrix <: Blueprint
                 A::SparseMatrix{Bool}
@@ -59,14 +58,14 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
             F.early_check(bp::Matrix) = $early_check(d, bp.A)
             F.late_check(model, bp::Matrix) = $late_check(d, model, bp.A)
             F.expand!(model, bp::Matrix) = $expand!(d, model, bp.A)
-            @blueprint Matrix "boolean matrix of $($w) links"
+            NF.define_blueprint(Matrix, "boolean matrix of $($w) links")
             export Matrix
         end,
     )
 
     #---------------------------------------------------------------------------------------
     # From ajacency list.
-    blueprints.eval(
+    bpmod.eval(
         quote
             mutable struct Adjacency <: Blueprint
                 A::BinAdjacency
@@ -79,7 +78,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
                 $implied_class_from_adjacency(d, Class, bp.A)
             F.late_check(model, bp::Adjacency) = $late_check(d, model, bp.A)
             F.expand!(model, bp::Adjacency) = $expand!(d, model, bp.A)
-            @blueprint Adjacency "adjacency list of $($w) links"
+            NF.define_blueprint(Adjacency, "adjacency list of $($w) links")
             export Adjacency
         end,
     )
@@ -89,46 +88,49 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
 
     DT = typeof(d)
     Class = D.CamelCasePlural(src)
+    comp = mod.eval(quote
+        NF.define_component($(Meta.quot(Web)), $mod; blueprints = [$bpmod])
+    end)
+    C = typeof(comp)
     mod.eval(quote
-        @component $Web{Network} requires($Class) blueprints($Web_)
-        $D.component(::$DT) = $Web
+        $D.component(::$DT) = $C
         (::$_Web)(args...; kwargs...) = $construct($d, $Web, args...; kwargs...)
     end)
 
-    define_web_properties(mod, d, :(depends($Web)))
+    define_web_properties(mod, d; depends = [C])
 end
 
 # ==========================================================================================
 
-function define_web_properties(
-    mod::Module,
-    d::EdgeWeb,
-    deps::Expr, # As in a regular call to @method.
-)
+function define_web_properties(mod::Module, d::EdgeWeb; depends = [])
     web, Web = D.name_variants(d)
     prop, Prop = D.propnames(d)
+
     w = Meta.quot(web)
-    M = Symbol(Web, :Methods) # Create submodule to not pollute invocation scope..
-    m = :(mod($mod)) # .. but still evaluate dependencies within the invocation module.
-    xp = quote
+    NF.define_propspace(prop)
+    defmeth(fn, s) = NF.define_method(fn; depends, read_as = map(s -> :($prop.$s), s))
 
-        @propspace $prop
+    M = Symbol(Web, :Methods)
+    xp = (
+        quote
+            module $M
+            using EcologicalNetworksDynamics: N, V, D, Network, Model
+            const defmeth = $defmeth
+            const d = $d
 
-        module $M
-        import EcologicalNetworksDynamics: N, Network, Model, Views, @method
+            web(m::Network) = N.web(m, $w)
+            topology(m::Network) = web(m).topology
+            number(m::Network) = m |> topology |> N.n_edges
+            mask(::Network, m::Model) = V.edges_mask_view(m, d)
 
-        web(m::Network) = N.web(m, $w)
-        topology(m::Network) = web(m).topology
-        number(m::Network) = m |> topology |> N.n_edges
-        mask(::Network, m::Model) = Views.edges_mask_view(m, $d)
-        @method $m $M.topology $deps read_as($prop._topology)
-        @method $m $M.mask $deps read_as($prop.matrix, $prop.mask)
-        @method $m $M.number $deps read_as($prop.n_links, $prop.n_edges)
-
+            defmeth(topology, [:_topology])
+            defmeth(mask, [:mask, :matrix])
+            defmeth(number, [:n_links, :n_edges])
+            end
         end
-    end
+    ).args |> last
 
-    mod.eval.(xp.args)
+    mod.eval(xp)
 end
 
 # ==========================================================================================

@@ -42,23 +42,14 @@ function define_node_field_component(
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    ClassComponent = isnothing(ClassComponent) ? :($mod.$Class) : ClassComponent
-    Blueprints =
+    ClassComponent = isnothing(ClassComponent) ? mod.eval(Class) : ClassComponent
+    bpmod =
         mod.eval.(
             (
                 quote
                     module $Value_
                     import EcologicalNetworksDynamics:
-                        EN,
-                        Networks,
-                        N,
-                        Framework,
-                        F,
-                        D,
-                        Blueprint,
-                        Brought,
-                        @blueprint,
-                        Views
+                        EN, Networks, N, Framework, F, NF, D, Blueprint, Brought, Views
                     const Class = $ClassComponent
                     const _Class = typeof(Class)
                     const d = $d
@@ -72,7 +63,7 @@ function define_node_field_component(
     # From raw values.
     RawVec = is_sparse ? SparseVector : Vector
     if brings_class
-        Blueprints.eval(
+        bpmod.eval(
             quote
                 mutable struct Raw <: Blueprint
                     $field::$RawVec{$T}
@@ -85,19 +76,19 @@ function define_node_field_component(
             end,
         )
     else
-        Blueprints.eval(quote
+        bpmod.eval(quote
             mutable struct Raw <: Blueprint
                 $field::$RawVec{$T}
                 Raw($field) = new($construct_raw(d, $field))
             end
         end)
     end
-    Blueprints.eval(
+    bpmod.eval(
         quote
             F.early_check(bp::Raw) = $early_check(d, bp.$field)
             F.late_check(model, bp::Raw, early_data) = $late_check(d, model, early_data)
             F.expand!(model, ::Raw, late_data) = $expand!(d, model, late_data)
-            @blueprint Raw "raw values"
+            NF.define_blueprint(Raw, "raw values")
             export Raw
         end,
     )
@@ -105,7 +96,7 @@ function define_node_field_component(
     #---------------------------------------------------------------------------------------
     # From a node-indexed map.
     if brings_class
-        Blueprints.eval(
+        bpmod.eval(
             quote
                 mutable struct Map <: Blueprint
                     $field::EN.Map{$T}
@@ -118,19 +109,19 @@ function define_node_field_component(
             end,
         )
     else
-        Blueprints.eval(quote
+        bpmod.eval(quote
             mutable struct Map <: Blueprint
                 $field::EN.Map{$T}
                 Map($field) = new($construct_map(d, $field))
             end
         end)
     end
-    Blueprints.eval(
+    bpmod.eval(
         quote
             F.early_check(bp::Map) = $early_check(d, bp.$field)
             F.late_check(model, bp::Map, early_data) = $late_check(d, model, early_data)
             F.expand!(model, bp::Map, late_data) = $expand!(d, model, late_data)
-            @blueprint Map "[$class => $field] map"
+            NF.define_blueprint(Map, "[$class => $field] map")
             export Map
         end,
     )
@@ -138,7 +129,7 @@ function define_node_field_component(
     #---------------------------------------------------------------------------------------
     # From a scalar broadcasted to all nodes in the class (if meaningful).
     if may_flat(d)
-        Blueprints.eval(
+        bpmod.eval(
             quote
                 mutable struct Flat <: Blueprint
                     $field::$T
@@ -147,27 +138,34 @@ function define_node_field_component(
                 F.late_check(model, bp::Flat, early_data) =
                     $late_check_flat(d, model, early_data)
                 F.expand!(model, bp::Flat, late_data) = $expand_flat!(d, model, late_data)
-                @blueprint Flat "uniform value" depends(Class)
+                NF.define_blueprint(Flat, "uniform value"; depends = [Class])
                 export Flat
             end,
         )
     end
 
     # Any extra blueprint code.
-    Blueprints.eval(blueprints)
+    bpmod.eval(blueprints)
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
     DT = typeof(d)
+    requires = [ClassComponent, requires...]
+    comp = mod.eval(
+        quote
+            NF.define_component(
+                $(Meta.quot(Value)),
+                $mod;
+                requires = $requires,
+                blueprints = [$bpmod],
+            )
+        end,
+    )
+    C = typeof(comp)
     mod.eval(
         quote
-            @component begin
-                $Value{Network}
-                requires($ClassComponent, $(requires...))
-                blueprints($Value_)
-            end
-            D.component(::$DT) = $Value
+            $D.component(::$DT) = $comp
             (::$_Value)($field, args...; kwargs...) =
                 $construct($d, $Value, $field, args...; kwargs...)
         end,
@@ -180,43 +178,32 @@ function define_node_field_component(
         end)
     end
 
-    # ======================================================================================
     # Queries.
-
-    M = Symbol(Value, :Methods)
-    m = :(mod($mod))
-    get_value = Symbol(:get_, value)
-
-    Methods =
-        mod.eval.(
-            (
-                quote
-                    module $M # (to not pollute invokation scope)
-                    import EcologicalNetworksDynamics: Network, D, Views, @method, Model
-                    const d = $d
-                    const (class, field) = D.content(d)
-
-                    $get_value(::Network, m::Model) = Views.nodes_view(m, d)
-                    @method $m $M.$get_value read_as($value) depends($Value)
-
-                    end
+    M = Symbol(Values, :_Methods)
+    prop = [value]
+    xp =
+        (
+            quote
+                module $M
+                using EcologicalNetworksDynamics: V, NF, D, Network, Model
+                const d = $d
+                const prop = $prop
+                const C = $C
+                get_value(::Network, m::Model) = V.nodes_view(m, d)
+                NF.define_method(get_value; read_as = prop, depends = [C])
+                if !D.readonly(d)
+                    set_value!(::Network, m::Model, input) = assign!(d, m, input)
+                    NF.define_method(set_value!; write_as = prop, depends = [C])
                 end
-            ).args,
-        ) |> last
+                end
+            end
+        ).args |> last
+    mod.eval(xp)
 
-    if !D.readonly(d)
-        set_value! = Symbol(:set_, value, :!)
-        Methods.eval(quote
-            $set_value!(::Network, m::Model, input) = $assign!(d, m, input)
-            @method $m $M.$set_value! write_as($value) depends($Value)
-        end)
-    end
-
-    # ======================================================================================
     # Display.
     mod.eval(
         quote
-            $Framework.shortline(io::IO, model::Model, ::$_Value) =
+            $F.shortline(io::IO, model::Model, ::$C) =
                 $nodes_shortline(io, model, $d, $(Meta.quot(Value)))
         end,
     )

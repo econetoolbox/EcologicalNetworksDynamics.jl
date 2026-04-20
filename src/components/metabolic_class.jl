@@ -49,12 +49,11 @@ NF.define_node_field_component(
     #---------------------------------------------------------------------------------------
     # Construct from foodweb with a favourite consumer class.
     blueprints = quote
-        Foodweb = $Foodweb
         mutable struct Favour <: Blueprint
             favourite::Symbol
             Favour(favourite) = new($check_favour(favourite))
         end
-        @blueprint Favour "favourite consumer class" depends(Foodweb)
+        NF.define_blueprint(Favour, "favourite consumer class"; depends = [$Foodweb])
         export Favour
     end,
 )

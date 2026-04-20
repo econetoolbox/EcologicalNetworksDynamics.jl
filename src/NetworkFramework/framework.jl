@@ -15,6 +15,11 @@ export Model
 network(m::Model) = F.value(m)
 export network
 
+# Define items, always for the 'Network' type.
+import .F: define_blueprint, define_conflicts # Unchanged.
+define_component(Name, mod; kwargs...) = F.define_component(Name, Network, mod; kwargs...)
+define_method(fn; kwargs...) = F.define_method(fn, Network; kwargs...)
+
 # Skip _-prefixed properties when listing, and sort alphabetically.
 function properties(m::Model)
     res = []
@@ -32,19 +37,16 @@ non_underscore(p::F.PropertySpace) =
 properties(p::F.PropertySpace) = collect(I.map(first, non_underscore(p)))
 Base.propertynames(m::Model) = properties(m)
 Base.propertynames(p::F.PropertySpace{name,P,Network}) where {name,P} = properties(p)
-export properties
 
 # Property spaces default to Network.
-macro propspace(path)
+function define_propspace(path)
     get = Symbol(:get_, path)
-    eget = esc(get)
-    quote
-        $eget(::Network, s::Model) = F.@PropertySpace($path, $Network)(s)
-        F.@method $get{$Network} read_as($path)
-    end
+    NF.eval(quote
+        $get(::Network, s::Model) = F.@PropertySpace($path, Network)(s)
+        F.define_method($get, Network; read_as = [$(Meta.quot(path))])
+    end)
 end
-export @propspace
-# TODO: @propspace should first be exposed as an underlying Framework primitive, right?
+# TODO: Should define_propspace() first be exposed as an underlying Framework primitive?
 
 # Property aliases default to network.
 macro alias(new, old)

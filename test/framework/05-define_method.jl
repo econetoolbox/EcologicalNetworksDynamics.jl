@@ -4,13 +4,14 @@ using EcologicalNetworksDynamics.Framework
 
 # Use submodules to not clash component names.
 # ==========================================================================================
-module Invocations
+module Calls
 
 using ..MethodMacro
 using EcologicalNetworksDynamics.Framework
 
 using Test
 using Main: @failswith, @sysfails, @methfails
+const F = Framework
 
 # The plain value to wrap in a "system" in subsequent tests.
 mutable struct Value
@@ -22,15 +23,18 @@ Base.copy(v::Value) = deepcopy(v)
 Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
 Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
 
-@testset "Invocation variations for @method macro." begin
+define_component(name, V = Value; kwargs...) = F.define_component(name, V, Calls; kwargs...)
+define_method(fn, V = Value; kwargs...) = F.define_method(fn, V; kwargs...)
+
+@testset "Calls to `define_method()`." begin
 
     # ======================================================================================
     # Typical regular use.
 
     # One component that all subsequent tested methods depend on.
     struct Unf_b <: Blueprint{Value} end
-    @blueprint Unf_b
-    @component Unf{Value} blueprints(b::Unf_b)
+    define_blueprint(Unf_b)
+    define_component(:Unf; blueprints = [:b => Unf_b])
     Framework.expand!(s, ::Unf_b) = (value(s)._member = 0)
     s = System{Value}(Unf.b())
 
@@ -39,8 +43,8 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         get_m(v::Value) = v._member
         set_m!(v::Value, m) = (v._member = m)
     end)
-    @method get_m read_as(m) depends(Unf)
-    @method set_m! write_as(m) depends(Unf)
+    define_method(get_m; read_as = [:m], depends = [Unf])
+    define_method(set_m!; write_as = [:m], depends = [Unf])
 
     # Read/write like property.
     @test get_m(s) == 0
@@ -63,37 +67,19 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
     # ======================================================================================
     # Variations.
 
-    # Block-syntax.
-    eval(quote
-        aoy(v::Value) = v.m
-    end)
-    @method begin
-        aoy
-        read_as(aoy)
-        depends(Unf)
-    end
-    @test aoy(s) == 8
-
-    # Explicit value type without dependencies.
-    eval(quote
-        cna(v::Value) = v.m
-    end)
-    @method cna{Value} read_as(cna)
-    @test cna(s) == 8
-
     # Explicit empty lists.
     eval(quote
         ikw(v::Value) = v.m
     end)
-    @method ikw{Value} read_as() depends()
+    define_method(ikw; read_as = [], depends = [])
     @test ikw(s) == 8
 
-    # Forgot to specify value type in the @method call.
+    # Forgot to specify value type.
     eval(quote
         dti(v::Value) = v.m
     end)
     @methfails(
-        (@method dti read_as(dti)),
+        define_method(dti, nothing; read_as = [:dti]),
         dti,
         "The system value type cannot be inferred when no dependencies are given.\n\
          Consider making it explicit with the first macro argument: `$dti{MyValueType}`."
@@ -104,7 +90,7 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         kck(v) = v.m
     end)
     @methfails(
-        (@method kck{Value} read_as(kck)),
+        define_method(kck; read_as = [:kck]),
         kck,
         "No suitable method has been found to mark $kck as a system method. \
          Valid methods must have at least one 'receiver' argument of type ::$Value."
@@ -116,7 +102,7 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         enm(a, v::Value, b) = v.m * (a - b)
         enm(a, b, v::Value; shift = 0) = (a - b) / v.m + shift # Support kwargs.
     end)
-    @method enm depends(Unf)
+    define_method(enm; depends = [Unf])
     @test enm(10, 4) == 6 # As-is.
     @test enm(10, s, 4) == 8 * 6 # Overriden for the system.
     @test enm(10, 4, s) == 6 / 8
@@ -130,7 +116,7 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         ara(a, v::Value, b, w::Value) = v.m * (a - b) / w.m
     end)
     @methfails(
-        (@method ara depends(Unf)),
+        define_method(ara; depends = [Unf]),
         ara,
         "Receiving several (possibly different) system/values parameters \
          is not yet supported by the framework. \
@@ -141,7 +127,7 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
     eval(quote
         pum(a, ::Value) = a + 1
     end)
-    @method pum depends(Unf)
+    define_method(pum; depends = [Unf])
     @test pum(4, s) == 5 # Method generated for system.
     # Receiver actually *used* in the generated method.
     @sysfails(pum(4, e), Method(pum, "Requires component $_Unf."))
@@ -155,7 +141,7 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
             a + v.m
         end
     end)
-    @method hyy depends(Unf)
+    define_method(hyy; depends = [Unf])
     @test hyy(5, s) == 5 + 8 # Can be called without the hook.
     @test length(received_hook) == 1
     @test first(received_hook) === s # But it has been used transfered.
@@ -165,7 +151,7 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         zmz(a::Int, s::System, v::Value, ::System) = a + v.m - whatever(s)
     end)
     @methfails(
-        (@method zmz depends(Unf)),
+        define_method(zmz; depends = [Unf]),
         zmz,
         "Receiving several (possibly different) system hooks \
          is not yet supported by the framework. \
@@ -175,82 +161,31 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
     #---------------------------------------------------------------------------------------
     # Basic input checks.
 
-    # Macro input evaluation.
     eval(quote
         oab(v::Value) = v.m
-        comp_xp() = Unf
-        value_xp() = Value
     end)
-    @method oab{value_xp()} read_as(oab) depends(comp_xp())
-    @test oab(s) == 8
-    @sysfails(oab(e), Method(oab, "Requires component $_Unf."))
-
-    @methfails((@method()), nothing, ["Not enough macro input provided. Example usage:\n"],)
-
     @methfails(
-        (@method 5 + 8),
-        nothing,
-        "System method: expression does not evaluate to a 'Function':\n\
-         Expression: :(5 + 8)\n\
-         Result: 13 ::$Int"
-    )
-
-    @methfails(
-        (@method oab{Undef}),
-        nothing,
-        "System value type: expression does not evaluate: :Undef. \
-         (See error further down the exception stack.)"
-    )
-
-    @methfails(
-        (@method oab{4 + 5}),
-        nothing,
-        "System value type: expression does not evaluate to a 'Type':\n\
-         Expression: :(4 + 5)\n\
-         Result: 9 ::$Int"
-    )
-
-    @methfails(
-        (@method oab{Value} 4 + 5),
+        define_method(oab; read_as = [4 + 5]),
         oab,
-        "Unexpected @method section. \
-         Expected `depends(..)`, `read_as(..)` or `write_as(..)`. \
-         Got instead: :(4 + 5)."
+        "Property name [1] is not a simple identifier path: 9 ::$Int"
     )
 
     @methfails(
-        (@method oab{Value} notasection(oab)),
+        define_method(oab; read_as = [:oab], depends = [4 + 5]),
         oab,
-        "Invalid section keyword: :notasection. \
-         Expected :read_as or :write_as or :depends."
+        "Method dependency [1]:\nNot a component: 9 ::$Int"
     )
 
     @methfails(
-        (@method oab{Value} read_as(4 + 5)),
+        define_method(oab; read_as = [:oab], depends = [Unf, 4 + 5]),
         oab,
-        "Property name is not a simple identifier path: :(4 + 5)."
+        "Method dependency [2]:\nNot a component: 9 ::$Int"
     )
 
     @methfails(
-        (@method oab{Value} read_as(oab) depends(4 + 5)),
+        define_method(oab; read_as = [:oab], write_as = [:oab]),
         oab,
-        "First dependency: expression does not evaluate to a component:\n\
-         Expression: :(4 + 5)\n\
-         Result: 9 ::$Int"
-    )
-
-    @methfails(
-        (@method oab{Value} read_as(oab) depends(Unf, 4 + 5)),
-        oab,
-        "Depends section: expression does not evaluate to a component for '$Value':\n\
-         Expression: :(4 + 5)\n\
-         Result: 9 ::$Int"
-    )
-
-    @methfails(
-        (@method oab{Value} read_as(oab) write_as(oab)),
-        oab,
-        "Cannot specify both :read_as section and :write_as."
+        "Cannot specify both `read_as` and `write_as` sections."
     )
 
     #---------------------------------------------------------------------------------------
@@ -258,26 +193,23 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
 
     # Inconsistent system values.
     struct Rle_b <: Blueprint{Int} end
-    @blueprint Rle_b
-    @component Rle{Int} blueprints(b::Rle_b)
+    define_blueprint(Rle_b)
+    define_component(:Rle, Int; blueprints = [:b => Rle_b])
     eval(quote
         hjc(v::Value) = v.m
     end)
     @methfails(
-        (@method hjc depends(Unf, Rle)),
+        define_method(hjc; depends = [Unf, Rle]),
         hjc,
-        "Depends section: expression does not evaluate \
-         to a component for '$Value', but for '$Int':\n\
-         Expression: :Rle\n\
-         Result: $Rle ::<$Rle>",
+        "Depends section: system value type is supposed to be `$Value`, \
+         but $_Rle subtypes `$Component{$Int}` and not `$Component{$Value}`.",
     )
 
     @methfails(
-        (@method hjc{Int} depends(Unf)),
+        define_method(hjc, Int; depends = [Unf]),
         hjc,
-        "Depends section: system value type is supposed to be '$Int' \
-         based on the first macro argument, \
-         but $_Unf subtypes '$Component{$Value}' and not '$Component{$Int}'.",
+        "Depends section: system value type is supposed to be `$Int`, \
+         but $_Unf subtypes `$Component{$Value}` and not `$Component{$Int}`.",
     )
 
     # Dependency not recorded as a method.
@@ -285,25 +217,23 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         dbm(v::Int) = v
     end)
     @methfails(
-        (@method hjc depends(dbm)),
+        define_method(hjc; depends = [dbm]),
         hjc,
-        "First dependency: the function specified as a dependency \
-         has not been recorded as a system method:\n\
-         Expression: :dbm\n\
-         Result: dbm ::$(typeof(dbm))"
+        "Method dependency [1]:\n\
+         The function specified as a dependency \
+         has not been recorded as a system method: $Calls.dbm ::$(typeof(dbm))"
     )
 
     # Dependency not recorded as a method for this system value.
     eval(quote
         exu(v::Int) = v
     end)
-    @method exu{Int}
+    define_method(exu, Int)
     @methfails(
-        (@method hjc{Value} depends(exu)),
+        define_method(hjc; depends = [exu]),
         hjc,
-        "Depends section: system value type is supposed to be '$Value' \
-         based on the first macro argument, \
-         but '$exu' has not been recorded as a system method for this type."
+        "Depends section: system value type is supposed to be `$Value`, \
+         but `$exu` has not been recorded as a system method for this type."
     )
 
     # Ambiguous dependency.
@@ -311,21 +241,20 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         luu(i::Int) = i
         luu(v::Value) = v.m
     end)
-    @method luu{Int}
-    @method luu{Value} depends(Unf)
+    define_method(luu, Int)
+    define_method(luu, Value; depends = [Unf])
     eval(quote
         txc(v::Value) = v.m + 1
     end)
     @methfails(
-        (@method txc depends(luu)),
+        define_method(txc, nothing; depends = [luu]),
         txc,
         "First dependency: the function specified has been recorded \
          as a method for [$Int, $Value]. \
          It is ambiguous which one the focal method is being defined for."
     )
-
     # Disambiguate.
-    @method txc{Value} depends(luu)
+    define_method(txc, Value; depends = [luu])
     @test txc(s) == 8 + 1
     @sysfails(txc(e), Method(txc, "Requires component <$Unf>.")) # Correctly inherited.
 
@@ -336,10 +265,10 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         kqo(v::Value, b) = b + v.m
     end)
     @methfails(
-        (@method kqo depends(Unf) read_as(kqo)),
+        define_method(kqo; depends = [Unf], read_as = [:kqo]),
         kqo,
         "The function cannot be called \
-         with exactly 1 argument of type '$Value' \
+         with exactly 1 argument of type `$Value` \
          as required to be set as a 'read' property.",
     )
 
@@ -347,12 +276,12 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         vho(v::Value) = v.m
         vho!(v::Value, a, b) = v.m + a + b
     end)
-    @method vho depends(Unf) read_as(vho)
+    define_method(vho; depends = [Unf], read_as = [:vho])
     @methfails(
-        (@method vho! depends(Unf) write_as(vho)),
+        define_method(vho!; depends = [Unf], write_as = [:vho]),
         vho!,
         "The function cannot be called \
-         with exactly 2 arguments, the first one being of type '$Value', \
+         with exactly 2 arguments, the first one being of type `$Value`, \
          as required to be set as a 'write' property.",
     )
 
@@ -361,10 +290,10 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         tlc(v::Value, rhs) = (v.m = rhs)
     end)
     @methfails(
-        (@method tlc depends(Unf) write_as(tlc)),
+        define_method(tlc; depends = [Unf], write_as = [:tlc]),
         tlc,
         "The property :tlc cannot be marked 'write' \
-         without having first been marked 'read' for target '$System{$Value}'.",
+         without having first been marked 'read' for target `$System{$Value}`.",
     )
 
     # Guard against properties overrides.
@@ -372,14 +301,14 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
     eval(quote
         vnq(v::Value) = v.m
     end)
-    @method vnq depends(Unf) read_as(vnq)
+    define_method(vnq; depends = [Unf], read_as = [:vnq])
     eval(quote
         fhh(v::Value) = v.m
     end)
     @methfails(
-        (@method fhh depends(Unf) read_as(vnq)),
+        define_method(fhh; depends = [Unf], read_as = [:vnq]),
         fhh,
-        "The property :vnq is already defined for target '$System{$Value}'."
+        "The property :vnq is already defined for target `$System{$Value}`."
     )
 
     # (write)
@@ -389,64 +318,26 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v
         phs!(v::Value, rhs) = (v.m = rhs)
         cll!(v::Value, rhs) = (v.m = rhs)
     end)
-    @method phs depends(Unf) read_as(phs)
-    @method phs! depends(Unf) write_as(phs)
-    @method cll depends(Unf) read_as(cll)
+    define_method(phs; depends = [Unf], read_as = [:phs])
+    define_method(phs!; depends = [Unf], write_as = [:phs])
+    define_method(cll; depends = [Unf], read_as = [:cll])
     @methfails(
-        (@method cll! depends(Unf) write_as(phs)),
+        define_method(cll!; depends = [Unf], write_as = [:phs]),
         cll!,
-        "The property :phs is already marked 'write' for target '$System{$Value}'.",
+        "The property :phs is already marked 'write' for target `$System{$Value}`.",
     )
 
     #---------------------------------------------------------------------------------------
-    # Guard against redundant sections.
-
-    eval(quote
-        function hlo end
-    end)
-
-    struct Xqd_b <: Blueprint{Value} end
-    @blueprint Xqd_b
-    @component Xqd{Value} blueprints(b::Xqd_b)
-
-    @methfails(
-        (@method hlo depends(Unf) depends(Xqd)),
-        hlo,
-        "The `depends` section is specified twice.",
-    )
-
-    @methfails(
-        (@method hlo read_as(A) read_as(B)),
-        hlo,
-        "The :read_as section is specified twice.",
-    )
-
-    eval(:(module S # Also test nesting within modules?
-    function redundant end
-    end))
-
-    @methfails(
-        (@method S.redundant write_as(A) write_as(B)),
-        S.redundant,
-        "The :write_as section is specified twice.",
-    )
-
-    @methfails(
-        (@method S.redundant write_as(A) read_as(B)),
-        S.redundant,
-        "Cannot specify both :write_as section and :read_as.",
-    )
-
     # Guard against double specifications.
     Framework.REVISING = false
     eval(quote
         yqp(v::Value) = v.m
     end)
-    @method yqp depends(Unf) read_as(yqp)
+    define_method(yqp; depends = [Unf], read_as = [:yqp])
     @methfails(
-        (@method yqp depends(Unf)),
+        define_method(yqp; depends = [Unf]),
         yqp,
-        "Function '$yqp' already marked as a method for systems of '$Value'."
+        "Function `$yqp` already marked as a method for systems of `$Value`."
     )
     Framework.REVISING = true
 
@@ -472,8 +363,13 @@ Base.copy(v::Value) = deepcopy(v)
 Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
 Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
 export Value
+const F = Framework
 
-@testset "Abstract component semantics for @method." begin
+define_component(name, V = Value; kwargs...) =
+    F.define_component(name, V, Abstracts; kwargs...)
+define_method(fn; kwargs...) = F.define_method(fn, Value; kwargs...)
+
+@testset "Abstract component semantics for methods." begin
 
     # Component type hierachy.
     #
@@ -485,21 +381,21 @@ export Value
     struct B_b <: Blueprint{Value} end
     struct C_b <: Blueprint{Value} end
     struct D_b <: Blueprint{Value} end
-    @blueprint B_b
-    @blueprint C_b
-    @blueprint D_b
-    @component B <: A blueprints(b::B_b)
-    @component C <: A blueprints(b::C_b)
-    @component D <: A blueprints(b::D_b)
+    define_blueprint(B_b)
+    define_blueprint(C_b)
+    define_blueprint(D_b)
+    define_component(:B; super = A, blueprints = [:b => B_b])
+    define_component(:C; super = A, blueprints = [:b => C_b])
+    define_component(:D; super = A, blueprints = [:b => D_b])
 
     eval(quote
         f(v::Value, x) = x + v._member
         get_prop(v::Value) = v._member
         set_prop!(v::Value, x) = (v._member = x)
     end)
-    @method f depends(A)
-    @method get_prop depends(A) read_as(prop)
-    @method set_prop! depends(A) write_as(prop)
+    define_method(f; depends = [A])
+    define_method(get_prop; depends = [A], read_as = [:prop])
+    define_method(set_prop!; depends = [A], write_as = [:prop])
 
     s = System{Value}()
     @sysfails(f(s, 5), Method(f, "Requires a component $A."))
@@ -524,10 +420,10 @@ export Value
         rrk(v::Value) = v.m
         dgw(v::Value) = v.m
     end)
-    @method tai depends(B) # Concrete.
-    @method trt depends(A) # Abstract.
-    @method rrk depends(tai, trt)
-    @method dgw depends(trt, tai) # Order does not matter.
+    define_method(tai; depends = [B]) # Concrete.
+    define_method(trt; depends = [A]) # Abstract.
+    define_method(rrk; depends = [tai, trt])
+    define_method(dgw; depends = [trt, tai]) # Order does not matter.
     @test collect(Framework.depends(System{Value}, rrk)) == [A] # Only.
     @test collect(Framework.depends(System{Value}, dgw)) == [A] # Only.
 
@@ -556,6 +452,10 @@ Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
 Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
 export Value
 
+define_component(name, V = Value; kwargs...) =
+    F.define_component(name, V, PropertySpaces; kwargs...)
+define_method(fn; kwargs...) = F.define_method(fn, Value; kwargs...)
+
 @testset "Property spaces." begin
 
     check_props(s, expected) = @test sort(first.(properties(s))) == expected
@@ -575,7 +475,7 @@ export Value
     eval(quote
         get_mre(::Value, s::System) = @PropertySpace(mre, Value)(s)
     end)
-    @method get_mre{Value} read_as(mre)
+    define_method(get_mre; read_as = [:mre])
 
     # Property appeared on the list.
     check_props(System{Value}, [:mre])
@@ -592,7 +492,7 @@ export Value
     eval(quote
         get_htl(::Value) = "htl"
     end)
-    @method get_htl{Value} read_as(mre.htl)
+    define_method(get_htl; read_as = [:(mre.htl)])
 
     # Check it out.
     check_props(@PropertySpace(mre, Value), [:htl])
@@ -611,14 +511,14 @@ export Value
     eval(quote
         get_txv(::Value, s::System) = @PropertySpace(mre.txv, Value)(s)
     end)
-    @method get_txv{Value} read_as(mre.txv)
+    define_method(get_txv; read_as = [:(mre.txv)])
     @test s.mre.txv isa @PropertySpace(mre.txv, Value)
 
     # Add property to the subspace.
     eval(quote
         get_dru(::Value) = "dru"
     end)
-    @method get_dru{Value} read_as(mre.txv.dru)
+    define_method(get_dru; read_as = [:(mre.txv.dru)])
     @sysfails(s.mre.txv.a, Property(mre.txv.a, "Unknown property."))
     @sysfails(s.mre.dru, Property(mre.dru, "Unknown property."))
     @sysfails(s.dru, Property(dru, "Unknown property."))
@@ -626,14 +526,14 @@ export Value
 
     # Property spaces can also require components to be read.
     struct Anq_b <: Blueprint{Value} end
-    @blueprint Anq_b
-    @component Anq{Value} blueprints(b::Anq_b)
+    define_blueprint(Anq_b)
+    define_component(:Anq; blueprints = [:b => Anq_b])
     eval(quote
         get_goa(::Value, s::System) = @PropertySpace(goa, Value)(s)
         get_gyq(::Value, s::System) = @PropertySpace(goa.gyq, Value)(s)
     end)
-    @method get_goa{Value} read_as(goa)
-    @method get_gyq depends(Anq) read_as(goa.gyq)
+    define_method(get_goa; read_as = [:goa])
+    define_method(get_gyq; depends = [Anq], read_as = [:(goa.gyq)])
 
     # Both type/instance yield same results..
     check_props(System{Value}, [:goa, :mre])
@@ -660,22 +560,22 @@ export Value
     end)
 
     @methfails(
-        (@method set_htl!{Value} write_as(htl)),
+        define_method(set_htl!; write_as = [:htl]),
         set_htl!,
         "The property :htl cannot be marked 'write' \
-         without having first been marked 'read' for target '$System{$Value}'."
+         without having first been marked 'read' for target `$System{$Value}`."
     )
 
     @methfails(
-        (@method set_htl!{Value} write_as(mre.a)),
+        define_method(set_htl!; write_as = [:(mre.a)]),
         set_htl!,
         "The property :(mre.a) cannot be marked 'write' \
          without having first been marked 'read' \
-         for target '$(F.PropertySpace){<.mre>, $Value}'."
+         for target `$(F.PropertySpace){<.mre>, $Value}`."
     )
 
     # Finally succeed.
-    @method set_htl!{Value} write_as(mre.htl)
+    define_method(set_htl!; write_as = [:(mre.htl)])
 
     @test isnothing(value(s)._member)
     s.mre.htl = 5
@@ -686,14 +586,14 @@ export Value
 
     # Dependent write.
     struct Vnq_b <: Blueprint{Value} end
-    @blueprint Vnq_b
-    @component Vnq{Value} blueprints(b::Vnq_b)
+    define_blueprint(Vnq_b)
+    define_component(:Vnq; blueprints = [:b => Vnq_b])
     eval(quote
         get_nbu(v::Value) = v._member
         set_nbu!(v::Value, rhs) = (v._member = rhs + 1)
     end)
-    @method get_nbu{Value} read_as(goa.gyq.nbu)
-    @method set_nbu! depends(Vnq) write_as(goa.gyq.nbu)
+    define_method(get_nbu; read_as = [:(goa.gyq.nbu)])
+    define_method(set_nbu!; depends = [Vnq], write_as = [:(goa.gyq.nbu)])
 
     @test s.goa.gyq.nbu == 8
     @sysfails(
@@ -711,7 +611,7 @@ export Value
     eval(quote
         get_orw(::Value) = "orw"
     end)
-    @method get_orw{Value} read_as(orw, goa.orw, goa.gyq.orw)
+    define_method(get_orw; read_as = [:orw, :(goa.orw), :(goa.gyq.orw)])
     @test s.orw == s.goa.orw == s.goa.gyq.orw == "orw"
 
     # Same dependencies for all aliases.
@@ -719,7 +619,7 @@ export Value
     eval(quote
         get_btt(::Value) = "btt"
     end)
-    @method get_btt depends(Vnq) read_as(btt, goa.btt, goa.gyq.btt)
+    define_method(get_btt; depends = [Vnq], read_as = [:btt, :(goa.btt), :(goa.gyq.btt)])
 
     @sysfails(s.btt, Property(btt, "Component $_Vnq is required to read this property."))
     @sysfails(
@@ -735,12 +635,12 @@ export Value
 
     # Dependent write aliases.
     struct Tkq_b <: Blueprint{Value} end
-    @blueprint Tkq_b
-    @component Tkq{Value} blueprints(b::Tkq_b)
+    define_blueprint(Tkq_b)
+    define_component(:Tkq; blueprints = [:b => Tkq_b])
     eval(quote
         set_btt!(v::Value, rhs) = (v._member = 10 * rhs)
     end)
-    @method set_btt! depends(Tkq) write_as(btt, goa.btt, goa.gyq.btt)
+    define_method(set_btt!; depends = [Tkq], write_as = [:btt, :(goa.btt), :(goa.gyq.btt)])
 
     @sysfails(
         (s.btt = 44),

@@ -1,47 +1,65 @@
-# Convenience macro for defining a new blueprint.
-#
-# Invoker defines the blueprint struct
-# (before the corresponding components are actually defined),
-# and associated late_check/expand!/etc. methods the way they wish,
-# and then calls:
-#
-#   @blueprint Name "short string answering 'expandable from'" depends(components...)
-#
-# to record their type as a blueprint.
-#
-# Regarding the blueprints 'brought': make an ergonomic BET.
-# Any blueprint field typed with `BroughtField`
-# is automatically considered 'potential brought':
-# the macro invocation makes it work out of the box.
-# The following methods are relevant then:
-#
-#   # Generated:
-#   brought(::Blueprint) = iterator over the brought fields, skipping 'nothing' values.
-#
-#   # Invoker-defined:
-#   implied_blueprint_for(::Blueprint, ::Type{CompType}) = ...
-#   <XOR> implied_blueprint_for(::Blueprint, ::CompType) = ... # (for convenience)
-#
-# And for blueprint user convenience, the generated code also overrides:
-#
-#   setproperty!(::Blueprint, field, value)
-#
-# with something comfortable:
-#   - When given `nothing` as a value, void the field.
-#   - When given a blueprint, check its provided components for consistency then *embed*.
-#   - When given a comptype or a singleton component instance, make it *implied*.
-#   - When given anything else, query the following for a callable blueprint constructor:
-#
-#       constructor_for_embedded(::Blueprint, ::Val{fieldname}) = Component
-#       # (defaults to the provided component if single, not reified/overrideable yet)
-#
-#     then pass whatever value to this constructor to get this sugar:
-#
-#       blueprint.field = value  --->  blueprint.field = EmbeddedBlueprintConstructor(value)
-#
-# ERGONOMIC BET: This will only work if there is no ambiguity which constructor to call:
-# make it only work if the component singleton instance brought by the field is callable,
-# as this means there is an unambiguous default blueprint to be constructed.
+"""
+Define a new blueprint.
+
+Caller defines the blueprint struct
+(before the corresponding components are actually defined),
+and associated late_check/expand!/etc. methods the way they wish,
+and then calls:
+
+```jl
+define_blueprint(
+    TypeName,
+    "short string answering 'expandable from'";
+    depends = [component, component => reason, ..],
+)
+```
+
+to record their type as a blueprint.
+
+Regarding the blueprints 'brought': make an ergonomic BET.
+Any blueprint field typed with `BroughtField`
+is automatically considered 'potential brought':
+the call makes it work out of the box.
+The following methods are relevant then:
+
+```jl
+# Generated:
+brought(::Blueprint) = iterator over the brought fields, skipping 'nothing' values.
+
+# Caller-defined:
+implied_blueprint_for(::Blueprint, ::Type{CompType}) = ...
+# <XOR>
+implied_blueprint_for(::Blueprint, ::CompType) = ... # (for convenience)
+```
+
+For blueprint *user* convenience, the code generated also overrides:
+
+```jl
+setproperty!(::Blueprint, field, value)
+```
+
+with something comfortable:
+- When given `nothing` as a value, void the field.
+- When given a blueprint, check its provided components for consistency then *embed*.
+- When given a comptype or a singleton component instance, make it *implied*.
+- When given anything else, query the following for a callable blueprint constructor:
+
+```jl
+constructor_for_embedded(::Blueprint, ::Val{fieldname}) = Component
+# (defaults to the provided component if single, not reified/overrideable yet)
+```
+
+then pass whatever value to this constructor to get that..
+```jl
+blueprint.field = value
+# .. is sugar for:
+blueprint.field = EmbeddedBlueprintConstructor(value)
+```
+
+ERGONOMIC BET: This will only work if there is no ambiguity which constructor to call:
+make it only work if the component singleton instance brought by the field is callable,
+as this means there is an unambiguous default blueprint to be constructed.
+"""
 
 # Dedicated field type to be automatically detected as brought blueprints.
 struct BroughtField{C,V} # where C<:CompType{V} (enforce)
@@ -59,104 +77,42 @@ embedded(bp::BroughtField) = does_embed(bp) ? refvalue(bp) : nothing
 implied(bp::BroughtField) = does_imply(bp) ? refvalue(bp) : nothing
 export embedded, implied
 
-# The code checking macro invocation consistency requires
-# that pre-requisites (methods implementations) be specified *prior* to invocation.
-macro blueprint(input...)
-    mod = __module__
-    src, input = Meta.quot.((__source__, input))
-    quote
-        $blueprint_macro($mod, $src, $input)
-        nothing
-    end
-end
-export @blueprint
+function define_blueprint(B::DataType, shortline::Option{String} = nothing; depends = [])
 
-function blueprint_macro(mod, src, input)
-
-    # Raise on failure.
-    item_err(mess, item) = throw(ItemMacroError(:blueprint, item, src, mess))
-    new_blueprint = Ref{Option{DataType}}(nothing) # Refine later.
-    err(mess) = item_err(mess, new_blueprint[])
-
-    mod, input = parse_module(mod, input...)
-
-    # Convenience local wrap.
-    ceval(xp, ctx, type) = checked_eval(mod, xp, ctx, err, type)
+    err(mess) = throw(ItemError(:blueprint, B, mess))
 
     #---------------------------------------------------------------------------------------
-    # Parse and check macro input.
-    # It has become very simple now,
-    # although it used to be more complicated with several unordered sections to parse.
-    # Keep it flexible for now in case it becomes complicated again.
+    # Inputs checks.
 
-    # Unwrap input if given in a block.
-    if length(input) == 1 && input[1] isa Expr && input[1].head == :block
-        input = rmlines(input[1]).args
-    end
-
-    li = length(input)
-    if li == 0 || li > 3
-        err("$(li == 0 ? "Not enough" : "Too much") macro input provided. Example usage:\n\
-             | @blueprint Name \"short description\" depends(Components...)\n")
-    end
-
-    # The first section needs to be a concrete blueprint type.
-    # Use it to extract the associated underlying expected system value type,
-    # checked for consistency against upcoming other (implicitly) specified blueprints.
-    xp = input[1]
-    new_blueprint[] = ceval(xp, "Blueprint type", DataType)
-    NewBlueprint = new_blueprint[]
-    NewBlueprint <: Blueprint || err("Not a subtype of '$Blueprint': '$NewBlueprint'.")
-    isabstracttype(NewBlueprint) &&
-        err("Cannot define blueprint from an abstract type: '$NewBlueprint'.")
-    ValueType = system_value_type(NewBlueprint)
-    specified_as_blueprint(NewBlueprint) && err("Type '$NewBlueprint' already marked \
-                                                 as a blueprint for systems of '$ValueType'.")
-    serr(mess) = syserr(ValueType, mess)
-
-    # Extract possible short description line.
-    # TODO: test.
-    shortline = if length(input) > 1
-        xp = input[2]
-        ceval(xp, "Blueprint short description", String)
-    else
-        nothing
-    end
+    # Use the given blueprint type to infer system value type.
+    isabstracttype(B) && err("Cannot define blueprint from an abstract type: `$B`.")
+    B <: Blueprint || err("Not a subtype of `$Blueprint`: `$B`.")
+    V = system_value_type(B)
+    specified_as_blueprint(B) &&
+        err("Type `$B` already marked as a blueprint for systems of `$V`.")
 
     # Extract possible required components.
-    deps = if length(input) > 2
-        depends = input[3]
-        (false) && (local comps) # (reassure JuliaLS)
-        @capture(depends, depends(comps__))
-        isnothing(comps) && (comps = [])
-        eval_comp_reasons(mod, comps, ValueType, "Required component", err)
-    else
-        []
-    end
-
-    # No more sophisticated sections then.
-    # Should they be needed once again, inspire from @component macro to restore them.
-    #---------------------------------------------------------------------------------------
+    deps = check_reasons(depends, V, "Required component", err)
 
     # Check that consistent brought blueprints types have been specified.
     # Brought blueprints/components
     # are automatically inferred from the struct fields.
-    broughts = OrderedDict{Symbol,CompType{ValueType}}()
+    broughts = OrderedDict{Symbol,CompType{V}}()
     convenience_methods = Bool[]
     abstract_implied = Bool[]
-    for (name, fieldtype) in zip(fieldnames(NewBlueprint), NewBlueprint.types)
+    for (name, fieldtype) in zip(fieldnames(B), B.types)
 
         fieldtype <: BroughtField || continue
         C = componentof(fieldtype)
         # Check whether either the specialized method XOR its convenience alias
         # have been defined.
-        sp = hasmethod(implied_blueprint_for, Tuple{NewBlueprint,Type{C}})
-        conv = hasmethod(implied_blueprint_for, Tuple{NewBlueprint,C})
-        (conv || sp) || err("Method $implied_blueprint_for($NewBlueprint, $C) unspecified \
-                             to implicitly bring $C from $NewBlueprint blueprints.")
+        sp = hasmethod(implied_blueprint_for, Tuple{B,Type{C}})
+        conv = hasmethod(implied_blueprint_for, Tuple{B,C})
+        (conv || sp) || err("Method $implied_blueprint_for($B, $C) unspecified \
+                             to implicitly bring $C from $B blueprints.")
         (conv && sp) && err("Ambiguity: the two following methods have been defined:\n  \
-                             $implied_blueprint_for(::$NewBlueprint, ::$C)\n  \
-                             $implied_blueprint_for(::$NewBlueprint, ::$Type{$C})\n\
+                             $implied_blueprint_for(::$B, ::$C)\n  \
+                             $implied_blueprint_for(::$B, ::$Type{$C})\n\
                              Consider removing either one.")
 
         # The above does *not* check that the method
@@ -184,7 +140,7 @@ function blueprint_macro(mod, src, input)
 
     #---------------------------------------------------------------------------------------
     # Guard against dependency redundancies.
-    checked_deps = triangular_vertical_guard(deps, ValueType, err)
+    checked_deps = triangular_vertical_guard(deps, V, err)
 
     #---------------------------------------------------------------------------------------
     # At this point, all necessary information
@@ -198,7 +154,7 @@ function blueprint_macro(mod, src, input)
         if conv
             eval(
                 quote
-                    Framework.implied_blueprint_for(b::$NewBlueprint, C::Type{$C}) =
+                    Framework.implied_blueprint_for(b::$B, C::Type{$C}) =
                         implied_blueprint_for(b, singleton_instance(C))
                 end,
             )
@@ -209,35 +165,29 @@ function blueprint_macro(mod, src, input)
         # TODO: find a way to raise this error earlier
         # during field assignment or construction.
         if abs
-            eval(
-                quote
-                    function Framework.implied_blueprint_for(
-                        b::$NewBlueprint,
-                        Sub::Type{<:$C},
-                    )
-                        err() =
-                            UnimplementedImpliedMethod{$ValueType}($NewBlueprint, $C, Sub)
-                        isabstracttype(Sub) && throw(err())
-                        try
-                            # The convenience method may have been implemented instead.
-                            implied_blueprint_for(b, singleton_instance(Sub))
-                        catch e
-                            e isa Base.MethodError && rethrow(err())
-                            rethrow(e)
-                        end
+            eval(quote
+                function Framework.implied_blueprint_for(b::$B, Sub::Type{<:$C})
+                    err() = UnimplementedImpliedMethod{$V}($B, $C, Sub)
+                    isabstracttype(Sub) && throw(err())
+                    try
+                        # The convenience method may have been implemented instead.
+                        implied_blueprint_for(b, singleton_instance(Sub))
+                    catch e
+                        e isa Base.MethodError && rethrow(err())
+                        rethrow(e)
                     end
-                end,
-            )
+                end
+            end)
         end
     end
 
     # Setup expansion dependencies.
     eval(
         quote
-            Framework.expands_from(::$NewBlueprint) = $checked_deps
+            Framework.expands_from(::$B) = $checked_deps
 
             # Setup the blueprints brought.
-            Framework.brought(b::$NewBlueprint) =
+            Framework.brought(b::$B) =
                 I.map(
                     I.filter(
                         !isnothing,
@@ -248,29 +198,28 @@ function blueprint_macro(mod, src, input)
                 end
 
             # Protect/enhance field assignement for brought blueprints.
-            function Base.setproperty!(b::$NewBlueprint, prop::Symbol, rhs)
+            function Base.setproperty!(b::$B, prop::Symbol, rhs)
                 prop in keys($broughts) || return setfield!(b, prop, rhs)
                 C = $broughts[prop]
                 # Defer all checking to conversion methods.
                 bf = try
-                    Base.convert(BroughtField{C,$ValueType}, rhs)
+                    Base.convert(BroughtField{C,$V}, rhs)
                 catch e
                     e isa BroughtConvertFailure && # Additional context available.
-                        rethrow(BroughtAssignFailure($NewBlueprint, prop, e))
+                        rethrow(BroughtAssignFailure($B, prop, e))
                     rethrow(e)
                 end
                 setfield!(b, prop, bf)
             end
 
             # Enhance display, special-casing brought fields.
-            Base.show(io::IO, b::$NewBlueprint) = display_short(io, b)
-            Base.show(io::IO, ::MIME"text/plain", b::$NewBlueprint) =
-                display_long(io, b, 0)
+            Base.show(io::IO, b::$B) = display_short(io, b)
+            Base.show(io::IO, ::MIME"text/plain", b::$B) = display_long(io, b, 0)
 
-            function Framework.display_short(io::IO, bp::$NewBlueprint)
+            function Framework.display_short(io::IO, bp::$B)
                 comps = provided_comps_display(bp, 0, false)
-                print(io, "$comps:$(nameof($NewBlueprint))(")
-                for (i, name) in enumerate(fieldnames($NewBlueprint))
+                print(io, "$comps:$(nameof($B))(")
+                for (i, name) in enumerate(fieldnames($B))
                     i > 1 && print(io, ", ")
                     print(io, "$name: ")
                     # Dispatch on both (bp, name) and field value to allow
@@ -281,18 +230,18 @@ function blueprint_macro(mod, src, input)
                 print(io, ")")
             end
 
-            function Framework.display_long(io::IO, bp::$NewBlueprint, level)
+            function Framework.display_long(io::IO, bp::$B, level)
                 comps = provided_comps_display(bp, level, true)
                 g = level == 0 ? "" : grayed
                 print(
                     io,
                     "$(g)blueprint for$reset $comps: \
-                     $blueprint_color$(nameof($NewBlueprint))$reset {",
+                     $blueprint_color$(nameof($B))$reset {",
                 )
                 preindent = repeat("  ", level)
                 level += 1
                 indent = repeat("  ", level)
-                names = fieldnames($NewBlueprint)
+                names = fieldnames($B)
                 for name in names
                     print(io, "\n$indent$field_color$name:$reset ")
                     value = getfield(bp, name)
@@ -307,20 +256,21 @@ function blueprint_macro(mod, src, input)
         end,
     )
 
-    # Record to avoid multiple calls to `@blueprint A`.
+    # Record to avoid multiple calls to `define_blueprint(A)`.
     if !isnothing(shortline)
         eval(quote
-            Framework.shortline(io, ::Type{$NewBlueprint}) = print(io, $shortline)
+            Framework.shortline(io, ::Type{$B}) = print(io, $shortline)
         end)
     end
     eval(quote
-        Framework.specified_as_blueprint(::Type{$NewBlueprint}) = true
+        Framework.specified_as_blueprint(::Type{$B}) = true
     end)
 
 end
+export define_blueprint
 
 #-------------------------------------------------------------------------------------------
-# Minor stubs for the macro to work.
+# Minor stubs for the generated code evaluation to work.
 
 specified_as_blueprint(B::Type{<:Blueprint}) = false
 

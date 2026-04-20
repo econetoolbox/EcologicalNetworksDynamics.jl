@@ -83,7 +83,6 @@ module Framework
 import EcologicalNetworksDynamics: I, Option, argerr
 
 using Crayons
-using MacroTools
 using OrderedCollections
 
 struct PhantomData{T} end
@@ -158,11 +157,11 @@ include("./properties.jl")
 include("./plus_operator.jl")
 include("./add.jl")
 
-# Exposed macros.
-include("./macro_helpers.jl")
-include("./component_macro.jl")
-include("./blueprint_macro.jl")
-include("./conflicts_macro.jl")
-include("./method_macro.jl")
+# Exposed definition methods.
+include("./defcalls_helpers.jl")
+include("./define_component.jl")
+include("./define_blueprint.jl")
+include("./define_conflicts.jl")
+include("./define_method.jl")
 
 end

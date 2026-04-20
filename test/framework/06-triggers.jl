@@ -15,6 +15,9 @@ mutable struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 
+define_component(name, V = Value; kwargs...) =
+    F.define_component(name, V, Triggers; kwargs...)
+
 @testset "Triggers." begin
 
     # ======================================================================================
@@ -25,12 +28,12 @@ Base.copy(v::Value) = deepcopy(v)
     struct B_b <: Blueprint{Value} end
     struct C_b <: Blueprint{Value} end
     struct D_b <: Blueprint{Value} end
-    @blueprint B_b
-    @blueprint C_b
-    @blueprint D_b
-    @component B <: A blueprints(b::B_b)
-    @component C{Value} blueprints(b::C_b)
-    @component D{Value} blueprints(b::D_b)
+    define_blueprint(B_b)
+    define_blueprint(C_b)
+    define_blueprint(D_b)
+    define_component(:B; super = A, blueprints = [:b => B_b])
+    define_component(:C; blueprints = [:b => C_b])
+    define_component(:D; blueprints = [:b => D_b])
 
     # Setup triggers.
     ac_trigger(v::Value) = push!(v._vec, :ac)
