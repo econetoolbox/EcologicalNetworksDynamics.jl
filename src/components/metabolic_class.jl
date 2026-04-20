@@ -9,7 +9,7 @@
 
 (false) && (local MetabolicClass, _MetabolicClass, MetabolicClass_) # (reassure JuliaLS)
 
-d = NodeField(:species, :metabolic_class)
+d = D.NodeField(:species, :metabolic_class)
 DT = typeof(d)
 D.type(::DT) = Symbol
 D.name_variants(::DT) =

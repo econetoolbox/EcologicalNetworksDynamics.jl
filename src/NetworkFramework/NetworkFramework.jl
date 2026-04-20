@@ -157,7 +157,8 @@ export Brought, @blueprint, @component, @method
 # Working with both.
 import .V: extract
 export NF, D, Model
-export NodeClass, NodeMask, EdgeWeb, NodeField, ExpandedNodeField, EdgeField
+export NodeClass,
+    NodeMask, EdgeWeb, NodeField, ExpandedNodeField, AbstractNodeField, EdgeField
 export Map, BinMap, Adjacency, BinAdjacency
 export inputconvert, input_try, InputError, inerr
 export Views, V, extract

@@ -1,22 +1,31 @@
 # Typical setup for a component bringing a new field to a network class.
+# This abstracts over both expanded/sparse and root/dense fields,
+# but any code easily moved to `sparse_nodes.jl` lives there.
 
 # Raise to produce a 'Flat' blueprint
 # expanding the same scalar value to the whole class,
 # and allow flattening assignment.
 # If raised, provide the argument type for component-call constructor.
-flat(d::NodeField) = D.type(d)
-may_flat(d::NodeField) = !isnothing(flat(d))
+flat(d::AbstractNodeField) = D.type(d)
+may_flat(d::AbstractNodeField) = !isnothing(flat(d))
 
 function define_node_field_component(
     mod::Module,
-    d::NodeField;
+    d::AbstractNodeField;
     #---------------------------------------------------------------------------------------
     # Extension points.
     # Code for extra blueprints, evaluated within the blueprints module.
     blueprints = nothing,
     # Extra requirements for the component.
     requires = (),
+    # The component that defines the class, defaults to a component with this class name.
+    ClassComponent = nothing,
 )
+    # All these aspect covary so far, take advantage of this.
+    is_expanded = d isa ExpandedNodeField
+    is_sparse = is_expanded
+    brings_class = !is_expanded
+
     #---------------------------------------------------------------------------------------
     # Extract particular information for this (class, field) pair.
     nc = NodeClass(d)
@@ -33,6 +42,7 @@ function define_node_field_component(
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
+    ClassComponent = isnothing(ClassComponent) ? :($mod.$Class) : ClassComponent
     Blueprints =
         mod.eval.(
             (
@@ -49,7 +59,7 @@ function define_node_field_component(
                         Brought,
                         @blueprint,
                         Views
-                    const Class = $mod.$Class
+                    const Class = $ClassComponent
                     const _Class = typeof(Class)
                     const d = $d
                     const (class, field) = D.content(d)
@@ -58,18 +68,32 @@ function define_node_field_component(
             ).args
         ) |> last
 
-
+    #---------------------------------------------------------------------------------------
     # From raw values.
+    RawVec = is_sparse ? SparseVector : Vector
+    if brings_class
+        Blueprints.eval(
+            quote
+                mutable struct Raw <: Blueprint
+                    $field::$RawVec{$T}
+                    $class::Brought(Class)
+                    Raw($field, $class) = new($construct_raw(d, $field), $class)
+                    Raw($field; $class = _Class) = Raw($field, $class)
+                end
+                F.implied_blueprint_for(bp::Raw, ::_Class) =
+                    $implied_class_from_raw(d, Class, bp.$field)
+            end,
+        )
+    else
+        Blueprints.eval(quote
+            mutable struct Raw <: Blueprint
+                $field::$RawVec{$T}
+                Raw($field) = new($construct_raw(d, $field))
+            end
+        end)
+    end
     Blueprints.eval(
         quote
-            mutable struct Raw <: Blueprint
-                $field::Vector{$T}
-                $class::Brought(Class)
-                Raw($field, $class) = new($construct_raw(d, $field), $class)
-                Raw($field; $class = _Class) = Raw($field, $class)
-            end
-            F.implied_blueprint_for(bp::Raw, ::_Class) =
-                $implied_class_from_raw(d, Class, bp.$field)
             F.early_check(bp::Raw) = $early_check(d, bp.$field)
             F.late_check(model, bp::Raw, early_data) = $late_check(d, model, early_data)
             F.expand!(model, ::Raw, late_data) = $expand!(d, model, late_data)
@@ -78,17 +102,31 @@ function define_node_field_component(
         end,
     )
 
+    #---------------------------------------------------------------------------------------
     # From a node-indexed map.
-    Blueprints.eval(
-        quote
+    if brings_class
+        Blueprints.eval(
+            quote
+                mutable struct Map <: Blueprint
+                    $field::EN.Map{$T}
+                    $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
+                    Map($field, $class) = new($construct_map(d, $field), $class)
+                    Map($field; $class = _Class) = Map($field, $class)
+                end
+                F.implied_blueprint_for(bp::Map, ::_Class) =
+                    $implied_class_from_map(d, Class, bp.$field)
+            end,
+        )
+    else
+        Blueprints.eval(quote
             mutable struct Map <: Blueprint
                 $field::EN.Map{$T}
-                $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
-                Map($field, $class) = new($construct_map(d, $field), $class)
-                Map($field; $class = _Class) = Map($field, $class)
+                Map($field) = new($construct_map(d, $field))
             end
-            F.implied_blueprint_for(bp::Map, ::_Class) =
-                $implied_class_from_map(d, Class, bp.$field)
+        end)
+    end
+    Blueprints.eval(
+        quote
             F.early_check(bp::Map) = $early_check(d, bp.$field)
             F.late_check(model, bp::Map, early_data) = $late_check(d, model, early_data)
             F.expand!(model, bp::Map, late_data) = $expand!(d, model, late_data)
@@ -97,6 +135,7 @@ function define_node_field_component(
         end,
     )
 
+    #---------------------------------------------------------------------------------------
     # From a scalar broadcasted to all nodes in the class (if meaningful).
     if may_flat(d)
         Blueprints.eval(
@@ -123,7 +162,11 @@ function define_node_field_component(
     DT = typeof(d)
     mod.eval(
         quote
-            @component $Value{Network} requires($Class, $(requires...)) blueprints($Value_)
+            @component begin
+                $Value{Network}
+                requires($ClassComponent, $(requires...))
+                blueprints($Value_)
+            end
             D.component(::$DT) = $Value
             (::$_Value)($field, args...; kwargs...) =
                 $construct($d, $Value, $field, args...; kwargs...)

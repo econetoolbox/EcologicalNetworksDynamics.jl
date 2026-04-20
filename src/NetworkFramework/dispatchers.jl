@@ -155,24 +155,7 @@ S = NodeField # 'Self'
 content(::S{class,field}) where {class,field} = (class, field)
 class(s::S) = first(content(s))
 field(s::S) = last(content(s))
-readonly(::S) = false # By default, or specialize.
 type(s::S) = throw("Data type unspecified for $s.") # Underlying data type.
-
-"""
-Obtain name variants for the data points, in order:
-
-  - snake_case singular
-  - snake_case plural
-  - CamelCase singular
-  - CamelCase plural
-  - short field name
-"""
-name_variants(s::S) = throw("Name variants unspecified for $s.")
-snake_case_singular(s::S) = name_variants(s)[1]
-snake_case_plural(s::S) = name_variants(s)[2]
-CamelCaseSingular(s::S) = name_variants(s)[3]
-CamelCasePlural(s::S) = name_variants(s)[4]
-short_field_name(s::S) = name_variants(s)[5]
 
 """
 Obtain dispatcher to underlying class.
@@ -215,6 +198,31 @@ function Base.show(io::IO, s::S)
     class, field, parent = content(s)
     print(io, "<$parent:$class:$field>")
 end
+
+#-------------------------------------------------------------------------------------------
+# Abstract over either node field category.
+const AbstractNodeField{class,field} =
+    Union{NodeField{class,field},ExpandedNodeField{class,field}}
+export AbstractNodeField
+S = AbstractNodeField
+readonly(::S) = false # By default, or specialize.
+
+"""
+Obtain name variants for the data points, in order:
+
+  - snake_case singular
+  - snake_case plural
+  - CamelCase singular
+  - CamelCase plural
+  - short field name
+"""
+name_variants(s::S) = throw("Name variants unspecified for $s.")
+snake_case_singular(s::S) = name_variants(s)[1]
+snake_case_plural(s::S) = name_variants(s)[2]
+CamelCaseSingular(s::S) = name_variants(s)[3]
+CamelCasePlural(s::S) = name_variants(s)[4]
+short_field_name(s::S) = name_variants(s)[5]
+
 
 # ==========================================================================================
 # Web field.

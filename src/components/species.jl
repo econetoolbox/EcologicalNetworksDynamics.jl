@@ -4,7 +4,7 @@
 (false) && (local Species, _Species)
 
 # Typical, vanilla class component.
-d = NodeClass(:species)
+d = D.NodeClass(:species)
 DT = typeof(d)
 D.name_variants(::DT) = (:s, :species, :species, :Species, :Species)
 NF.define_class_component(EN, d)

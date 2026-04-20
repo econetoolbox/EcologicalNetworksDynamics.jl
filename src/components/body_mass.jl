@@ -3,7 +3,7 @@
 # (reassure JuliaLS)
 (false) && (local BodyMass, _BodyMass, BodyMass_)
 
-let d = NodeField(:species, :body_mass) # Captured within bodies.
+let d = D.NodeField(:species, :body_mass) # Captured within bodies.
     DT = typeof(d)
     D.name_variants(::DT) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
     D.type(::DT) = Float64
@@ -12,7 +12,6 @@ let d = NodeField(:species, :body_mass) # Captured within bodies.
     NF.define_node_field_component(
         EN,
         d;
-        #---------------------------------------------------------------------------------------
         # One extra blueprint to build from trophic levels.
         blueprints = quote
             Foodweb = $Foodweb
@@ -37,8 +36,6 @@ let d = NodeField(:species, :body_mass) # Captured within bodies.
         end
         isnothing(Z) ? BodyMass(M) : BodyMass.Z(Z)
     end
-
-    # ==========================================================================================
 
     Z = BodyMass_.Z
 
