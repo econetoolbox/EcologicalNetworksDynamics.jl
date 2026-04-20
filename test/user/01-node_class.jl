@@ -13,7 +13,7 @@ using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, F, Network, Views, NodeClass, NodeMask
 import Main: is_repr, is_disp, @viewfails, @sysfails, Value
-const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
+const View = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
 
 @testset "Typical NodeClass component" begin
 
@@ -62,7 +62,7 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
 
     # The names property becomes available as a view.
     v = m.species.names
-    @test v isa V
+    @test v isa View
     @test v isa AbstractVector{Symbol}
     @test is_repr(v, "<species>[:a, :b, :c]")
     @test is_disp(
@@ -96,28 +96,32 @@ const V = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
     @test v[:b] == :b # (not super-useful but consistent with other views)
 
     # Wrong access.
-    @viewfails(v[0], V, "Cannot index with [0] into a class with 3 :species nodes.")
-    @viewfails(v[4], V, "Cannot index with [4] into a class with 3 :species nodes.")
+    @viewfails(v[0], View, "Cannot index with [0] into a class with 3 :species nodes.")
+    @viewfails(v[4], View, "Cannot index with [4] into a class with 3 :species nodes.")
     @viewfails(
         v[:x],
-        V,
+        View,
         "Label does not refer to a node in :species class: :x.\n\
          Valid labels: [:a, :b, :c]."
     )
-    @viewfails(v[], V, "Cannot index into nodes with 0 dimensions: [].")
-    @viewfails(v[1, 2], V, "Cannot index into nodes with 2 dimensions: [1, 2].")
+    @viewfails(v[], View, "Cannot index into nodes with 0 dimensions: [].")
+    @viewfails(v[1, 2], View, "Cannot index into nodes with 2 dimensions: [1, 2].")
     @viewfails(
         v[nothing],
-        V,
+        View,
         "Views are indexed with indices (::Int) or labels (::Symbol). \
          Cannot index with: $nothing ::$Nothing."
     )
 
     # Immutable.
     mess = "Cannot change :species nodes names after they have been set."
-    @viewfails((v[1] = :u), V, mess)
-    @viewfails((v[:a] = :u), V, mess)
-    @viewfails((v[:a] = 2), V, mess)
+    @viewfails((v[1] = :u), View, mess)
+    @viewfails((v[:a] = :u), View, mess)
+    @viewfails((v[:a] = 2), View, mess)
+    # This takes priority over indexing semantics.
+    @viewfails((v[] = 2), View, mess)
+    @viewfails((v[1, 2] = 2), View, mess)
+    @viewfails((v[nothing] = 2), View, mess)
 
     # But the *blueprint* can be mutated.
     bp.names[2] = :x

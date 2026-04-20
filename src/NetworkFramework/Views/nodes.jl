@@ -106,6 +106,8 @@ AbstractNodesDataView{d,T} = Union{NodesDataView{d,T},ExpandedNodesDataView{d,T}
 S = AbstractNodesDataView
 N.class(s::S) = s |> view |> N.class
 index(s::S) = N.class(s).index
+Base.setindex!(s::S, _) = errnodesdim(s, ())
+Base.setindex!(s::S, _, i, j, k...) = errnodesdim(s, (i, j, k...))
 
 """
 Generic checking logic, assuming checked ref,
@@ -157,7 +159,7 @@ index(s::S) = getfield(s, :index)
 Base.size(s::S) = (s |> index |> length,)
 Base.getindex(s::S, i::Int) = N.to_label(s, check_ref(s, i))
 Base.getindex(s::S, l::Symbol) = check_ref(s, l) # (not exactly useful but consistent)
-Base.setindex!(s::S, _, ::Any) =
+Base.setindex!(s::S, _...) =
     err(s, "Cannot change :$(classname(s)) nodes names after they have been set.")
 export nodes_names_view
 extract(s::S) = copy(index(s).reverse)
@@ -194,7 +196,7 @@ Base.getindex(s::S, l::Symbol) = N.is_label(
     isnothing(D.parent(s)) ? check_ref(s, l) : N.check_label(s, parentclass(s)),
     N.class(s),
 )
-Base.setindex!(s::S, _, ::Any) =
+Base.setindex!(s::S, _...) =
     err(s, "Cannot change :$(classname(s)) nodes mask after it has been set.")
 function extract(s::S)
     res = spzeros(Bool, length(s))
@@ -212,7 +214,6 @@ S = NodeTopologyView
 readonly(::S) = true
 N.class(s::S) = N.class(network(s), classname(s))
 Base.getindex(s::S, ref) = @invoke getindex(s::AbstractVector, check_ref(s, ref))
-# HERE: equivalent setindex! for r/w views.
 
 # ==========================================================================================
 # Common to all node views.
@@ -223,9 +224,7 @@ readonly(s::S) = D.readonly(dispatcher(s))
 index(s::S) = N.class(s).index
 classname(s::S) = D.class(dispatcher(s))
 Base.getindex(s::S) = errnodesdim(s, ())
-Base.setindex!(s::S, _) = errnodesdim(s, ())
 Base.getindex(s::S, i, j, k...) = errnodesdim(s, (i, j, k...))
-Base.setindex!(s::S, _, i, j, k...) = errnodesdim(s, (i, j, k...))
 errnodesdim(s, i) = err(
     s,
     "Cannot index into nodes with $(length(i)) dimensions: [$(EN.join_elided(i, ", "))].",

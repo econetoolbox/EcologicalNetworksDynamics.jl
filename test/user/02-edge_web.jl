@@ -13,7 +13,7 @@ using SparseArrays
 using Test
 import EcologicalNetworksDynamics: EN, Network, Views, EdgeWeb, SparseMatrix
 import Main: is_repr, is_disp, @viewfails, @inputfails, @sysfails, Value
-const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
+const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
 
 @testset "Typical EdgeWeb component" begin
 
@@ -69,7 +69,7 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
 
     # The adjacence property becomes available as a view.
     v = m.foodweb.mask
-    @test v isa V
+    @test v isa View
     @test v isa AbstractMatrix{Bool}
     @test is_repr(v, "<foodweb>(3×3: 5 edges)")
     @test is_disp(
@@ -106,29 +106,29 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
     @test v[2:end, end-1:end] == [0 0; 1 0]
 
     # Wrong access.
-    @viewfails(v[], V, "Two indices are required to index into webs. Received 0: [].")
-    @viewfails(v[2], V, "Two indices are required to index into webs. Received 1: [2].")
+    @viewfails(v[], View, "Two indices are required to index into webs. Received 0: [].")
+    @viewfails(v[2], View, "Two indices are required to index into webs. Received 1: [2].")
     @viewfails(
         v[0, 1],
-        V,
+        View,
         "Cannot index with [0, ·] into a web :foodweb with 3 species source nodes."
     )
     @viewfails(
         v[:x, :b],
-        V,
+        View,
         "Cannot index with [:x, ·] into a web :foodweb \
          because :x is not a node label in source class :species."
     )
     @viewfails(
         v[:a, :y],
-        V,
+        View,
         "Cannot index with [·, :y] into a web :foodweb \
          because :y is not a node label in target class :species."
     )
     for index in (() -> v[nothing], () -> v[nothing, 1], () -> v[1, nothing])
         @viewfails(
             index(),
-            V,
+            View,
             "Views are indexed with indices (::Int) or labels (::Symbol). \
              Cannot index with: $nothing ::$Nothing."
         )
@@ -136,9 +136,15 @@ const V = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
 
     # Immutable.
     mess = "Cannot mutate edges topology."
-    @viewfails((v[1, 1] = true), V, mess)
-    @viewfails((v[:a, :b] = false), V, mess)
-    @viewfails((v[1:2, 2:end] = false), V, mess)
+    @viewfails((v[1, 1] = true), View, mess)
+    @viewfails((v[:a, :b] = false), View, mess)
+    @viewfails((v[1:2, 2:end] = false), View, mess)
+    # This takes priority over indexing semantics.
+    @viewfails((v[] = true), View, mess)
+    @viewfails((v[1, 2, 3] = true), View, mess)
+    @viewfails((v[nothing] = true), View, mess)
+    @viewfails((v[nothing, 1] = true), View, mess)
+    @viewfails((v[1, nothing] = true), View, mess)
 
     # But the *blueprint* can be mutated.
     bp.A[1, 1] = true

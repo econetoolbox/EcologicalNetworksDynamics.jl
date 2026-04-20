@@ -22,6 +22,9 @@ webname(s::S) = N.web(dispatcher(s))
 fieldname(s::S) = D.field(dispatcher(s))
 Base.getindex(s::S, i, j) = getindex(view(s), check_refs(s, i, j))
 Base.setindex!(s::S, x, i, j) = setindex!(view(s), x, check_refs(s, i, j))
+Base.setindex!(s::S, _) = erredgesdim(s, ())
+Base.setindex!(s::S, _, i::Ref) = erredgesdim(s, (i,))
+Base.setindex!(s::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
 extract(s::S; kw...) = N.to_sparse(view(s), kw...)
 
 # TODO: do we need an ExpandedEdgesView? Maybe refactor components first to figure this.
@@ -49,7 +52,7 @@ web(s::S) = getfield(s, :web)
 webname(s::S) = D.web(dispatcher(s))
 topology(s::S) = web(s).topology
 Base.getindex(s::S, i::Int, j::Int) = N.is_edge(topology(s), check_refs(s, i, j)...)
-Base.setindex!(s::S, _, ::Any, ::Any) = err(s, "Cannot mutate edges topology.")
+Base.setindex!(s::S, _...) = err(s, "Cannot mutate edges topology.")
 function Base.getindex(s::S, a::Symbol, b::Symbol)
     check_refs(s, a, b)
     t = topology(s)
@@ -74,11 +77,8 @@ source_index(s::S) = source(s).index
 target_index(s::S) = target(s).index
 Base.size(s::S) = s |> web |> size
 Base.getindex(s::S) = erredgesdim(s, ())
-Base.setindex!(s::S, _) = erredgesdim(s, ())
 Base.getindex(s::S, i::Ref) = erredgesdim(s, (i,))
-Base.setindex!(s::S, _, i::Ref) = erredgesdim(s, (i,))
 Base.getindex(s::S, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
-Base.setindex!(s::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
 erredgesdim(s::S, i) = err(
     s,
     "Two indices are required to index into webs. \
@@ -90,7 +90,6 @@ function Base.getindex(s::S, i, j)
     j = check_ref(s, j)
     @invoke getindex(s::AbstractMatrix, i, j)
 end
-# HERE: equivalent setindex! for r/w views.
 
 
 check_refs(s::S, src, tgt) =
