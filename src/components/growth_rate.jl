@@ -16,8 +16,7 @@ let d = ExpandedNodeField(:producers, :growth, :species)
     NF.define_sparse_node_field_component(
         EN,
         d;
-        # Producers are defined by the foodweb.
-        ClassComponent = Foodweb,
+        ClassComponent = Foodweb, # Producers are defined by the foodweb.
     )
     export GrowthRate
 end

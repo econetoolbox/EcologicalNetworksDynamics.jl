@@ -12,12 +12,8 @@ may_flat(d::AbstractNodeField) = !isnothing(flat(d))
 function define_node_field_component(
     mod::Module,
     d::NodeField;
-    #---------------------------------------------------------------------------------------
-    # Extension points.
-    # Code for extra blueprints, evaluated within the blueprints module.
-    blueprints = nothing,
-    # Extra requirements for the component.
-    requires = (),
+    blueprints = [], # Extra blueprints for the component.
+    requires = [], # Extra requirements for the component.
 )
 
     #---------------------------------------------------------------------------------------
@@ -111,9 +107,6 @@ function define_node_field_component(
         )
     end
 
-    # Any extra blueprint code.
-    bpmod.eval(blueprints)
-
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
@@ -124,7 +117,7 @@ function define_node_field_component(
                 $(Meta.quot(Value)),
                 $mod;
                 requires = $requires,
-                blueprints = [$bpmod],
+                blueprints = [$bpmod, $(blueprints...)],
             )
         end,
     )

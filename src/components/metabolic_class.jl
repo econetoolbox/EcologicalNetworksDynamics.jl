@@ -42,27 +42,23 @@ function check_favour(s)
     NF.name_among((:all_invertebrates, :all_ectotherms), s)
 end
 
+# Construct from foodweb with a favourite consumer class.
+mutable struct Favour <: Blueprint
+    favourite::Symbol
+    Favour(favourite) = new(check_favour(favourite))
+end
+NF.define_blueprint(Favour, "favourite consumer class")
+
 NF.define_node_field_component(
     EN,
     d;
-    requires = (Foodweb,),
-    #---------------------------------------------------------------------------------------
-    # Construct from foodweb with a favourite consumer class.
-    blueprints = quote
-        mutable struct Favour <: Blueprint
-            favourite::Symbol
-            Favour(favourite) = new($check_favour(favourite))
-        end
-        NF.define_blueprint(Favour, "favourite consumer class"; depends = [$Foodweb])
-        export Favour
-    end,
+    requires = [Foodweb],
+    blueprints = [:Favour => Favour],
 )
 export MetabolicClass
 
 #-------------------------------------------------------------------------------------------
 # Complete 'Favour' blueprint.
-
-Favour = MetabolicClass.Favour
 
 F.early_check(bp::Favour) =
     try

@@ -7,9 +7,9 @@
 function define_sparse_node_field_component(
     mod::Module,
     d::ExpandedNodeField;
-    blueprints = nothing,
-    requires = (),
-    # The component that defines the class, defaults to a component with this class name.
+    blueprints = [],
+    requires = [],
+    # The component that defines the class. Defaults to a component with this class name.
     ClassComponent = nothing,
 )
     nc = NodeClass(d)
@@ -78,9 +78,6 @@ function define_sparse_node_field_component(
         )
     end
 
-    # Any extra blueprint code.
-    bpmod.eval(blueprints)
-
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
@@ -92,7 +89,7 @@ function define_sparse_node_field_component(
                 $(Meta.quot(Value)),
                 $mod;
                 requires = $requires,
-                blueprints = [$bpmod],
+                blueprints = [$bpmod, $(blueprints...)],
             )
         end,
     )

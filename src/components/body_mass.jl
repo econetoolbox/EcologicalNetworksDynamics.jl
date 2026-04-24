@@ -3,24 +3,19 @@
 # (reassure JuliaLS)
 (false) && (local BodyMass, _BodyMass, BodyMass_)
 
+# One extra blueprint to build from trophic levels.
+mutable struct Z <: Blueprint
+    Z::Float64
+end
+NF.define_blueprint(Z, "trophic levels"; depends = [Foodweb])
+
+# Otherwise a typical component.
 let d = D.NodeField(:species, :body_mass) # Captured within bodies.
     DT = typeof(d)
     D.name_variants(::DT) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
     D.type(::DT) = Float64
     NF.check(::DT, input) = NF.non_negative(Float64, input)
-
-    NF.define_node_field_component(
-        EN,
-        d;
-        # One extra blueprint to build from trophic levels.
-        blueprints = quote
-            mutable struct Z <: Blueprint
-                Z::Float64
-            end
-            NF.define_blueprint(Z, "trophic levels"; depends = [$Foodweb])
-            export Z
-        end,
-    )
+    NF.define_node_field_component(EN, d; blueprints = [:Z => Z])
     export BodyMass
 
     # Community convenience alias.
@@ -35,8 +30,6 @@ let d = D.NodeField(:species, :body_mass) # Captured within bodies.
         end
         isnothing(Z) ? BodyMass(M) : BodyMass.Z(Z)
     end
-
-    Z = BodyMass_.Z
 
     function F.early_check(bp::Z)
         (; Z) = bp
