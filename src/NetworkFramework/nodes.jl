@@ -11,20 +11,14 @@ may_flat(d::AbstractNodeField) = !isnothing(flat(d))
 
 function define_node_field_component(
     mod::Module,
-    d::AbstractNodeField;
+    d::NodeField;
     #---------------------------------------------------------------------------------------
     # Extension points.
     # Code for extra blueprints, evaluated within the blueprints module.
     blueprints = nothing,
     # Extra requirements for the component.
     requires = (),
-    # The component that defines the class, defaults to a component with this class name.
-    ClassComponent = nothing,
 )
-    # All these aspect covary so far, take advantage of this.
-    is_expanded = d isa ExpandedNodeField
-    is_sparse = is_expanded
-    brings_class = !is_expanded
 
     #---------------------------------------------------------------------------------------
     # Extract particular information for this (class, field) pair.
@@ -42,7 +36,6 @@ function define_node_field_component(
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    ClassComponent = isnothing(ClassComponent) ? mod.eval(Class) : ClassComponent
     bpmod =
         mod.eval.(
             (
@@ -50,7 +43,7 @@ function define_node_field_component(
                     module $Value_
                     import EcologicalNetworksDynamics:
                         EN, Networks, N, Framework, F, NF, D, Blueprint, Brought, Views
-                    const Class = $ClassComponent
+                    const Class = $mod.$Class
                     const _Class = typeof(Class)
                     const d = $d
                     const (class, field) = D.content(d)
@@ -61,30 +54,16 @@ function define_node_field_component(
 
     #---------------------------------------------------------------------------------------
     # From raw values.
-    RawVec = is_sparse ? SparseVector : Vector
-    if brings_class
-        bpmod.eval(
-            quote
-                mutable struct Raw <: Blueprint
-                    $field::$RawVec{$T}
-                    $class::Brought(Class)
-                    Raw($field, $class) = new($construct_raw(d, $field), $class)
-                    Raw($field; $class = _Class) = Raw($field, $class)
-                end
-                F.implied_blueprint_for(bp::Raw, ::_Class) =
-                    $implied_class_from_raw(d, Class, bp.$field)
-            end,
-        )
-    else
-        bpmod.eval(quote
-            mutable struct Raw <: Blueprint
-                $field::$RawVec{$T}
-                Raw($field) = new($construct_raw(d, $field))
-            end
-        end)
-    end
     bpmod.eval(
         quote
+            mutable struct Raw <: Blueprint
+                $field::Vector{$T}
+                $class::Brought(Class)
+                Raw($field, $class) = new($construct_raw(d, $field), $class)
+                Raw($field; $class = _Class) = Raw($field, $class)
+            end
+            F.implied_blueprint_for(bp::Raw, ::_Class) =
+                $implied_class_from_raw(d, Class, bp.$field)
             F.early_check(bp::Raw) = $early_check(d, bp.$field)
             F.late_check(model, bp::Raw, early_data) = $late_check(d, model, early_data)
             F.expand!(model, ::Raw, late_data) = $expand!(d, model, late_data)
@@ -95,29 +74,17 @@ function define_node_field_component(
 
     #---------------------------------------------------------------------------------------
     # From a node-indexed map.
-    if brings_class
-        bpmod.eval(
-            quote
-                mutable struct Map <: Blueprint
-                    $field::EN.Map{$T}
-                    $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
-                    Map($field, $class) = new($construct_map(d, $field), $class)
-                    Map($field; $class = _Class) = Map($field, $class)
-                end
-                F.implied_blueprint_for(bp::Map, ::_Class) =
-                    $implied_class_from_map(d, Class, bp.$field)
-            end,
-        )
-    else
-        bpmod.eval(quote
-            mutable struct Map <: Blueprint
-                $field::EN.Map{$T}
-                Map($field) = new($construct_map(d, $field))
-            end
-        end)
-    end
+
     bpmod.eval(
         quote
+            mutable struct Map <: Blueprint
+                $field::EN.Map{$T}
+                $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
+                Map($field, $class) = new($construct_map(d, $field), $class)
+                Map($field; $class = _Class) = Map($field, $class)
+            end
+            F.implied_blueprint_for(bp::Map, ::_Class) =
+                $implied_class_from_map(d, Class, bp.$field)
             F.early_check(bp::Map) = $early_check(d, bp.$field)
             F.late_check(model, bp::Map, early_data) = $late_check(d, model, early_data)
             F.expand!(model, bp::Map, late_data) = $expand!(d, model, late_data)
@@ -151,7 +118,6 @@ function define_node_field_component(
     # The component itself and generic blueprints constructors.
 
     DT = typeof(d)
-    requires = [ClassComponent, requires...]
     comp = mod.eval(
         quote
             NF.define_component(

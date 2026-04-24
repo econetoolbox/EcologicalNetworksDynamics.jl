@@ -358,7 +358,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         )
     )
     # But then it needs the class.
-    @sysfails(Model(bp), Missing(Species, BodyMass, [BodyMass.Flat], nothing))
+    @sysfails(Model(bp), Missing(Species, nothing, [BodyMass.Flat], nothing))
 
 end
 

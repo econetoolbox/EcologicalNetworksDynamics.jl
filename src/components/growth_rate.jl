@@ -13,7 +13,7 @@ let d = ExpandedNodeField(:producers, :growth, :species)
     D.name_variants(::DT) = (:growth_rate, :growth_rates, :GrowthRate, :GrowthRates, :r)
     D.type(::DT) = Float64
     NF.check(::DT, input) = NF.non_negative(Float64, input)
-    NF.define_node_field_component(
+    NF.define_sparse_node_field_component(
         EN,
         d;
         # Producers are defined by the foodweb.

@@ -35,7 +35,7 @@ using Main: is_disp, is_repr, @argfails, @sysfails, Value
     @test m.body_mass == [2.8^1.5, 2.8, 1]
 
     # Expansion failures.
-    @sysfails(Model(bp), Missing(Species, BodyMass, [BodyMass.Z], nothing))
+    @sysfails(Model(bp), Missing(Foodweb, nothing, [BodyMass.Z], nothing))
     @sysfails(Model(Species(3), bp), Missing(Foodweb, nothing, [BodyMass.Z], nothing))
     @sysfails(
         Model(fw, BodyMass(; Z = -1)),
