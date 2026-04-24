@@ -6,7 +6,7 @@
 
 function define_sparse_node_field_component(
     mod::Module,
-    d::ExpandedNodeField;
+    d::SparseNodeField;
     blueprints = [],
     requires = [],
     # The component that defines the class. Defaults to a component with this class name.
@@ -152,7 +152,7 @@ end
 # ==========================================================================================
 # Only redefine parts that do not already work with regular NodeField.
 
-function construct(d::ExpandedNodeField, Field::Component, input)
+function construct(d::SparseNodeField, Field::Component, input)
     T = D.type(d)
     tries = []
     if may_flat(d)
@@ -163,7 +163,7 @@ function construct(d::ExpandedNodeField, Field::Component, input)
     input_try(input, tries...)
 end
 
-function nodes_shortline(io::IO, model::Model, d::ExpandedNodeField)
+function nodes_shortline(io::IO, model::Model, d::SparseNodeField)
     # Display it sparse within its parent class.
     T = D.type(d)
     c, f, p = D.content(d)

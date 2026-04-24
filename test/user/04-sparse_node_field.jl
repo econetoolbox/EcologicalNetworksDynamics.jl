@@ -50,6 +50,9 @@ import Main: is_disp, is_repr, @sysfails, Value
     )
     @sysfails(Model(bp), Missing(Foodweb, GrowthRate, [GrowthRate.Raw], nothing))
 
+    # The values become available as a view.
+    m.growth_rate # HERE test sparse views for the first time.
+
 end
 
 end

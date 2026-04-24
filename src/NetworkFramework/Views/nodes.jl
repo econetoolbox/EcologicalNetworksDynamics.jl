@@ -38,21 +38,21 @@ extract(s::S) = [s[i] for i in eachindex(s)]
 View into nodes class data
 from the perspective of a superclass,
 resulting in incomplete / sparse data.
-Parametrized by ExpandedNodesData dispatcher.
+Parametrized by SparseNodesData dispatcher.
 """
-struct ExpandedNodesDataView{d,T} <: AbstractSparseVector{T,Int}
+struct SparseNodesDataView{d,T} <: AbstractSparseVector{T,Int}
     model::Model
     view::N.NodesView{T}
 end
-export ExpandedNodesDataView
-function nodes_view(m::Model, d::D.ExpandedNodeField)
-    (class, _, fieldname) = D.content(d)
+export SparseNodesDataView
+function nodes_view(m::Model, d::D.SparseNodeField)
+    (class, fieldname, _) = D.content(d)
     n = NF.network(m)
     view = N.nodes_view(n, class, fieldname)
     T = eltype(view)
-    ExpandedNodesDataView{d,T}(m, view)
+    SparseNodesDataView{d,T}(m, view)
 end
-S = ExpandedNodesDataView # "Self"
+S = SparseNodesDataView # "Self"
 D.parent(s::S) = D.parent(dispatcher(s))
 restriction(s::S) = N.restriction(network(s), classname(s), D.parent(s))
 Base.size(s::S) = (N.n_nodes(network(s), D.parent(s)),)
@@ -102,7 +102,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Common to all nodes data views.
 
-AbstractNodesDataView{d,T} = Union{NodesDataView{d,T},ExpandedNodesDataView{d,T}}
+AbstractNodesDataView{d,T} = Union{NodesDataView{d,T},SparseNodesDataView{d,T}}
 S = AbstractNodesDataView
 N.class(s::S) = s |> view |> N.class
 index(s::S) = N.class(s).index

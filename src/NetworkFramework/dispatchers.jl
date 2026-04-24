@@ -169,17 +169,17 @@ function Base.show(io::IO, s::S)
 end
 
 # ==========================================================================================
-# Expanded node field data.
+# Sparse node field data, expanded within a parent class.
 
 """
 Dispatch extension point to particular class field data
 from the perspective of a parent class.
 """
-struct ExpandedNodeField{class,field,parent} <: Dispatcher end
-export ExpandedNodeField
-ExpandedNodeField(class::Symbol, field::Symbol, parent::Option{Symbol}) =
-    ExpandedNodeField{class,field,parent}()
-S = ExpandedNodeField # 'Self'
+struct SparseNodeField{class,field,parent} <: Dispatcher end
+export SparseNodeField
+SparseNodeField(class::Symbol, field::Symbol, parent::Option{Symbol}) =
+    SparseNodeField{class,field,parent}()
+S = SparseNodeField # 'Self'
 content(::S{class,field,parent}) where {class,field,parent} = (class, field, parent)
 class(s::S) = first(content(s))
 field(s::S) = content(s)[2]
@@ -202,7 +202,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Abstract over either node field category.
 const AbstractNodeField{class,field} =
-    Union{NodeField{class,field},ExpandedNodeField{class,field}}
+    Union{NodeField{class,field},SparseNodeField{class,field}}
 export AbstractNodeField
 S = AbstractNodeField
 readonly(::S) = false # By default, or specialize.

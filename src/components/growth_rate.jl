@@ -8,7 +8,7 @@
 # (reassure JuliaLS)
 (false) && (local GrowthRate, _GrowthRate)
 
-let d = ExpandedNodeField(:producers, :growth, :species)
+let d = SparseNodeField(:producers, :growth, :species)
     DT = typeof(d)
     D.name_variants(::DT) = (:growth_rate, :growth_rates, :GrowthRate, :GrowthRates, :r)
     D.type(::DT) = Float64

@@ -158,7 +158,7 @@ export Brought, blueprint, component, method
 import .V: extract
 export NF, D, Model
 export NodeClass,
-    NodeMask, EdgeWeb, NodeField, ExpandedNodeField, AbstractNodeField, EdgeField
+    NodeMask, EdgeWeb, NodeField, SparseNodeField, AbstractNodeField, EdgeField
 export Map, BinMap, Adjacency, BinAdjacency
 export inputconvert, input_try, InputError, inerr
 export Views, V, extract

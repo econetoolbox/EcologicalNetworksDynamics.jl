@@ -4,9 +4,9 @@ function inline_info(v::NodesDataView)
     "<$class:$field>"
 end
 
-function inline_info(v::ExpandedNodesDataView)
+function inline_info(v::SparseNodesDataView)
     class = classname(v)
-    parent = V.parent(v)
+    parent = D.parent(v)
     parent = isnothing(parent) ? ":" : parent
     field = fieldname(v)
     "<$parent:$class:$field>"
@@ -30,10 +30,10 @@ function display_info(v::NodesDataView)
     "NodesDataView$info{$T}"
 end
 
-function display_info(v::ExpandedNodesDataView)
+function display_info(v::SparseNodesDataView)
     T = eltype(v)
     info = inline_info(v)
-    "ExpandedNodesDataView$info{$T}"
+    "SparseNodesDataView$info{$T}"
 end
 
 function display_info(v::NodesNamesView)
@@ -49,7 +49,7 @@ function display_info(v::NodesMaskView)
 end
 
 type_info(::Type{<:NodesDataView}) = "nodes"
-type_info(::Type{<:ExpandedNodesDataView}) = "sparse nodes"
+type_info(::Type{<:SparseNodesDataView}) = "sparse nodes"
 type_info(::Type{<:NodesNamesView}) = "nodes names"
 type_info(::Type{<:NodesMaskView}) = "nodes mask"
 
@@ -67,7 +67,7 @@ function Base.show(io::IO, v::NodesDataView)
     print(io, ']')
 end
 
-function Base.show(io::IO, v::ExpandedNodesDataView)
+function Base.show(io::IO, v::SparseNodesDataView)
     print(io, inline_info(v))
     print(io, '[')
     n = length(v)
@@ -133,9 +133,9 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodesDataView)
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::ExpandedNodesDataView)
+function Base.show(io::IO, ::MIME"text/plain", v::SparseNodesDataView)
     print(io, display_info(v))
-    mask = N.mask(network(v), class(v).name, parent(v))
+    mask = N.mask(network(v), N.class(v).name, D.parent(v))
     n, _ = ns(length(v))
     w = readonly(v) ? " (readonly)" : ""
     read(N.entry(v)) do raw
@@ -143,7 +143,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::ExpandedNodesDataView)
         print(io, " ($nz/$n$w value$s)")
         i_raw = 0
         for m in mask
-            print(io, '\n')
+            print(io, "\n ")
             if m
                 i_raw += 1
                 v = raw[i_raw]

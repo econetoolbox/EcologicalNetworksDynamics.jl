@@ -27,7 +27,7 @@ Base.setindex!(s::S, _, i::Ref) = erredgesdim(s, (i,))
 Base.setindex!(s::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
 extract(s::S; kw...) = N.to_sparse(view(s), kw...)
 
-# TODO: do we need an ExpandedEdgesView? Maybe refactor components first to figure this.
+# TODO: do we need an SparseEdgesView? Maybe refactor components first to figure this.
 
 # ==========================================================================================
 # Topology mask.

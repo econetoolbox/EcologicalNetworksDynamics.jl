@@ -1,5 +1,5 @@
 # Typical setup for a component bringing a new field to a network class.
-# This abstracts over both expanded/sparse and root/dense fields,
+# This abstracts over both subclass/sparse and root/dense fields,
 # but any code easily moved to `sparse_nodes.jl` lives there.
 
 # Raise to produce a 'Flat' blueprint
@@ -542,9 +542,9 @@ end
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function nodes_shortline(io::IO, model::Model, f::NodeField)
+function nodes_shortline(io::IO, model::Model, d::NodeField)
     Field = D.CamelCaseSingular(d)
-    c, f = D.content(f)
+    c, f = D.content(d)
     network = NF.network(model)
     class = N.class(network, c)
     entry = class.data[f]
