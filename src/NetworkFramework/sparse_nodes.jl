@@ -43,12 +43,21 @@ function define_sparse_node_field_component(
 
     #---------------------------------------------------------------------------------------
     # From raw values: one per node in the subclass (=dense).
-    bpmod.eval(quote
-        mutable struct Raw <: Blueprint
-            $field::Vector{$T}
-            Raw($field) = new($construct_raw(d, $field))
-        end
-    end)
+    bpmod.eval(
+        quote
+            mutable struct Raw <: Blueprint
+                $field::Vector{$T}
+                Raw($field) = new($construct_raw(d, $field))
+            end
+            F.implied_blueprint_for(bp::Raw, ::_Class) =
+                $implied_class_from_raw(d, Class, bp.$field)
+            F.early_check(bp::Raw) = $early_check(d, bp.$field)
+            F.late_check(model, bp::Raw, early_data) = $late_check(d, model, early_data)
+            F.expand!(model, ::Raw, late_data) = $expand!(d, model, late_data)
+            NF.define_blueprint(Raw, "raw values")
+            export Raw
+        end,
+    )
 
     #---------------------------------------------------------------------------------------
     # From a node-indexed map.
@@ -58,6 +67,8 @@ function define_sparse_node_field_component(
             $field::EN.Map{$T}
             Map($field) = new($construct_map(d, $field))
         end
+        NF.define_blueprint(Map, "[$class => $field] map")
+        export Map
     end)
 
     #---------------------------------------------------------------------------------------
@@ -132,11 +143,38 @@ function define_sparse_node_field_component(
     mod.eval(xp)
 
     # Display.
-    mod.eval(
-        quote
-            $F.shortline(io::IO, model::Model, ::$C) =
-                $nodes_shortline(io, model, $d, $(Meta.quot(Value)))
-        end,
-    )
+    mod.eval(quote
+        $F.shortline(io::IO, model::Model, ::$C) = $nodes_shortline(io, model, $d)
+    end)
 
+end
+
+# ==========================================================================================
+# Only redefine parts that do not already work with regular NodeField.
+
+function construct(d::ExpandedNodeField, Field::Component, input)
+    T = D.type(d)
+    tries = []
+    if may_flat(d)
+        push!(tries, T => v -> Field.Flat(v))
+    end
+    push!(tries, Vector{T} => v -> Field.Raw(v))
+    push!(tries, Map{T} => m -> Field.Map(m))
+    input_try(input, tries...)
+end
+
+function nodes_shortline(io::IO, model::Model, d::ExpandedNodeField)
+    # Display it sparse within its parent class.
+    T = D.type(d)
+    c, f, p = D.content(d)
+    Field = D.CamelCaseSingular(d)
+    network = NF.network(model)
+    n_parents = N.n_nodes(network, p)
+    subclass = N.class(network, c)
+    r = subclass.restriction
+    entry = subclass.data[f]
+    N.read(entry) do data
+        sparse = N.expand(T, r, n_parents, data)
+        print(io, "$Field: [$(EN.join_elided(sparse, ", "))]")
+    end
 end

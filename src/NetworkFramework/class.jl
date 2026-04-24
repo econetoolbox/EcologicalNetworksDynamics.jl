@@ -33,6 +33,7 @@ function define_class_component(mod::Module, d::NodeClass)
 
         # Declare as a blueprint.
         NF.define_blueprint(Names, "raw $($s) names")
+        # Export so it gets picked by `NF.define_component` when passing `bpmod` later.
         export Names
 
         # Verify blueprint values.

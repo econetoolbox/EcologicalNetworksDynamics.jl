@@ -40,7 +40,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     bp = BodyMass.Raw([4.0, 5.0, 6.0])
     @test bp == BodyMass.Raw([4, 5, 6])
     @test BodyMass.Raw(Bool[1, 0, 1]) == BodyMass.Raw([1.0, 0.0, 1.0])
-    # Implbicit constructor.
+    # Implicit constructor.
     @test bp == BodyMass([4.0, 5.0, 6.0])
     @test bp == BodyMass([4, 5, 6])
     @test BodyMass(Bool[1, 0, 1]) == BodyMass([1.0, 0.0, 1.0])
@@ -70,7 +70,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     m = Model(bp)
     @test m.species.names == [:a, :b, :c]
 
-    # The names property becomes available as a view.
+    # The values become available as a view.
     v = m.body_mass
     @test v isa View
     @test v isa AbstractVector{Float64}

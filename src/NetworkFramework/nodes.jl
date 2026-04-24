@@ -160,12 +160,9 @@ function define_node_field_component(
     mod.eval(xp)
 
     # Display.
-    mod.eval(
-        quote
-            $F.shortline(io::IO, model::Model, ::$C) =
-                $nodes_shortline(io, model, $d, $(Meta.quot(Value)))
-        end,
-    )
+    mod.eval(quote
+        $F.shortline(io::IO, model::Model, ::$C) = $nodes_shortline(io, model, $d)
+    end)
 end
 
 # ==========================================================================================
@@ -174,16 +171,16 @@ end
 #-------------------------------------------------------------------------------------------
 # Check data values without model information, against the target type.
 
-check(d::NodeField, value) = inputconvert(D.type(d), value)
+check(d::AbstractNodeField, value) = inputconvert(D.type(d), value)
 
-check_with_ref(d::NodeField, value, i::Int) =
+check_with_ref(d::AbstractNodeField, value, i::Int) =
     try
         check(d, value)
     catch e
         e isa InputError || rethrow(e)
         inerr("At node index [$i]:\n$(e.mess)", rethrow)
     end
-check_with_ref(d::NodeField, value, l::Symbol) =
+check_with_ref(d::AbstractNodeField, value, l::Symbol) =
     try
         check(d, value)
     catch e
@@ -194,7 +191,7 @@ check_with_ref(d::NodeField, value, l::Symbol) =
 #-------------------------------------------------------------------------------------------
 # Check against a model value, assuming the type and raw value is already correct.
 
-check(::NodeField, ::Model, value, ::Int, ::Symbol) = value # Nothing to check by default.
+check(::AbstractNodeField, ::Model, value, ::Int, ::Symbol) = value # No check by default.
 
 #-------------------------------------------------------------------------------------------
 # Check against both the type and then immediately the model (useful for mutating).
@@ -205,13 +202,13 @@ end
 get_model(w::WholeCheck) = w.model
 get_model(m::Model) = m
 
-function check(d::NodeField, whole::WholeCheck, value)
+function check(d::AbstractNodeField, whole::WholeCheck, value)
     converted = check(d, value)
     check(d, whole.model, converted)
 end
 
 # Abstract over either whole check or just-model check.
-function check_with_ref(d::NodeField, against::Model, value, i::Int, l::Symbol)
+function check_with_ref(d::AbstractNodeField, against::Model, value, i::Int, l::Symbol)
     try
         value = check(d, value)
         check(d, against, value, i, l)
@@ -222,7 +219,7 @@ function check_with_ref(d::NodeField, against::Model, value, i::Int, l::Symbol)
 end
 
 # Use the model to automatically infer any reference type from the other one.
-function check_with_ref(d::NodeField, against, value, i::Int)
+function check_with_ref(d::AbstractNodeField, against, value, i::Int)
     model = get_model(against)
     network = NF.network(model)
     class = D.class(d)
@@ -230,7 +227,7 @@ function check_with_ref(d::NodeField, against, value, i::Int)
     l = N.to_label(index, i)
     check_with_ref(d, model, value, i, l)
 end
-function check_with_ref(d::NodeField, against, value, l::Symbol)
+function check_with_ref(d::AbstractNodeField, against, value, l::Symbol)
     model = get_model(against)
     network = NF.network(model)
     class = D.class(d)
@@ -242,7 +239,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct: any input is possible, but we don't know anything about the model yet.
 
-function construct_raw(d::NodeField, raw)
+function construct_raw(d::AbstractNodeField, raw)
     T = D.type(d)
     try
         v = inputconvert(Vector{T}, raw)
@@ -256,7 +253,7 @@ function construct_raw(d::NodeField, raw)
     end
 end
 
-function construct_map(d::NodeField, map)
+function construct_map(d::AbstractNodeField, map)
     T = D.type(d)
     try
         out = inputconvert(Map{T}, map)
@@ -270,7 +267,7 @@ function construct_map(d::NodeField, map)
     end
 end
 
-function construct(d::NodeField, Data::Component, input; kwargs...)
+function construct(d::NodeField, Field::Component, input; kwargs...)
     @kwargs_helpers(kwargs)
     nc = NodeClass(d)
     class = D.class(nc)
@@ -280,17 +277,17 @@ function construct(d::NodeField, Data::Component, input; kwargs...)
     T = D.type(d)
     tries = []
     if may_flat(d)
-        push!(tries, T => v -> Data.Flat(v))
+        push!(tries, T => v -> Field.Flat(v))
     end
-    push!(tries, Vector{T} => v -> Data.Raw(v; kwargs...))
-    push!(tries, Map{T} => m -> Data.Map(m; kwargs...))
+    push!(tries, Vector{T} => v -> Field.Raw(v; kwargs...))
+    push!(tries, Map{T} => m -> Field.Map(m; kwargs...))
     input_try(input, tries...)
 end
 
 #-------------------------------------------------------------------------------------------
 # Early-check: correct type, unchecked values, no model information yet.
 
-function early_check(d::NodeField, vec::Vector)
+function early_check(d::AbstractNodeField, vec::Vector)
     T = eltype(vec)
     data = T[]
     for (i, value) in enumerate(vec)
@@ -305,7 +302,7 @@ function early_check(d::NodeField, vec::Vector)
     data
 end
 
-function early_check(d::NodeField, map::Map)
+function early_check(d::AbstractNodeField, map::Map)
     T, R = valtype(map), reftype(map)
     try
         map = inputconvert(Map{T,R}, map) # Re-parse in case the map was mutated.
@@ -319,7 +316,7 @@ function early_check(d::NodeField, map::Map)
     end
 end
 
-function early_check_flat(d::NodeField, value)
+function early_check_flat(d::AbstractNodeField, value)
     try
         check(d, value)
     catch e
@@ -332,10 +329,10 @@ end
 # Late-check: correct type, checked values, model information is now available.
 
 # Just pass the data without checking by default.
-late_check(::NodeField, ::Model, early_data) = early_data
+late_check(::AbstractNodeField, ::Model, early_data) = early_data
 
 # Typical vector case for Raw blueprint.
-function late_check(d::NodeField, model::Model, vec::Vector)
+function late_check(d::AbstractNodeField, model::Model, vec::Vector)
     # Check number of values first.
     network = NF.network(model)
     class = D.class(d)
@@ -356,7 +353,7 @@ function late_check(d::NodeField, model::Model, vec::Vector)
 end
 
 # Typical map case for Map blueprint.
-function late_check(d::NodeField, model::Model, map::Map{<:Any,Symbol})
+function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
     # Check labels first.
     network = NF.network(model)
     class = D.class(d)
@@ -384,7 +381,7 @@ function late_check(d::NodeField, model::Model, map::Map{<:Any,Symbol})
 end
 
 # Same with index references instead.
-function late_check(d::NodeField, model::Model, map::Map{<:Any,Int})
+function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
     # Check indices first.
     network = NF.network(model)
     class = D.class(d)
@@ -419,7 +416,7 @@ function late_check(d::NodeField, model::Model, map::Map{<:Any,Int})
 end
 
 # Not much to do by default in this situation, just keep as an extension point.
-late_check_flat(::NodeField, ::Model, value) = value
+late_check_flat(::AbstractNodeField, ::Model, value) = value
 
 #-------------------------------------------------------------------------------------------
 # Implied class blueprint.
@@ -442,7 +439,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Expansion: input is completely trusted, just fill the inner network from late data.
 
-function expand!(d::NodeField, model::Model, late_data::Vector)
+function expand!(d::AbstractNodeField, model::Model, late_data::Vector)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
     class = N.class(network, classname)
@@ -450,7 +447,7 @@ function expand!(d::NodeField, model::Model, late_data::Vector)
 end
 
 # Special case flat-blueprint.
-function expand_flat!(d::NodeField, model::Model, late_data)
+function expand_flat!(d::AbstractNodeField, model::Model, late_data)
     network = NF.network(model)
     class = D.class(d)
     n = N.n_nodes(network, class)
@@ -545,12 +542,13 @@ end
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function nodes_shortline(io::IO, model::Model, d::NodeField, Data::Symbol)
-    c, d = D.content(d)
+function nodes_shortline(io::IO, model::Model, f::NodeField)
+    Field = D.CamelCaseSingular(d)
+    c, f = D.content(f)
     network = NF.network(model)
     class = N.class(network, c)
-    entry = class.data[d]
+    entry = class.data[f]
     N.read(entry) do data
-        print(io, "$Data: [$(EN.join_elided(data, ", "))]")
+        print(io, "$Field: [$(EN.join_elided(data, ", "))]")
     end
 end
