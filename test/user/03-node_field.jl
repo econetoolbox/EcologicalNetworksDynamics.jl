@@ -92,7 +92,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     # The view has some basic vector-like interface.
     @test v == collect(v) == [4, 5, 6] == [i for i in v]
 
-    # The view may be extracted into a regular sparse matrix.
+    # The view may be extracted into a regular vector.
     e = extract(v)
     @test e isa Vector{Float64}
     @test e == v
@@ -141,15 +141,6 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @test v == w == m.body_mass == [5, 4, 3]
     @test a == alt.body_mass == [4, 5, 6]
 
-    for invalid_set in (() -> v[1:2] = 8, () -> v[end:end-1] *= 10)
-        @viewfails(
-            invalid_set(),
-            View,
-            "Indexed assignment with a single value to possibly many locations \
-             is not supported; perhaps use broadcasting `.=` instead?"
-        )
-    end
-
     # The value is still checked.
     @writefails(
         v[2] = -1,
@@ -190,6 +181,15 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     )
     @viewfails(v[] = 1, View, "Cannot index into nodes with 0 dimensions: [].")
     @viewfails(v[1, 2] = 1, View, "Cannot index into nodes with 2 dimensions: [1, 2].")
+    # Plus this mimick one.
+    for invalid_set in (() -> v[1:2] = 8, () -> v[end:end-1] *= 10)
+        @viewfails(
+            invalid_set(),
+            View,
+            "Indexed assignment with a single value to possibly many locations \
+             is not supported; perhaps use broadcasting `.=` instead?"
+        )
+    end
 
     # Fail constructing from raw values.
     input = [4, -1, 2]

@@ -71,9 +71,10 @@ web(n::Network, name::Symbol) = n.webs[name]
 index(n::Network, class::Symbol) = N.class(n, class).index
 restriction(n::Network, class::Symbol) = N.class(n, class).restriction
 topology(n::Network, web::Symbol) = N.web(n, web).topology
+parent_index(n::Network, class::Symbol) = N.parent(n, class).index
 source_index(n::Network, web::Symbol) = N.source(n, web).index
 target_index(n::Network, web::Symbol) = N.target(n, web).index
-export class, web, index, restriction, topology, source_index, target_index
+export class, web, index, restriction, topology, parent_index, source_index, target_index
 
 """
 Extract related classes.

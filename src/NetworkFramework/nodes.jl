@@ -460,7 +460,7 @@ end
 # Input may be anything,
 # but the underlying model value and the reference can be assumed to be correct.
 
-mutate_check(d::NodeField, model::Model, value, ref) =
+mutate_check(d::AbstractNodeField, model::Model, value, ref) =
     try
         check_with_ref(d, WholeCheck(model), value, ref)
     catch e

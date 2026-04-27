@@ -62,14 +62,19 @@ function define_sparse_node_field_component(
     #---------------------------------------------------------------------------------------
     # From a node-indexed map.
 
-    bpmod.eval(quote
-        mutable struct Map <: Blueprint
-            $field::EN.Map{$T}
-            Map($field) = new($construct_map(d, $field))
-        end
-        NF.define_blueprint(Map, "[$class => $field] map")
-        export Map
-    end)
+    bpmod.eval(
+        quote
+            mutable struct Map <: Blueprint
+                $field::EN.Map{$T}
+                Map($field) = new($construct_map(d, $field))
+            end
+            F.early_check(bp::Map) = $early_check(d, bp.$field)
+            F.late_check(model, bp::Map, early_data) = $late_check(d, model, early_data)
+            F.expand!(model, bp::Map, late_data) = $expand!(d, model, late_data)
+            NF.define_blueprint(Map, "[$class => $field] map")
+            export Map
+        end,
+    )
 
     #---------------------------------------------------------------------------------------
     # From a scalar broadcasted to all nodes in the subclass (if meaningful).
@@ -152,6 +157,7 @@ end
 # ==========================================================================================
 # Only redefine parts that do not already work with regular NodeField.
 
+# No need to bring the class (yet).
 function construct(d::SparseNodeField, Field::Component, input)
     T = D.type(d)
     tries = []
@@ -163,8 +169,8 @@ function construct(d::SparseNodeField, Field::Component, input)
     input_try(input, tries...)
 end
 
+# Display it sparse within its parent class.
 function nodes_shortline(io::IO, model::Model, d::SparseNodeField)
-    # Display it sparse within its parent class.
     T = D.type(d)
     c, f, p = D.content(d)
     Field = D.CamelCaseSingular(d)
@@ -176,5 +182,41 @@ function nodes_shortline(io::IO, model::Model, d::SparseNodeField)
     N.read(entry) do data
         sparse = N.expand(T, r, n_parents, data)
         print(io, "$Field: [$(EN.join_elided(sparse, ", "))]")
+    end
+end
+
+# Check index references against *parent* class.
+function late_check(d::SparseNodeField, model::Model, map::Map{<:Any,Int})
+    # Check indices first.
+    network = NF.network(model)
+    class = D.class(d)
+    parent = D.parent(d)
+    r = N.restriction(network, class)
+    miss = Int[]
+    for exp in N.indices(r)
+        haskey(map, exp) && continue
+        push!(miss, exp)
+    end
+    if !isempty(miss)
+        miss = EN.join_elided(miss, ", ", " and ")
+        s = length(miss) == 1 ? "" : "s"
+        F.checkfails("Missing for $d, no value provided for $(repr(parent)) node$s $miss.")
+    end
+    unexp = miss
+    for act in keys(map)
+        act in r && continue
+        push!(unexp, act)
+    end
+    if !isempty(unexp)
+        unexp = EN.join_elided(unexp, ", ", " and ")
+        indices = length(unexp) == 1 ? "index" : "indices"
+        F.checkfails("Invalid $indices for $class within $parent: $unexp.")
+    end
+    # Then reorder values one by one into a vector.
+    try
+        [check_with_ref(d, model, map[i], N.tolocal(i, r)) for i in N.indices(r)]
+    catch e
+        e isa InputError || rethrow(e)
+        F.checkfails("When checking $d values map against model:\n$(e.mess)", rethrow)
     end
 end

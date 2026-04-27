@@ -29,6 +29,7 @@ Base.size(s::S) = (s |> N.view |> length,)
 Base.getindex(s::S, ref) = getindex(N.view(s), check_ref(s, ref))
 function Base.setindex!(s::S, x, ref)
     ref = check_ref(s, ref)
+    check_write_signature(s, ref)
     x = check_write(s, x, ref)
     setindex!(N.view(s), x, ref)
 end
@@ -56,42 +57,76 @@ end
 S = SparseNodesDataView
 D.parent(s::S) = D.parent(dispatcher(s))
 N.restriction(s::S) = N.restriction(N.network(s), D.class(s), D.parent(s))
+N.parent_index(s::S) = N.class(N.network(s), D.parent(s)).index
 Base.size(s::S) = (N.n_nodes(N.network(s), D.parent(s)),)
-Base.getindex(s::S, l::Symbol) = getindex(N.view(s), check_ref(s, l))
-function Base.setindex!(s::S, x, l::Symbol)
-    l = check_ref(s, l)
-    x = check_write(s, x, l)
-    setindex!(N.view(s), x, l)
-end
-
-function Base.getindex(s::S, i::Int)
-    i = check_ref(s, i)
-    i = restrict_index(s, i)
-    read(N.entry(s), getindex, i)
-end
-
-function Base.setindex!(s::S, x, i::Int)
-    i = check_ref(s, i)
-    i = restrict_index(s, i)
-    x = check_write(s, x, i)
-    mutate!(N.entry(s), setindex!, x, i)
-end
-
-function restrict_index(s::S, i::Int)
-    r = N.restriction(s)
-    if !(i in r)
-        class = repr(D.class(s))
-        parent = repr(D.parent(s))
-        err(s, "Node $i in $parent is not a node in $class.")
-    end
-    N.tolocal(i, r)
-end
+check_index(s::S, i::Int) = check_index(s, i, length(s), D.parent(s))
+check_label(s::S, l::Symbol) = check_label(s, l, N.parent_index(s), D.parent(s))
+N.to_label(s::S, i) = N.to_label(N.index(s), i) # Assuming checked input.
+N.to_index(s::S, l) = N.to_index(N.index(s), l) # Assuming checked input.
 
 # Duty to AbstractSparseVector..?
 SparseArrays.nonzeroinds(s::S) = s |> N.restriction |> N.indices |> collect
 SparseArrays.nonzeros(s::S) = read(collect, N.entry(s))
 SparseArrays.findnz(s::S) = (SparseArrays.nonzeroinds(s), nonzeros(s))
 SparseArrays.nnz(s::S) = s |> N.restriction |> length
+
+function restrict_ref(s::S, i::Int)
+    i = check_ref(s, i) # Checks within *parent* class.
+    r = N.restriction(s)
+    if i in r # Checks within focal class.
+        N.tolocal(i, r)
+    else
+        nothing
+    end
+end
+
+function restrict_ref(s::S, l::Symbol)
+    l = check_ref(s, l) # Checks within *parent* class.
+    i = N.index(s)
+    if N.is_label(i, l) # Checks within focal class.
+        N.to_index(i, l)
+    else
+        nothing
+    end
+end
+
+function Base.getindex(s::S, i::Int)
+    r_i = restrict_ref(s, i)
+    isnothing(r_i) && return zero(D.type(s))
+    read(N.entry(s), getindex, r_i)
+end
+function Base.setindex!(s::S, x, i::Int)
+    i_r = restrict_ref(s, i)
+    if isnothing(i_r)
+        x == zero(D.type(s)) && return
+        mutoff(s, i)
+    end
+    x = check_write(s, x, i_r)
+    setindex!(N.view(s), x, i_r)
+end
+
+function Base.getindex(s::S, l::Symbol)
+    i_r = restrict_ref(s, l)
+    isnothing(i_r) && return zero(D.type(s))
+    read(N.entry(s), getindex, i_r)
+end
+function Base.setindex!(s::S, x, l::Symbol)
+    i_r = restrict_ref(s, l)
+    if isnothing(i_r)
+        x == zero(D.type(s)) && return
+        mutoff(s, l)
+    end
+    x = check_write(s, x, l)
+    setindex!(N.view(s), x, i_r)
+end
+
+function mutoff(s::S, ref)
+    d = dispatcher(s)
+    Node = d |> D.parent |> D.NodeClass |> D.CamelCaseSingular
+    sub = d |> D.NodeClass |> D.snake_case_singular
+    field = D.field(d)
+    err(s, "$Node [$(repr(ref))] is not a $sub so it has no $(repr(field)) to mutate.")
+end
 
 function extract(s::S)
     T = eltype(s)
@@ -104,6 +139,28 @@ function extract(s::S)
         end
     end
     res
+end
+
+# There is dispatch ambiguity unless we also specialize these
+# at least for the 4 reftypes that check_ref is specialized on.
+# TODO: I am not sure how to avoid having to do this, but I would like to :\
+for T in (Ref, UnitRange, CartesianIndex)
+    eval(
+        quote
+            Base.getindex(s::S, ref::$T) =
+                @invoke Base.getindex(s::AbstractSparseVector, check_ref(s, ref))
+            function Base.setindex!(s::S, x, ref::$T)
+                check_write_signature(s, ref)
+                @invoke Base.setindex!(s::AbstractSparseVector, x, check_ref(s, ref))
+            end
+        end,
+    )
+end
+# Then only to trigger the error path (should always fail with the catch-all).
+Base.getindex(s::S, ref) = check_ref(s, ref)
+function Base.setindex!(s::S, _, ref)
+    check_write_signature(s, ref)
+    check_ref(s, ref)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -135,7 +192,8 @@ check_write(s::S, x, ref) =
     end
 
 # Mirror Julia's error in this case.
-check_write(s::S, _, ::UnitRange) = err(
+check_write_signature(::S, _) = nothing
+check_write_signature(s::S, ::UnitRange) = err(
     s,
     "Indexed assignment with a single value to possibly many locations \
      is not supported; perhaps use broadcasting `.=` instead?",
@@ -217,16 +275,30 @@ end
 
 NodeTopologyView{d} = Union{NodesNamesView{d},NodesMaskView{d}}
 S = NodeTopologyView
-N.class(s::S) = N.class(N.network(s), D.class(s))
+
+# ==========================================================================================
+# Common to all dense views.
+
+DenseNodeView{d} = Union{NodesDataView{d},NodesNamesView{d},NodesMaskView{d}}
+S = DenseNodeView
 Base.getindex(s::S, ref) = @invoke getindex(s::AbstractVector, check_ref(s, ref))
+
+check_index(s::S, i::Int) = check_index(s, i, length(s), D.class(s))
+check_label(s::S, l::Symbol) = check_label(s, l, N.index(s), D.class(s))
+
+# Assuming checked input.
+N.to_label(s::S, i) = N.to_label(N.index(s), i)
+N.to_index(s::S, l) = N.to_index(N.index(s), l)
+
 
 # ==========================================================================================
 # Common to all node views.
 
 NodesView{d} = Union{AbstractNodesDataView{d},NodesNamesView{d},NodesMaskView{d}}
 S = NodesView
-N.index(s::S) = N.class(s).index
 D.class(s::S) = D.class(dispatcher(s))
+N.class(s::S) = N.class(N.network(s), D.class(s))
+N.index(s::S) = N.class(s).index
 Base.getindex(s::S) = errnodesdim(s, ())
 Base.getindex(s::S, i, j, k...) = errnodesdim(s, (i, j, k...))
 errnodesdim(s, i) = err(
@@ -238,21 +310,16 @@ errnodesdim(s, i) = err(
 check_ref(s::S, i::Int) = check_index(s, i)
 check_ref(s::S, l::Symbol) = check_label(s, l)
 
-function check_index(s::S, i::Int)
-    class = repr(D.class(s))
-    n, s_ = ns(length(s))
-    i in 1:n || err(s, "Cannot index with [$i] into a class with $n $class node$s_.")
-    i
+function check_index(s::S, i::Int, n::Int, class::Symbol)
+    i in 1:n && return i
+    _, s_ = ns(n)
+    err(s, "Cannot index with [$i] into a class with $n $(repr(class)) node$s_.")
 end
 
-check_label(s::S, l::Symbol) =
+check_label(s::S, l::Symbol, index::N.Index, class::Symbol) =
     try
-        N.check_label(l, N.index(s), D.class(s))
+        N.check_label(l, index, class)
     catch e
         e isa N.LabelError || rethrow(e)
         err(s, sprint(showerror, e), rethrow)
     end
-
-# Assuming checked input.
-N.to_label(s::S, i) = N.to_label(N.index(s), i)
-N.to_index(s::S, l) = N.to_index(N.index(s), l)
