@@ -94,6 +94,7 @@ module Networks
 
 import EcologicalNetworksDynamics: EN
 import .EN: Option, SparseMatrix
+const N = Networks
 
 using Crayons
 using OrderedCollections

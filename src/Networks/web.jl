@@ -36,6 +36,7 @@ Number of fields in the web.
 """
 n_fields(w::Web) = length(w.data)
 
+
 # Forward simple requests to topology.
 n_edges(w::Web) = n_edges(w.topology)
 n_sources(w::Web) = n_sources(w.topology)

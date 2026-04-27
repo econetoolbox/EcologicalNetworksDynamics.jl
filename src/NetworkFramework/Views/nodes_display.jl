@@ -1,24 +1,24 @@
 function inline_info(v::NodesDataView)
-    class = classname(v)
-    field = fieldname(v)
+    class = D.class(v)
+    field = D.field(v)
     "<$class:$field>"
 end
 
 function inline_info(v::SparseNodesDataView)
-    class = classname(v)
+    class = D.class(v)
     parent = D.parent(v)
     parent = isnothing(parent) ? ":" : parent
-    field = fieldname(v)
+    field = D.field(v)
     "<$parent:$class:$field>"
 end
 
 function inline_info(v::NodesNamesView)
-    class = classname(v)
+    class = D.class(v)
     "<$class>"
 end
 
 function inline_info(v::NodesMaskView)
-    class = classname(v)
+    class = D.class(v)
     parent = D.parent(v)
     parent = isnothing(parent) ? ":" : parent
     "<$parent:$class>"
@@ -71,7 +71,7 @@ function Base.show(io::IO, v::SparseNodesDataView)
     print(io, inline_info(v))
     print(io, '[')
     n = length(v)
-    mask = N.mask(network(v), class(v).name, parent(v))
+    mask = N.mask(N.network(v), D.class(v), D.parent(v))
     read(N.entry(v)) do raw
         i_raw = 0
         for (i_m, m) in enumerate(mask)
@@ -93,7 +93,7 @@ end
 function Base.show(io::IO, v::NodesNamesView)
     print(io, inline_info(v))
     print(io, '[')
-    for (i, name) in enumerate(index(v).reverse)
+    for (i, name) in enumerate(N.index(v).reverse)
         print(io, repr(name))
         if i < length(v)
             print(io, ", ")
@@ -106,7 +106,7 @@ function Base.show(io::IO, v::NodesMaskView)
     print(io, inline_info(v))
     print(io, '[')
     n = length(v)
-    r = restriction(v)
+    r = N.restriction(v)
     for i_parent in 1:n
         if i_parent in r
             print(io, '1')
@@ -123,7 +123,7 @@ end
 function Base.show(io::IO, ::MIME"text/plain", v::NodesDataView)
     print(io, display_info(v))
     n, s = ns(length(v))
-    w = readonly(v) ? " readonly" : ""
+    w = D.readonly(v) ? " readonly" : ""
     print(io, " ($n$w value$s)")
     read(N.entry(v)) do raw
         for v in raw
@@ -135,9 +135,9 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", v::SparseNodesDataView)
     print(io, display_info(v))
-    mask = N.mask(network(v), N.class(v).name, D.parent(v))
+    mask = N.mask(N.network(v), D.class(v), D.parent(v))
     n, _ = ns(length(v))
-    w = readonly(v) ? " (readonly)" : ""
+    w = D.readonly(v) ? " (readonly)" : ""
     read(N.entry(v)) do raw
         (nz, s) = ns(length(raw))
         print(io, " ($nz/$n$w value$s)")
@@ -159,7 +159,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodesNamesView)
     print(io, display_info(v))
     n, s = ns(length(v))
     print(io, " ($n value$s)")
-    for name in index(v).reverse
+    for name in N.index(v).reverse
         print(io, "\n ")
         print(io, repr(name))
     end
@@ -167,7 +167,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", v::NodesMaskView)
     print(io, display_info(v))
-    r = restriction(v)
+    r = N.restriction(v)
     n, _ = ns(length(v))
     (nr, s) = ns(length(r))
     print(io, " ($nr/$n value$s)")

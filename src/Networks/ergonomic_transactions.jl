@@ -58,45 +58,42 @@ for i in collect(Iterators.product(repeat([(true, false)], 3)...))
     any(i) || continue
     (ew, vw), (er, vr), (ea, va) = (s ? (Entry, View) : (Entries, Views) for s in i)
     w, r, a = (s ? :(($n,)) : n for (s, n) in zip(i, (:w, :r, :a)))
-    me(xp) = :($Base.map($mod.entry, $xp))
-    mod = Networks
-    eval(
-        quote
-            """
+    me(xp) = :($Base.map($N.entry, $xp))
+    N.eval(quote
+        """
         Elide tuple for singleton entries (see `mix!`). # (on entries)
         """
-            $mod.mix!(f!, w::$ew, r::$er, a::$ea) = # (on entries)
-                $mod.mix!($w, $r, $a) do $w, $r, $a
-                    f!(w, r, a)
-                end
-            $mod.mix!(f!, w::$vw, r::$vr, a::$va) = # (on views)
-                $mod.mix!(f!, $(me(w)), $(me(r)), $(me(a)))
-        end,
-    )
+        mix!(f!, w::$ew, r::$er, a::$ea) = # (on entries)
+            mix!($w, $r, $a) do $w, $r, $a
+                f!(w, r, a)
+            end
+        mix!(f!, w::$vw, r::$vr, a::$va) = # (on views)
+            mix!(f!, $(me(w)), $(me(r)), $(me(a)))
+    end)
 
     #---------------------------------------------------------------------------------------
     # Add additional convenience when one of the tuples is empty.
     if ew === Entry #  (to not repeat the same definition)
-        eval(quote
+        N.eval(quote
             """
             Transactional `mix!` without "mutated" entries (see `mix!`).
             """
-            $mod.reassign!(f, r::$vr, a::$va) = $mod.reassign!(f, $(me(r)), $(me(a)))
-            $mod.reassign!(f, r::$er, a::$ea) =
-                $mod.mix!((), $r, $a) do _, $r
+            reassign!(f, r::$vr, a::$va) = reassign!(f, $(me(r)), $(me(a)))
+            reassign!(f, r::$er, a::$ea) =
+                mix!((), $r, $a) do _, $r
                     f(r)
                 end
         end)
     end
 
     if er === Entry
-        eval(quote
+        N.eval(quote
             """
             Transactional `mix!` without "read-only" entries (see `mix!`).
             """
-            $mod.modify!(f!, w::$vw, a::$va) = $mod.modify!(f!, $(me(w)), $(me(a)))
-            $mod.modify!(f!, w::$ew, a::$ea) =
-                $mod.mix!($w, (), $a) do $w, _
+            modify!(f!, w::$vw, a::$va) = modify!(f!, $(me(w)), $(me(a)))
+            modify!(f!, w::$ew, a::$ea) =
+                mix!($w, (), $a) do $w, _
                     f!(w)
                 end
         end)
@@ -106,10 +103,10 @@ for i in collect(Iterators.product(repeat([(true, false)], 3)...))
         """
         Transactional `mix!` without "reassigned" entries (see `mix!`).
         """
-        eval(quote
-            $mod.mix!(f!, w::$vw, r::$vr) = $mod.mix!(f!, $(me(w)), $(me(r)))
-            $mod.mix!(f!, w::$ew, r::$er) =
-                $mod.mix!($w, $r, ()) do $w, $r
+        N.eval(quote
+            mix!(f!, w::$vw, r::$vr) = mix!(f!, $(me(w)), $(me(r)))
+            mix!(f!, w::$ew, r::$er) =
+                mix!($w, $r, ()) do $w, $r
                     (f!(w, r), ())
                 end
         end)

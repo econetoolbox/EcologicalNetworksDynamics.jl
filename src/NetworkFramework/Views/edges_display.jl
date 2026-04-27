@@ -3,13 +3,13 @@
 end
 
 function inline_info(v::EdgesDataView)
-    web = V.web(v).name
-    field = fieldname(v)
+    web = D.web(v)
+    field = D.field(v)
     "<$web:$field>"
 end
 
 function inline_info(v::EdgesMaskView)
-    web = V.web(v).name
+    web = D.web(v)
     "<$web>"
 end
 
@@ -30,7 +30,7 @@ type_info(::Type{<:EdgesMaskView}) = "edges mask"
 
 function Base.show(io::IO, v::EdgesDataView)
     print(io, inline_info(v))
-    raw = entry(v)
+    raw = N.entry(v)
     l, (m, n) = length(v), size(v)
     if l == 0
         print(io, "($m×$n: no values)")
@@ -38,14 +38,14 @@ function Base.show(io::IO, v::EdgesDataView)
         (x,) = read(identity, raw)
         print(io, "($m×$n: 1 value: $x)")
     else
-        min, max = read(minmax, entry(v))
+        min, max = read(minmax, raw)
         print(io, "($m×$n: $l values ranging from $min to $max)")
     end
 end
 
 function Base.show(io::IO, v::EdgesMaskView)
     print(io, inline_info(v))
-    l, (m, n) = N.n_edges(web(v)), size(v)
+    l, (m, n) = N.n_edges(N.web(v)), size(v)
     print(io, "($m×$n: ")
     if l == 0
         print(io, "no edges")
@@ -61,11 +61,11 @@ function Base.show(io::IO, ::MIME"text/plain", v::EdgesDataView)
     print(io, display_info(v))
     l, (m, n) = length(v), size(v)
     l, s = ns(l)
-    top = topology(v)
+    top = N.topology(v)
     print(io, " ($m×$n: $l value$s)")
     widths = zeros(Int, n)
     lines = []
-    view = V.view(v)
+    view = N.view(v)
     for i in 1:m
         line = []
         for j in 1:n
@@ -91,9 +91,9 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", v::EdgesMaskView)
     print(io, display_info(v))
-    l, (m, n) = N.n_edges(web(v)), size(v)
+    l, (m, n) = N.n_edges(N.web(v)), size(v)
     l, s = ns(l)
-    top = topology(v)
+    top = N.topology(v)
     print(io, " ($m×$n: $l edge$s)")
     widths = zeros(Int, n)
     lines = []

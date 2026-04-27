@@ -131,7 +131,7 @@ function define_sparse_node_field_component(
                 const d = $d
                 const prop = $prop
                 const C = $C
-                get_value(::Network, m::Model) = V.nodes_view(m, d)
+                get_value(::Network, m::Model) = V.data_view(m, d)
                 NF.define_method(get_value; read_as = prop, depends = [C])
                 if !D.readonly(d)
                     set_value!(::Network, m::Model, input) = assign!(d, m, input)

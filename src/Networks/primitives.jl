@@ -17,7 +17,7 @@ function add_class!(n::Network, name::Symbol, labels)
         n_new = 0
         for label in labels
             label = Symbol(label)
-            label in Networks.labels(index) &&
+            label in N.labels(index) &&
                 err("There is already a node labeled $(repr(label)).")
             n_new += 1
             index.forward[label] = n_before + n_new
@@ -212,7 +212,7 @@ export restriction
 
 function restriction(n::Network, class::Symbol, super::Symbol, ::Type{Internal})
     check_class_name.((n,), (class, super))
-    class = Networks.class(n, class)
+    class = N.class(n, class)
     # Find parent class.
     parent = class
     while true
@@ -226,7 +226,7 @@ end
 
 function restriction(n::Network, class::Symbol, ::Nothing, ::Type{Internal})
     check_class_name(n, class)
-    class = Networks.class(n, class)
+    class = N.class(n, class)
     read(n.index) do root_index
         restriction_from_indexes(class.index, root_index)
     end

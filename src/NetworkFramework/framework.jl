@@ -11,9 +11,9 @@ export Blueprint, Component
 const Model = F.System{Network}
 export Model
 
-# Access underlying network.
-network(m::Model) = F.value(m)
-export network
+# Access underlying network or model.
+N.network(m::Model) = F.value(m)
+model(m::Model) = m # (override for views, solutions etc.)
 
 # Define items, always for the 'Network' type.
 import .F: define_blueprint, define_conflicts # Unchanged.

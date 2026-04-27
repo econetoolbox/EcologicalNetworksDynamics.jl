@@ -89,7 +89,6 @@ end
 function define_class_properties(mod::Module, d::NodeClass; depends = [])
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
 
-    p = Meta.quot(plural)
     NF.define_propspace(plural)
     defmeth(fn, s) = NF.define_method(fn; depends, read_as = [:($plural.$s)])
 
@@ -105,23 +104,24 @@ function define_class_properties(mod::Module, d::NodeClass; depends = [])
                 using OrderedCollections
                 const defmeth = $defmeth
                 const d = $d
+                const c = D.class(d)
 
                 # Ordered index.
-                ref_index(n::Network) = N.class(n, $p).index
+                ref_index(n::Network) = N.class(n, c).index
                 get_index(n::Network) = deepcopy(ref_index(n).forward)
-                indices(n::Network) = N.node_indices(n, $p)
+                indices(n::Network) = N.node_indices(n, c)
 
                 # Nodes counts and nodes labels.
                 # The 'ref' variant is more efficient but unexposed.
-                get_number(n::Network) = N.n_nodes(n, $p)
+                get_number(n::Network) = N.n_nodes(n, c)
                 ref_names(n::Network) = ref_index(n).reverse
-                get_names(::Network, m::Model) = V.nodes_names_view(m, d)
+                get_names(::Network, m::Model) = V.names_view(m, d)
 
                 # Mask within parent class.
                 get_parent_index(n::Network) =
                     OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
                 mask(n::Network, m::Model) =
-                    V.nodes_mask_view(m, D.NodeMask($p, N.class(n, $p).parent))
+                    V.mask_view(m, D.NodeMask(c, N.class(n, c).parent))
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)

@@ -64,24 +64,31 @@ end
 # Query.
 
 """
-Extract web or class.
+Extract web, class or their components.
 """
 class(n::Network, name::Symbol) = n.classes[name]
 web(n::Network, name::Symbol) = n.webs[name]
-export class, web
+index(n::Network, class::Symbol) = N.class(n, class).index
+restriction(n::Network, class::Symbol) = N.class(n, class).restriction
+topology(n::Network, web::Symbol) = N.web(n, web).topology
+source_index(n::Network, web::Symbol) = N.source(n, web).index
+target_index(n::Network, web::Symbol) = N.target(n, web).index
+export class, web, index, restriction, topology, source_index, target_index
 
 """
-Extract class index.
+Extract related classes.
 """
-index(n::Network, class::Symbol) = Networks.class(n, class).index
-export index
+parent(n::Network, class::Symbol) = N.class(n, N.class(n, class).parent)
+source(n::Network, web::Symbol) = N.class(n, N.web(n, web).source)
+target(n::Network, web::Symbol) = N.class(n, N.web(n, web).target)
+export parent, source, target
 
 """
 Total number of nodes in the network,
 or in the given class.
 """
 n_nodes(n::Network) = read(length, n.index)
-n_nodes(n::Network, class::Symbol) = n_nodes(Networks.class(n, class))
+n_nodes(n::Network, class::Symbol) = n_nodes(N.class(n, class))
 n_nodes(n::Network, ::Nothing) = n_nodes(n)
 export n_nodes
 
@@ -90,7 +97,7 @@ Total number of edges in the network,
 or in the given web.
 """
 n_edges(n::Network) = sum(n_edges(web.topology) for web in values(n.webs); init = 0)
-n_edges(n::Network, web::Symbol) = n_edges(Networks.web(n, web).topology)
+n_edges(n::Network, web::Symbol) = n_edges(N.web(n, web).topology)
 export n_edges
 
 """

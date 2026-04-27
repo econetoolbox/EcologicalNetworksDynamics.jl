@@ -27,7 +27,7 @@ export Foodweb, TrophicLayer
 # Web-derived classes and webs.
 
 function NF.post_expand!(d::DT, model)
-    network = EN.network(model)
+    network = N.network(model)
     web = D.web(d)
     topology = N.web(network, web).topology
 
@@ -120,7 +120,7 @@ let d = D.NodeField(:species, :trophic_level)
     DT = typeof(d)
     D.type(::DT) = Float64
     D.readonly(::DT) = true
-    global level(::Network, m::Model) = V.nodes_view(m, d)
+    global level(::Network, m::Model) = V.data_view(m, d)
     global level_entry(n::Network) = N.class(n, :species).data[:trophic_level]
     NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
     NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])

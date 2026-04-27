@@ -106,7 +106,6 @@ function define_web_properties(mod::Module, d::EdgeWeb; depends = [])
     web, Web = D.name_variants(d)
     prop, Prop = D.propnames(d)
 
-    w = Meta.quot(web)
     NF.define_propspace(prop)
     defmeth(fn, s) = NF.define_method(fn; depends, read_as = map(s -> :($prop.$s), s))
 
@@ -117,11 +116,12 @@ function define_web_properties(mod::Module, d::EdgeWeb; depends = [])
             using EcologicalNetworksDynamics: N, V, D, Network, Model
             const defmeth = $defmeth
             const d = $d
+            const w = D.web(d)
 
-            web(m::Network) = N.web(m, $w)
+            web(m::Network) = N.web(m, w)
             topology(m::Network) = web(m).topology
             number(m::Network) = m |> topology |> N.n_edges
-            mask(::Network, m::Model) = V.edges_mask_view(m, d)
+            mask(::Network, m::Model) = V.mask_view(m, d)
 
             defmeth(topology, [:_topology])
             defmeth(mask, [:mask, :matrix])

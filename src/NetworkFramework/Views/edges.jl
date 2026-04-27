@@ -9,23 +9,23 @@ struct EdgesDataView{d,T} <: AbstractMatrix{T}
     view::N.EdgesView{T}
 end
 export EdgesDataView
-function edges_view(m::Model, d::D.EdgeField)
+function data_view(m::Model, d::D.EdgeField)
     (web, field) = D.content(d)
-    n = NF.network(m)
+    n = N.network(m)
     view = N.edges_view(n, web, field)
     T = eltype(view)
     EdgesDataView{d,T}(m, view)
 end
 S = EdgesDataView
-N.web(s::S) = s |> view |> web
-webname(s::S) = N.web(dispatcher(s))
-fieldname(s::S) = D.field(dispatcher(s))
-Base.getindex(s::S, i, j) = getindex(view(s), check_refs(s, i, j))
-Base.setindex!(s::S, x, i, j) = setindex!(view(s), x, check_refs(s, i, j))
+N.web(s::S) = s |> N.view |> N.web
+D.web(s::S) = D.web(dispatcher(s))
+D.field(s::S) = D.field(dispatcher(s))
+Base.getindex(s::S, i, j) = getindex(N.view(s), check_refs(s, i, j))
+Base.setindex!(s::S, x, i, j) = setindex!(N.view(s), x, check_refs(s, i, j))
 Base.setindex!(s::S, _) = erredgesdim(s, ())
 Base.setindex!(s::S, _, i::Ref) = erredgesdim(s, (i,))
 Base.setindex!(s::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
-extract(s::S; kw...) = N.to_sparse(view(s), kw...)
+extract(s::S; kw...) = N.to_sparse(N.view(s), kw...)
 
 # TODO: do we need an SparseEdgesView? Maybe refactor components first to figure this.
 
@@ -41,41 +41,39 @@ struct EdgesMaskView{d} <: AbstractMatrix{Bool}
     web::N.Web
 end
 export EdgesMaskView
-function edges_mask_view(m::Model, d::D.EdgeWeb)
+function mask_view(m::Model, d::D.EdgeWeb)
     web = D.web(d)
-    n = NF.network(m)
+    n = N.network(m)
     web = N.web(n, web)
     EdgesMaskView{d}(m, web)
 end
 S = EdgesMaskView # "Self"
-web(s::S) = getfield(s, :web)
-webname(s::S) = D.web(dispatcher(s))
-topology(s::S) = web(s).topology
-Base.getindex(s::S, i::Int, j::Int) = N.is_edge(topology(s), check_refs(s, i, j)...)
+N.web(s::S) = getfield(s, :web)
+D.web(s::S) = D.web(dispatcher(s))
+Base.getindex(s::S, i::Int, j::Int) = N.is_edge(N.topology(s), check_refs(s, i, j)...)
 Base.setindex!(s::S, _...) = err(s, "Cannot mutate edges topology.")
 function Base.getindex(s::S, a::Symbol, b::Symbol)
     check_refs(s, a, b)
-    t = topology(s)
-    a = source_index(s).forward[a]
-    b = target_index(s).forward[b]
+    t = N.topology(s)
+    a = N.source_index(s).forward[a]
+    b = N.target_index(s).forward[b]
     N.is_edge(t, a, b)
 end
-export edges_mask_view
-extract(s::S) = s |> topology |> N.to_mask
+extract(s::S) = s |> N.topology |> N.to_mask
 
 # ==========================================================================================
 # Common to all edge views.
 
 EdgesView{d} = Union{EdgesDataView{d},EdgesMaskView{d}}
 S = EdgesView
-topology(s::S) = web(s).topology
-sourcename(s) = web(s).source
-targetname(s) = web(s).target
-source(s::S) = N.class(network(s), sourcename(s))
-target(s::S) = N.class(network(s), targetname(s))
-source_index(s::S) = source(s).index
-target_index(s::S) = target(s).index
-Base.size(s::S) = s |> web |> size
+N.topology(s::S) = N.web(s).topology
+D.source(s) = N.web(s).source
+D.target(s) = N.web(s).target
+N.source(s::S) = N.class(N.network(s), D.source(s))
+N.target(s::S) = N.class(N.network(s), D.target(s))
+N.source_index(s::S) = N.source_index(N.network(s), D.web(s))
+N.target_index(s::S) = N.target_index(N.network(s), D.web(s))
+Base.size(s::S) = s |> N.web |> size
 Base.getindex(s::S) = erredgesdim(s, ())
 Base.getindex(s::S, i::Ref) = erredgesdim(s, (i,))
 Base.getindex(s::S, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
@@ -93,14 +91,14 @@ end
 
 
 check_refs(s::S, src, tgt) =
-    (check_ref(s, src, Val(source)), check_ref(s, tgt, Val(target)))
+    (check_ref(s, src, Val(N.source)), check_ref(s, tgt, Val(N.target)))
 check_ref(s, ref, _) = check_ref(s, ref)
 
 function check_ref(s::S, i::Int, ::Val{side}) where {side}
     class = side(s)
     m = class.name
     n = length(class)
-    w = webname(s)
+    w = D.web(s)
     d = disp_index(i, Val(side))
     y = Symbol(side)
     i in 1:n || err(s, "Cannot index with $d into a web $(repr(w)) with $n $m $y nodes.")
@@ -110,7 +108,7 @@ end
 function check_ref(s::S, l::Symbol, ::Val{side}) where {side}
     class = side(s)
     m = class.name
-    w = webname(s)
+    w = D.web(s)
     d = disp_index(l, Val(side))
     y = Symbol(side)
     N.is_label(class.index, l) || err(
@@ -120,5 +118,5 @@ function check_ref(s::S, l::Symbol, ::Val{side}) where {side}
     )
     l
 end
-disp_index(ref, ::Val{target}) = "[·, $(repr(ref))]"
-disp_index(ref, ::Val{source}) = "[$(repr(ref)), ·]"
+disp_index(ref, ::Val{N.source}) = "[$(repr(ref)), ·]"
+disp_index(ref, ::Val{N.target}) = "[·, $(repr(ref))]"

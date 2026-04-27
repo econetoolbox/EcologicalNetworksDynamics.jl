@@ -7,9 +7,8 @@ by specializing implementations for their particular component.
 """
 module Dispatchers
 
-using EcologicalNetworksDynamics: Networks
+using EcologicalNetworksDynamics: N, Networks
 using .Networks
-const N = Networks
 const D = Dispatchers
 
 const Option{T} = Union{Nothing,T}
@@ -92,7 +91,7 @@ struct EdgeWeb{web} <: Dispatcher end
 export EdgeWeb
 EdgeWeb(web::Symbol) = EdgeWeb{web}()
 S = EdgeWeb # 'Self'
-D.web(::S{web}) where {web} = web
+web(::S{w}) where {w} = w
 
 """
 Obtain name variants for the web, in order:
@@ -235,7 +234,7 @@ export EdgeField
 EdgeField(web::Symbol, field::Symbol) = EdgeField{web,field}()
 S = EdgeField # 'Self'
 content(::S{web,field}) where {web,field} = (web, field)
-N.web(s::S) = first(content(s))
+web(s::S) = first(content(s))
 field(s::S) = last(content(s))
 
 """

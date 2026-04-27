@@ -33,6 +33,33 @@ so their behaviour can be fine-tuned by downstream component authors.
 """
 module Views
 
+# A lot of small accessors are defined and used within this module.
+# Namespace them with the module of their expected *result*.
+# For instance: `D.class(view)` will result in a symbol
+# while `N.class(view)` will result in the actual underlying class value.
+# A lot of them are also shared among different types of views.
+# Use the following pattern to avoid having to heavily duplicate them:
+#
+#    # Anything specific to (1).
+#    struct ViewType1 ... end
+#    S = ViewType1 # "Self"
+#    method1(s::S) = ...
+#
+#    # Anything specific to (2).
+#    struct ViewType2 ... end
+#    S = ViewType2 # "Self"
+#    method2(s::S) = ...
+#
+#    # Anything common to both.
+#    S = Union{ViewType1,ViewType2}
+#    method3(s::S) = ...
+#    ...
+#
+# This makes the code easier to navigate and maintain,
+# /!\ at the cost of confusing `Revise` very much.
+# Don't expect Revise to correctly track changes within this module because of this.
+# But I still think it's worth the cost.
+
 import EcologicalNetworksDynamics: EN, N, F, I, NetworkFramework, Display, Option
 import .NetworkFramework: NF, D, Model, Ref, InputError
 const V = Views
@@ -58,9 +85,9 @@ include("edges_display.jl")
 
 DataView{d,T} = Union{AbstractNodesDataView{d,T},EdgesDataView{d,T}}
 S = DataView
-view(v::S) = getfield(v, :view)
-fieldname(s::S) = D.field(dispatcher(s))
-N.entry(v::S) = v |> view |> N.entry
+N.view(v::S) = getfield(v, :view)
+D.field(s::S) = D.field(dispatcher(s))
+N.entry(v::S) = v |> N.view |> N.entry
 
 # ==========================================================================================
 #  Common to all views.
@@ -69,8 +96,9 @@ AbstractView{d} = Union{NodesView{d},EdgesView{d}}
 S = AbstractView
 dispatcher(::Type{<:S{d}}) where {d} = d
 dispatcher(s::S) = dispatcher(typeof(s))
-model(s::S) = getfield(s, :model)
-network(s::S) = s |> model |> F.value
+D.readonly(s::S) = D.readonly(dispatcher(s))
+NF.model(s::S) = getfield(s, :model)
+N.network(s::S) = s |> NF.model |> N.network
 Base.getproperty(s::S, ::Symbol) = err(s, "no property to access.")
 Base.setproperty!(s::S, ::Symbol) = err(s, "no property to access.")
 
