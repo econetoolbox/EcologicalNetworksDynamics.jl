@@ -15,7 +15,7 @@ struct NodesDataView{d,T} <: AbstractVector{T}
     view::N.NodesView{T}
 end
 export NodesDataView
-function nodes_view(m::Model, d::D.NodeField)
+function view(m::Model, d::D.NodeField)
     (class, fieldname) = D.content(d)
     n = NF.network(m)
     view = N.nodes_view(n, class, fieldname)
@@ -79,12 +79,18 @@ end
 function restrict_index(s::S, i::Int)
     r = restriction(s)
     if !(i in r)
-        class = repr(D.class(s).name)
+        class = repr(D.class(s))
         parent = repr(D.parent(s))
         err(s, "Node $i in $parent is not a node in $class.")
     end
     N.tolocal(i, r)
 end
+
+# Duty to AbstractSparseVector..?
+SparseArrays.nonzeroinds(s::S) = s |> restriction |> N.indices |> collect
+SparseArrays.nonzeros(s::S) = read(collect, N.entry(s))
+SparseArrays.findnz(s::S) = (SparseArrays.nonzeroinds(s), nonzeros(s))
+SparseArrays.nnz(s::S) = s |> restriction |> length
 
 function extract(s::S)
     T = eltype(s)

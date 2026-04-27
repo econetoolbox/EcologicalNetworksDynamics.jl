@@ -6,10 +6,13 @@ Anything specific to Growth will be tested in a dedicated file.
 module SparseNodeFieldTest
 
 using EcologicalNetworksDynamics
+using SparseArrays
 
 using Test
-import EcologicalNetworksDynamics: EN, N, F, Network
+import EcologicalNetworksDynamics: EN, N, F, Network, Views, SparseNodeField
 import Main: is_disp, is_repr, @sysfails, Value
+const View = # Tested viewtype.
+    Views.SparseNodesDataView{SparseNodeField(:producers, :growth, :species),Float64}
 
 @testset "Typical SparseNodeField component" begin
 
@@ -51,7 +54,31 @@ import Main: is_disp, is_repr, @sysfails, Value
     @sysfails(Model(bp), Missing(Foodweb, GrowthRate, [GrowthRate.Raw], nothing))
 
     # The values become available as a view.
-    m.growth_rate # HERE test sparse views for the first time.
+    v = m.growth_rate
+    @test v isa View
+    @test v isa AbstractVector{Float64}
+    @test v isa AbstractSparseVector{Float64,Int}
+    @test is_repr(v, "<species:producers:growth>[·, 5.0, ·, 8.0]")
+    @test is_disp(
+        v,
+        """
+        SparseNodesDataView<species:producers:growth>{Float64} (2/4 values)
+         ·
+         5.0
+         ·
+         8.0\
+        """,
+    )
+    @sysfails( # Unless the component is missing, as all properties.
+        Model().growth_rate,
+        Property(
+            growth_rate,
+            "Component $(EN._GrowthRate) is required to read this property.",
+        ),
+    )
+
+    # The view has some basic sparsee-vector-like interface.
+    @test v == collect(v) == [0, 5, 0, 8] == [r for r in v] # HERE: fix.
 
 end
 
