@@ -53,10 +53,6 @@ function check_allometry_arguments(all_parms, implicit_metabolic_class, implicit
     # Nothing particular to check in general (yet).
 end
 
-# ==========================================================================================
-# Display the 1D or 2D nested dicts
-# that will be exposed in blueprints.
-
 const Allometry = AllometryDict{Float64}
 export Allometry
 

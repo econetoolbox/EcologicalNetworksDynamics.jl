@@ -21,75 +21,7 @@ let d = SparseNodeField(:producers, :growth, :species)
     export GrowthRate
 end
 
-#  # ==========================================================================================
-#  # Blueprints.
-
-#  module GrowthRate_
-#  include("blueprint_modules.jl")
-#  include("blueprint_modules_identifiers.jl")
-#  import .EN: Species, _Species, Foodweb, _Foodweb, BodyMass, MetabolicClass, _Temperature
-
-#  #-------------------------------------------------------------------------------------------
-#  # From raw values.
-
-#  mutable struct Raw <: Blueprint
-#  r::SparseVector{Float64}
-#  species::Brought(Species)
-#  Raw(r::SparseVector{Float64}, sp = _Species) = new(r, sp)
-#  Raw(r, sp = _Species) = new(@tographdata(r, SparseVector{Float64}), sp)
-#  end
-#  F.implied_blueprint_for(bp::Raw, ::_Species) = Species(length(bp.r))
-#  @blueprint Raw "growth rate values"
-#  export Raw
-
-#  F.early_check(bp::Raw) = check_nodes(check, bp.r)
-#  check(r, ref = nothing) = check_value(>=(0), r, ref, :r, "Not a positive value")
-
-#  function F.late_check(raw, bp::Raw)
-#  (; r) = bp
-#  prods = @ref raw.producers.mask
-#  @check_template r prods :producers
-#  end
-
-#  F.expand!(raw, bp::Raw) = expand!(raw, bp.r)
-#  expand!(raw, r) = add_field!(raw, :producers, :growth_rate, r |> findnz |> last)
-
-#  #-------------------------------------------------------------------------------------------
-#  # From a scalar broadcasted to all producers.
-
-#  mutable struct Flat <: Blueprint
-#  r::Float64
-#  end
-#  @blueprint Flat "uniform growth rate" depends(Foodweb)
-#  export Flat
-
-#  F.early_check(bp::Flat) = check(bp.r)
-#  F.expand!(raw, bp::Flat) = expand!(raw, to_template(bp.r, @ref raw.producers.mask))
-
-#  #-------------------------------------------------------------------------------------------
-#  # From a species-indexed map.
-
-#  mutable struct Map <: Blueprint
-#  r::@GraphData Map{Float64}
-#  Map(r) = new(@tographdata(r, Map{Float64}))
-#  end
-#  @blueprint Map "[species => growth rate] map"
-#  export Map
-
-#  F.early_check(bp::Map) = check_nodes(check, bp.r)
-#  function F.late_check(raw, bp::Map)
-#  (; r) = bp
-#  index = Networks.index(raw, :species)
-#  prods = mask(raw, :producers, :species)
-#  prods = sparse(collect(prods)) # TODO should not be needed anymore soon.
-#  @check_list_refs r :producer index template(prods)
-#  end
-
-#  function F.expand!(raw, bp::Map)
-#  index = Networks.index(raw, :species)
-#  r = to_sparse_vector(bp.r, index)
-#  expand!(raw, r)
-#  end
+# HERE: have generic code to generate these two "typical" allometry blueprints.
 
 #  #-------------------------------------------------------------------------------------------
 #  # From allometric rates (no temperature).
@@ -167,14 +99,6 @@ end
 #  expand!(raw, r)
 #  end
 
-#  end
-
-#  # ==========================================================================================
-#  # Component and generic constructors.
-
-#  @component GrowthRate{Internal} requires(Foodweb) blueprints(GrowthRate_)
-#  export GrowthRate
-
 #  # Construct either variant based on user input,
 #  # but disallow direct allometric input in this constructor,
 #  # because it is unclear wether `GrowthRate(:Miele2019; a_p=1)
@@ -199,23 +123,3 @@ end
 #  end
 
 #  end
-
-#  # Basic query.
-#  @expose_data nodes begin
-#  property(growth_rate, r)
-#  depends(GrowthRate)
-#  @species_index
-#  ref_cached(_ -> nothing) # Cache filled on component expansion.
-#  get(GrowthRates{Float64}, sparse, "producer")
-#  template(raw -> @ref raw.producers.mask)
-#  write!((raw, rhs::Real, i) -> begin
-#  GrowthRate_.check(rhs, i)
-#  rhs = Float64(rhs)
-#  raw.biorates.r[i] = rhs
-#  rhs
-#  end)
-#  end
-
-#  # Display.
-#  F.shortline(io::IO, model::Model, ::_GrowthRate) =
-#  print(io, "Growth rate: [$(join_elided(model._growth_rate, ", "))]")
