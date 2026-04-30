@@ -15,7 +15,7 @@ function define_class_component(mod::Module, d::NodeClass)
         mod.eval.((
             quote
                 module $Plural_
-                import EcologicalNetworksDynamics: N, F, NF, Blueprint
+                import EcologicalNetworksDynamics: EN, N, F, NF, Blueprint
                 const d = $d
                 end
             end
@@ -37,10 +37,10 @@ function define_class_component(mod::Module, d::NodeClass)
         export Names
 
         # Verify blueprint values.
-        F.early_check(bp::Names) = $early_check(d, bp.names)
+        F.early_check(bp::Names) = EN.early_check(d, bp.names)
 
         # Expand into a new compartment.
-        F.expand!(model, bp::Names) = $expand!(d, model, bp.names)
+        F.expand!(model, bp::Names) = EN.expand!(d, model, bp.names)
 
     end)
 
@@ -53,9 +53,9 @@ function define_class_component(mod::Module, d::NodeClass)
             end
             NF.define_blueprint(Number, "number of $($s)")
             export Number
-            F.early_check(bp::Number) = $early_check(d, bp.n)
+            F.early_check(bp::Number) = EN.early_check(d, bp.n)
             F.expand!(model, bp::Number) =
-                $expand!(d, model, (Symbol($short_prefix, i) for i in 1:bp.n))
+                EN.expand!(d, model, (Symbol(EN.short_prefix, i) for i in 1:bp.n))
         end,
     )
 

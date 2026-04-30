@@ -15,9 +15,6 @@
 # I would advise that the following files be read in order
 # as later comments build upon earlier ones.
 
-# Helpers.
-include("./allometry.jl")
-
 # First example of a nodes class.
 include("./species.jl")
 
@@ -29,6 +26,9 @@ include("./body_mass.jl")
 
 # Non-numeric nodes data, that require checking against model values.
 include("./metabolic_class.jl")
+
+# Digression: defining new kinds of typical blueprints.
+include("./allometry.jl")
 
 # Nodes data only relevant to a sub-class.
 include("./growth_rate.jl")

@@ -78,6 +78,10 @@ D.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers
 D.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
 D.name_variants(::typeof(t)) = (:_, :top, :tops, :Top, :Tops)
 D.name_variants(::typeof(r)) = (:_, :prey, :preys, :Preys, :Preys)
+D.component(::typeof(p)) = Foodweb
+D.component(::typeof(c)) = Foodweb
+D.component(::typeof(t)) = Foodweb
+D.component(::typeof(r)) = Foodweb
 NF.define_class_properties(EN, p; depends)
 NF.define_class_properties(EN, c; depends)
 NF.define_class_properties(EN, t; depends)
@@ -89,6 +93,9 @@ c = EdgeWeb(:carnivory)
 D.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
 D.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
 D.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
+D.component(::typeof(p)) = Foodweb
+D.component(::typeof(h)) = Foodweb
+D.component(::typeof(c)) = Foodweb
 NF.define_web_properties(EN, p; depends)
 NF.define_web_properties(EN, h; depends)
 NF.define_web_properties(EN, c; depends)

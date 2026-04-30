@@ -23,6 +23,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
                 quote
                     module $Web_
                     import EcologicalNetworksDynamics:
+                        EN,
                         SparseMatrix,
                         N,
                         Network,
@@ -54,10 +55,10 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
             to_matrix(A) = NF.inputconvert(SparseMatrix{Bool}, A)
             # Infer number of class nodes from matrix size.
             F.implied_blueprint_for(bp::Matrix, ::_Class) =
-                $implied_class_from_matrix(d, Class, bp.A)
-            F.early_check(bp::Matrix) = $early_check(d, bp.A)
-            F.late_check(model, bp::Matrix) = $late_check(d, model, bp.A)
-            F.expand!(model, bp::Matrix) = $expand!(d, model, bp.A)
+                EN.implied_class_from_matrix(d, Class, bp.A)
+            F.early_check(bp::Matrix) = EN.early_check(d, bp.A)
+            F.late_check(model, bp::Matrix) = EN.late_check(d, model, bp.A)
+            F.expand!(model, bp::Matrix) = EN.expand!(d, model, bp.A)
             NF.define_blueprint(Matrix, "boolean matrix of $($w) links")
             export Matrix
         end,
@@ -75,9 +76,9 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
             end
             # Infer number or names of class nodes from the lists.
             F.implied_blueprint_for(bp::Adjacency, ::_Class) =
-                $implied_class_from_adjacency(d, Class, bp.A)
-            F.late_check(model, bp::Adjacency) = $late_check(d, model, bp.A)
-            F.expand!(model, bp::Adjacency) = $expand!(d, model, bp.A)
+                EN.implied_class_from_adjacency(d, Class, bp.A)
+            F.late_check(model, bp::Adjacency) = EN.late_check(d, model, bp.A)
+            F.expand!(model, bp::Adjacency) = EN.expand!(d, model, bp.A)
             NF.define_blueprint(Adjacency, "adjacency list of $($w) links")
             export Adjacency
         end,
@@ -94,7 +95,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     C = typeof(comp)
     mod.eval(quote
         $D.component(::$DT) = $C
-        (::$_Web)(args...; kwargs...) = $construct($d, $Web, args...; kwargs...)
+        (::$_Web)(args...; kwargs...) = EN.construct($d, $Web, args...; kwargs...)
     end)
 
     define_web_properties(mod, d; depends = [C])

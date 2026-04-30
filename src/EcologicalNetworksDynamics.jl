@@ -17,6 +17,7 @@ argerr(message, throw = Base.throw) = throw(ArgumentError(message))
 
 """
 Construct the name expression required to add a method to the given item.
+
 ```
 Module.A => :(\$Module.\$(:A))
 fn       => :(::\$(typeof(fn)))

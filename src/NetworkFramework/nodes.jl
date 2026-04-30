@@ -55,14 +55,14 @@ function define_node_field_component(
             mutable struct Raw <: Blueprint
                 $field::Vector{$T}
                 $class::Brought(Class)
-                Raw($field, $class) = new($construct_raw(d, $field), $class)
+                Raw($field, $class) = new(EN.construct_raw(d, $field), $class)
                 Raw($field; $class = _Class) = Raw($field, $class)
             end
             F.implied_blueprint_for(bp::Raw, ::_Class) =
-                $implied_class_from_raw(d, Class, bp.$field)
-            F.early_check(bp::Raw) = $early_check(d, bp.$field)
-            F.late_check(model, bp::Raw, early_data) = $late_check(d, model, early_data)
-            F.expand!(model, ::Raw, late_data) = $expand!(d, model, late_data)
+                EN.implied_class_from_raw(d, Class, bp.$field)
+            F.early_check(bp::Raw) = EN.early_check(d, bp.$field)
+            F.late_check(model, bp::Raw, early_data) = EN.late_check(d, model, early_data)
+            F.expand!(model, ::Raw, late_data) = EN.expand!(d, model, late_data)
             NF.define_blueprint(Raw, "raw values")
             export Raw
         end,
@@ -76,14 +76,14 @@ function define_node_field_component(
             mutable struct Map <: Blueprint
                 $field::EN.Map{$T}
                 $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
-                Map($field, $class) = new($construct_map(d, $field), $class)
+                Map($field, $class) = new(EN.construct_map(d, $field), $class)
                 Map($field; $class = _Class) = Map($field, $class)
             end
             F.implied_blueprint_for(bp::Map, ::_Class) =
-                $implied_class_from_map(d, Class, bp.$field)
-            F.early_check(bp::Map) = $early_check(d, bp.$field)
-            F.late_check(model, bp::Map, early_data) = $late_check(d, model, early_data)
-            F.expand!(model, bp::Map, late_data) = $expand!(d, model, late_data)
+                EN.implied_class_from_map(d, Class, bp.$field)
+            F.early_check(bp::Map) = EN.early_check(d, bp.$field)
+            F.late_check(model, bp::Map, early_data) = EN.late_check(d, model, early_data)
+            F.expand!(model, bp::Map, late_data) = EN.expand!(d, model, late_data)
             NF.define_blueprint(Map, "[$class => $field] map")
             export Map
         end,
@@ -97,10 +97,11 @@ function define_node_field_component(
                 mutable struct Flat <: Blueprint
                     $field::$T
                 end
-                F.early_check(bp::Flat) = $early_check_flat(d, bp.$field)
+                F.early_check(bp::Flat) = EN.early_check_flat(d, bp.$field)
                 F.late_check(model, bp::Flat, early_data) =
-                    $late_check_flat(d, model, early_data)
-                F.expand!(model, bp::Flat, late_data) = $expand_flat!(d, model, late_data)
+                    EN.late_check_flat(d, model, early_data)
+                F.expand!(model, bp::Flat, late_data) =
+                    EN.expand_flat!(d, model, late_data)
                 NF.define_blueprint(Flat, "uniform value"; depends = [Class])
                 export Flat
             end,

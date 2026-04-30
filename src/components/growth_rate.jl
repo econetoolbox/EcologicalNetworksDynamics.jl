@@ -8,54 +8,26 @@
 # (reassure JuliaLS)
 (false) && (local GrowthRate, _GrowthRate)
 
+miele2019_allometry_rates() = Allometry(; producer = (a = 1, b = -1 / 4))
+
 let d = SparseNodeField(:producers, :growth, :species)
+    # Specify component.
     DT = typeof(d)
     D.name_variants(::DT) = (:growth_rate, :growth_rates, :GrowthRate, :GrowthRates, :r)
     D.type(::DT) = Float64
+
+    # Value constraint.
     NF.check(::DT, input) = NF.non_negative(Float64, input)
-    NF.define_sparse_node_field_component(
-        EN,
-        d;
-        ClassComponent = Foodweb, # Producers are defined by the foodweb.
-    )
+
+    # Allometry blueprints.
+    albp = define_allometry_blueprints(EN, d, miele2019_allometry_rates())
+
+    construct_allometric(::DT, default::Symbol) =
+        NF.from_name(default, :Miele2016 => miele2019_allometry_rates)
+
+    NF.define_sparse_node_field_component(EN, d; blueprints = [albp])
     export GrowthRate
 end
-
-# HERE: have generic code to generate these two "typical" allometry blueprints.
-
-#  #-------------------------------------------------------------------------------------------
-#  # From allometric rates (no temperature).
-
-#  miele2019_allometry_rates() = Allometry(; producer = (a = 1, b = -1 / 4))
-
-#  # TODO: since only producers are involved,
-#  # does it make sense to receive and process a full allometric dict here?
-
-#  mutable struct Allometric <: Blueprint
-#  allometry::Allometry
-#  Allometric(; kwargs...) = new(parse_allometry_arguments(kwargs))
-#  Allometric(allometry::Allometry) = new(allometry)
-#  # Default values.
-#  function Allometric(default::Symbol)
-#  @check_symbol default (:Miele2019,)
-#  @expand_symbol default (:Miele2019 => new(miele2019_allometry_rates()))
-#  end
-#  end
-#  @blueprint Allometric "allometric rates" depends(BodyMass, MetabolicClass)
-#  export Allometric
-
-#  function F.early_check(bp::Allometric)
-#  (; allometry) = bp
-#  check_template(allometry, miele2019_allometry_rates(), "growth rates")
-#  end
-
-#  function F.expand!(raw, bp::Allometric)
-#  M = @ref raw.M
-#  mc = @ref raw.metabolic_class
-#  prods = @ref raw.producers.mask
-#  r = sparse_nodes_allometry(bp.allometry, prods, M, mc)
-#  expand!(raw, r)
-#  end
 
 #  #-------------------------------------------------------------------------------------------
 #  # From allometric rates and activation energy (temperature).
