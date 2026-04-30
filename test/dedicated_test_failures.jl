@@ -10,11 +10,11 @@ using Main.TestFailures
 
 include("./dedicated_test_failures/network.jl")
 include("./dedicated_test_failures/aliasing.jl")
-#  include("./dedicated_test_failures/framework.jl")
-#  include("./dedicated_test_failures/network_framework.jl")
+include("./dedicated_test_failures/framework.jl")
+include("./dedicated_test_failures/network_framework.jl")
 
 export @netfails, @labelfails
-export @xaliasfails, @aliasfails
+export @aliasfails
 export @bluefails, @methfails, @compfails, @conffails, @sysfails
 export @inputfails, @viewfails, @writefails
 

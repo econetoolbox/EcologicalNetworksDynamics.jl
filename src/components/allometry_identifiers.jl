@@ -3,8 +3,6 @@
 
 #! format: off
 @static if (false)
-    include("../AliasingDicts/AliasingDicts.jl")
-    using .AliasingDicts
     (local
          AllometricParametersDict,
          Allometry,

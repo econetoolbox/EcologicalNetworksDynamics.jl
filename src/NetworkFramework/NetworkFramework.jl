@@ -152,7 +152,7 @@ aliasing_symbol(dict, input) =
 export Network, Topology
 
 # Working with the framework.
-export Brought, blueprint, component, method
+export Brought
 
 # Working with both.
 import .V: extract

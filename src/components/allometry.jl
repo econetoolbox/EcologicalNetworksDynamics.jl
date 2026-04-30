@@ -1,16 +1,13 @@
-# Allometry is not exactly a component (for now at least)
-# because the values differ for every biorate,
-# and are only used for calculating them.
-# Also, biorates can be *modified* later from exposed writeable views,
-# so keeping them within the model would lead to inconsistent values.
-# As a consequence, leave allometric values within the blueprints.
-#
-# This file just provides utils to deal with allometric parameters..
-# ..based on the following allometry API.
+# Some typical blueprints expand by constructing biorates
+# from body masses, metabolic classes and allometry relations.
+# Here are common procedure to defining them.
+
 include("./allometry_api.jl")
 include("./allometry_identifiers.jl")
 using .AllometryApi
 export Allometry
+
+# HERE: `define_allometry_blueprints()`
 
 # Check the given parameters against a template (typically a default value)
 # so as to reject missing or unexpected values.
@@ -26,9 +23,9 @@ function check_template(allometry::Allometry, template::Allometry, biorate)
         if isin(mc, expected_classes, MC)
             pop!(expected_classes, mc)
         else
-            isempty(sub) || checkfails("Allometric rates for '$mc' are meaningless \
-                                        in the context of calculating $biorate: \
-                                        $(display_short(sub)).")
+            isempty(sub) || F.checkfails("Allometric rates for '$mc' are meaningless \
+                                          in the context of calculating $biorate: \
+                                          $(display_short(sub)).")
         end
 
         expected_parms = Set(keys(template[mc]))
@@ -39,8 +36,8 @@ function check_template(allometry::Allometry, template::Allometry, biorate)
                 pop!(expected_parms, parm)
             else
                 s = shortest(parm, AP)
-                checkfails("Allometric parameter '$s' ($parm) for '$mc' is meaningless \
-                            in the context of calculating $biorate: $value.")
+                F.checkfails("Allometric parameter '$s' ($parm) for '$mc' is meaningless \
+                              in the context of calculating $biorate: $value.")
             end
 
         end
@@ -49,20 +46,34 @@ function check_template(allometry::Allometry, template::Allometry, biorate)
         if !isempty(expected_parms)
             miss = pop!(expected_parms)
             s = shortest(miss, AP)
-            checkfails("Missing allometric parameter '$s' ($miss) for '$mc', \
-                        required to calculate $biorate.")
+            F.checkfails("Missing allometric parameter '$s' ($miss) for '$mc', \
+                          required to calculate $biorate.")
         end
     end
 
     # Check against missing metabolic classes.
     if !isempty(expected_classes)
         miss = pop!(expected_classes)
-        checkfails("Missing allometric rates for metabolic class '$miss', \
-                    required to calculate $biorate.")
+        F.checkfails("Missing allometric rates for metabolic class '$miss', \
+                      required to calculate $biorate.")
     end
 end
 
 #-------------------------------------------------------------------------------------------
+
+"""
+    boltzmann(Ea, T, T0)
+
+Calculates the temperature dependence term of the Boltzmann-Arrhenius equation,
+normalised to 20°C.
+Credit: Hanna Mayal 2022-10-07 c0d3a03bec1777768e49f305d228248c4bac1a7e.
+"""
+function boltzmann(Ea, T; T0 = 293.15)
+    k = 8.617e-5
+    normalised_T = T0 - T
+    denom = k * T0 * T
+    exp(Ea * (normalised_T / denom))
+end
 
 # Fill up allometric vector for nodes, using only the 'source' exponent 'b'.
 function fill_nodes_allometry!(
@@ -75,7 +86,7 @@ function fill_nodes_allometry!(
     E_a = 0,
     T = 1,
 )
-    bz = Internals.boltzmann(E_a, T)
+    bz = boltzmann(E_a, T)
     for i in indices
         M = masses[i]
         class = classes[i]
@@ -108,7 +119,7 @@ end
 
 # Same for edges, using both source 'b' and target 'c' exponents.
 function fill_edges_allometry!(mat, al::Allometry, indices, masses, classes; E_a = 0, T = 1)
-    bz = Internals.boltzmann(E_a, T)
+    bz = boltzmann(E_a, T)
     for (i, j) in indices
         class_i, class_j = classes[i], classes[j]
         Mi, Mj = masses[i], masses[j]

@@ -100,7 +100,7 @@ NF.define_web_properties(EN, c; depends)
 # ==========================================================================================
 """
 Calculate trophic levels for every species.
-Credit: Ismaël Lajaaiti 2024-03-19 #5665e377.
+Credit: Ismaël Lajaaiti 2024-03-19 5665e377fbdfb9b157c38927e44af3ed2ebbc378.
 """
 function trophic_levels(A::AbstractMatrix{Bool})
     A = Matrix(A) # Ensure A is dense for inversion.

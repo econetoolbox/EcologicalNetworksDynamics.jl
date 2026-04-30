@@ -2,14 +2,11 @@
 # factorized over the same "multiplex network" API.
 module MultiplexApi
 
-using ..AliasingDicts
-import ..Option
-import ..SparseMatrix
+using EcologicalNetworksDynamics: Option, SparseMatrix, AD, argerr
 
-include("multiplex_identifiers.jl")
-
-@aliasing_dict(
-    InteractionDict,
+AD.define_aliasing_dict(
+    MultiplexApi,
+    :InteractionDict,
     "interaction layer",
     :interaction,
     (
@@ -22,8 +19,9 @@ include("multiplex_identifiers.jl")
 )
 export InteractionDict
 
-@aliasing_dict(
-    MultiplexParametersDict,
+AD.define_aliasing_dict(
+    MultiplexApi,
+    :MultiplexParametersDict,
     "multiplex layer parameter",
     :multiplex_parameter,
     (
@@ -41,8 +39,8 @@ export InteractionDict
 export MultiplexParametersDict
 
 # Export aliases cheat-sheets to users:
-interactions_names() = AliasingDicts.aliases(InteractionDict)
-multiplex_parameters_names() = AliasingDicts.aliases(MultiplexParametersDict)
+interactions_names() = AD.aliases(InteractionDict)
+multiplex_parameters_names() = AD.aliases(MultiplexParametersDict)
 export interactions_names, multiplex_parameters_names
 
 # Nest them both into a flexible kwargs API.
@@ -55,10 +53,10 @@ multiplex_parameters_types = MultiplexParametersDict(;
     symmetry = Bool,
 )
 multiplex_types = InteractionDict(
-    (i => multiplex_parameters_types for i in AliasingDicts.standards(InteractionDict))...,
+    (i => multiplex_parameters_types for i in AD.standards(InteractionDict))...,
 )
 
-@prepare_2D_api(Multiplex, InteractionDict, MultiplexParametersDict)
+AD.define_2D_api(MultiplexApi, :Multiplex, InteractionDict, MultiplexParametersDict)
 export MultiplexDict
 export MultiplexArguments
 export TrackedMultiplexParameterDict
@@ -67,22 +65,17 @@ export parse_multiplex_parameter_for_interaction
 export parse_interaction_for_multiplex_parameter
 
 # Perform further checking, adding multiplex semantics.
-argerr(mess) = throw(ArgumentError(mess))
-pstandard(ref) = AliasingDicts.standardize(ref, MultiplexParametersDict)
-expand = AliasingDicts.expand
+pstandard(ref) = AD.standardize(ref, MultiplexParametersDict)
+expand = AD.expand
 
 # ==========================================================================================
 # Default checking for user-facing entry point into the API.
 function check_multiplex_arguments(all_parms, implicit_interaction, implicit_parameter)
-    #---------------------------------------------------------------------------------------
-    # Check arguments consistency.
-
-    # Check whether a value was given.
-    given(int, parm) = haskey(all_parms[int], parm)
+    given(int, parm) = haskey(all_parms[int], parm) # Check whether a value was given.
 
     # TODO: 'implicit_parameter' makes no sense in this context..
     # does it even make sense in general?
-    for int in AliasingDicts.standards(InteractionDict)
+    for int in AD.standards(InteractionDict)
 
         # Special-case trophic layer for now:
         # the matrix has already been constructed another way from the foodweb.
@@ -142,7 +135,7 @@ function check_multiplex_arguments(all_parms, implicit_interaction, implicit_par
             s = expand(all_parms[int][:sym][1])
             c, n = (
                 if isnothing(implicit_interaction) && isnothing(implicit_parameter)
-                    short = AliasingDicts.shortest(p, MultiplexParametersDict)
+                    short = AD.shortest(p, MultiplexParametersDict)
                     "$(short)_$(int)"
                 else
                     "$p"

@@ -17,8 +17,10 @@ argerr(message, throw = Base.throw) = throw(ArgumentError(message))
 
 """
 Construct the name expression required to add a method to the given item.
-- Module.A -> :(\$Module.\$(:A))
-- fn -> :(::\$(typeof(fn)))
+```
+Module.A => :(\$Module.\$(:A))
+fn       => :(::\$(typeof(fn)))
+```
 """
 function methname(T::Type)
     n = T.name
@@ -45,19 +47,21 @@ const F = Framework
 
 # Additional utils to construct components interface.
 include("./kwargs_helpers.jl")
+using .KwargsHelpers
+
 include("./AliasingDicts/AliasingDicts.jl")
-#  include("./multiplex_api.jl")
-#  using .KwargsHelpers
-#  const AD = AliasingDicts
+const AD = AliasingDicts
 
-#  # Bring this all together into a library for component authors.
-#  include("./NetworkFramework/NetworkFramework.jl")
-#  using .NetworkFramework
-#  export Model, extract
+include("./multiplex_api.jl")
 
-#  # The actual user-facing components of the package are defined there,
-#  # connecting them to the internals via the framework.
-#  include("./components/main.jl")
+# Bring this all together into a library for component authors.
+include("./NetworkFramework/NetworkFramework.jl")
+using .NetworkFramework
+export Model, extract
+
+# The actual user-facing components of the package are defined there,
+# connecting them to the internals via the framework.
+include("./components/main.jl")
 
 #=
 #-------------------------------------------------------------------------------------------
