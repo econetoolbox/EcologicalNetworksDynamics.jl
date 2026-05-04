@@ -5,92 +5,39 @@
 # Interestingly, allometric rates are either self-sufficient,
 # or they require that a temperature be defined within the model.
 
-# (reassure JuliaLS)
-(false) && (local GrowthRate, _GrowthRate)
+(false) && (local GrowthRate, _GrowthRate) # (reassure JuliaLS)
+export GrowthRate
 
-let d = SparseNodeField(:producers, :growth, :species)
-    # Specify component.
-    DT = typeof(d)
-    D.name_variants(::DT) = (:growth_rate, :growth_rates, :GrowthRate, :GrowthRates, :r)
-    D.type(::DT) = Float64
+module GrowthRateDef
 
-    # Value constraint.
-    NF.check(::DT, input) = NF.non_negative(Float64, input)
+using EcologicalNetworksDynamics: EN, D, NF, Allometry
 
-    # Allometry blueprints.
-    miele2019() = Allometry(; producer = (a = 1, b = -1 / 4))
-    binzer2016() =
-        (E_a = -0.84, allometry = Allometry(; producer = (a = exp(-15.68), b = -0.25)))
-    albp = define_allometry_blueprints(EN, d, miele2019(), binzer2016())
+const d = D.SparseNodeField(:producers, :growth, :species)
+const DT = typeof(d)
 
-    construct_allometric(::DT, lit::Symbol) =
-        NF.from_name(lit, :Miele2016 => miele2019)
-    construct_temperature_allometric(::DT, lit::Symbol) =
-        NF.from_name(lit, :Binzer2016 => binzer2016)
+D.name_variants(::DT) = (:growth_rate, :growth_rates, :GrowthRate, :GrowthRates, :r)
+D.type(::DT) = Float64
+NF.check(::DT, input) = NF.non_negative(Float64, input)
 
-    NF.define_sparse_node_field_component(EN, d; blueprints = [albp])
-    export GrowthRate
+# Allometry blueprints.
+miele2019() = Allometry(; producer = (a = 1, b = -1 / 4))
+binzer2016() =
+    (E_a = -0.84, allometry = Allometry(; producer = (a = exp(-15.68), b = -0.25)))
+albp = EN.define_allometry_blueprints(EN, d, miele2019(), binzer2016())
+
+# Codegen + exec.
+NF.define_sparse_node_field_component(EN, d; blueprints = [albp])
+using .EN: GrowthRate, _GrowthRate
+
+# Forward to default constructor.
+EN.construct(::DT, ::Type{GrowthRate.Allometric}, lit::Symbol) =
+    NF.from_name(lit, :Miele2016 => miele2019)
+EN.construct(::DT, ::Type{GrowthRate.Temperature}, lit::Symbol) =
+    NF.from_name(lit, :Binzer2016 => binzer2016)
+(::_GrowthRate)(default::Symbol) = NF.from_name(
+    default,
+    :Miele2019 => GrowthRate.Allometric(default),
+    :Binzer2016 => GrowthRate.Temperature(default),
+)
+
 end
-
-#  #-------------------------------------------------------------------------------------------
-#  # From allometric rates and activation energy (temperature).
-
-#  mutable struct Temperature <: Blueprint E_a::Float64
-#  allometry::Allometry
-#  Temperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
-#  Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
-#  function Temperature(default::Symbol)
-#  @check_symbol default (:Binzer2016,)
-#  @expand_symbol default (:Binzer2016 => new(binzer2016_allometry_rates()...))
-#  end
-#  end
-#  @blueprint Temperature "allometric rates and activation energy" depends(
-#  _Temperature,
-#  BodyMass,
-#  MetabolicClass,
-#  )
-#  export Temperature
-
-#  function F.early_check(bp::Temperature)
-#  (; allometry) = bp
-#  check_template(
-#  allometry,
-#  binzer2016_allometry_rates()[2],
-#  "growth rates (from temperature)",
-#  )
-#  end
-
-#  function F.expand!(raw, bp::Temperature)
-#  (; E_a) = bp
-#  T = @get raw.T
-#  M = @ref raw.M
-#  mc = @ref raw.metabolic_class
-#  prods = @ref raw.producers.mask
-#  r = sparse_nodes_allometry(bp.allometry, prods, M, mc; E_a, T)
-#  expand!(raw, r)
-#  end
-
-#  # Construct either variant based on user input,
-#  # but disallow direct allometric input in this constructor,
-#  # because it is unclear wether `GrowthRate(:Miele2019; a_p=1)
-#  # is written by a user having forgotten `b_p` or wanting a default value for `b_p`.
-#  # TODO: offer either: default on missing values from this constructor,
-#  # error on missing values from direct blueprint constructor?
-#  function (::_GrowthRate)(r)
-
-#  r = @tographdata r {Symbol, Scalar, SparseVector, Map}{Float64}
-#  @check_if_symbol r (:Miele2019, :Binzer2016)
-
-#  if r == :Miele2019
-#  GrowthRate.Allometric(r)
-#  elseif r == :Binzer2016
-#  GrowthRate.Temperature(r)
-#  elseif r isa Real
-#  GrowthRate.Flat(r)
-#  elseif r isa AbstractVector
-#  GrowthRate.Raw(r)
-#  else
-#  GrowthRate.Map(r)
-#  end
-
-#  end

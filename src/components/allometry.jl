@@ -78,8 +78,7 @@ function define_allometry_blueprints(
                 allometry::Allometry
                 Allometric(allometry::Allometry) = new(allometry)
                 Allometric(; kwargs...) = new(EN.parse_allometry_arguments(kwargs))
-                Allometric(default::Symbol) =
-                    new(EN.construct(d, EN.AllometricBlueprint, default))
+                Allometric(lit::Symbol) = new(EN.construct(d, Allometric, lit))
             end
             F.define_blueprint(
                 Allometric,
@@ -101,17 +100,19 @@ function define_allometry_blueprints(
                 Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
                 Temperature(E_a; kwargs...) =
                     new(E_a, EN.parse_allometry_arguments(kwargs))
-                Temperature(default::Symbol) =
-                    new(EN.construct(d, EN.TemperatureAllometricBlueprint, default))
+                function Temperature(lit::Symbol)
+                    (; E_a, allometry) = EN.construct(d, Temperature, lit)
+                    new(E_a, allometry)
+                end
             end
             F.define_blueprint(
                 Temperature,
                 "allometric rates and activation energy";
                 depends = [EN.BodyMass, EN.MetabolicClass, EN.Temperature],
             )
-            F.early_check(bp::Allometric) =
+            F.early_check(bp::Temperature) =
                 EN.early_check(d, bp, $(temperature_template.allometry))
-            F.expand!(m::Model, bp::Allometry, _) = EN.expand!(d, m, bp)
+            F.expand!(m::Model, bp::Temperature, _) = EN.expand!(d, m, bp)
             export Temperature
 
         end,
@@ -121,10 +122,12 @@ function define_allometry_blueprints(
 end
 
 #-------------------------------------------------------------------------------------------
+# Typically constructed from a value in the literature, named by a symbol.
+# But leave this decision to the caller.
 
-construct(::AbstractNodeField, ::Type{<:AllometricBlueprint}, lit::Symbol) =
+construct(::AbstractNodeField, ::Type{<:AllometricBlueprint}, ::Symbol) =
     throw("unimplemented")
-construct(::AbstractNodeField, ::Type{<:TemperatureAllometricBlueprint}, lit::Symbol) =
+construct(::AbstractNodeField, ::Type{<:TemperatureAllometricBlueprint}, ::Symbol) =
     throw("unimplemented")
 
 #-------------------------------------------------------------------------------------------

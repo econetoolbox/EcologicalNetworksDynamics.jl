@@ -53,38 +53,34 @@ function define_sparse_node_field_component(
 
     #---------------------------------------------------------------------------------------
     # From raw values: one per node in the subclass (=dense).
-    bpmod.eval(
-        quote
-            mutable struct Raw <: NF.SubClassFieldRawBlueprint
-                $field::Vector{$T}
-                Raw($field) = new(NF.construct(d, NF.SubClassFieldRawBlueprint, $field))
-            end
-            NF.data(bp::Raw) = bp.$field
-            F.early_check(bp::Raw) = NF.early_check(d, bp)
-            F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
-            F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Raw, "raw values")
-            export Raw
-        end,
-    )
+    bpmod.eval(quote
+        mutable struct Raw <: NF.SubClassFieldRawBlueprint
+            $field::Vector{$T}
+            Raw($field) = new(NF.construct(d, Raw, $field))
+        end
+        NF.data(bp::Raw) = bp.$field
+        F.early_check(bp::Raw) = NF.early_check(d, bp)
+        F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
+        F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
+        NF.define_blueprint(Raw, "raw values")
+        export Raw
+    end)
 
     #---------------------------------------------------------------------------------------
     # From a node-indexed map.
 
-    bpmod.eval(
-        quote
-            mutable struct Map <: NF.SubClassFieldMapBlueprint
-                $field::NF.Map{$T}
-                Map($field) = new(NF.construct(d, NF.SubClassFieldMapBlueprint, $field))
-            end
-            NF.data(bp::Map) = bp.$field
-            F.early_check(bp::Map) = NF.early_check(d, bp)
-            F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
-            F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Map, "[$class => $field] map")
-            export Map
-        end,
-    )
+    bpmod.eval(quote
+        mutable struct Map <: NF.SubClassFieldMapBlueprint
+            $field::NF.Map{$T}
+            Map($field) = new(NF.construct(d, Map, $field))
+        end
+        NF.data(bp::Map) = bp.$field
+        F.early_check(bp::Map) = NF.early_check(d, bp)
+        F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
+        F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
+        NF.define_blueprint(Map, "[$class => $field] map")
+        export Map
+    end)
 
     #---------------------------------------------------------------------------------------
     # From a scalar broadcasted to all nodes in the subclass (if meaningful).

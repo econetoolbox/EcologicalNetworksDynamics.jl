@@ -4,9 +4,6 @@ using Crayons
 using MacroTools
 using OrderedCollections
 using SparseArrays
-using LinearAlgebra
-using Graphs
-using Distributions
 
 # Common throughout the code.
 const EN = EcologicalNetworksDynamics
@@ -37,6 +34,7 @@ using .Display
 # Data: parsimonious model memory representation.
 include("Networks/Networks.jl")
 const N = Networks
+using .N: Network
 
 # Code: efficient model simulation.
 include("Differentials/Differentials.jl")
@@ -45,19 +43,37 @@ using .Differentials # XXX: move after components definitions so they may rely o
 # Interface: ergonomic model manipulation.
 include("./Framework/Framework.jl")
 const F = Framework
+using .F: Brought
 
 # Additional utils to construct components interface.
 include("./kwargs_helpers.jl")
-using .KwargsHelpers
 
 include("./AliasingDicts/AliasingDicts.jl")
 const AD = AliasingDicts
 
 include("./multiplex_api.jl")
+using .MultiplexApi
 
 # Bring this all together into a library for component authors.
 include("./NetworkFramework/NetworkFramework.jl")
-using .NetworkFramework
+const NF = NetworkFramework
+using .NF:
+    D,
+    V,
+    Views,
+    Model,
+    Blueprint,
+    Component,
+    @alias,
+    Map,
+    Adjacency,
+    BinMap,
+    BinAdjacency,
+    InputError,
+    inerr
+using .D:
+    NodeClass, NodeMask, EdgeWeb, GraphField, NodeField, SparseNodeField, AbstractNodeField
+using .V: extract
 export Model, extract
 
 # The actual user-facing components of the package are defined there,

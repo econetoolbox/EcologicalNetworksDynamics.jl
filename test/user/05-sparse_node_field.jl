@@ -10,7 +10,7 @@ using SparseArrays
 
 using Test
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, N, F, Network, Views, SparseNodeField
+import EcologicalNetworksDynamics: EN, N, F, Views, SparseNodeField
 import Main:
     is_disp, is_repr, @argfails, @writefails, @inputfails, @viewfails, @sysfails, Value
 const View = # Tested viewtype.
@@ -23,10 +23,12 @@ const View = # Tested viewtype.
     @test is_disp(
         GrowthRate,
         """
-        GrowthRate (component for $Network, expandable from:
+        GrowthRate (component for $(N.Network), expandable from:
           Raw: raw values,
           Map: [producers => growth] map,
           Flat: uniform value,
+          Allometric: allometric rates,
+          Temperature: allometric rates and activation energy,
         )\
         """,
     )

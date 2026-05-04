@@ -3,9 +3,10 @@
 module MultiplexApi
 
 using EcologicalNetworksDynamics: Option, SparseMatrix, AD, argerr
+const Mx = MultiplexApi
 
 AD.define_aliasing_dict(
-    MultiplexApi,
+    Mx,
     :InteractionDict,
     "interaction layer",
     :interaction,
@@ -20,7 +21,7 @@ AD.define_aliasing_dict(
 export InteractionDict
 
 AD.define_aliasing_dict(
-    MultiplexApi,
+    Mx,
     :MultiplexParametersDict,
     "multiplex layer parameter",
     :multiplex_parameter,
@@ -56,7 +57,7 @@ multiplex_types = InteractionDict(
     (i => multiplex_parameters_types for i in AD.standards(InteractionDict))...,
 )
 
-AD.define_2D_api(MultiplexApi, :Multiplex, InteractionDict, MultiplexParametersDict)
+AD.define_2D_api(Mx, :Multiplex, InteractionDict, MultiplexParametersDict)
 export MultiplexDict
 export MultiplexArguments
 export TrackedMultiplexParameterDict

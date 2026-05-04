@@ -9,6 +9,7 @@ only = [
     "03-graph_scalar.jl",
     "04-node_field.jl",
     "05-sparse_node_field.jl",
+    "06-allometric_blueprints.jl",
     "99-components.jl",
     "100-kwargs.jl",
 ] # Unless some files are specified here, in which case only run these.

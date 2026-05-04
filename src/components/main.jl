@@ -15,6 +15,9 @@
 # I would advise that the following files be read in order
 # as later comments build upon earlier ones.
 
+# (skip on first read: defining typical allometry-related blueprints)
+include("./allometry.jl")
+
 # First example of a nodes class.
 include("./species.jl")
 
@@ -30,11 +33,8 @@ include("./metabolic_class.jl")
 # First example graph-level data.
 include("./temperature.jl")
 
-# Digression: defining new kinds of typical blueprints.
-#  include("./allometry.jl")
-
 # Nodes data only relevant to a sub-class.
-#  include("./growth_rate.jl")
+include("./growth_rate.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================

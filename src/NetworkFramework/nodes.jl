@@ -70,8 +70,7 @@ function define_node_field_component(
             mutable struct Raw <: NF.ClassFieldRawBlueprint
                 $field::Vector{$T}
                 $class::Brought(Class)
-                Raw($field, $class) =
-                    new(NF.construct(d, NF.ClassFieldRawBlueprint, $field), $class)
+                Raw($field, $class) = new(NF.construct(d, Raw, $field), $class)
                 Raw($field; $class = _Class) = Raw($field, $class)
             end
             NF.data(bp::Raw) = bp.$field
@@ -92,8 +91,7 @@ function define_node_field_component(
             mutable struct Map <: NF.ClassFieldMapBlueprint
                 $field::NF.Map{$T}
                 $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
-                Map($field, $class) =
-                    new(NF.construct(d, NF.ClassFieldMapBlueprint, $field), $class)
+                Map($field, $class) = new(NF.construct(d, Map, $field), $class)
                 Map($field; $class = _Class) = Map($field, $class)
             end
             NF.data(bp::Map) = bp.$field

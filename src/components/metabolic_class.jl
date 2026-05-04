@@ -7,10 +7,17 @@
 # or automatically set in favour of invertebrate or consumers, based on a foodweb.
 # In any case, a foodweb component is required.
 
-(false) && (local MetabolicClass, _MetabolicClass, MetabolicClass_) # (reassure JuliaLS)
+(false) && (local MetabolicClass, _MetabolicClass) # (reassure JuliaLS)
+export MetabolicClass
 
-d = D.NodeField(:species, :metabolic_class)
-DT = typeof(d)
+module MetabolicClassDef
+
+using EcologicalNetworksDynamics:
+    EN, N, F, NF, D, AD, Model, Blueprint, Foodweb, MetabolicClassDict, InputError, inerr
+
+const d = D.NodeField(:species, :metabolic_class)
+const DT = typeof(d)
+
 D.type(::DT) = Symbol
 D.name_variants(::DT) =
     (:metabolic_class, :metabolic_classes, :MetabolicClass, :MetabolicClasses, :class)
@@ -22,7 +29,7 @@ NF.check(::DT, input) = NF.aliasing_symbol(MetabolicClassDict, input)
 function NF.check(::DT, model::Model, class, ::Int, sp::Symbol)
     network = NF.network(model)
     is_producer = N.is_label(network, sp, :producers)
-    prod_class = AliasingDicts.is(class, :producer, MetabolicClassDict)
+    prod_class = AD.is(class, :producer, MetabolicClassDict)
     if prod_class && !is_producer
         inerr("Metabolic class for species $(repr(sp)) \
                cannot be $(repr(class)) since it is a consumer.")
@@ -38,7 +45,7 @@ NF.flat(::DT) = nothing
 
 # Instead, have a blueprint *favouring* one consumer class over the other(s).
 function check_favour(s)
-    s = inputconvert(Symbol, s)
+    s = NF.inputconvert(Symbol, s)
     NF.name_among((:all_invertebrates, :all_ectotherms), s)
 end
 
@@ -49,13 +56,14 @@ mutable struct Favour <: Blueprint
 end
 NF.define_blueprint(Favour, "favourite consumer class")
 
+# Codegen + exec.
 NF.define_node_field_component(
     EN,
     d;
     requires = [Foodweb],
     blueprints = [:Favour => Favour],
 )
-export MetabolicClass
+using .EN: MetabolicClass, _MetabolicClass
 
 #-------------------------------------------------------------------------------------------
 # Complete 'Favour' blueprint.
@@ -77,3 +85,5 @@ end
 # Constructors.
 (::_MetabolicClass)(favourite::Symbol) = Favour(favourite)
 (::_MetabolicClass)(favourite::AbstractString) = Favour(Symbol(favourite))
+
+end

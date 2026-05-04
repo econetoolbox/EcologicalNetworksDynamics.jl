@@ -531,7 +531,7 @@ function define_2D_api(mod::Module, name::Symbol, O::Type{<:AD}, I::Type{<:AD})
 
             # Display for the nested dict (no need to name the two levels).
             function $(methname(display_short))(d::$NestedDict)
-                (; display_short, shortest) = $AD
+                (; display_short, shortest) = $AliasingDicts
                 D = typeof(d)
                 "($(join(("$(shortest(o, D)): $(display_short(sub))"
                           for (o, sub) in d), ", ")))"
@@ -539,7 +539,7 @@ function define_2D_api(mod::Module, name::Symbol, O::Type{<:AD}, I::Type{<:AD})
 
             function $(methname(display_long))(d::$NestedDict; level = 0)
                 isempty(d) && return "()"
-                (; aliases) = $AD
+                (; aliases) = $AliasingDicts
                 ind(n) = "\n" * repeat("  ", level + n)
                 res = "("
                 # Only remind the aliases for the first times sub entry appear.

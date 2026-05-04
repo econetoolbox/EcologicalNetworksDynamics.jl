@@ -5,20 +5,35 @@
 # Typically, many default values are calculated from this layer,
 # and values checks are performed against this layer.
 
-# (reassure JuliaLS)
-(false) && (local Foodweb, _Foodweb)
+(false) && (local Foodweb, _Foodweb, TrophicLayer)
+export Foodweb, TrophicLayer
 
-d = D.EdgeWeb(:foodweb)
-DT = typeof(d)
+module FoodwebDef
+
+using EcologicalNetworksDynamics:
+    EN, D, N, F, NF, V, Network, Model, KwargsHelpers, argerr, @alias
+using .KwargsHelpers
+
+using Distributions
+using LinearAlgebra
+using SparseArrays
+using Graphs
+
+# Dispatcher.
+const d = D.EdgeWeb(:foodweb)
+const DT = typeof(d)
+
+# Extensions.
 D.sidenames(::DT) = (:species, :species)
 D.name_variants(::DT) = (:foodweb, :Foodweb)
 D.propnames(::DT) = (:trophic, :Trophic)
 D.is_symmetric(::DT) = false
+
+# Codegen + exec.
 NF.define_reflexive_web_component(EN, d)
+using .EN: Foodweb, _Foodweb
 
 # Community consistency aliases.
-const (TrophicLayer, _TrophicLayer) = (Foodweb, _Foodweb)
-export Foodweb, TrophicLayer
 @alias foodweb trophic
 @alias A trophic.matrix
 @alias trophic.A A
@@ -69,10 +84,10 @@ function NF.post_expand!(d::DT, model)
 end
 
 depends = [Foodweb]
-p = NodeClass(:producers)
-c = NodeClass(:consumers)
-t = NodeClass(:tops)
-r = NodeClass(:preys)
+p = D.NodeClass(:producers)
+c = D.NodeClass(:consumers)
+t = D.NodeClass(:tops)
+r = D.NodeClass(:preys)
 # TODO: fix that there is no need for a short prefix for them: subclasses.
 D.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
 D.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
@@ -87,9 +102,9 @@ NF.define_class_properties(EN, c; depends)
 NF.define_class_properties(EN, t; depends)
 NF.define_class_properties(EN, r; depends)
 
-p = EdgeWeb(:producers_web)
-h = EdgeWeb(:herbivory)
-c = EdgeWeb(:carnivory)
+p = D.EdgeWeb(:producers_web)
+h = D.EdgeWeb(:herbivory)
+c = D.EdgeWeb(:carnivory)
 D.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
 D.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
 D.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
@@ -120,18 +135,16 @@ function trophic_levels(A::AbstractMatrix{Bool})
     inverse = iszero(det(D)) ? pinv : inv
     inverse(D) * ones(S)
 end
+
 # Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
-# TODO: ease that boilerplate.
-let d = D.NodeField(:species, :trophic_level)
-    # (d is captured in node_views: protect from later rebindings)
-    DT = typeof(d)
-    D.type(::DT) = Float64
-    D.readonly(::DT) = true
-    global level(::Network, m::Model) = V.data_view(m, d)
-    global level_entry(n::Network) = N.class(n, :species).data[:trophic_level]
-    NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
-    NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])
-end
+const l = D.NodeField(:species, :trophic_level)
+const LT = typeof(l)
+D.type(::LT) = Float64
+D.readonly(::LT) = true
+level(::Network, m::Model) = V.data_view(m, l)
+level_entry(n::Network) = N.class(n, :species).data[:trophic_level]
+NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
+NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])
 
 # ==========================================================================================
 # Construct Matrix blueprint from a random model.
@@ -453,3 +466,7 @@ julia> m.carnivorous_links
  0  0  0  0  0
 ```
 """ Foodweb
+
+end
+
+const TrophicLayer = Foodweb # Export alias.

@@ -13,10 +13,11 @@
 module AllometryApi
 
 using EcologicalNetworksDynamics: AD
+const Al = AllometryApi
 
 # Convenience shorter aliases.
 AD.define_aliasing_dict(
-    AllometryApi,
+    Al,
     :MetabolicClassDict,
     "metabolic class",
     :metabolic_class,
@@ -25,7 +26,7 @@ AD.define_aliasing_dict(
 export MetabolicClassDict
 
 AD.define_aliasing_dict(
-    AllometryApi,
+    Al,
     :AllometricParametersDict,
     "allometric parameter",
     :allometric_parameter,
