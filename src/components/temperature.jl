@@ -4,46 +4,15 @@
 # (reassure JuliaLS)
 (false) && (local Temperature, _Temperature)
 
-# ==========================================================================================
-# Blueprints.
+# Typical, vanilla graph scalar component.
+d = D.GraphField(:temperature)
+DT = typeof(d)
+D.name_variants(::DT) = (:T, :temperature, :Temperature)
+D.type(::DT) = Float64
+NF.check(::DT, input) = NF.non_negative(Float64, input)
 
-module Temperature_
-include("blueprint_modules.jl")
-
-#-------------------------------------------------------------------------------------------
-# From raw value.
-
-mutable struct Raw <: Blueprint
-    T::Float64 # Kelvin.
-end
-@blueprint Raw "value (Kelvin)"
-export Raw
-
-F.early_check(bp::Raw) = check(bp.T)
-check(T) = check_value(>=(0), T, nothing, :T, "Not a positive (Kelvin) value")
-
-F.expand!(raw, bp::Raw) = raw.environment = Internals.Environment(bp.T)
-
-end
-
-# ==========================================================================================
-# Component and generic constructors.
-
-@component Temperature{Internal} blueprints(Temperature_)
+NF.define_graph_scalar(EN, d)
 export Temperature
 
-(::_Temperature)(T = 293.15) = Temperature.Raw(T)
-
-# Basic query.
-@expose_data graph begin
-    property(temperature, T)
-    depends(Temperature)
-    get(raw -> raw.environment.T)
-    set!((raw, rhs::Real) -> begin
-        Temperature_.check(rhs)
-        raw.environment.T = rhs
-    end)
-end
-
-# Display.
-F.shortline(io::IO, model::Model, ::_Temperature) = print(io, "Temperature: $(model.T)K")
+# Default value.
+(::_Temperature)() = Temperature.Raw(293.15)

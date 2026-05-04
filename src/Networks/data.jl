@@ -135,7 +135,7 @@ export mix!
 
 struct Corrupt <: Exception end
 
-function Base.showerror(io::IO, e::Corrupt)
+function Base.showerror(io::IO, ::Corrupt)
     red = crayon"red"
     bold = crayon"bold"
     reset = crayon"reset"

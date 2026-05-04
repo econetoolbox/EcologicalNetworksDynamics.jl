@@ -33,10 +33,10 @@ class(::S{cl}) where {cl} = cl
 Obtain name variants for nodes in the class, in order:
 
   - short `p_`refix
-  - snake_case singular
-  - snake_case plural
-  - CamelCase singular
-  - CamelCase plural
+  - snake_case_singular
+  - snake_case_plural
+  - CamelCaseSingular
+  - CamelCasePlural
 """
 name_variants(s::S) = throw("Name variants unspecified for $s.")
 short_prefix(s::S) = name_variants(s)[1]
@@ -142,6 +142,29 @@ function Base.show(io::IO, s::S)
 end
 
 # ==========================================================================================
+# Graph-level data field.
+"""
+Dispatch to a particular global network field.
+"""
+struct GraphField{field} <: Dispatcher end
+export GraphField
+GraphField(field::Symbol) = GraphField{field}()
+S = GraphField # 'Self'
+field(::S{fd}) where {fd} = fd
+
+"""
+Obtain name variants for field data, in order:
+
+  - shortname
+  - snake_case_singular
+  - CamelCaseSingular
+"""
+name_variants(s::S) = throw("Name variants unspecified for $s.")
+shortname(s::S) = name_variants(s)[1]
+snake_case_singular(s::S) = name_variants(s)[2]
+CamelCaseSingular(s::S) = name_variants(s)[3]
+
+# ==========================================================================================
 # Node field.
 
 """
@@ -204,7 +227,6 @@ const AbstractNodeField{class,field} =
     Union{NodeField{class,field},SparseNodeField{class,field}}
 export AbstractNodeField
 S = AbstractNodeField
-readonly(::S) = false # By default, or specialize.
 
 """
 Obtain name variants for the data points, in order:
@@ -247,5 +269,12 @@ function Base.show(io::IO, s::S)
     web, field = content(s)
     print(io, "<$web:$field>")
 end
+
+# ==========================================================================================
+# Abstract over either field category.
+const AbstractField{field} =
+    Union{GraphField{field},<:AbstractNodeField{<:Any,field},<:EdgeField{<:Any,field}}
+S = AbstractField
+readonly(::S) = false # By default, or specialize.
 
 end

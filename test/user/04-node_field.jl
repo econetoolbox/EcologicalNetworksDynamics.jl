@@ -11,7 +11,7 @@ using EcologicalNetworksDynamics
 # Additional imports only used here for testing purpose.
 using Test
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, Network, Views, NodeField
+import EcologicalNetworksDynamics: EN, N, F, Views, NodeField
 import Main: is_repr, is_disp, @inputfails, @viewfails, @writefails, @sysfails, Value
 const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested viewtype.
 
@@ -23,7 +23,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @test is_disp(
         BodyMass,
         """
-        BodyMass (component for $Network, expandable from:
+        BodyMass (component for $(N.Network), expandable from:
           Raw: raw values,
           Map: [species => body_mass] map,
           Flat: uniform value,
@@ -57,6 +57,14 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
 
     # Expand into a field component.
     m = Model(bp)
+    @test is_disp(
+        m,
+        """
+        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+          - Species: 3 (:s1, :s2, :s3)
+          - BodyMass: [4.0, 5.0, 6.0]\
+        """,
+    )
 
     # Brings dummy node class names if not specified.
     @test m.species.names == [:s1, :s2, :s3]

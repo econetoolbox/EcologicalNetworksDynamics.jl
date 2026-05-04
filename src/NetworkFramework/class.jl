@@ -22,14 +22,14 @@ function define_class_component(mod::Module, d::NodeClass)
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    bpmod = mod.eval.((
+    bpmod = mod.eval((
         quote
             module $Plural_
             import EcologicalNetworksDynamics: F, NF
             const d = $d
             end
         end
-    ).args) |> last
+    ).args |> last)
 
     #---------------------------------------------------------------------------------------
     # Construct from a given set of names.
@@ -89,6 +89,7 @@ function define_class_component(mod::Module, d::NodeClass)
     end)
 
     define_class_properties(mod, d; depends = [C])
+    comp
 end
 
 # ==========================================================================================
@@ -103,7 +104,7 @@ function define_class_properties(mod::Module, d::NodeClass; depends = [])
     # or identical definitions end up being considered the same functions.
     # https://julialang.zulipchat.com/#narrow/channel/137791-general/topic/Identity.20of.20local.20functions.2E/with/590238482
     M = Symbol(Plural, :Methods)
-    xp =
+    mod.eval(
         (
             quote
                 module $M
@@ -140,9 +141,8 @@ function define_class_properties(mod::Module, d::NodeClass; depends = [])
                 defmeth(mask, :mask)
                 end
             end
-        ).args |> last
-
-    mod.eval(xp)
+        ).args |> last,
+    )
 end
 
 # ==========================================================================================

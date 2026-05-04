@@ -38,7 +38,7 @@ function define_sparse_node_field_component(
     # Blueprints for the component.
 
     ClassComponent = D.component(nc)
-    bpmod = mod.eval.((
+    bpmod = mod.eval((
         quote
             module $Value_
             import EcologicalNetworksDynamics: F, NF, D
@@ -49,7 +49,7 @@ function define_sparse_node_field_component(
             const (class, field) = D.content(d)
             end
         end
-    ).args) |> last
+    ).args |> last)
 
     #---------------------------------------------------------------------------------------
     # From raw values: one per node in the subclass (=dense).
@@ -138,7 +138,7 @@ function define_sparse_node_field_component(
     # Queries.
     M = Symbol(Values, :_Methods)
     prop = [value]
-    xp =
+    mod.eval(
         (
             quote
                 module $M
@@ -154,13 +154,15 @@ function define_sparse_node_field_component(
                 end
                 end
             end
-        ).args |> last
-    mod.eval(xp)
+        ).args |> last,
+    )
 
     # Display.
     mod.eval(quote
         $F.shortline(io::IO, model::Model, ::$C) = $nodes_shortline(io, model, $d)
     end)
+
+    comp
 
 end
 

@@ -199,7 +199,7 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
 
             # Protect/enhance field assignement for brought blueprints.
             function Base.setproperty!(b::$B, prop::Symbol, rhs)
-                prop in keys($broughts) || return setfield!(b, prop, rhs)
+                prop in keys($broughts) || return @invoke setproperty!(b::Any, prop, rhs)
                 C = $broughts[prop]
                 # Defer all checking to conversion methods.
                 bf = try

@@ -27,21 +27,20 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    bpmod =
-        mod.eval.(
-            (
-                quote
-                    module $Web_
-                    import EcologicalNetworksDynamics:
-                        F, NF, SparseMatrix, BinAdjacency, Brought, Model
-                    const d = $d
-                    const src = $src
-                    const Class = $(D.component(src))
-                    const _Class = typeof(Class)
-                    end
+    bpmod = mod.eval(
+        (
+            quote
+                module $Web_
+                import EcologicalNetworksDynamics:
+                    F, NF, SparseMatrix, BinAdjacency, Brought, Model
+                const d = $d
+                const src = $src
+                const Class = $(D.component(src))
+                const _Class = typeof(Class)
                 end
-            ).args
-        ) |> last
+            end
+        ).args |> last,
+    )
 
     #---------------------------------------------------------------------------------------
     # From matrix.
@@ -99,6 +98,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     end)
 
     define_web_properties(mod, d; depends = [C])
+    comp
 end
 
 # ==========================================================================================
@@ -111,7 +111,7 @@ function define_web_properties(mod::Module, d::EdgeWeb; depends = [])
     defmeth(fn, s) = NF.define_method(fn; depends, read_as = map(s -> :($prop.$s), s))
 
     M = Symbol(Web, :Methods)
-    xp = (
+    mod.eval((
         quote
             module $M
             using EcologicalNetworksDynamics: N, V, D, Network, Model
@@ -129,9 +129,7 @@ function define_web_properties(mod::Module, d::EdgeWeb; depends = [])
             defmeth(number, [:n_links, :n_edges])
             end
         end
-    ).args |> last
-
-    mod.eval(xp)
+    ).args |> last)
 end
 
 # ==========================================================================================

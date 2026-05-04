@@ -6,8 +6,9 @@ module TestUser
 only = [
     "01-node_class.jl",
     "02-edge_web.jl",
-    "03-node_field.jl",
-    "04-sparse_node_field.jl",
+    "03-graph_scalar.jl",
+    "04-node_field.jl",
+    "05-sparse_node_field.jl",
     "99-components.jl",
     "100-kwargs.jl",
 ] # Unless some files are specified here, in which case only run these.

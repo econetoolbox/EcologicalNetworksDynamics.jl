@@ -27,11 +27,14 @@ include("./body_mass.jl")
 # Non-numeric nodes data, that require checking against model values.
 include("./metabolic_class.jl")
 
+# First example graph-level data.
+include("./temperature.jl")
+
 # Digression: defining new kinds of typical blueprints.
-include("./allometry.jl")
+#  include("./allometry.jl")
 
 # Nodes data only relevant to a sub-class.
-include("./growth_rate.jl")
+#  include("./growth_rate.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
@@ -47,10 +50,6 @@ include("./growth_rate.jl")
 # (typical example 'nodes' data)
 #  include("./body_mass.jl")
 #  include("./metabolic_class.jl")
-
-# Useful global values to calculate other biorates.
-# (typical example 'graph' data)
-#  include("./temperature.jl")
 
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.

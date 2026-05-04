@@ -113,6 +113,7 @@ include("./Views/Views.jl")
 const V = Views
 
 # Templates for typical network components.
+include("./graph_scalar.jl")
 include("./class.jl")
 include("./web.jl")
 include("./nodes.jl")

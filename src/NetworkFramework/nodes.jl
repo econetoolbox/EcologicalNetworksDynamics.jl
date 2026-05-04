@@ -51,18 +51,17 @@ function define_node_field_component(
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    bpmod =
-        mod.eval.((
-            quote
-                module $Value_
-                import EcologicalNetworksDynamics: F, NF, D, Brought
-                const Class = $mod.$Class
-                const _Class = typeof(Class)
-                const d = $d
-                const (class, field) = D.content(d)
-                end
+    bpmod = mod.eval((
+        quote
+            module $Value_
+            import EcologicalNetworksDynamics: F, NF, D, Brought
+            const Class = $mod.$Class
+            const _Class = typeof(Class)
+            const d = $d
+            const (class, field) = D.content(d)
             end
-        ).args) |> last
+        end
+    ).args |> last)
 
     #---------------------------------------------------------------------------------------
     # From raw values.
@@ -158,7 +157,7 @@ function define_node_field_component(
     # Queries.
     M = Symbol(Values, :_Methods)
     prop = [value]
-    xp =
+    mod.eval(
         (
             quote
                 module $M
@@ -174,13 +173,15 @@ function define_node_field_component(
                 end
                 end
             end
-        ).args |> last
-    mod.eval(xp)
+        ).args |> last,
+    )
 
     # Display.
     mod.eval(quote
         $F.shortline(io::IO, model::Model, ::$C) = $nodes_shortline(io, model, $d)
     end)
+
+    comp
 end
 
 # ==========================================================================================
