@@ -23,6 +23,15 @@
 
 # Breaking
 
+- Subclasses of nodes are also classes of their own right.
+  Raw blueprints to construct them
+  now expect dense collections with one value per node in the subclass,
+  no need to fill it up with zeros. For instance:
+  ```julia
+  m = Model(Foodweb([:a => :b, :c => :d]), GrowthRate([5, 8])) # Only 2 producers.
+  m.growth_rate # Sparse view: [·, 5.0, ·, 8.0].
+  ```
+
 - `model.trophic.levels` becomes `model.trophic.level` for consistency with
   other node properties being named with singular form.
 

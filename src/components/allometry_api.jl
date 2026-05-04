@@ -45,7 +45,7 @@ inner = AllometricParametersDict(
 )
 allometry_types =
     MetabolicClassDict((mc => inner for mc in AD.standards(MetabolicClassDict))...)
-AD.define_2D_api(AllometryApi, :Allometry, MetabolicClassDict, AllometricParametersDict)
+AD.define_2D_api(Al, :Allometry, MetabolicClassDict, AllometricParametersDict)
 export parse_allometry_arguments
 export parse_metabolic_class_for_allometric_parameter
 export parse_allometric_parameter_for_metabolic_class
@@ -56,5 +56,9 @@ end
 
 const Allometry = AllometryDict{Float64}
 export Allometry
+
+# Assume simple display is enough for that one.
+Base.show(io::IO, ::Type{<:Allometry}) = print(io, "Allometry")
+Base.show(io::IO, ::MIME"text/plain", T::Type{<:Allometry}) = show(io, T)
 
 end

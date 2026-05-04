@@ -86,7 +86,7 @@ function define_allometry_blueprints(
                 depends = [EN.BodyMass, EN.MetabolicClass],
             )
             F.early_check(bp::Allometric) = EN.early_check(d, bp, $allometric_template)
-            F.expand!(m::Model, bp::Allometry, _) = EN.expand!(d, m, bp)
+            F.expand!(m::Model, bp::Allometric) = EN.expand!(d, m, bp)
             export Allometric
         end,
     )

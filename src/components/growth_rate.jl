@@ -10,7 +10,7 @@ export GrowthRate
 
 module GrowthRateDef
 
-using EcologicalNetworksDynamics: EN, D, NF, Allometry
+using EcologicalNetworksDynamics: EN, D, NF, Allometry, @alias
 
 const d = D.SparseNodeField(:producers, :growth, :species)
 const DT = typeof(d)
@@ -29,15 +29,17 @@ albp = EN.define_allometry_blueprints(EN, d, miele2019(), binzer2016())
 NF.define_sparse_node_field_component(EN, d; blueprints = [albp])
 using .EN: GrowthRate, _GrowthRate
 
+@alias producers.growth growth_rate
+
 # Forward to default constructor.
-EN.construct(::DT, ::Type{GrowthRate.Allometric}, lit::Symbol) =
-    NF.from_name(lit, :Miele2016 => miele2019)
-EN.construct(::DT, ::Type{GrowthRate.Temperature}, lit::Symbol) =
-    NF.from_name(lit, :Binzer2016 => binzer2016)
 (::_GrowthRate)(default::Symbol) = NF.from_name(
     default,
-    :Miele2019 => GrowthRate.Allometric(default),
-    :Binzer2016 => GrowthRate.Temperature(default),
+    :Miele2019 => () -> GrowthRate.Allometric(default),
+    :Binzer2016 => () -> GrowthRate.Temperature(default),
 )
+EN.construct(::DT, ::Type{GrowthRate.Allometric}, lit::Symbol) =
+    NF.from_name(lit, :Miele2019 => miele2019)
+EN.construct(::DT, ::Type{GrowthRate.Temperature}, lit::Symbol) =
+    NF.from_name(lit, :Binzer2016 => binzer2016)
 
 end
