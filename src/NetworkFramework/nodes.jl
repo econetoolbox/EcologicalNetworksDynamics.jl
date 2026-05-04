@@ -1,14 +1,33 @@
-# Typical setup for a component bringing a new field to a network class.
 # This abstracts over both subclass/sparse and root/dense fields,
 # but any code easily moved to `sparse_nodes.jl` lives there.
 
-# Raise to produce a 'Flat' blueprint
-# expanding the same scalar value to the whole class,
-# and allow flattening assignment.
-# If raised, provide the argument type for component-call constructor.
+"""
+Raise to produce a 'Flat' blueprint
+expanding the same scalar value to the whole class,
+and allow flattening assignment.
+If raised, provide the argument type for component-call constructor.
+"""
 flat(d::AbstractNodeField) = D.type(d)
 may_flat(d::AbstractNodeField) = !isnothing(flat(d))
 
+"""
+Expand to a class field from a vector of raw values.
+"""
+abstract type ClassFieldRawBlueprint <: Blueprint end
+
+"""
+Expand to a class field from mapped values.
+"""
+abstract type ClassFieldMapBlueprint <: Blueprint end
+
+"""
+Expand to a class field from a single value.
+"""
+abstract type ClassFieldFlatBlueprint <: Blueprint end
+
+"""
+Typical setup for a component bringing a new class field to the network.
+"""
 function define_node_field_component(
     mod::Module,
     d::NodeField;
@@ -33,36 +52,34 @@ function define_node_field_component(
 
     # Prepare dedicated blueprints module and populate namespace.
     bpmod =
-        mod.eval.(
-            (
-                quote
-                    module $Value_
-                    import EcologicalNetworksDynamics:
-                        EN, Networks, N, Framework, F, NF, D, Blueprint, Brought, Views
-                    const Class = $mod.$Class
-                    const _Class = typeof(Class)
-                    const d = $d
-                    const (class, field) = D.content(d)
-                    end
+        mod.eval.((
+            quote
+                module $Value_
+                import EcologicalNetworksDynamics: F, NF, D, Brought
+                const Class = $mod.$Class
+                const _Class = typeof(Class)
+                const d = $d
+                const (class, field) = D.content(d)
                 end
-            ).args
-        ) |> last
+            end
+        ).args) |> last
 
     #---------------------------------------------------------------------------------------
     # From raw values.
     bpmod.eval(
         quote
-            mutable struct Raw <: Blueprint
+            mutable struct Raw <: NF.ClassFieldRawBlueprint
                 $field::Vector{$T}
                 $class::Brought(Class)
-                Raw($field, $class) = new(EN.construct_raw(d, $field), $class)
+                Raw($field, $class) =
+                    new(NF.construct(d, NF.ClassFieldRawBlueprint, $field), $class)
                 Raw($field; $class = _Class) = Raw($field, $class)
             end
-            F.implied_blueprint_for(bp::Raw, ::_Class) =
-                EN.implied_class_from_raw(d, Class, bp.$field)
-            F.early_check(bp::Raw) = EN.early_check(d, bp.$field)
-            F.late_check(model, bp::Raw, early_data) = EN.late_check(d, model, early_data)
-            F.expand!(model, ::Raw, late_data) = EN.expand!(d, model, late_data)
+            NF.data(bp::Raw) = bp.$field
+            F.implied_blueprint_for(bp::Raw, ::_Class) = NF.implied_class(d, Class, bp)
+            F.early_check(bp::Raw) = NF.early_check(d, bp)
+            F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
+            F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
             NF.define_blueprint(Raw, "raw values")
             export Raw
         end,
@@ -73,17 +90,18 @@ function define_node_field_component(
 
     bpmod.eval(
         quote
-            mutable struct Map <: Blueprint
-                $field::EN.Map{$T}
+            mutable struct Map <: NF.ClassFieldMapBlueprint
+                $field::NF.Map{$T}
                 $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
-                Map($field, $class) = new(EN.construct_map(d, $field), $class)
+                Map($field, $class) =
+                    new(NF.construct(d, NF.ClassFieldMapBlueprint, $field), $class)
                 Map($field; $class = _Class) = Map($field, $class)
             end
-            F.implied_blueprint_for(bp::Map, ::_Class) =
-                EN.implied_class_from_map(d, Class, bp.$field)
-            F.early_check(bp::Map) = EN.early_check(d, bp.$field)
-            F.late_check(model, bp::Map, early_data) = EN.late_check(d, model, early_data)
-            F.expand!(model, bp::Map, late_data) = EN.expand!(d, model, late_data)
+            NF.data(bp::Map) = bp.$field
+            F.implied_blueprint_for(bp::Map, ::_Class) = NF.implied_class(d, Class, bp)
+            F.early_check(bp::Map) = NF.early_check(d, bp)
+            F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
+            F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
             NF.define_blueprint(Map, "[$class => $field] map")
             export Map
         end,
@@ -94,14 +112,13 @@ function define_node_field_component(
     if may_flat(d)
         bpmod.eval(
             quote
-                mutable struct Flat <: Blueprint
+                mutable struct Flat <: NF.ClassFieldFlatBlueprint
                     $field::$T
                 end
-                F.early_check(bp::Flat) = EN.early_check_flat(d, bp.$field)
-                F.late_check(model, bp::Flat, early_data) =
-                    EN.late_check_flat(d, model, early_data)
-                F.expand!(model, bp::Flat, late_data) =
-                    EN.expand_flat!(d, model, late_data)
+                NF.data(bp::Flat) = bp.$field
+                F.early_check(bp::Flat) = NF.early_check(d, bp)
+                F.late_check(model, bp::Flat, data) = NF.late_check(d, model, bp, data)
+                F.expand!(model, bp::Flat, data) = NF.expand!(d, model, bp, data)
                 NF.define_blueprint(Flat, "uniform value"; depends = [Class])
                 export Flat
             end,
@@ -168,6 +185,8 @@ end
 
 # ==========================================================================================
 # Extract implementation detail to ease Revise work + specify extension points.
+
+data(::Blueprint) = throw("unimplemented") # Extract main codegen named field.
 
 #-------------------------------------------------------------------------------------------
 # Check data values without model information, against the target type.
@@ -240,7 +259,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct: any input is possible, but we don't know anything about the model yet.
 
-function construct_raw(d::AbstractNodeField, raw)
+function construct(d::AbstractNodeField, ::Type{<:ClassFieldRawBlueprint}, raw)
     T = D.type(d)
     try
         v = inputconvert(Vector{T}, raw)
@@ -254,7 +273,7 @@ function construct_raw(d::AbstractNodeField, raw)
     end
 end
 
-function construct_map(d::AbstractNodeField, map)
+function construct(d::AbstractNodeField, ::Type{<:ClassFieldMapBlueprint}, map)
     T = D.type(d)
     try
         out = inputconvert(Map{T}, map)
@@ -288,7 +307,8 @@ end
 #-------------------------------------------------------------------------------------------
 # Early-check: correct type, unchecked values, no model information yet.
 
-function early_check(d::AbstractNodeField, vec::Vector)
+function early_check(d::AbstractNodeField, bp::ClassFieldRawBlueprint)
+    vec = NF.data(bp)
     T = eltype(vec)
     data = T[]
     for (i, value) in enumerate(vec)
@@ -303,7 +323,8 @@ function early_check(d::AbstractNodeField, vec::Vector)
     data
 end
 
-function early_check(d::AbstractNodeField, map::Map)
+function early_check(d::AbstractNodeField, bp::ClassFieldMapBlueprint)
+    map = data(bp)
     T, R = valtype(map), reftype(map)
     try
         map = inputconvert(Map{T,R}, map) # Re-parse in case the map was mutated.
@@ -317,7 +338,8 @@ function early_check(d::AbstractNodeField, map::Map)
     end
 end
 
-function early_check_flat(d::AbstractNodeField, value)
+function early_check(d::AbstractNodeField, bp::ClassFieldFlatBlueprint)
+    value = data(bp)
     try
         check(d, value)
     catch e
@@ -333,7 +355,12 @@ end
 late_check(::AbstractNodeField, ::Model, early_data) = early_data
 
 # Typical vector case for Raw blueprint.
-function late_check(d::AbstractNodeField, model::Model, vec::Vector)
+function late_check(
+    d::AbstractNodeField,
+    model::Model,
+    ::ClassFieldRawBlueprint,
+    vec::Vector,
+)
     # Check number of values first.
     network = NF.network(model)
     class = D.class(d)
@@ -354,7 +381,12 @@ function late_check(d::AbstractNodeField, model::Model, vec::Vector)
 end
 
 # Typical map case for Map blueprint.
-function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
+function late_check(
+    d::AbstractNodeField,
+    model::Model,
+    ::ClassFieldMapBlueprint,
+    map::Map{<:Any,Symbol},
+)
     # Check labels first.
     network = NF.network(model)
     class = D.class(d)
@@ -382,7 +414,12 @@ function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
 end
 
 # Same with index references instead.
-function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
+function late_check(
+    d::AbstractNodeField,
+    model::Model,
+    ::ClassFieldMapBlueprint,
+    map::Map{<:Any,Int},
+)
     # Check indices first.
     network = NF.network(model)
     class = D.class(d)
@@ -417,22 +454,26 @@ function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
 end
 
 # Not much to do by default in this situation, just keep as an extension point.
-late_check_flat(::AbstractNodeField, ::Model, value) = value
+late_check(::AbstractNodeField, ::Model, ::ClassFieldFlatBlueprint, value) = value
 
 #-------------------------------------------------------------------------------------------
 # Implied class blueprint.
 
-function implied_class_from_raw(::NodeField, Class, raw)
+function implied_class(::NodeField, Class, bp::ClassFieldRawBlueprint)
+    raw = data(bp)
     n = length(raw)
     Class.Number(n)
 end
 
-function implied_class_from_map(::NodeField, Class, map::Map{<:Any,Symbol})
+implied_class(d::NodeField, Class, bp::ClassFieldMapBlueprint) =
+    implied_class(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
+
+function implied_class(::NodeField, Class, map::Map{<:Any,Symbol})
     refs = NF.keys(map)
     Class.Names(collect(refs))
 end
 
-function implied_class_from_map(::NodeField, Class, map::Map{<:Any,Int})
+function implied_class(::NodeField, Class, map::Map{<:Any,Int})
     n = length(map) # (assuming no hole) TODO: how is that enforced?
     Class.Number(n)
 end
@@ -440,20 +481,28 @@ end
 #-------------------------------------------------------------------------------------------
 # Expansion: input is completely trusted, just fill the inner network from late data.
 
-function expand!(d::AbstractNodeField, model::Model, late_data::Vector)
-    network = NF.network(model)
-    (classname, fieldname) = D.content(d)
-    class = N.class(network, classname)
-    N.add_field!(class, fieldname, late_data)
-end
+expand!(
+    d::AbstractNodeField,
+    model::Model,
+    # The two provide the same `late_data` after late checking.
+    ::Union{ClassFieldRawBlueprint,ClassFieldMapBlueprint},
+    late_data::Vector,
+) = expand!(d, model, late_data)
 
 # Special case flat-blueprint.
-function expand_flat!(d::AbstractNodeField, model::Model, late_data)
+function expand!(d::AbstractNodeField, model::Model, ::ClassFieldFlatBlueprint, late_data)
     network = NF.network(model)
     class = D.class(d)
     n = N.n_nodes(network, class)
     vec = fill(late_data, n)
     expand!(d, model, vec)
+end
+
+function expand!(d::AbstractNodeField, model::Model, data::Vector)
+    network = NF.network(model)
+    (classname, fieldname) = D.content(d)
+    class = N.class(network, classname)
+    N.add_field!(class, fieldname, data)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -497,7 +546,7 @@ end
 function assign_raw!(d::NodeField, model::Model, input)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
-    raw = construct_raw(d, input)
+    raw = construct(d, ClassFieldRawBlueprint, input)
     early = early_check(d, raw)
     late = late_check(d, model, early)
     class = N.class(network, classname)

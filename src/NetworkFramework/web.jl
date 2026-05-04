@@ -1,4 +1,14 @@
 """
+Expand into a new reflexive web from a sparse boolean matrix.
+"""
+abstract type ReflexiveWebMatrixBlueprint <: Blueprint end
+
+"""
+Expand into a new reflexive web from an adjacency list.
+"""
+abstract type ReflexiveWebAdjacencyBlueprint <: Blueprint end
+
+"""
 Typical setup for a component bringing a new reflexive web to the network.
 """
 function define_reflexive_web_component(mod::Module, d::EdgeWeb)
@@ -23,16 +33,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
                 quote
                     module $Web_
                     import EcologicalNetworksDynamics:
-                        EN,
-                        SparseMatrix,
-                        N,
-                        Network,
-                        F,
-                        Brought,
-                        Blueprint,
-                        NF,
-                        BinAdjacency,
-                        Model
+                        F, NF, SparseMatrix, BinAdjacency, Brought, Model
                     const d = $d
                     const src = $src
                     const Class = $(D.component(src))
@@ -46,7 +47,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     # From matrix.
     bpmod.eval(
         quote
-            mutable struct Matrix <: Blueprint
+            mutable struct Matrix <: NF.ReflexiveWebMatrixBlueprint
                 A::SparseMatrix{Bool}
                 $class::Brought(Class)
                 Matrix(A, $class) = new(to_matrix(A), $class)
@@ -54,11 +55,10 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
             end
             to_matrix(A) = NF.inputconvert(SparseMatrix{Bool}, A)
             # Infer number of class nodes from matrix size.
-            F.implied_blueprint_for(bp::Matrix, ::_Class) =
-                EN.implied_class_from_matrix(d, Class, bp.A)
-            F.early_check(bp::Matrix) = EN.early_check(d, bp.A)
-            F.late_check(model, bp::Matrix) = EN.late_check(d, model, bp.A)
-            F.expand!(model, bp::Matrix) = EN.expand!(d, model, bp.A)
+            F.implied_blueprint_for(bp::Matrix, ::_Class) = NF.implied_class(d, Class, bp)
+            F.early_check(bp::Matrix) = NF.early_check(d, bp)
+            F.late_check(model, bp::Matrix) = NF.late_check(d, model, bp)
+            F.expand!(model, bp::Matrix) = NF.expand!(d, model, bp)
             NF.define_blueprint(Matrix, "boolean matrix of $($w) links")
             export Matrix
         end,
@@ -68,7 +68,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     # From ajacency list.
     bpmod.eval(
         quote
-            mutable struct Adjacency <: Blueprint
+            mutable struct Adjacency <: NF.ReflexiveWebAdjacencyBlueprint
                 A::BinAdjacency
                 $class::Brought(Class)
                 Adjacency(A, $class = Class) =
@@ -76,9 +76,9 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
             end
             # Infer number or names of class nodes from the lists.
             F.implied_blueprint_for(bp::Adjacency, ::_Class) =
-                EN.implied_class_from_adjacency(d, Class, bp.A)
-            F.late_check(model, bp::Adjacency) = EN.late_check(d, model, bp.A)
-            F.expand!(model, bp::Adjacency) = EN.expand!(d, model, bp.A)
+                NF.implied_class(d, Class, bp)
+            F.late_check(model, bp::Adjacency) = NF.late_check(d, model, bp)
+            F.expand!(model, bp::Adjacency) = NF.expand!(d, model, bp)
             NF.define_blueprint(Adjacency, "adjacency list of $($w) links")
             export Adjacency
         end,
@@ -95,7 +95,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     C = typeof(comp)
     mod.eval(quote
         $D.component(::$DT) = $C
-        (::$_Web)(args...; kwargs...) = EN.construct($d, $Web, args...; kwargs...)
+        (::$_Web)(args...; kwargs...) = NF.construct($d, $Web, args...; kwargs...)
     end)
 
     define_web_properties(mod, d; depends = [C])
@@ -149,7 +149,8 @@ construct(::EdgeWeb, Web::Component, A, args...; kwargs...) = input_try(
 #-------------------------------------------------------------------------------------------
 # Early check.
 
-function early_check(::EdgeWeb, A::AbstractMatrix)
+function early_check(::EdgeWeb, bp::ReflexiveWebMatrixBlueprint)
+    (; A) = bp
     n, m = size(A)
     n == m || F.checkfails("The adjacency matrix of size $((m, n)) is not squared.")
 end
@@ -157,7 +158,8 @@ end
 #-------------------------------------------------------------------------------------------
 # Late check.
 
-function late_check(d::EdgeWeb, m::Model, A::SparseMatrix{Bool})
+function late_check(d::EdgeWeb, m::Model, bp::ReflexiveWebMatrixBlueprint)
+    (; A) = bp
     a, b = size(A)
     src = D.source(d)
     class = D.snake_case_singular(src)
@@ -169,6 +171,9 @@ function late_check(d::EdgeWeb, m::Model, A::SparseMatrix{Bool})
                       but the provided matrix is of size ($a, $b).")
     end
 end
+
+late_check(d::EdgeWeb, m::Model, bp::ReflexiveWebAdjacencyBlueprint) =
+    late_check(d, m, bp.A) # Dispatch over either label or indices refs.
 
 function late_check(d::EdgeWeb, m::Model, adj::BinAdjacency{Symbol})
     class = D.sourcename(d)
@@ -202,17 +207,21 @@ end
 #-------------------------------------------------------------------------------------------
 # Implied class blueprint.
 
-function implied_class_from_matrix(::EdgeWeb, Class, A)
+function implied_class(::EdgeWeb, Class, bp::ReflexiveWebMatrixBlueprint)
+    (; A) = bp
     n = size(A, 1)
     Class.Number(n)
 end
 
-function implied_class_from_adjacency(::EdgeWeb, Class, adj::BinAdjacency{Symbol})
+implied_class(d::EdgeWeb, Class, bp::ReflexiveWebAdjacencyBlueprint) =
+    implied_class(d, Class, bp.A) # Dispatch over ref type: indices or labels.
+
+function implied_class(::EdgeWeb, Class, adj::BinAdjacency{Symbol})
     refs = NF.all_refs(adj)
     Class.Names(collect(refs))
 end
 
-function implied_class_from_adjacency(::EdgeWeb, Class, adj::BinAdjacency{Int})
+function implied_class(::EdgeWeb, Class, adj::BinAdjacency{Int})
     refs = NF.all_refs(adj)
     Class.Number(last(refs))
 end
@@ -220,10 +229,11 @@ end
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-expand!(d::EdgeWeb, model, matrix::SparseMatrix{Bool}) =
-    expand!(d, model, N.SparseReflexive(matrix))
+expand!(d::EdgeWeb, model, bp::ReflexiveWebMatrixBlueprint) =
+    expand!(d, model, N.SparseReflexive(bp.A))
 
-function expand!(d::EdgeWeb, model, adj)
+function expand!(d::EdgeWeb, model, bp::ReflexiveWebAdjacencyBlueprint)
+    adj = bp.A
     class = D.sourcename(d)
     index = getproperty(model, class)._index
     to_i(label) = N.to_index(index, label)
@@ -241,5 +251,5 @@ function expand!(d::EdgeWeb, md::Model, top::Topology)
     post_expand!(d, md)
 end
 
-# Possible extension point.
+# Extension point.
 post_expand!(::EdgeWeb, model) = nothing

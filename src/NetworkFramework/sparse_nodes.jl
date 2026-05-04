@@ -1,9 +1,25 @@
-# Typical setup for a component bringing a new field
-# to a network *sub*class, with a `sparse` logic.
-# It gets its own blueprints types,
-# but substantial parts of their behaviour
-# is inherited from the regular abstract functions for root node fields.
+"""
+Expand into a subclass field from a raw vector,
+one element per node in the subclass.
+"""
+abstract type SubClassFieldRawBlueprint <: ClassFieldRawBlueprint end
 
+"""
+Expand into a subclass field from mapped values.
+"""
+abstract type SubClassFieldMapBlueprint <: ClassFieldMapBlueprint end
+
+"""
+Expand into a subclass field from a single value.
+"""
+abstract type SubClassFieldFlatBlueprint <: ClassFieldFlatBlueprint end
+
+"""
+Typical setup for a componing bringing a new field to a network *sub*class,
+with a `sparse` logic.
+It gets its own blueprints types, but substantial parts of their behaviour
+is inherited from the regular abstract functions for root node fields.
+"""
 function define_sparse_node_field_component(
     mod::Module,
     d::SparseNodeField;
@@ -22,36 +38,31 @@ function define_sparse_node_field_component(
     # Blueprints for the component.
 
     ClassComponent = D.component(nc)
-    bpmod =
-        mod.eval.(
-            (
-                quote
-                    module $Value_
-                    import EcologicalNetworksDynamics:
-                        EN, Networks, N, Framework, F, NF, D, Blueprint, Brought, Views
-                    using SparseArrays
-                    const Class = $ClassComponent
-                    const _Class = typeof(Class)
-                    const d = $d
-                    const (class, field) = D.content(d)
-                    end
-                end
-            ).args
-        ) |> last
+    bpmod = mod.eval.((
+        quote
+            module $Value_
+            import EcologicalNetworksDynamics: F, NF, D
+            using SparseArrays
+            const Class = $ClassComponent
+            const _Class = typeof(Class)
+            const d = $d
+            const (class, field) = D.content(d)
+            end
+        end
+    ).args) |> last
 
     #---------------------------------------------------------------------------------------
     # From raw values: one per node in the subclass (=dense).
     bpmod.eval(
         quote
-            mutable struct Raw <: Blueprint
+            mutable struct Raw <: NF.SubClassFieldRawBlueprint
                 $field::Vector{$T}
-                Raw($field) = new(EN.construct_raw(d, $field))
+                Raw($field) = new(NF.construct(d, NF.SubClassFieldRawBlueprint, $field))
             end
-            F.implied_blueprint_for(bp::Raw, ::_Class) =
-                EN.implied_class_from_raw(d, Class, bp.$field)
-            F.early_check(bp::Raw) = EN.early_check(d, bp.$field)
-            F.late_check(model, bp::Raw, early_data) = EN.late_check(d, model, early_data)
-            F.expand!(model, ::Raw, late_data) = EN.expand!(d, model, late_data)
+            NF.data(bp::Raw) = bp.$field
+            F.early_check(bp::Raw) = NF.early_check(d, bp)
+            F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
+            F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
             NF.define_blueprint(Raw, "raw values")
             export Raw
         end,
@@ -62,13 +73,14 @@ function define_sparse_node_field_component(
 
     bpmod.eval(
         quote
-            mutable struct Map <: Blueprint
-                $field::EN.Map{$T}
-                Map($field) = new(EN.construct_map(d, $field))
+            mutable struct Map <: NF.SubClassFieldMapBlueprint
+                $field::NF.Map{$T}
+                Map($field) = new(NF.construct(d, NF.SubClassFieldMapBlueprint, $field))
             end
-            F.early_check(bp::Map) = EN.early_check(d, bp.$field)
-            F.late_check(model, bp::Map, early_data) = EN.late_check(d, model, early_data)
-            F.expand!(model, bp::Map, late_data) = EN.expand!(d, model, late_data)
+            NF.data(bp::Map) = bp.$field
+            F.early_check(bp::Map) = NF.early_check(d, bp)
+            F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
+            F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
             NF.define_blueprint(Map, "[$class => $field] map")
             export Map
         end,
@@ -79,13 +91,13 @@ function define_sparse_node_field_component(
     if may_flat(d)
         bpmod.eval(
             quote
-                mutable struct Flat <: Blueprint
+                mutable struct Flat <: NF.SubClassFieldFlatBlueprint
                     $field::$T
                 end
-                F.early_check(bp::Flat) = EN.early_check_flat(d, bp.$field)
-                F.late_check(model, bp::Flat, early_data) =
-                    EN.late_check_flat(d, model, early_data)
-                F.expand!(model, bp::Flat, late_data) = EN.expand_flat!(d, model, late_data)
+                NF.data(bp::Flat) = bp.$field
+                F.early_check(bp::Flat) = NF.early_check(d, bp)
+                F.late_check(model, bp::Flat, data) = NF.late_check(d, model, bp, data)
+                F.expand!(model, bp::Flat, data) = NF.expand!(d, model, bp, data)
                 NF.define_blueprint(Flat, "uniform value"; depends = [Class])
                 export Flat
             end,
@@ -184,7 +196,12 @@ function nodes_shortline(io::IO, model::Model, d::SparseNodeField)
 end
 
 # Check index references against *parent* class.
-function late_check(d::SparseNodeField, model::Model, map::Map{<:Any,Int})
+function late_check(
+    d::SparseNodeField,
+    model::Model,
+    ::SubClassFieldMapBlueprint,
+    map::Map{<:Any,Int},
+)
     # Check indices first.
     network = NF.network(model)
     class = D.class(d)

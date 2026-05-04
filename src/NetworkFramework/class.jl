@@ -1,3 +1,14 @@
+# Subtype blueprint to specialize extension points over typical ones.
+"""
+Expand into a new nodes class from raw nodes names.
+"""
+abstract type ClassNamesBlueprint <: Blueprint end
+
+"""
+Expand into a new nodes class from a number of nodes.
+"""
+abstract type ClassNumberBlueprint <: Blueprint end
+
 """
 Typical setup for a component bringing a new class to the network.
 """
@@ -11,20 +22,19 @@ function define_class_component(mod::Module, d::NodeClass)
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    bpmod =
-        mod.eval.((
-            quote
-                module $Plural_
-                import EcologicalNetworksDynamics: EN, N, F, NF, Blueprint
-                const d = $d
-                end
+    bpmod = mod.eval.((
+        quote
+            module $Plural_
+            import EcologicalNetworksDynamics: F, NF
+            const d = $d
             end
-        ).args) |> last
+        end
+    ).args) |> last
 
     #---------------------------------------------------------------------------------------
     # Construct from a given set of names.
     bpmod.eval(quote
-        mutable struct Names <: Blueprint
+        mutable struct Names <: NF.ClassNamesBlueprint
             names::Vector{Symbol}
             Names(names) = new(NF.inputconvert(Vector{Symbol}, names))
             Names(names...) = new([NF.inputconvert(Symbol, n) for n in names])
@@ -37,27 +47,24 @@ function define_class_component(mod::Module, d::NodeClass)
         export Names
 
         # Verify blueprint values.
-        F.early_check(bp::Names) = EN.early_check(d, bp.names)
+        F.early_check(bp::Names) = NF.early_check(d, bp)
 
         # Expand into a new compartment.
-        F.expand!(model, bp::Names) = EN.expand!(d, model, bp.names)
+        F.expand!(model, bp::Names) = NF.expand!(d, model, bp)
 
     end)
 
     #---------------------------------------------------------------------------------------
     # Construct from a plain number and generate dummy names.
-    bpmod.eval(
-        quote
-            mutable struct Number <: Blueprint
-                n::Int
-            end
-            NF.define_blueprint(Number, "number of $($s)")
-            export Number
-            F.early_check(bp::Number) = EN.early_check(d, bp.n)
-            F.expand!(model, bp::Number) =
-                EN.expand!(d, model, (Symbol(EN.short_prefix, i) for i in 1:bp.n))
-        end,
-    )
+    bpmod.eval(quote
+        mutable struct Number <: NF.ClassNumberBlueprint
+            n::Int
+        end
+        NF.define_blueprint(Number, "number of $($s)")
+        export Number
+        F.early_check(bp::Number) = NF.early_check(d, bp)
+        F.expand!(model, bp::Number) = NF.expand!(d, model, bp)
+    end)
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
@@ -142,7 +149,8 @@ end
 # Extract implementation detail to ease Revise work.
 
 # Forbid duplicates (triangular check).
-function early_check(d::NodeClass, names::Vector{Symbol})
+function early_check(d::NodeClass, bp::ClassNamesBlueprint)
+    (; names) = bp
     Class = D.CamelCaseSingular(d)
     already = OrderedDict{Symbol,Int}() # {name: index}
     for (i, name) in enumerate(names)
@@ -156,11 +164,15 @@ function early_check(d::NodeClass, names::Vector{Symbol})
 end
 
 # Forbid negative number of nodes.
-function early_check(d::NodeClass, n::Int)
+function early_check(d::NodeClass, bp::ClassNumberBlueprint)
+    (; n) = bp
     class = D.snake_case_plural(d)
     n >= 0 || F.checkfails("Cannot construct a negative number of $class: $n.")
 end
 
+expand!(d::NodeClass, model::Model, bp::ClassNamesBlueprint) = expand!(d, model, bp.names)
+expand!(d::NodeClass, model::Model, bp::ClassNumberBlueprint) =
+    expand!(d, model, (Symbol(D.short_prefix(d), i) for i in 1:bp.n))
 function expand!(d::NodeClass, model::Model, names)
     class = D.class(d)
     network = NF.network(model)

@@ -8,8 +8,6 @@
 # (reassure JuliaLS)
 (false) && (local GrowthRate, _GrowthRate)
 
-miele2019_allometry_rates() = Allometry(; producer = (a = 1, b = -1 / 4))
-
 let d = SparseNodeField(:producers, :growth, :species)
     # Specify component.
     DT = typeof(d)
@@ -20,10 +18,15 @@ let d = SparseNodeField(:producers, :growth, :species)
     NF.check(::DT, input) = NF.non_negative(Float64, input)
 
     # Allometry blueprints.
-    albp = define_allometry_blueprints(EN, d, miele2019_allometry_rates())
+    miele2019() = Allometry(; producer = (a = 1, b = -1 / 4))
+    binzer2016() =
+        (E_a = -0.84, allometry = Allometry(; producer = (a = exp(-15.68), b = -0.25)))
+    albp = define_allometry_blueprints(EN, d, miele2019(), binzer2016())
 
-    construct_allometric(::DT, default::Symbol) =
-        NF.from_name(default, :Miele2016 => miele2019_allometry_rates)
+    construct_allometric(::DT, lit::Symbol) =
+        NF.from_name(lit, :Miele2016 => miele2019)
+    construct_temperature_allometric(::DT, lit::Symbol) =
+        NF.from_name(lit, :Binzer2016 => binzer2016)
 
     NF.define_sparse_node_field_component(EN, d; blueprints = [albp])
     export GrowthRate
@@ -32,11 +35,7 @@ end
 #  #-------------------------------------------------------------------------------------------
 #  # From allometric rates and activation energy (temperature).
 
-#  binzer2016_allometry_rates() =
-#  (E_a = -0.84, allometry = Allometry(; producer = (a = exp(-15.68), b = -0.25)))
-
-#  mutable struct Temperature <: Blueprint
-#  E_a::Float64
+#  mutable struct Temperature <: Blueprint E_a::Float64
 #  allometry::Allometry
 #  Temperature(E_a; kwargs...) = new(E_a, parse_allometry_arguments(kwargs))
 #  Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
