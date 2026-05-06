@@ -12,6 +12,7 @@ abstract type ReflexiveWebAdjacencyBlueprint <: Blueprint end
 Typical setup for a component bringing a new reflexive web to the network.
 """
 function define_reflexive_web_component(mod::Module, d::EdgeWeb)
+    # TODO: have it generic over D.is_sparse(d) the day it's required.
 
     prop, Prop = D.propnames(d)
     web, Web = D.name_variants(d)

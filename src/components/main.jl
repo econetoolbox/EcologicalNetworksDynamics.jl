@@ -38,6 +38,9 @@ include("./growth_rate.jl")
 
 include("./hill_exponent.jl") # graph-level.
 
+# HERE: Efficiency requires a new typical component: EdgeField. Implement.
+#  include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
+
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
 # Helpers.
@@ -52,8 +55,6 @@ include("./hill_exponent.jl") # graph-level.
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
-#  include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
-#  include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
 #  include("./carrying_capacity.jl")
 #  include("./mortality.jl")
 #  include("./metabolism.jl")

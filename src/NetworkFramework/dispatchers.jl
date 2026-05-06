@@ -128,12 +128,13 @@ source(s::S) = NodeClass(sourcename(s))
 target(s::S) = NodeClass(targetname(s))
 
 """
-Raise for symmetric webs.
+Categorize webs.
 """
 is_reflexive(s::S) = source(s) == target(s)
 is_symmetric(s::S) =
     is_reflexive(s) ? throw("Unspecified whether $s reflexive web topology is symmetric.") :
     false
+is_sparse(s::S) = throw("unimplemented")
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -234,22 +235,6 @@ const AbstractNodeField{class,field} =
 export AbstractNodeField
 S = AbstractNodeField
 
-"""
-Obtain name variants for the data points, in order:
-
-  - snake_case singular
-  - snake_case plural
-  - CamelCase singular
-  - CamelCase plural
-  - short field name
-"""
-name_variants(s::S) = throw("Name variants unspecified for $s.")
-snake_case_singular(s::S) = name_variants(s)[1]
-snake_case_plural(s::S) = name_variants(s)[2]
-CamelCaseSingular(s::S) = name_variants(s)[3]
-CamelCasePlural(s::S) = name_variants(s)[4]
-short_field_name(s::S) = name_variants(s)[5]
-
 
 # ==========================================================================================
 # Web field.
@@ -280,7 +265,24 @@ end
 # Abstract over either field category.
 const AbstractField{field} =
     Union{GraphField{field},<:AbstractNodeField{<:Any,field},<:EdgeField{<:Any,field}}
+export AbstractField
 S = AbstractField
 readonly(::S) = false # By default, or specialize.
+
+"""
+Obtain name variants for the data points, in order:
+
+  - snake_case singular
+  - snake_case plural
+  - CamelCase singular
+  - CamelCase plural
+  - short field name
+"""
+name_variants(s::S) = throw("Name variants unspecified for $s.")
+snake_case_singular(s::S) = name_variants(s)[1]
+snake_case_plural(s::S) = name_variants(s)[2]
+CamelCaseSingular(s::S) = name_variants(s)[3]
+CamelCasePlural(s::S) = name_variants(s)[4]
+short_field_name(s::S) = name_variants(s)[5]
 
 end

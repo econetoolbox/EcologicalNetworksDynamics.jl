@@ -72,7 +72,14 @@ using .NF:
     InputError,
     inerr
 using .D:
-    NodeClass, NodeMask, EdgeWeb, GraphField, NodeField, SparseNodeField, AbstractNodeField
+    NodeClass,
+    NodeMask,
+    EdgeWeb,
+    GraphField,
+    NodeField,
+    SparseNodeField,
+    AbstractNodeField,
+    AbstractField
 using .V: extract
 export Model, extract
 

@@ -3,12 +3,12 @@
 
 """
 Raise to produce a 'Flat' blueprint
-expanding the same scalar value to the whole class,
+expanding the same scalar value to the whole class or web,
 and allow flattening assignment.
 If raised, provide the argument type for component-call constructor.
 """
-flat(d::AbstractNodeField) = D.type(d)
-may_flat(d::AbstractNodeField) = !isnothing(flat(d))
+flat(d::AbstractField) = D.type(d)
+may_flat(d::AbstractField) = !isnothing(flat(d))
 
 """
 Expand to a class field from a vector of raw values.
@@ -90,7 +90,7 @@ function define_node_field_component(
         quote
             mutable struct Map <: NF.ClassFieldMapBlueprint
                 $field::NF.Map{$T}
-                $class::Brought(Class) # TODO: not exactly useful? Keep for consistency?
+                $class::Brought(Class) # Not exactly useful. Keep for consistency.
                 Map($field, $class) = new(NF.construct(d, Map, $field), $class)
                 Map($field; $class = _Class) = Map($field, $class)
             end

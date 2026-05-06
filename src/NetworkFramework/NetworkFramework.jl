@@ -118,6 +118,7 @@ include("./class.jl")
 include("./web.jl")
 include("./nodes.jl")
 include("./sparse_nodes.jl")
+include("./edges.jl")
 
 include("./display.jl")
 
@@ -145,5 +146,4 @@ aliasing_symbol(dict, input) =
         e isa AD.AliasingError || rethrow(e)
         inerr(sprint(showerror, e), rethrow)
     end
-
 end
