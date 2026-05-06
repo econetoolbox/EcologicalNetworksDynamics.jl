@@ -6,7 +6,8 @@ using Test
 
 @testset "Temperature component." begin
 
-    # Default value.
+    # Only test default, value,
+    # all the rest having been tested in the context of generic GraphScalar components.
     bp = Temperature()
     @test bp == Temperature.Raw(293.15)
 

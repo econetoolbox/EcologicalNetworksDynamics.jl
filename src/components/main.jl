@@ -36,6 +36,8 @@ include("./temperature.jl")
 # Nodes data only relevant to a sub-class.
 include("./growth_rate.jl")
 
+include("./hill_exponent.jl") # graph-level.
+
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
 # Helpers.
@@ -47,14 +49,9 @@ include("./growth_rate.jl")
 # to each of its fields.
 #  include("./args_to_fields.jl")
 
-# (typical example 'nodes' data)
-#  include("./body_mass.jl")
-#  include("./metabolic_class.jl")
-
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
-#  include("./hill_exponent.jl") # <- First, good example of 'graph' component. Read first.
 #  include("./growth_rate.jl") # <- First, good example of 'node' component. Read first.
 #  include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
 #  include("./carrying_capacity.jl")

@@ -91,7 +91,13 @@ function define_graph_scalar(mod::Module, d::GraphField)
 
 end
 
-early_check(d::GraphField, bp::GraphScalarBlueprint) = check(d, data(bp))
+early_check(d::GraphField, bp::GraphScalarBlueprint) =
+    try
+        check(d, data(bp))
+    catch e
+        e isa InputError || rethrow(e)
+        F.checkfails("When checking raw value for $d:\n$(e.mess)", rethrow)
+    end
 
 function expand!(d::GraphField, m::Model, bp::GraphScalarBlueprint)
     field = D.field(d)

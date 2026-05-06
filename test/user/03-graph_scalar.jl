@@ -9,7 +9,7 @@ using EcologicalNetworksDynamics
 
 using Test
 using EcologicalNetworksDynamics: EN, N, F
-using Main: is_repr, is_disp, @inputfails
+using Main: is_repr, is_disp, @inputfails, @sysfails, Value
 
 @testset "Typical GraphScalar component" begin
 
@@ -62,9 +62,15 @@ using Main: is_repr, is_disp, @inputfails
 
     # Value is still checked.
     @inputfails(m.T = -1, nonneg)
-    # Even after blueprint corruption.
-    bp.T = -1
-    @inputfails(m.T = -1, nonneg)
+    bp.T = -1 # Even after blueprint corruption.
+    @sysfails(
+        Model(bp),
+        Check(
+            early,
+            [Temperature.Raw],
+            "When checking raw value for <temperature>:\n$nonneg",
+        )
+    )
 
 end
 

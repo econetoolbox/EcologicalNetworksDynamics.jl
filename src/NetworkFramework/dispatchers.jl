@@ -164,6 +164,12 @@ shortname(s::S) = name_variants(s)[1]
 snake_case_singular(s::S) = name_variants(s)[2]
 CamelCaseSingular(s::S) = name_variants(s)[3]
 
+# Display.
+function Base.show(io::IO, s::S)
+    field = D.field(s)
+    print(io, "<$field>")
+end
+
 # ==========================================================================================
 # Node field.
 
