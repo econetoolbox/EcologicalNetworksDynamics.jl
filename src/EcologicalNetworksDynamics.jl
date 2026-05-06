@@ -10,7 +10,13 @@ const EN = EcologicalNetworksDynamics
 const I = Iterators
 const Option{T} = Union{T,Nothing}
 const SparseMatrix{T} = SparseMatrixCSC{T,Int}
-argerr(message, throw = Base.throw) = throw(ArgumentError(message))
+
+#-------------------------------------------------------------------------------------------
+# Common utils.
+
+include("errors.jl")
+include("./display.jl")
+using .Display
 
 """
 Construct the name expression required to add a method to the given item.
@@ -27,9 +33,7 @@ end
 methname(U::UnionAll) = methname(U.body)
 methname(fn::Function) = :(::$(typeof(fn)))
 
-# Common display utils.
-include("./display.jl")
-using .Display
+#-------------------------------------------------------------------------------------------
 
 # Data: parsimonious model memory representation.
 include("Networks/Networks.jl")

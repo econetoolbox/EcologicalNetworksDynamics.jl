@@ -149,6 +149,20 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @test v == w == m.body_mass == [5, 4, 3]
     @test a == alt.body_mass == [4, 5, 6]
 
+    # The field can also be pseudo-'reassigned', although this leaks no reference.
+    m.body_mass = [6, 8, 4]
+    @test m.body_mass == v == [6, 8, 4]
+
+    # Reassignnment also works with mapped input.
+    m.body_mass = Dict(:a => 2, :b => 3, :c => 7)
+    @test m.body_mass == v == [2, 3, 7]
+
+    # Or anything that could be used as a typical blueprint constructor.
+    m.body_mass = 5
+    @test m.body_mass == v == [5, 5, 5]
+
+    # HERE: test failure cases on full (re)assignment now.
+
     # The value is still checked.
     @writefails(
         v[2] = -1,
@@ -225,7 +239,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             early,
             [BodyMass.Raw],
-            "When checking <species:body_mass> values array:\n\
+            "When checking <species:body_mass> blueprint data:\n\
              At node index [3]:\n\
              Value cannot be negative. Received: -3.0",
         )
@@ -285,6 +299,9 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         m + BodyMass([:a => 5, :b => 6, :c => 7, :x => 8, :y => 9]),
         Check(late, [BodyMass.Map], "Not :species names: :x and :y.")
     )
+    # NOTE: Late checking of *values* is also performed,
+    # but irrelevant for body_mass so not tested here.
+    # Instead, they are tested at metabolic_class.
 
     # Same with index references.
     imap = [1 => 4, 2 => 5, 3 => 6]
@@ -344,7 +361,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             early,
             [BodyMass.Map],
-            "When checking <species:body_mass> values map:\n\
+            "When checking <species:body_mass> blueprint data:\n\
              At node with label :x:\n\
              Value cannot be negative. Received: -15.0",
         )
@@ -361,7 +378,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             early,
             [BodyMass.Flat],
-            "When checking <species:body_mass> flat value:\n\
+            "When checking <species:body_mass> blueprint data:\n\
              Value cannot be negative. Received: -3.0",
         )
     )

@@ -166,7 +166,7 @@ function define_node_field_component(
                 get_value(::Network, m::Model) = V.data_view(m, d)
                 NF.define_method(get_value; read_as = prop, depends = [C])
                 if !D.readonly(d)
-                    set_value!(::Network, m::Model, input) = assign!(d, m, input)
+                    set_value!(::Network, m::Model, input) = NF.assign!(d, m, input)
                     NF.define_method(set_value!; write_as = prop, depends = [C])
                 end
                 end
@@ -210,7 +210,10 @@ check_with_ref(d::AbstractNodeField, value, l::Symbol) =
 #-------------------------------------------------------------------------------------------
 # Check against a model value, assuming the type and raw value is already correct.
 
-check(::AbstractNodeField, ::Model, value, ::Int, ::Symbol) = value # No check by default.
+# No check by default.
+check(::AbstractNodeField, ::Model, value) = value
+# Contextualized.
+check(d::AbstractNodeField, m::Model, value, ::Int, ::Symbol) = check(d, m, value)
 
 #-------------------------------------------------------------------------------------------
 # Check against both the type and then immediately the model (useful for mutating).
@@ -306,86 +309,66 @@ end
 #-------------------------------------------------------------------------------------------
 # Early-check: correct type, unchecked values, no model information yet.
 
-function early_check(d::AbstractNodeField, bp::ClassFieldRawBlueprint)
-    vec = NF.data(bp)
+function early_check(d::AbstractNodeField, bp::Blueprint)
+    data = NF.data(bp)
+    try
+        early_check(d, data)
+    catch e
+        e isa InputError || rethrow(e)
+        F.checkfails("When checking $d blueprint data:\n$(e.mess)", rethrow)
+    end
+end
+
+function early_check(d::AbstractNodeField, vec::Vector)
     T = eltype(vec)
     data = T[]
     for (i, value) in enumerate(vec)
-        value = try
-            check_with_ref(d, value, i)
-        catch e
-            e isa InputError || rethrow(e)
-            F.checkfails("When checking $d values array:\n$(e.mess)", rethrow)
-        end
+        value = check_with_ref(d, value, i)
         push!(data, value)
     end
     data
 end
 
-function early_check(d::AbstractNodeField, bp::ClassFieldMapBlueprint)
-    map = data(bp)
+function early_check(d::AbstractNodeField, map::Map)
     T, R = valtype(map), reftype(map)
-    try
-        map = inputconvert(Map{T,R}, map) # Re-parse in case the map was mutated.
-        for (label, value) in map
-            map[label] = check_with_ref(d, value, label)
-        end
-        map
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails("When checking $d values map:\n$(e.mess)", rethrow)
+    map = inputconvert(Map{T,R}, map) # Re-parse in case the map was mutated.
+    for (label, value) in map
+        map[label] = check_with_ref(d, value, label)
     end
+    map
 end
 
-function early_check(d::AbstractNodeField, bp::ClassFieldFlatBlueprint)
-    value = data(bp)
-    try
-        check(d, value)
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails("When checking $d flat value:\n$(e.mess)", rethrow)
-    end
-end
+# That intermediate name has to be introduced to avoid ambiguous dispatch.
+early_check(d::AbstractNodeField, value) = check(d, value)
 
 #-------------------------------------------------------------------------------------------
 # Late-check: correct type, checked values, model information is now available.
 
-# Just pass the data without checking by default.
-late_check(::AbstractNodeField, ::Model, early_data) = early_data
-
 # Typical vector case for Raw blueprint.
-function late_check(
-    d::AbstractNodeField,
-    model::Model,
-    ::ClassFieldRawBlueprint,
-    vec::Vector,
-)
+function late_check(d::AbstractNodeField, model::Model, ::Blueprint, early_data)
+    try
+        late_check(d, model, early_data)
+    catch e
+        e isa InputError || rethrow(e)
+        F.checkfails("When checking $d blueprint values against model:\n$(e.mess)", rethrow)
+    end
+end
+
+function late_check(d::AbstractNodeField, model::Model, vec::Vector)
     # Check number of values first.
     network = NF.network(model)
     class = D.class(d)
     n = N.n_nodes(network, class)
     l = length(vec)
-    n == l || F.checkfails("Wrong number of values received for $d: \
-                            expected $n, got $l.")
+    n == l || inerr("Wrong number of values received for $d: expected $n, got $l.")
     labels = N.node_labels(network, class)
     # Then check values one by one, with context to produce useful reports.
     map(enumerate(zip(labels, vec))) do (i, (label, value))
-        try
-            check_with_ref(d, model, value, i, label)
-        catch e
-            e isa InputError || rethrow(e)
-            F.checkfails("When checking $d values array against model:\n$(e.mess)", rethrow)
-        end
+        check_with_ref(d, model, value, i, label)
     end
 end
 
-# Typical map case for Map blueprint.
-function late_check(
-    d::AbstractNodeField,
-    model::Model,
-    ::ClassFieldMapBlueprint,
-    map::Map{<:Any,Symbol},
-)
+function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
     # Check labels first.
     network = NF.network(model)
     class = D.class(d)
@@ -395,30 +378,20 @@ function late_check(
     miss = setdiff(exp, act)
     if !isempty(miss)
         miss = EN.join_elided(sort!(collect(miss)), ", ", " and ")
-        F.checkfails("Missing for $d, no value provided for $miss.")
+        inerr("Missing for $d, no value provided for $miss.")
     end
     unexp = setdiff(act, exp)
     if !isempty(unexp)
         unexp = EN.join_elided(sort!(collect(unexp)), ", ", " and ")
         a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
-        F.checkfails("Not$a $(repr(class)) name$s: $unexp.")
+        inerr("Not$a $(repr(class)) name$s: $unexp.")
     end
     # Then reorder values one by one into a vector.
-    try
-        [check_with_ref(d, model, map[label], label) for label in labels]
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails("When checking $d values map against model:\n$(e.mess)", rethrow)
-    end
+    [check_with_ref(d, model, map[label], label) for label in labels]
 end
 
 # Same with index references instead.
-function late_check(
-    d::AbstractNodeField,
-    model::Model,
-    ::ClassFieldMapBlueprint,
-    map::Map{<:Any,Int},
-)
+function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
     # Check indices first.
     network = NF.network(model)
     class = D.class(d)
@@ -431,7 +404,7 @@ function late_check(
     if !isempty(miss)
         miss = EN.join_elided(miss, ", ", " and ")
         s = length(miss) == 1 ? "" : "s"
-        F.checkfails("Missing for $d, no value provided for node$s $miss.")
+        inerr("Missing for $d, no value provided for node$s $miss.")
     end
     unexp = miss
     for act in keys(map)
@@ -441,19 +414,13 @@ function late_check(
     if !isempty(unexp)
         unexp = EN.join_elided(unexp, ", ", " and ")
         indices, s = length(unexp) == 1 ? ("index", "") : ("indices", "s")
-        F.checkfails("Invalid $indices for class $(repr(class)) with $n node$s: $unexp.")
+        inerr("Invalid $indices for class $(repr(class)) with $n node$s: $unexp.")
     end
     # Then reorder values one by one into a vector.
-    try
-        [check_with_ref(d, model, map[i], i) for i in 1:n]
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails("When checking $d values map against model:\n$(e.mess)", rethrow)
-    end
+    [check_with_ref(d, model, map[i], i) for i in 1:n]
 end
 
-# Not much to do by default in this situation, just keep as an extension point.
-late_check(::AbstractNodeField, ::Model, ::ClassFieldFlatBlueprint, value) = value
+late_check(d::AbstractNodeField, model::Model, value) = check(d, model, value)
 
 #-------------------------------------------------------------------------------------------
 # Implied class blueprint.
@@ -522,53 +489,38 @@ mutate_check(d::AbstractNodeField, model::Model, value, ref) =
 # Input may be anything, but the underlying model value can be assumed to be correct.
 
 function assign!(d::NodeField, model::Model, input)
-    tries = [assign_raw!, assign_map!]
+    err = FailedAttempts()
     if may_flat(d)
-        push!(tries, assign_flat!)
-    end
-    first_err = nothing
-    for attempt! in tries
         try
-            attempt!(d, model, input)
+            assign_flat!(d, model, input)
             return
-        catch e
-            if isnothing(first_err)
-                first_err = e
-            end
-            continue
+        catch _
+            push!(err, "assign from a flat value")
         end
     end
-    throw(first_err)
+    for (ctx, Bp) in (("raw", ClassFieldRawBlueprint), ("mapped", ClassFieldMapBlueprint))
+        try
+            assign!(d, model, Bp, input)
+            return
+        catch _
+            push!(err, "assign from $ctx values")
+        end
+    end
+    throw(err)
 end
 
-# Assume the assignment input is made of raw values.
-function assign_raw!(d::NodeField, model::Model, input)
+# Assume the assignment input is made of raw or mapped values.
+function assign!(d::NodeField, model::Model, Bp::Type{<:Blueprint}, input)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
-    raw = construct(d, ClassFieldRawBlueprint, input)
+    raw = construct(d, Bp, input)
     early = early_check(d, raw)
+    # TODO: this'll fail on maps if incomplete, although it *could* be considered okay?
     late = late_check(d, model, early)
     class = N.class(network, classname)
     entry = class.data[fieldname]
-    N.write!(entry) do nodes
+    N.mutate!(entry) do nodes
         for (i, new_value) in enumerate(late)
-            nodes[i] = new_value
-        end
-    end
-end
-
-# Assume the assignment input is made of mapped values.
-function assign_map!(d::NodeField, model::Model, input)
-    network = NF.network(model)
-    (classname, fieldname) = D.content(d)
-    early = early_check(d, input) # Reparsed anyway.
-    late = late_check(d, early)
-    class = N.class(network, classname)
-    index = class.index
-    entry = class.data[fieldname]
-    N.write!(entry) do nodes
-        for (label, new_value) in late
-            i = N.to_index(index, label)
             nodes[i] = new_value
         end
     end
@@ -578,12 +530,12 @@ end
 function assign_flat!(d::NodeField, model::Model, input)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
-    raw = check(d, input)
-    early = early_check(d, raw)
+    value = check(d, input)
+    early = early_check(d, value)
     late = late_check(d, model, early)
     class = N.class(network, classname)
     entry = class.data[fieldname]
-    N.write!(entry) do nodes
+    N.mutate!(entry) do nodes
         nodes .= late
     end
 end

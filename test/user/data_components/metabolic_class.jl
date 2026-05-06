@@ -31,30 +31,44 @@ using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
     @test m.metabolic_class == [:ectotherm, :invertebrate, :producer]
 
     # Checked against the *whole model* for consistency.
-    @sysfails(
-        (base + MetabolicClass([:p, :p, :p])),
-        Check(
-            late,
-            [MetabolicClass.Raw],
-            """
-            When checking <species:metabolic_class> values array against model:
-            At node with label :a ([1]):
-            Metabolic class for species :a cannot be :producer since it is a consumer.\
-           """,
+    # NOTE: This is where per-value late_checking is tested (irrelevant for body_mass).
+    for (Bp, invalid) in [
+        (MetabolicClass.Raw, [:p, :p, :p]),
+        (MetabolicClass.Map, [:a => :p, :b => :p, :c => :p]),
+        (MetabolicClass.Map, [1 => :p, 2 => :p, 3 => :p]),
+    ]
+        @sysfails(
+            (base + MetabolicClass(invalid)),
+            Check(
+                late,
+                [Bp],
+                """
+                When checking <species:metabolic_class> blueprint values against model:
+                At node with label :a ([1]):
+                Metabolic class for species :a cannot be :producer since it is a consumer.\
+                """,
+            )
         )
-    )
-    @sysfails(
-        (base + MetabolicClass([:e, :e, :e])),
-        Check(
-            late,
-            [MetabolicClass.Raw],
-            """
-            When checking <species:metabolic_class> values array against model:
-            At node with label :c ([3]):
-            Metabolic class for species :c cannot be :ectotherm since it is a producer.\
-           """,
+    end
+    for (Bp, invalid) in [
+        (MetabolicClass.Raw, [:e, :e, :e]),
+        (MetabolicClass.Map, [:a => :e, :b => :e, :c => :e]),
+        (MetabolicClass.Map, [1 => :e, 2 => :e, 3 => :e]),
+    ]
+        @sysfails(
+            (base + MetabolicClass(invalid)),
+            Check(
+                late,
+                [Bp],
+                """
+                When checking <species:metabolic_class> blueprint values against model:
+                At node with label :c ([3]):
+                Metabolic class for species :c cannot be :ectotherm since it is a producer.\
+                """,
+            )
         )
-    )
+    end
+
     # Even during late edition.
     @writefails(
         m.metabolic_class[:c] = :i,

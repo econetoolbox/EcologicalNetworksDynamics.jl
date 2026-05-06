@@ -80,7 +80,18 @@ so it mostly falls into three categories:
 module NetworkFramework
 
 import EcologicalNetworksDynamics:
-    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD
+    EN,
+    Networks,
+    N,
+    Framework,
+    F,
+    I,
+    argerr,
+    SparseMatrix,
+    Option,
+    KwargsHelpers,
+    AD,
+    FailedAttempts
 using .Networks
 using .Framework
 using .KwargsHelpers
@@ -116,8 +127,8 @@ const V = Views
 include("./graph_scalar.jl")
 include("./class.jl")
 include("./web.jl")
-include("./nodes.jl")
-include("./sparse_nodes.jl")
+include("./node_field.jl")
+include("./sparse_node_field.jl")
 include("./edges.jl")
 
 include("./display.jl")

@@ -224,7 +224,7 @@ const View = # Tested viewtype.
         Check(
             early,
             [GrowthRate.Raw],
-            "When checking <species:producers:growth> values array:\n\
+            "When checking <species:producers:growth> blueprint data:\n\
              At node index [2]:\n\
              Value cannot be negative. Received: -80.0",
         )
@@ -304,7 +304,7 @@ const View = # Tested viewtype.
         Check(
             early,
             [GrowthRate.Map],
-            "When checking <species:producers:growth> values map:\n\
+            "When checking <species:producers:growth> blueprint data:\n\
              At node index [4]:\n\
              Value cannot be negative. Received: -1.0",
         )
@@ -321,7 +321,7 @@ const View = # Tested viewtype.
         Check(
             early,
             [GrowthRate.Flat],
-            "When checking <species:producers:growth> flat value:\n\
+            "When checking <species:producers:growth> blueprint data:\n\
              Value cannot be negative. Received: -3.0",
         )
     )
