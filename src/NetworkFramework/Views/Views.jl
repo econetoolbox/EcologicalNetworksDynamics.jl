@@ -61,7 +61,7 @@ module Views
 # But I still think it's worth the cost.
 
 import EcologicalNetworksDynamics: EN, N, F, I, NetworkFramework, Display, Option
-import .NetworkFramework: NF, D, Model, Ref, InputError
+import .NetworkFramework: NF, D, Model, Ref
 const V = Views
 
 using SparseArrays

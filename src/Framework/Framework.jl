@@ -107,17 +107,12 @@ const CompType{V} = Type{<:Component{V}}
 const CompRef{V} = Union{Component{V},CompType{V}}
 
 # Exception to be thrown by framework user from various extension points.
-# This should not bubble up to toplevel scope, but be caught
-# and upgraded differently depending on the context.
-struct CheckError <: Exception
-    message::String
-end
-checkfails(m::String, throw = Base.throw) = throw(CheckError(m))
-#  TODO: are the following two still useful?
-checkfails(to_string::Function, e::Exception, throw = Base.throw) =
-    checkfails(to_string(sprint(showerror, e)), throw)
-checkfails(e::Exception, throw = Base.throw) = checkfails(identity, e, throw)
-export checkfails
+# They can use it as they like but, once caught by the framework,
+# it should not bubble up to toplevel scope
+# but be upgraded differently depending on the context.
+abstract type InputError <: Exception end
+message(e::InputError) = sprint(showerror, e)
+export InputError
 
 # ==========================================================================================
 # Display.

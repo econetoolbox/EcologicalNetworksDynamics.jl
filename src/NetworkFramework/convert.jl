@@ -30,7 +30,7 @@
 """
 Without any context, call with a target type to convert input.
 """
-inputconvert(T, input) = inerr("Cannot convert from $(typeof(input)) to $T.")
+inputconvert(T, input) = converr(input, T, "Conversion not implemented from $T.")
 inputconvert(::Type{T}, input::T) where {T} = input
 
 # ==========================================================================================
@@ -42,11 +42,8 @@ function allow_convert(Target, Input, f)
                 try
                     $f(v)
                 catch e
-                    e isa InputError && rethrow(e)
-                    inerr("Error when attempting to convert input \
-                           (detail down the stacktrace):\n\
-                           Target type was $($Target).\n\
-                           Input was: $(repr(v)) ::$(typeof(v))")
+                    e isa F.InputError && rethrow(e)
+                    converr(v, $Target, "(detail down the stacktrace)")
                 end
         end,
     )
@@ -110,60 +107,57 @@ ac_all(Int64, Integer)
 ac_all(Bool, Integer)
 
 # ==========================================================================================
-# Try successive conversions until one succeeds, applying the corresponding function then.
+"""
+Try successive conversions until one succeeds,
+applying the corresponding to the result prior to returning it then.
 
-# "Tries" mean:
-# [
-#   (T, f) = (Type, Function(conversion_result) -> _),
-#   T sugar for (Type, identity),
-#   (T, (f, e)) = (T, (f, function(error))),
-#   ...
-# ]
-function input_try(input, tries...)
+`tries` are:
+
+```
+[
+  T,      # Sugar for (Type, identity).
+  (T, f), # (Type, transform(converted_result) -> returned_result)
+  ...
+]
+```
+"""
+function try_convert(input, tries...)
+    err = FailedAttempts()
     for t in tries
-
         (T, then) = try
             a, b = t
             a, b
         catch _
             (t, identity)
         end
-
-        (then, err) = try
-            a, b = then
-            a, b
-        catch _
-            (then, identity)
-        end
-
         x = try
             inputconvert(T, input)
         catch e
-            e isa InputError || rethrow(e)
-            err(e)
+            e isa ConvertError || rethrow(e)
+            push!(err, "convert input to $T")
             continue
         end
         return then(x)
     end
-    mess = IOBuffer()
-    print(mess, "Cannot convert input to either:")
-    for (T, _) in tries
-        print(mess, "\n  - $T")
-    end
-    print(mess, "\nReceived value: $(repr(input)) ::$(typeof(input)).")
-    mess = String(Base.take!(mess))
-    inerr(mess)
+    parserr(input, "Cannot convert the given input"; between = (io) -> showerror(io, err))
 end
 
-# ==========================================================================================
-# Execute one or the other block named by end user.
-function from_name(input, tries...) # [(Symbol, Function() -> _)]
+"""
+Execute one or the other block named by end user.
+`tries` are:
+
+```
+[
+  (Symbol, Function() -> returned_result)
+]
+```
+"""
+function from_name(input, tries...)
     name = inputconvert(Symbol, input)
     expected = Symbol[]
     for (attempt, fn) in tries
         name == attempt && return fn()
         push!(expected, attempt)
     end
-    inerr("Expected one of [$(EN.join_elided(expected, ", ", " or "))], \
-           received instead: $(repr(input))")
+    parserr(input, "Expected one of [$(EN.join_elided(expected, ", ", " or "))].")
 end

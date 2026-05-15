@@ -125,7 +125,7 @@ implies_blueprint_for(b::Blueprint, c::Component) = implies_blueprint_for(b, typ
 # and that all required components are met,
 # but, as it cannot be assumed that required components have already been expanded,
 # the check should not depend on the system value.
-# Issue `CheckError` on failure.
+# Issue `InputError` on failure.
 # On success, return arbitrary data useful for `late_check`.
 # TODO: add formal test for this.
 early_check(::Blueprint) = nothing # No particular constraint to enforce by default.

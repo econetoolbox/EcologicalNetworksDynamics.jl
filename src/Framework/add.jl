@@ -247,8 +247,8 @@ function check!(add::AddState, node::Node)
         data = try
             early_check(blueprint)
         catch e
-            if e isa CheckError
-                rethrow(HookCheckFailure(node, e.message, false))
+            if e isa InputError
+                rethrow(HookCheckFailure(node, message(e), false))
             else
                 throw(UnexpectedHookFailure(node, false))
             end
@@ -410,8 +410,8 @@ function add!(
             data = try
                 late_check(system, blueprint, data)
             catch e
-                if e isa CheckError
-                    rethrow(HookCheckFailure(node, e.message, true))
+                if e isa InputError
+                    rethrow(HookCheckFailure(node, message(e), true))
                 else
                     throw(UnexpectedHookFailure(node, true))
                 end

@@ -18,6 +18,12 @@ Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
 Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
 export Value
 
+struct CheckError <: F.InputError
+    mess::String
+end
+F.message(e::CheckError) = e.mess
+checkfails(mess) = throw(CheckError(mess))
+
 # ==========================================================================================
 # Define basic blueprints/components to work with the above value.
 

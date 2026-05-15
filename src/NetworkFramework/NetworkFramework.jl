@@ -91,7 +91,8 @@ import EcologicalNetworksDynamics:
     Option,
     KwargsHelpers,
     AD,
-    FailedAttempts
+    FailedAttempts,
+    render_input
 using .Networks
 using .Framework
 using .KwargsHelpers
@@ -110,12 +111,8 @@ const D = Dispatchers
 # Dedicate framework to the specific `Network` value.
 include("framework.jl")
 
-# Typical user input data preprocessing.
-struct InputError <: Exception
-    mess::String
-end
-inerr(m, throw = Base.throw) = throw(InputError(m))
-Base.showerror(io::IO, e::InputError) = print(io, "Input error: $(e.mess)")
+include("errors.jl")
+
 include("./convert.jl")
 include("./lists.jl")
 
@@ -138,14 +135,14 @@ include("./display.jl")
 
 function non_negative(T, input)
     v = inputconvert(T, input)
-    v < 0 && inerr("Value cannot be negative. Received: $(repr(input))")
+    v < 0 && checkerr(v, "Value cannot be negative. Received: $(repr(input))")
     v
 end
 
 function name_among(expected, input)
     name = inputconvert(Symbol, input)
-    name in expected || inerr("Expected one of $(EN.join_elided(expected, ", ", " or ")), \
-                               received instead: $(repr(input)).")
+    name in expected ||
+        checkerr(name, "Expected one of $(EN.join_elided(expected, ", ", " or ")).")
     name
 end
 
@@ -155,6 +152,6 @@ aliasing_symbol(dict, input) =
         AD.standardize(input, dict)
     catch e
         e isa AD.AliasingError || rethrow(e)
-        inerr(sprint(showerror, e), rethrow)
+        parserr(input, sprint(showerror, e), rethrow)
     end
 end

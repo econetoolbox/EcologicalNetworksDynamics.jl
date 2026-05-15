@@ -174,7 +174,7 @@ function construct(d::SparseNodeField, Field::Component, input)
     end
     push!(tries, Vector{T} => v -> Field.Raw(v))
     push!(tries, Map{T} => m -> Field.Map(m))
-    input_try(input, tries...)
+    try_convert(input, tries...)
 end
 
 # Display it sparse within its parent class.
@@ -226,10 +226,5 @@ function late_check(
         F.checkfails("Invalid $indices for $class within $parent: $unexp.")
     end
     # Then reorder values one by one into a vector.
-    try
-        [check_with_ref(d, model, map[i], N.tolocal(i, r)) for i in N.indices(r)]
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails("When checking $d values map against model:\n$(e.mess)", rethrow)
-    end
+    [check_with_ref(d, model, map[i], N.tolocal(i, r)) for i in N.indices(r)]
 end

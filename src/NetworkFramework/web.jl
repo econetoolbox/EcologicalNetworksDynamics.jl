@@ -139,10 +139,10 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct.
 
-construct(::EdgeWeb, Web::Component, A, args...; kwargs...) = input_try(
-    A,
+construct(::EdgeWeb, Web::Component, input, args...; kwargs...) = try_convert(
+    input,
     SparseMatrix{Bool} => A -> Web.Matrix(A, args...; kwargs...),
-    BinAdjacency => (A -> Web.Adjacency(A, args...; kwargs...), rethrow),
+    BinAdjacency => A -> Web.Adjacency(A, args...; kwargs...),
 )
 
 #-------------------------------------------------------------------------------------------

@@ -196,15 +196,15 @@ check_with_ref(d::AbstractNodeField, value, i::Int) =
     try
         check(d, value)
     catch e
-        e isa InputError || rethrow(e)
-        inerr("At node index [$i]:\n$(e.mess)", rethrow)
+        e isa CheckError || rethrow(e)
+        checkerr(e.value, "At node index [$i]:\n$(e.mess)", rethrow)
     end
 check_with_ref(d::AbstractNodeField, value, l::Symbol) =
     try
         check(d, value)
     catch e
-        e isa InputError || rethrow(e)
-        inerr("At node with label $(repr(l)):\n$(e.mess)", rethrow)
+        e isa CheckError || rethrow(e)
+        checkerr(e.value, "At node with label $(repr(l)):\n$(e.mess)", rethrow)
     end
 
 #-------------------------------------------------------------------------------------------
@@ -235,8 +235,8 @@ function check_with_ref(d::AbstractNodeField, against::Model, value, i::Int, l::
         value = check(d, value)
         check(d, against, value, i, l)
     catch e
-        e isa InputError || rethrow(e)
-        inerr("At node with label $(repr(l)) ([$i]):\n$(e.mess)", rethrow)
+        e isa CheckError || rethrow(e)
+        checkerr(e.value, "At node with label $(repr(l)) ([$i]):\n$(e.mess)", rethrow)
     end
 end
 
@@ -263,30 +263,20 @@ end
 
 function construct(d::AbstractNodeField, ::Type{<:ClassFieldRawBlueprint}, raw)
     T = D.type(d)
-    try
-        v = inputconvert(Vector{T}, raw)
-        for (i, value) in enumerate(v)
-            check_with_ref(d, value, i)
-        end
-        v
-    catch e
-        e isa InputError || rethrow(e)
-        inerr("When constructing $d from raw values:\n$(e.mess)", rethrow)
+    v = inputconvert(Vector{T}, raw)
+    for (i, value) in enumerate(v)
+        check_with_ref(d, value, i)
     end
+    v
 end
 
 function construct(d::AbstractNodeField, ::Type{<:ClassFieldMapBlueprint}, map)
     T = D.type(d)
-    try
-        out = inputconvert(Map{T}, map)
-        for (l, v) in out
-            check_with_ref(d, v, l)
-        end
-        out
-    catch e
-        e isa InputError || rethrow(e)
-        inerr("When constructing $d from map:\n$(e.mess)", rethrow)
+    out = inputconvert(Map{T}, map)
+    for (l, v) in out
+        check_with_ref(d, v, l)
     end
+    out
 end
 
 function construct(d::NodeField, Field::Component, input; kwargs...)
@@ -303,21 +293,13 @@ function construct(d::NodeField, Field::Component, input; kwargs...)
     end
     push!(tries, Vector{T} => v -> Field.Raw(v; kwargs...))
     push!(tries, Map{T} => m -> Field.Map(m; kwargs...))
-    input_try(input, tries...)
+    try_convert(input, tries...)
 end
 
 #-------------------------------------------------------------------------------------------
 # Early-check: correct type, unchecked values, no model information yet.
 
-function early_check(d::AbstractNodeField, bp::Blueprint)
-    data = NF.data(bp)
-    try
-        early_check(d, data)
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails("When checking $d blueprint data:\n$(e.mess)", rethrow)
-    end
-end
+early_check(d::AbstractNodeField, bp::Blueprint) = early_check(d, NF.data(bp))
 
 function early_check(d::AbstractNodeField, vec::Vector)
     T = eltype(vec)
@@ -345,14 +327,8 @@ early_check(d::AbstractNodeField, value) = check(d, value)
 # Late-check: correct type, checked values, model information is now available.
 
 # Typical vector case for Raw blueprint.
-function late_check(d::AbstractNodeField, model::Model, ::Blueprint, early_data)
-    try
-        late_check(d, model, early_data)
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails("When checking $d blueprint values against model:\n$(e.mess)", rethrow)
-    end
-end
+late_check(d::AbstractNodeField, model::Model, ::Blueprint, early_data) =
+    late_check(d, model, early_data)
 
 function late_check(d::AbstractNodeField, model::Model, vec::Vector)
     # Check number of values first.
@@ -360,7 +336,7 @@ function late_check(d::AbstractNodeField, model::Model, vec::Vector)
     class = D.class(d)
     n = N.n_nodes(network, class)
     l = length(vec)
-    n == l || inerr("Wrong number of values received for $d: expected $n, got $l.")
+    n == l || conserr("Wrong number of values received for $d: expected $n, got $l.")
     labels = N.node_labels(network, class)
     # Then check values one by one, with context to produce useful reports.
     map(enumerate(zip(labels, vec))) do (i, (label, value))
@@ -378,13 +354,13 @@ function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
     miss = setdiff(exp, act)
     if !isempty(miss)
         miss = EN.join_elided(sort!(collect(miss)), ", ", " and ")
-        inerr("Missing for $d, no value provided for $miss.")
+        conserr("Missing for $d, no value provided for $miss.")
     end
     unexp = setdiff(act, exp)
     if !isempty(unexp)
         unexp = EN.join_elided(sort!(collect(unexp)), ", ", " and ")
         a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
-        inerr("Not$a $(repr(class)) name$s: $unexp.")
+        conserr("Not$a $(repr(class)) name$s: $unexp.")
     end
     # Then reorder values one by one into a vector.
     [check_with_ref(d, model, map[label], label) for label in labels]
@@ -404,7 +380,7 @@ function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
     if !isempty(miss)
         miss = EN.join_elided(miss, ", ", " and ")
         s = length(miss) == 1 ? "" : "s"
-        inerr("Missing for $d, no value provided for node$s $miss.")
+        conserr("Missing for $d, no value provided for node$s $miss.")
     end
     unexp = miss
     for act in keys(map)
@@ -414,7 +390,7 @@ function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
     if !isempty(unexp)
         unexp = EN.join_elided(unexp, ", ", " and ")
         indices, s = length(unexp) == 1 ? ("index", "") : ("indices", "s")
-        inerr("Invalid $indices for class $(repr(class)) with $n node$s: $unexp.")
+        conserr("Invalid $indices for class $(repr(class)) with $n node$s: $unexp.")
     end
     # Then reorder values one by one into a vector.
     [check_with_ref(d, model, map[i], i) for i in 1:n]
@@ -477,12 +453,7 @@ end
 # but the underlying model value and the reference can be assumed to be correct.
 
 mutate_check(d::AbstractNodeField, model::Model, value, ref) =
-    try
-        check_with_ref(d, WholeCheck(model), value, ref)
-    catch e
-        e isa InputError || rethrow(e)
-        inerr("When attempting to mutate $d node value:\n$(e.mess)", rethrow)
-    end
+    check_with_ref(d, WholeCheck(model), value, ref)
 
 #-------------------------------------------------------------------------------------------
 # Assignment: called when setting all values at once through a property.

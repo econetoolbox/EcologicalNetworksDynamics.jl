@@ -13,7 +13,7 @@ export MetabolicClass
 module MetabolicClassDef
 
 using EcologicalNetworksDynamics:
-    EN, N, F, NF, D, AD, Model, Blueprint, Foodweb, MetabolicClassDict, InputError, inerr
+    EN, N, F, NF, D, AD, Model, Blueprint, Foodweb, MetabolicClassDict
 
 const d = D.NodeField(:species, :metabolic_class)
 const DT = typeof(d)
@@ -31,11 +31,11 @@ function NF.check(::DT, model::Model, class, ::Int, sp::Symbol)
     is_producer = N.is_label(network, sp, :producers)
     prod_class = AD.is(class, :producer, MetabolicClassDict)
     if prod_class && !is_producer
-        inerr("Metabolic class for species $(repr(sp)) \
-               cannot be $(repr(class)) since it is a consumer.")
+        NF.conserr("Metabolic class for species $(repr(sp)) \
+                    cannot be $(repr(class)) since it is a consumer.")
     elseif !prod_class && is_producer
-        inerr("Metabolic class for species $(repr(sp)) \
-               cannot be $(repr(class)) since it is a producer.")
+        NF.conserr("Metabolic class for species $(repr(sp)) \
+                    cannot be $(repr(class)) since it is a producer.")
     end
     class
 end
@@ -68,13 +68,7 @@ using .EN: MetabolicClass, _MetabolicClass
 #-------------------------------------------------------------------------------------------
 # Complete 'Favour' blueprint.
 
-F.early_check(bp::Favour) =
-    try
-        check_favour(bp.favourite)
-    catch e
-        e isa InputError || rethrow(e)
-        F.checkfails(e.mess, rethrow)
-    end
+F.early_check(bp::Favour) = check_favour(bp.favourite)
 
 function F.expand!(model, bp::Favour)
     f = bp.favourite == :all_invertebrates ? :invertebrate : :ectotherm

@@ -162,6 +162,9 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @test m.body_mass == v == [5, 5, 5]
 
     # HERE: test failure cases on full (re)assignment now.
+    # XXX: Improving error display here requires improving error types semantics
+    # so we can choose the 'most advanced' error to display instead of displaying them all.
+    m.body_mass = [6, -1, 4]
 
     # The value is still checked.
     @writefails(

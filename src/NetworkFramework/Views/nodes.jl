@@ -185,8 +185,8 @@ check_write(s::S, x, ref) =
             m = NF.model(s)
             NF.mutate_check(d, m, x, ref)
         catch e
-            e isa InputError || rethrow(e)
-            rethrow(V.WriteError(e.mess, D.field(s), ref, x))
+            e isa F.InputError || rethrow(e)
+            rethrow(V.WriteError(F.message(e), D.field(s), ref, x))
         end
         x
     end
