@@ -164,7 +164,9 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     # HERE: test failure cases on full (re)assignment now.
     # XXX: Improving error display here requires improving error types semantics
     # so we can choose the 'most advanced' error to display instead of displaying them all.
-    m.body_mass = [6, -1, 4]
+    #  m.body_mass = [6, -1, 4] # <- To be tested next.
+
+    v .= [5, 4, 3]
 
     # The value is still checked.
     @writefails(
@@ -172,21 +174,24 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         body_mass[2] = -1,
         "When attempting to mutate <species:body_mass> node value:\n\
          At node with label :b ([2]):\n\
-         Value cannot be negative. Received: -1"
+         Value cannot be negative.\n\
+         Received: -1.0"
     )
     @writefails(
         v[:b] = -10,
         body_mass[:b] = -10,
         "When attempting to mutate <species:body_mass> node value:\n\
          At node with label :b ([2]):\n\
-         Value cannot be negative. Received: -10"
+         Value cannot be negative.\n\
+         Received: -10.0"
     )
     @writefails(
         v .-= 4,
         body_mass[3] = -1,
         "When attempting to mutate <species:body_mass> node value:\n\
          At node with label :c ([3]):\n\
-         Value cannot be negative. Received: -1.0"
+         Value cannot be negative.\n\
+         Received: -1.0"
     )
 
     # And all regular index guards are set.
@@ -223,7 +228,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
             invalid(),
             "When constructing <species:body_mass> from raw values:\n\
              At node index [2]:\n\
-             Value cannot be negative. Received: -1.0",
+             Value cannot be negative.",
+            -1,
         )
     end
 
@@ -244,7 +250,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
             [BodyMass.Raw],
             "When checking <species:body_mass> blueprint data:\n\
              At node index [3]:\n\
-             Value cannot be negative. Received: -3.0",
+             Value cannot be negative.\n\
+             Received: -3.0",
         )
     )
 
@@ -262,7 +269,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Raw],
-            "Wrong number of values received for <species:body_mass>: expected 2, got 3.",
+            "When checking <species:body_mass> blueprint values against model:\n\
+             Wrong number of values received for <species:body_mass>: expected 2, got 3.",
         )
     )
 
@@ -295,12 +303,18 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Map],
-            "Missing for <species:body_mass>, no value provided for :b and :c.",
+            "When checking <species:body_mass> blueprint values against model:\n\
+             Missing for <species:body_mass>, no value provided for :b and :c.",
         )
     )
     @sysfails(
         m + BodyMass([:a => 5, :b => 6, :c => 7, :x => 8, :y => 9]),
-        Check(late, [BodyMass.Map], "Not :species names: :x and :y.")
+        Check(
+            late,
+            [BodyMass.Map],
+            "When checking <species:body_mass> blueprint values against model:\n\
+             Not :species names: :x and :y.",
+        )
     )
     # NOTE: Late checking of *values* is also performed,
     # but irrelevant for body_mass so not tested here.
@@ -332,7 +346,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Map],
-            "Missing for <species:body_mass>, no value provided for nodes 2 and 3.",
+            "When checking <species:body_mass> blueprint values against model:\n\
+             Missing for <species:body_mass>, no value provided for nodes 2 and 3.",
         )
     )
     @sysfails(
@@ -340,7 +355,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Map],
-            "Invalid indices for class :species with 3 nodes: 4 and 5.",
+            "When checking <species:body_mass> blueprint values against model:\n\
+             Invalid indices for class :species with 3 nodes: 4 and 5.",
         )
     )
 
@@ -366,7 +382,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
             [BodyMass.Map],
             "When checking <species:body_mass> blueprint data:\n\
              At node with label :x:\n\
-             Value cannot be negative. Received: -15.0",
+             Value cannot be negative.\n\
+             Received: -15.0",
         )
     )
 
@@ -382,7 +399,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
             early,
             [BodyMass.Flat],
             "When checking <species:body_mass> blueprint data:\n\
-             Value cannot be negative. Received: -3.0",
+             Value cannot be negative.\n\
+             Received: -3.0",
         )
     )
     # But then it needs the class.

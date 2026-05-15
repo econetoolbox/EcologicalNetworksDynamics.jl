@@ -64,35 +64,32 @@ function failswith(src, mod, xp, exception_pattern, expect_expansion_failure)
             rethrow(e)
         end
     end
+    red, bold, reset = crayon"red", crayon"bold", crayon"reset"
     # Expansion succeeded.
     if expect_expansion_failure
-        error("Unexpected macro expansion success at $loc\n\
+        error("$(red)$(bold)Unexpected macro expansion success$(reset) at $loc\n\
                Was expecting: $exception_pattern.")
     end
     # Test actual generated code.
     @gensym e # Otherwise unhygienic.
-    esc(
-        quote
+    esc(quote
+        try
+            $code
+        catch $e
             try
-                $code
+                # Evaluate the exception pattern
+                # in the invocation context, at execution time.
+                $_check_exception($exception_pattern, $e)
+                $mod.@test true # Count as one for the surrounding @testset.
             catch $e
-                try
-                    # Evaluate the exception pattern
-                    # in the invocation context, at execution time.
-                    $_check_exception($exception_pattern, $e)
-                    $mod.@test true # Count as one for the surrounding @testset.
-                catch $e
-                    @error $"The tested code did not fail as expected: $loc"
-                    rethrow($e)
-                end
-            else
-                $error(
-                    $"Unexpected success at $loc\nWas expecting: $exception_pattern",
-                    throw,
-                )
+                @error $"The tested code did not fail as expected: $loc"
+                rethrow($e)
             end
-        end,
-    )
+        else
+            $error($"$(red)$(bold)Unexpected success$(reset) \
+                     at $loc\nWas expecting: $exception_pattern", throw)
+        end
+    end)
 end
 
 function _check_exception(exception_pattern, e)

@@ -135,7 +135,7 @@ include("./display.jl")
 
 function non_negative(T, input)
     v = inputconvert(T, input)
-    v < 0 && checkerr(v, "Value cannot be negative. Received: $(repr(input))")
+    v < 0 && checkerr(v, "Value cannot be negative.")
     v
 end
 

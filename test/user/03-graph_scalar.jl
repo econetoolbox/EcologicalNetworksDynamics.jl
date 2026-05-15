@@ -32,8 +32,8 @@ using Main: is_repr, is_disp, @inputfails, @sysfails, Value
     @test bp == Temperature(215) # Component as constructor.
 
     # Checked on construction.
-    nonneg = "Value cannot be negative. Received: -1.0"
-    @inputfails(Temperature(-1), nonneg)
+    nonneg = "Value cannot be negative."
+    @inputfails(Temperature(-1), nonneg, -1)
 
     # Expand into a field component.
     m = Model(bp)
@@ -61,14 +61,14 @@ using Main: is_repr, is_disp, @inputfails, @sysfails, Value
     @test m.T == 244 # Current model updated.
 
     # Value is still checked.
-    @inputfails(m.T = -1, nonneg)
+    @inputfails(m.T = -1, nonneg, -1)
     bp.T = -1 # Even after blueprint corruption.
     @sysfails(
         Model(bp),
         Check(
             early,
             [Temperature.Raw],
-            "When checking raw value for <temperature>:\n$nonneg",
+            "When checking raw value for <temperature>:\n$nonneg\nReceived: -1.0",
         )
     )
 

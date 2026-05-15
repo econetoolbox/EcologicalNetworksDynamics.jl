@@ -107,8 +107,8 @@ using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
     @test (base + bp).metabolic_class == [:invertebrate, :invertebrate, :producer]
     @inputfails(
         MetabolicClass(:whatever),
-        "Expected one of :all_invertebrates or :all_ectotherms, \
-         received instead: :whatever."
+        "Expected one of :all_invertebrates or :all_ectotherms.",
+        :whatever,
     )
     bp.favourite = :corrupted # (possible after blueprint creation)
     @sysfails(
@@ -116,8 +116,8 @@ using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
         Check(
             early,
             [MetabolicClass.Favour],
-            "Expected one of :all_invertebrates or :all_ectotherms, \
-             received instead: :corrupted.",
+            "Expected one of :all_invertebrates or :all_ectotherms.\n\
+             Received: :corrupted",
         )
     )
 

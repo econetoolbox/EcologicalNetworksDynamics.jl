@@ -1,7 +1,7 @@
 module InputConvertTest
 
-using EcologicalNetworksDynamics:
-    inputconvert, input_try, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency
+using EcologicalNetworksDynamics: NF, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency
+using .NF: inputconvert, try_convert
 
 using Main: @inputfails
 
@@ -348,7 +348,7 @@ Alias = _Alias() # Use as an unambiguous keyword.
     id = identity
 
     input = 4
-    res = input_try(input, Symbol => id, Float64 => sqrt, Int => abs)
+    res = try_convert(input, Symbol => id, Float64 => sqrt, Int => abs)
     @test same_type_value(res, 2.0)
 
     # ======================================================================================
@@ -356,19 +356,19 @@ Alias = _Alias() # Use as an unambiguous keyword.
 
     input = 5
     @inputfails(
-        (input_try(input, Symbol => id, Vector{String} => id)),
+        (try_convert(input, Symbol => id, Vector{String} => id)),
         "Cannot convert input to either:\n  \
          - $Symbol\n  \
-         - $(Vector{String})\n\
-         Received value: 5 ::$Int.",
+         - $(Vector{String})",
+        5,
     )
 
     input = [0, 1, 2]
     @inputfails(
         (inputconvert(Vector{Bool}, input)),
-        "Error when attempting to convert input (detail down the stacktrace):\n\
-         Target type was $(Vector{Bool}).\n\
-         Input was: [0, 1, 2] ::$(Vector{Int})",
+        "(detail down the stacktrace)",
+        [0, 1, 2],
+        Vector{Bool},
     )
 
     #---------------------------------------------------------------------------------------
@@ -382,7 +382,7 @@ Alias = _Alias() # Use as an unambiguous keyword.
     @inputfails( #  :not_iterable
         cv(BinMap, Type),
         "Input for binary map needs to be iterable.\n\
-         Received: Type ::UnionAll."
+         Received: Type ::UnionAll.",
     )
 
     @inputfails( #  :pair_as_iterable

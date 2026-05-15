@@ -152,9 +152,9 @@ function early_check(
         if isin(mc, expected_classes, MC)
             pop!(expected_classes, mc)
         else
-            isempty(sub) || F.checkfails("Allometric rates for '$mc' are meaningless \
-                                          in the context of calculating $field: \
-                                          $(display_short(sub)).")
+            isempty(sub) || NF.conserr("Allometric rates for '$mc' are meaningless \
+                                        in the context of calculating $field: \
+                                        $(display_short(sub)).")
         end
 
         expected_parms = Set(keys(template[mc]))
@@ -165,8 +165,8 @@ function early_check(
                 pop!(expected_parms, parm)
             else
                 s = shortest(parm, AP)
-                F.checkfails("Allometric parameter '$s' ($parm) for '$mc' is meaningless \
-                              in the context of calculating $field: $value.")
+                NF.conserr("Allometric parameter '$s' ($parm) for '$mc' is meaningless \
+                            in the context of calculating $field: $value.")
             end
 
         end
@@ -175,16 +175,16 @@ function early_check(
         if !isempty(expected_parms)
             miss = pop!(expected_parms)
             s = shortest(miss, AP)
-            F.checkfails("Missing allometric parameter '$s' ($miss) for '$mc', \
-                          required to calculate $field.")
+            NF.conserr("Missing allometric parameter '$s' ($miss) for '$mc', \
+                        required to calculate $field.")
         end
     end
 
     # Check against missing metabolic classes.
     if !isempty(expected_classes)
         miss = pop!(expected_classes)
-        F.checkfails("Missing allometric rates for metabolic class '$miss', \
-                      required to calculate $field.")
+        NF.conserr("Missing allometric rates for metabolic class '$miss', \
+                    required to calculate $field.")
     end
 end
 

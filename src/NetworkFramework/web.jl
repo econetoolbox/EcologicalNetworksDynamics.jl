@@ -151,7 +151,7 @@ construct(::EdgeWeb, Web::Component, input, args...; kwargs...) = try_convert(
 function early_check(::EdgeWeb, bp::ReflexiveWebMatrixBlueprint)
     (; A) = bp
     n, m = size(A)
-    n == m || F.checkfails("The adjacency matrix of size $((m, n)) is not squared.")
+    n == m || checkerr(A, "The adjacency matrix of size $((m, n)) is not squared.")
 end
 
 #-------------------------------------------------------------------------------------------
@@ -166,8 +166,11 @@ function late_check(d::EdgeWeb, m::Model, bp::ReflexiveWebMatrixBlueprint)
     if !(n == a == b)
         src = D.sourcename(d)
         (are, s) = n == 1 ? ("is", "") : ("are", "s")
-        F.checkfails("There $are $n $(repr(src)) node$s \
-                      but the provided matrix is of size ($a, $b).")
+        checkerr(
+            A,
+            "There $are $n $(repr(src)) node$s \
+             but the provided matrix is of size ($a, $b).",
+        )
     end
 end
 
@@ -179,7 +182,7 @@ function late_check(d::EdgeWeb, m::Model, adj::BinAdjacency{Symbol})
     index = getproperty(m, class)._index
     check_refs(d, adj) do side, lab
         N.is_label(index, lab) ||
-            F.checkfails("Not a $side label among $(repr(class)): $(repr(lab))")
+            checkerr(adj, "Not a $side label among $(repr(class)): $(repr(lab))")
     end
 end
 
@@ -189,7 +192,7 @@ function late_check(d::EdgeWeb, m::Model, adj::BinAdjacency{Int})
     n = length(index)
     check_refs(d, adj) do side, i
         N.is_index(index, i) ||
-            F.checkfails("Not a valid $side $(repr(class)) index among $n nodes: [$i].")
+            checkerr(adj, "Not a valid $side $(repr(class)) index among $n nodes: [$i].")
     end
 end
 

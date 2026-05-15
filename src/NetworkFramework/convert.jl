@@ -30,7 +30,7 @@
 """
 Without any context, call with a target type to convert input.
 """
-inputconvert(T, input) = converr(input, T, "Conversion not implemented from $T.")
+inputconvert(T, input) = converr(input, T, "Conversion not implemented.")
 inputconvert(::Type{T}, input::T) where {T} = input
 
 # ==========================================================================================
@@ -139,7 +139,15 @@ function try_convert(input, tries...)
         end
         return then(x)
     end
-    parserr(input, "Cannot convert the given input"; between = (io) -> showerror(io, err))
+    mess = IOBuffer()
+    print(mess, "Cannot convert input to either:")
+    for (T, _) in tries
+        print(mess, "\n  - $T")
+    end
+    parserr(input, String(Base.take!(mess)); between = (io) -> begin
+        println(io)
+        showerror(io, err)
+    end)
 end
 
 """

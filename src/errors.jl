@@ -48,11 +48,7 @@ function render_input(io, input, between::Function = () -> nothing)
     else
         between()
         print(io, "\nReceived: ")
-        show(
-            io,
-            MIME("text/plain");
-            context = IOContext(io, :compact => true, :limit => true),
-        )
+        show(IOContext(io, :compact => true, :limit => true), MIME("text/plain"), input)
         print(io, "\nType: $type")
     end
 end

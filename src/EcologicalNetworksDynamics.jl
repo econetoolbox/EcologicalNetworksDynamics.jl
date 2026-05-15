@@ -62,19 +62,7 @@ using .MultiplexApi
 include("./NetworkFramework/NetworkFramework.jl")
 const NF = NetworkFramework
 using .NF:
-    D,
-    V,
-    Views,
-    Model,
-    Blueprint,
-    Component,
-    @alias,
-    Map,
-    Adjacency,
-    BinMap,
-    BinAdjacency,
-    InputError,
-    inerr
+    D, V, Views, Model, Blueprint, Component, @alias, Map, Adjacency, BinMap, BinAdjacency
 using .D:
     NodeClass,
     NodeMask,

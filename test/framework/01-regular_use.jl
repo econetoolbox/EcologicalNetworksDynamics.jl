@@ -23,6 +23,7 @@ struct CheckError <: F.InputError
 end
 F.message(e::CheckError) = e.mess
 checkfails(mess) = throw(CheckError(mess))
+export checkfails
 
 # ==========================================================================================
 # Define basic blueprints/components to work with the above value.
@@ -35,7 +36,7 @@ using .F
 using Test
 using Main: @sysfails, @failswith
 
-export F, Value
+export F, Value, checkfails
 
 #-------------------------------------------------------------------------------------------
 # One component/blueprint for the number of lines.

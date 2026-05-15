@@ -213,7 +213,7 @@ function late_check(
     if !isempty(miss)
         miss = EN.join_elided(miss, ", ", " and ")
         s = length(miss) == 1 ? "" : "s"
-        F.checkfails("Missing for $d, no value provided for $(repr(parent)) node$s $miss.")
+        conserr("Missing for $d, no value provided for $(repr(parent)) node$s $miss.")
     end
     unexp = miss
     for act in keys(map)
@@ -223,8 +223,13 @@ function late_check(
     if !isempty(unexp)
         unexp = EN.join_elided(unexp, ", ", " and ")
         indices = length(unexp) == 1 ? "index" : "indices"
-        F.checkfails("Invalid $indices for $class within $parent: $unexp.")
+        conserr("Invalid $indices for $class within $parent: $unexp.")
     end
     # Then reorder values one by one into a vector.
-    [check_with_ref(d, model, map[i], N.tolocal(i, r)) for i in N.indices(r)]
+    try
+        [check_with_ref(d, model, map[i], N.tolocal(i, r)) for i in N.indices(r)]
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When checking $d values map against model")
+    end
 end

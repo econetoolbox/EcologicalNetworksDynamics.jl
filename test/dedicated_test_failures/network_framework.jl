@@ -1,10 +1,30 @@
-import EcologicalNetworksDynamics: InputError, Views, Network
+import EcologicalNetworksDynamics: F, Views, Network
 
-function TestFailures.check_exception(e::InputError, message_pattern)
-    TestFailures.check_message(message_pattern, e.mess)
+# Assume every derived InputError has a .mess message field to be tested.
+# Additional arguments are just tried against other fields in order.
+function TestFailures.check_exception(err::F.InputError, message_pattern, fields...)
+    TestFailures.check_message(message_pattern, err.mess)
+    E = typeof(err)
+    names = filter(!in((:mess, :between)), fieldnames(E))
+    e = length(fields)
+    a = length(names)
+    e == a || error("$a extra field(s) on error type $E but $e tested.")
+    for (name, exp) in zip(names, fields)
+        act = getfield(err, name)
+        act == exp || error("On input error $E:\n\
+                             Expected err.$name = $(repr(exp))\n\
+                             Actual   err.$name = $(repr(act))")
+    end
 end
-macro inputfails(xp, mess)
-    TestFailures.failswith(__source__, __module__, xp, :($InputError => ($mess,)), false)
+macro inputfails(xp, mess, fields...)
+    fields = map(__module__.eval, fields)
+    TestFailures.failswith(
+        __source__,
+        __module__,
+        xp,
+        :($(F.InputError) => ($mess, $fields...)),
+        false,
+    )
 end
 export @inputfails
 

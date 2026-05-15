@@ -170,7 +170,7 @@ const View = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
         Check(
             early,
             [Species.Number],
-            "Cannot construct a negative number of species: -3.",
+            "Cannot construct a negative number of species.\nReceived: -3",
         ),
     )
 

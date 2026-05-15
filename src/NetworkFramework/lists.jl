@@ -114,6 +114,53 @@ _all_refs(a::BinAdjacency) = I.map(a) do (src, targets)
     ((src,), targets) |> I.flatten
 end |> I.flatten
 
+#-------------------------------------------------------------------------------------------
+# Exception handling .
+
+# Tag thrown exceptions with a symbol
+# to decide which to report in case of multiple 'forgiveness'es.
+struct Forgiveness <: Exception
+    tag::Symbol
+    mess::String
+end
+forgerr(tag, mess, throw = Base.throw) = throw(Forgiveness(tag, mess))
+
+# Pick the report with highest priority,
+# with subtle special-cased tweaks in case of ex-aequo.
+# The first given error is found while parsing a plain item, the other a grouped item.
+pick(plain::Forgiveness, group::Forgiveness, priorities::Dict{Symbol,Int64}) =
+    try
+        pp, pg = priorities[plain.tag], priorities[group.tag]
+        if pp == pg
+            (plain.tag == group.tag == :not_a_ref) && return group # More detailed.
+            plain # More user-friendly in general.
+        elseif pp < pg
+            plain
+        else
+            group
+        end
+    catch e
+        e isa KeyError || throw("Unexpected pick failure.")
+        throw("Either :$(plain.tag) or :$(group.tag) has no priority. \
+               This is a bug in the package.")
+    end
+
+# Construct report priorities from a sorted vector, highest priority first.
+priorities(v::Vector{Symbol}) = Dict(s => i for (i, s) in enumerate(v))
+
+# Upgrade underlying parse error if bubbling up to user call.
+mutable struct ListParseError <: F.InputError
+    mess::String
+end
+Base.showerror(io::IO, e::ListParseError) = print(io, e.mess)
+forgive(f, parser) =
+    try
+        f()
+    catch e
+        isnothing(parser) && e isa Forgiveness && rethrow(ListParseError(e.mess))
+        rethrow(e)
+    end
+
 # ==========================================================================================
 # Parse.
 
@@ -215,47 +262,6 @@ function result!(p::Parser)
     p.result = p.target_type(R)()
 end
 
-# Tag thrown exceptions with a symbol
-# to decide which to report in case of multiple 'forgiveness'es.
-struct Forgiveness <: Exception
-    tag::Symbol
-    err::ParseError
-end
-forgerr(tag, input, mess, throw = throw) =
-    throw(Forgiveness(tag, BaseParseError(input, mess)))
-
-# Pick the report with highest priority,
-# with subtle special-cased tweaks in case of ex-aequo.
-# The first given error is found while parsing a plain item, the other a grouped item.
-pick(plain::Forgiveness, group::Forgiveness, priorities::Dict{Symbol,Int64}) =
-    try
-        pp, pg = priorities[plain.tag], priorities[group.tag]
-        if pp == pg
-            (plain.tag == group.tag == :not_a_ref) && return group # More detailed.
-            plain # More user-friendly in general.
-        elseif pp < pg
-            plain
-        else
-            group
-        end
-    catch e
-        e isa KeyError || throw("Unexpected pick failure.")
-        throw("Either :$(plain.tag) or :$(group.tag) has no priority. \
-               This is a bug in the package.")
-    end
-
-# Construct report priorities from a sorted vector, highest priority first.
-priorities(v::Vector{Symbol}) = Dict(s => i for (i, s) in enumerate(v))
-
-# Unwrap underlying parse error if bubbling up to user call.
-forgive(f, parser) =
-    try
-        f()
-    catch e
-        isnothing(parser) && e isa Forgiveness && rethrow(e.err)
-        rethrow(e)
-    end
-
 #-------------------------------------------------------------------------------------------
 # Parsing blocks.
 
@@ -265,7 +271,6 @@ parse_value(p::Parser, input) =
     catch
         forgerr(
             :not_a_value,
-            input,
             "Expected values of type '$(p.T)', received instead$(report(p, input)).",
             rethrow,
         )
@@ -277,7 +282,6 @@ parse_iterable(p::Parser, input, what) =
     catch e
         e isa MethodError && forgerr(
             :not_iterable,
-            input,
             "Input for $what needs to be iterable.\n\
              Received$(report(p, input)).",
             rethrow,
@@ -290,7 +294,6 @@ function parse_iterable(p::Parser, input::Pair, _)
     a, b = input
     forgerr(
         :pair_as_iterable,
-        input,
         "The pair at $(path(p)) is just considered an iterable in this context, \
          which may be confusing. \
          Consider grouping with an explicit vector instead like [$(repr(a)), $(repr(b))].",
@@ -309,7 +312,7 @@ parse_pair(p::Parser, input, what) =
         end
         return lhs, rhs
     catch _
-        forgerr(:not_a_pair, input, "Not a '$what' pair$(report(p, input)).", rethrow)
+        forgerr(:not_a_pair, "Not a '$what' pair$(report(p, input)).", rethrow)
     end
 struct TripleWorks end
 
@@ -325,7 +328,6 @@ function parse_plain_ref!(p::Parser, input, what)
     end
     ok || forgerr(
         :not_a_ref,
-        input,
         "Cannot interpret $what reference \
          as integer index or symbol label: \
          received$(report(p, input)).",
@@ -338,7 +340,6 @@ function parse_plain_ref!(p::Parser, input, what)
     if R != fR
         forgerr(
             :inconsistent_ref_type,
-            input,
             "$(inferred_ref(what, p)), but $(a_ref(R)) is now found$(report(p, ref)).",
         )
     end
@@ -347,7 +348,6 @@ end
 # Reused later.
 unexpected_reftype(what, p, input) = forgerr(
     :unexpected_ref_type,
-    input,
     "Invalid $what reference type. \
      Expected $(repr(p.expected_R)) \
      (or convertible). \
@@ -488,7 +488,6 @@ function inputconvert(
             res = result!(p)
             ref in res && forgerr(
                 :duplicate_node,
-                res,
                 "Duplicated $(what.ref) reference$(report(p, raw_ref)).",
             )
             push!(res, ref)
@@ -526,7 +525,6 @@ end
 function check_boolean_input(ExpectedRefType, input, parser, what)
     (!isnothing(ExpectedRefType) && ExpectedRefType != Int) && forgerr(
         :boolean_label,
-        input,
         "A label-indexed $(what.whole) \
          cannot be produced from $(what.input(true))$(report(parser, input)).",
     )
@@ -537,7 +535,6 @@ function check_boolean_input(ExpectedRefType, input, parser, what)
         if parser.found_first_ref
             parser.first_ref isa Int || forgerr(
                 :inconsistent_ref_type,
-                parser.first_ref,
                 "$(inferred_ref(what.whole, parser)), \
                  but a $(what.input(false)) (only yielding indices) \
                  is now found$(report(parser, input)).",
@@ -595,7 +592,6 @@ function inputconvert(
                 bump!(p)
                 haskey(res, ref) && forgerr(
                     :duplicate_node,
-                    ref,
                     "Duplicated $(what.ref) reference :\n\
                      Received before: $ref => $(res[ref])\n\
                      Received now   : $ref => $(repr(raw_value)) ::$(typeof(raw_value))\
@@ -659,7 +655,6 @@ function inputconvert(
                     bump!(p)
                     tgt in sub && forgerr(
                         :duplicate_edge,
-                        tgt,
                         "Duplicate edge specification \
                          $(repr(src)) → $(repr(tgt))$(report(p, tgt)).",
                     )
@@ -669,7 +664,6 @@ function inputconvert(
                 pop!(p.path)
                 any_target || forgerr(
                     :no_targets,
-                    targets,
                     "No target provided for source $(repr(src))$(report(p)).",
                 )
                 pop!(p.path)
@@ -677,7 +671,7 @@ function inputconvert(
                 any_source = true
             end
             pop!(p)
-            any_source || forgerr(:no_sources, sources, "No sources provided$(report(p)).")
+            any_source || forgerr(:no_sources, "No sources provided$(report(p)).")
             pop!(p)
 
             it = iterate(input, it)
@@ -778,7 +772,6 @@ function inputconvert(
 
             (lhs_has_values && rhs_has_values) && forgerr(
                 :two_values,
-                pair,
                 "Cannot associate values to both source and target ends \
                  of edges at $(path(p)):\n\
                  Received LHS: $lhs\n\
@@ -786,7 +779,6 @@ function inputconvert(
             )
             !(lhs_has_values || rhs_has_values) && forgerr(
                 :no_value,
-                pair,
                 "No values found for either source or target end of edges at $(path(p)):\n\
                  Received LHS: $lhs\n\
                  Received RHS: $rhs.",
@@ -814,7 +806,6 @@ function inputconvert(
                     (tgt, value) = rhs_has_values ? j : (j, value)
                     haskey(sub, tgt) && forgerr(
                         :duplicate_edge,
-                        tgt,
                         "Duplicate edge specification:\n\
                          Previously received: \
                          $(repr(src)) → $(repr(tgt)) ($(sub[tgt]))\n\
@@ -829,12 +820,11 @@ function inputconvert(
                     e = lhs_has_values ? "source" : "target"
                     forgerr(
                         :no_targets,
-                        sub,
                         "No target provided for `$e => value` pair$(report(p)).",
                     )
                 end
             end
-            any || forgerr(:no_sources, lhs, "No sources provided$(report(p)).")
+            any || forgerr(:no_sources, "No sources provided$(report(p)).")
             pop!(p)
             pop!(p)
 

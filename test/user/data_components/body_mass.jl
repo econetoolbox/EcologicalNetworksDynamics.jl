@@ -43,7 +43,8 @@ using Main: is_disp, is_repr, @argfails, @sysfails, Value
             early,
             [BodyMass.Z],
             "Cannot calculate body masses from trophic levels \
-             with a negative value of Z: -1.0.",
+             with a negative value of Z.\n\
+             Received: -1.0",
         )
     )
 

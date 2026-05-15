@@ -156,7 +156,7 @@ function early_check(d::NodeClass, bp::ClassNamesBlueprint)
     for (i, name) in enumerate(names)
         if haskey(already, name)
             j = already[name]
-            F.checkfails("$Class $i and $j are both named $(repr(name)).")
+            conserr("$Class $i and $j are both named $(repr(name)).")
         end
         already[name] = i
     end
@@ -167,7 +167,7 @@ end
 function early_check(d::NodeClass, bp::ClassNumberBlueprint)
     (; n) = bp
     class = D.snake_case_plural(d)
-    n >= 0 || F.checkfails("Cannot construct a negative number of $class: $n.")
+    n >= 0 || checkerr(n, "Cannot construct a negative number of $class.")
 end
 
 expand!(d::NodeClass, model::Model, bp::ClassNamesBlueprint) = expand!(d, model, bp.names)

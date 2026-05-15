@@ -155,21 +155,24 @@ const View = # Tested viewtype.
         growth[1] = -1, # /!\ Error yields local index.
         "When attempting to mutate <species:producers:growth> node value:\n\
          At node with label :b ([1]):\n\
-         Value cannot be negative. Received: -1"
+         Value cannot be negative.\n\
+         Received: -1.0"
     )
     @writefails(
         v[:b] = -10,
         growth[:b] = -10,
         "When attempting to mutate <species:producers:growth> node value:\n\
          At node with label :b ([1]):\n\
-         Value cannot be negative. Received: -10"
+         Value cannot be negative.\n\
+         Received: -10.0"
     )
     @writefails(
         v[2:2] .-= 10,
         growth[1] = -3, # /!\ Error yields local index again.
         "When attempting to mutate <species:producers:growth> node value:\n\
          At node with label :b ([1]):\n\
-         Value cannot be negative. Received: -3.0"
+         Value cannot be negative.\n\
+         Received: -3.0"
     )
 
     # And all regular index guards are set.
@@ -205,7 +208,8 @@ const View = # Tested viewtype.
             invalid(),
             "When constructing <species:producers:growth> from raw values:\n\
              At node index [2]:\n\
-             Value cannot be negative. Received: -8.0",
+             Value cannot be negative.",
+            -8,
         )
     end
 
@@ -226,7 +230,8 @@ const View = # Tested viewtype.
             [GrowthRate.Raw],
             "When checking <species:producers:growth> blueprint data:\n\
              At node index [2]:\n\
-             Value cannot be negative. Received: -80.0",
+             Value cannot be negative.\n\
+             Received: -80.0",
         )
     )
 
@@ -252,12 +257,18 @@ const View = # Tested viewtype.
         Check(
             late,
             [GrowthRate.Map],
-            "Missing for <species:producers:growth>, no value provided for :d.",
+            "When checking <species:producers:growth> blueprint values against model:\n\
+             Missing for <species:producers:growth>, no value provided for :d.",
         )
     )
     @sysfails(
         base + GrowthRate([:b => 5, :d => 6, :x => 8, :y => 9]),
-        Check(late, [GrowthRate.Map], "Not :producers names: :x and :y.")
+        Check(
+            late,
+            [GrowthRate.Map],
+            "When checking <species:producers:growth> blueprint values against model:\n\
+             Not :producers names: :x and :y.",
+        )
     )
 
     # Indices within the map are expected to reference within the *parent* class.
@@ -306,7 +317,8 @@ const View = # Tested viewtype.
             [GrowthRate.Map],
             "When checking <species:producers:growth> blueprint data:\n\
              At node index [4]:\n\
-             Value cannot be negative. Received: -1.0",
+             Value cannot be negative.\n\
+             Received: -1.0",
         )
     )
 
@@ -322,7 +334,8 @@ const View = # Tested viewtype.
             early,
             [GrowthRate.Flat],
             "When checking <species:producers:growth> blueprint data:\n\
-             Value cannot be negative. Received: -3.0",
+             Value cannot be negative.\n\
+             Received: -3.0",
         )
     )
 

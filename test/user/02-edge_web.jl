@@ -159,11 +159,14 @@ const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
 
     # Fail construct from matrix.
     @sysfails(
-        Model(Foodweb([1 1 1; 0 0 0])),
+        Model(Foodweb([1 0 1; 0 1 0])),
         Check(
             early,
             [Foodweb.Matrix],
-            "The adjacency matrix of size (3, 2) is not squared.",
+            "The adjacency matrix of size (3, 2) is not squared.\n\
+             Received: 2×3 SparseMatrixCSC{Bool, $Int} with 3 stored entries:\n \
+              1  ⋅  1\n \
+              ⋅  1  ⋅",
         )
     )
     @sysfails(
@@ -171,7 +174,10 @@ const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
         Check(
             late,
             [Foodweb.Matrix],
-            "There are 3 :species nodes but the provided matrix is of size (2, 2).",
+            "There are 3 :species nodes but the provided matrix is of size (2, 2).\n\
+             Received: 2×2 SparseMatrixCSC{Bool, $Int} with 1 stored entry:\n \
+              ⋅  1\n \
+              ⋅  ⋅",
         )
     )
 

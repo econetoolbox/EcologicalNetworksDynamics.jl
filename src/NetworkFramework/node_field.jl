@@ -196,15 +196,15 @@ check_with_ref(d::AbstractNodeField, value, i::Int) =
     try
         check(d, value)
     catch e
-        e isa CheckError || rethrow(e)
-        checkerr(e.value, "At node index [$i]:\n$(e.mess)", rethrow)
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "At node index [$i]")
     end
 check_with_ref(d::AbstractNodeField, value, l::Symbol) =
     try
         check(d, value)
     catch e
-        e isa CheckError || rethrow(e)
-        checkerr(e.value, "At node with label $(repr(l)):\n$(e.mess)", rethrow)
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "At node with label $(repr(l))")
     end
 
 #-------------------------------------------------------------------------------------------
@@ -235,8 +235,8 @@ function check_with_ref(d::AbstractNodeField, against::Model, value, i::Int, l::
         value = check(d, value)
         check(d, against, value, i, l)
     catch e
-        e isa CheckError || rethrow(e)
-        checkerr(e.value, "At node with label $(repr(l)) ([$i]):\n$(e.mess)", rethrow)
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "At node with label $(repr(l)) ([$i])")
     end
 end
 
@@ -263,20 +263,30 @@ end
 
 function construct(d::AbstractNodeField, ::Type{<:ClassFieldRawBlueprint}, raw)
     T = D.type(d)
-    v = inputconvert(Vector{T}, raw)
-    for (i, value) in enumerate(v)
-        check_with_ref(d, value, i)
+    try
+        v = inputconvert(Vector{T}, raw)
+        for (i, value) in enumerate(v)
+            check_with_ref(d, value, i)
+        end
+        v
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When constructing $d from raw values")
     end
-    v
 end
 
 function construct(d::AbstractNodeField, ::Type{<:ClassFieldMapBlueprint}, map)
     T = D.type(d)
-    out = inputconvert(Map{T}, map)
-    for (l, v) in out
-        check_with_ref(d, v, l)
+    try
+        out = inputconvert(Map{T}, map)
+        for (l, v) in out
+            check_with_ref(d, v, l)
+        end
+        out
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When constructing $d from map")
     end
-    out
 end
 
 function construct(d::NodeField, Field::Component, input; kwargs...)
@@ -299,7 +309,15 @@ end
 #-------------------------------------------------------------------------------------------
 # Early-check: correct type, unchecked values, no model information yet.
 
-early_check(d::AbstractNodeField, bp::Blueprint) = early_check(d, NF.data(bp))
+function early_check(d::AbstractNodeField, bp::Blueprint)
+    data = NF.data(bp)
+    try
+        early_check(d, data)
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When checking $d blueprint data")
+    end
+end
 
 function early_check(d::AbstractNodeField, vec::Vector)
     T = eltype(vec)
@@ -327,8 +345,14 @@ early_check(d::AbstractNodeField, value) = check(d, value)
 # Late-check: correct type, checked values, model information is now available.
 
 # Typical vector case for Raw blueprint.
-late_check(d::AbstractNodeField, model::Model, ::Blueprint, early_data) =
-    late_check(d, model, early_data)
+function late_check(d::AbstractNodeField, model::Model, ::Blueprint, early_data)
+    try
+        late_check(d, model, early_data)
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When checking $d blueprint values against model")
+    end
+end
 
 function late_check(d::AbstractNodeField, model::Model, vec::Vector)
     # Check number of values first.
@@ -453,7 +477,12 @@ end
 # but the underlying model value and the reference can be assumed to be correct.
 
 mutate_check(d::AbstractNodeField, model::Model, value, ref) =
-    check_with_ref(d, WholeCheck(model), value, ref)
+    try
+        check_with_ref(d, WholeCheck(model), value, ref)
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When attempting to mutate $d node value")
+    end
 
 #-------------------------------------------------------------------------------------------
 # Assignment: called when setting all values at once through a property.

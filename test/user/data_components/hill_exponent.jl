@@ -16,7 +16,7 @@ using Main: @inputfails, @sysfails, Value
     m.h = 3
     @test m.h isa Float64
     @test m.h == 3
-    @inputfails(m.h = -1, "Value cannot be negative. Received: -1.0")
+    @inputfails(m.h = -1, "Value cannot be negative.", -1)
 
 end
 

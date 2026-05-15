@@ -38,8 +38,11 @@ end
 
 function F.early_check(bp::Z)
     (; Z) = bp
-    Z >= 0 || F.checkfails("Cannot calculate body masses from trophic levels \
-                            with a negative value of Z: $Z.")
+    Z >= 0 || NF.checkerr(
+        Z,
+        "Cannot calculate body masses from trophic levels \
+         with a negative value of Z.",
+    )
 end
 
 function F.expand!(model, bp::Z)
