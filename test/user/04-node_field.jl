@@ -149,25 +149,6 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @test v == w == m.body_mass == [5, 4, 3]
     @test a == alt.body_mass == [4, 5, 6]
 
-    # The field can also be pseudo-'reassigned', although this leaks no reference.
-    m.body_mass = [6, 8, 4]
-    @test m.body_mass == v == [6, 8, 4]
-
-    # Reassignnment also works with mapped input.
-    m.body_mass = Dict(:a => 2, :b => 3, :c => 7)
-    @test m.body_mass == v == [2, 3, 7]
-
-    # Or anything that could be used as a typical blueprint constructor.
-    m.body_mass = 5
-    @test m.body_mass == v == [5, 5, 5]
-
-    # HERE: test failure cases on full (re)assignment now.
-    # XXX: Improving error display here requires improving error types semantics
-    # so we can choose the 'most advanced' error to display instead of displaying them all.
-    #  m.body_mass = [6, -1, 4] # <- To be tested next.
-
-    v .= [5, 4, 3]
-
     # The value is still checked.
     @writefails(
         v[2] = -1,
@@ -220,6 +201,45 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
              is not supported; perhaps use broadcasting `.=` instead?"
         )
     end
+
+    # The field can also be pseudo-'reassigned', although this leaks no reference.
+    m.body_mass = [6, 8, 4]
+    @test m.body_mass == v == [6, 8, 4]
+
+    # Reassignnment also works with mapped input.
+    m.body_mass = Dict(:a => 2, :b => 3, :c => 7) # HERE: allow partial reassignments?
+    @test m.body_mass == v == [2, 3, 7]
+
+    # Or anything that could be used as a typical blueprint constructor.
+    m.body_mass = 5
+    @test m.body_mass == v == [5, 5, 5]
+
+    # Checked.
+    @inputfails(
+        m.body_mass = [6, -1, 4],
+        "When attempting to assign from raw values:\n\
+         When constructing <species:body_mass> from raw values:\n\
+         At node index [2]:\n\
+         Value cannot be negative.",
+        -1,
+    )
+    @inputfails(
+        m.body_mass = Dict(:a => 2, :b => -1, :c => 7),
+        "When attempting to assign from mapped values:\n\
+         When constructing <species:body_mass> from map:\n\
+         At node with label :b:\n\
+         Value cannot be negative.",
+        -1,
+    )
+    @inputfails(
+        m.body_mass = -1, # HERE: disallow input_convert(Vector{Int}, 1) to make this pass.
+        "When attempting to assign from flat values:\n\
+         When constructing <species:body_mass> from map:\n\
+         At node with label :b:\n\
+         Value cannot be negative.",
+        -1,
+    )
+
 
     # Fail constructing from raw values.
     input = [4, -1, 2]

@@ -506,7 +506,8 @@ function assign!(d::NodeField, model::Model, input)
             push!(err, "assign from $ctx values")
         end
     end
-    throw(err)
+    filter!(err, [ConsistencyError, CheckError, ParseError])
+    throw_unwrapped(err)
 end
 
 # Assume the assignment input is made of raw or mapped values.
@@ -515,7 +516,7 @@ function assign!(d::NodeField, model::Model, Bp::Type{<:Blueprint}, input)
     (classname, fieldname) = D.content(d)
     raw = construct(d, Bp, input)
     early = early_check(d, raw)
-    # TODO: this'll fail on maps if incomplete, although it *could* be considered okay?
+    # HERE: this'll fail on maps if incomplete, although it *could* be considered okay?
     late = late_check(d, model, early)
     class = N.class(network, classname)
     entry = class.data[fieldname]
