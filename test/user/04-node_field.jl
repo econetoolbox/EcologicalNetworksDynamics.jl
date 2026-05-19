@@ -235,6 +235,15 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
          Value cannot be negative.",
         -1,
     )
+    @inputfails(
+        m.body_mass = :what,
+        "When attempting to assign to <species:body_mass> node field:\n\
+         Cannot convert input to either:\n  \
+          - $Float64\n  \
+          - $Vector{$Float64}\n  \
+          - $OrderedDict{R, $Float64} where R",
+        :what,
+    )
 
     # Fail constructing from raw values.
     input = [4, -1, 2]
@@ -387,8 +396,6 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @test bp.body_mass === input
     input[:x] = 15
     @test bp.body_mass == OrderedDict([:a => 4, :b => 5, :c => 6, :x => 15])
-
-    # Fail constructing from mapped.
     input[:x] *= -1
     @sysfails(
         Model(bp),
@@ -400,6 +407,14 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
              Value cannot be negative.\n\
              Received: -15.0",
         )
+    )
+
+    # Fail constructing from mapped.
+    @inputfails(
+        BodyMass.Map([:a => :what]),
+        "When constructing <species:body_mass> from map:\n\
+         Expected values of type '$Float64', \
+         received instead at [1][right]: :what ::Symbol.",
     )
 
     # Construct from a flat value.
@@ -421,7 +436,25 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     # But then it needs the class.
     @sysfails(Model(bp), Missing(Species, nothing, [BodyMass.Flat], nothing))
 
-end
+    # Fail constructing from Flat.
+    @inputfails(
+        BodyMass.Flat(:what),
+        "When constructing <species:body_mass> from a flat value",
+        :what,
+        Float64,
+        "Conversion not implemented.",
+    )
 
+    # Generic construction failure.
+    @inputfails(
+        BodyMass(:what),
+        "Cannot convert input to either:\n  \
+          - $Float64\n  \
+          - $Vector{$Float64}\n  \
+          - $OrderedDict{R, $Float64} where R",
+        :what,
+    )
+
+end
 
 end

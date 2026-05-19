@@ -72,7 +72,11 @@ ac_dense(String, (Symbol, String), (Char, c -> "$c"))
 ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 
 # From iterators.
-inputconvert(::Type{Vector{T}}, input) where {T} = T[inputconvert(T, v) for v in input]
+function inputconvert(::Type{Vector{T}}, input) where {T}
+    hasmethod(iterate, Tuple{typeof(input)}) ||
+        converr(input, Vector{T}, "Input is not iterable.")
+    T[inputconvert(T, v) for v in input]
+end
 
 # No custom conversion function for sparse arrays
 # because it does not necessarily translate in term of julia's `iszero`,
@@ -133,7 +137,7 @@ function try_convert(input, tries...)
         x = try
             inputconvert(T, input)
         catch e
-            e isa ConvertError || rethrow(e)
+            e isa ParseError || rethrow(e)
             push!(err, "convert input to $T")
             continue
         end
@@ -141,7 +145,13 @@ function try_convert(input, tries...)
     end
     mess = IOBuffer()
     print(mess, "Cannot convert input to either:")
-    for (T, _) in tries
+    for t in tries
+        (T, _) = try
+            a, b = t
+            a, b
+        catch _
+            (t, identity)
+        end
         print(mess, "\n  - $T")
     end
     parserr(input, String(Base.take!(mess)); between = (io) -> begin

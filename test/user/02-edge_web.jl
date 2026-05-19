@@ -211,7 +211,7 @@ const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
     )
     # All list parsing errors are available here.
     @inputfails(
-        Foodweb([:a => :b => :c]),
+        Foodweb.Adjacency([:a => :b => :c]),
         "The pair at [1][right] \
          is just considered an iterable in this context, which may be confusing. \
          Consider grouping with an explicit vector instead like [:b, :c]."
@@ -244,7 +244,7 @@ const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
         """,
     )
     @inputfails(
-        Foodweb([1 => (2, 2)]),
+        Foodweb.Adjacency([1 => (2, 2)]),
         "Duplicated target node reference at [1][right][2]: 2 ::$Int."
     )
     m = Model(bp)
@@ -270,6 +270,15 @@ const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
         0 0 0 0 0 0 0 0
         0 0 0 0 0 0 0 0
     ]
+
+    # Generic construct failure.
+    @inputfails(
+        Foodweb([1 => 2 0 1]),
+        "Cannot convert input to either:\n  \
+           - $(SparseMatrix{Bool})\n  \
+           - $(EN.BinAdjacency)",
+        [1 => 2 0 1],
+    )
 
 end
 

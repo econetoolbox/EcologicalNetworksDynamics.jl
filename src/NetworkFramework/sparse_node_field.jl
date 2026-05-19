@@ -89,6 +89,7 @@ function define_sparse_node_field_component(
             quote
                 mutable struct Flat <: NF.SubClassFieldFlatBlueprint
                     $field::$T
+                    Flat($field) = new(NF.construct(d, Flat, $field))
                 end
                 NF.data(bp::Flat) = bp.$field
                 F.early_check(bp::Flat) = NF.early_check(d, bp)

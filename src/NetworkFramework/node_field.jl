@@ -58,6 +58,7 @@ function define_node_field_component(
             const Class = $mod.$Class
             const _Class = typeof(Class)
             const d = $d
+            const T = $T
             const (class, field) = D.content(d)
             end
         end
@@ -68,7 +69,7 @@ function define_node_field_component(
     bpmod.eval(
         quote
             mutable struct Raw <: NF.ClassFieldRawBlueprint
-                $field::Vector{$T}
+                $field::Vector{T}
                 $class::Brought(Class)
                 Raw($field, $class) = new(NF.construct(d, Raw, $field), $class)
                 Raw($field; $class = _Class) = Raw($field, $class)
@@ -89,7 +90,7 @@ function define_node_field_component(
     bpmod.eval(
         quote
             mutable struct Map <: NF.ClassFieldMapBlueprint
-                $field::NF.Map{$T}
+                $field::NF.Map{T}
                 $class::Brought(Class) # Not exactly useful. Keep for consistency.
                 Map($field, $class) = new(NF.construct(d, Map, $field), $class)
                 Map($field; $class = _Class) = Map($field, $class)
@@ -110,7 +111,8 @@ function define_node_field_component(
         bpmod.eval(
             quote
                 mutable struct Flat <: NF.ClassFieldFlatBlueprint
-                    $field::$T
+                    $field::T
+                    Flat($field) = new(NF.construct(d, Flat, $field))
                 end
                 NF.data(bp::Flat) = bp.$field
                 F.early_check(bp::Flat) = NF.early_check(d, bp)
@@ -286,6 +288,16 @@ function construct(d::AbstractNodeField, ::Type{<:ClassFieldMapBlueprint}, map)
     catch e
         e isa F.InputError || rethrow(e)
         with_context!(e, "When constructing $d from map")
+    end
+end
+
+function construct(d::AbstractNodeField, ::Type{<:ClassFieldFlatBlueprint}, flat)
+    T = D.type(d)
+    try
+        inputconvert(T, flat)
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When constructing $d from a flat value")
     end
 end
 
@@ -502,12 +514,13 @@ mutate_check(d::AbstractNodeField, model::Model, value, ref) =
 # Assignment: called when setting all values at once through a property.
 # Input may be anything, but the underlying model value can be assumed to be correct.
 
-assign!(d::NodeField, model::Model, input) = try
-    assign_parsed!(d, model, parse(d, input))
-catch e
-    e isa F.InputError || rethrow(e)
-    with_context!(e, "When attempting to assign to $d node field")
-end
+assign!(d::NodeField, model::Model, input) =
+    try
+        assign_parsed!(d, model, parse(d, input))
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When attempting to assign to $d node field")
+    end
 
 # Same code whether the assignment input is made of raw or mapped values.
 function assign_parsed!(d::NodeField, model::Model, parsed::Union{Vector,Map})

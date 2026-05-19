@@ -307,8 +307,6 @@ const View = # Tested viewtype.
     @test bp.growth === input
     input[2] *= 10
     @test bp.growth == OrderedDict([2 => 80, 4 => 1])
-
-    # Fail constructing from mapped.
     input[4] *= -1
     @sysfails(
         base + bp,
@@ -320,6 +318,14 @@ const View = # Tested viewtype.
              Value cannot be negative.\n\
              Received: -1.0",
         )
+    )
+
+    # Fail constructing from mapped.
+    @inputfails(
+        GrowthRate.Map([:a => :what]),
+        "When constructing <species:producers:growth> from map:\n\
+         Expected values of type '$Float64', \
+         received instead at [1][right]: :what ::Symbol.",
     )
 
     # Construct from a flat value.
@@ -337,6 +343,25 @@ const View = # Tested viewtype.
              Value cannot be negative.\n\
              Received: -3.0",
         )
+    )
+
+    # Fail constructing from Flat.
+    @inputfails(
+        GrowthRate.Flat(:what),
+        "When constructing <species:producers:growth> from a flat value",
+        :what,
+        Float64,
+        "Conversion not implemented.",
+    )
+
+    # Generic construction failure.
+    @inputfails(
+        GrowthRate('w'),
+        "Cannot convert input to either:\n  \
+          - $Float64\n  \
+          - $Vector{$Float64}\n  \
+          - $OrderedDict{R, $Float64} where R",
+        'w',
     )
 
 end

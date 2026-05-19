@@ -12,6 +12,9 @@ struct FailedAttempts <: Exception
     errors::Vector # [(attempt description, exception, backtrace)]
     FailedAttempts() = new([])
 end
+Base.length(f::FailedAttempts) = length(f.errors)
+Base.last(f::FailedAttempts) = last(f.errors)[2]
+
 """
 Call within a `catch` block to append failure to the collection.
 Provide context completing "attempting to:".
@@ -39,7 +42,7 @@ function Base.showerror(io::IO, e::FailedAttempts)
     several && println(io, "All attempts failed:")
     for (i, (desc, err, bt)) in enumerate(e.errors)
         several && println(io, "-"^50)
-        several && println(io, "$red$bold[$i/$n]$reset ")
+        several && print(io, "$red$bold[$i/$n]$reset ")
         println("When attempting to $desc:")
         showerror(io, err, bt)
         println(io)

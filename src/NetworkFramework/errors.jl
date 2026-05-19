@@ -28,17 +28,32 @@ Error *converting* user input value to target type.
 an input whose type is already the right type is just aliased.
 """
 mutable struct ConvertError <: ParseError
+    mess::Option{String} # Typically filled later when upgrading with context.
     input::Any
     target::Type
-    mess::Option{String}
+    reason::Option{String}
 end
 function Base.showerror(io::IO, e::ConvertError)
-    (; input, target, mess) = e
+    (; mess, input, target, reason) = e
+    isnothing(mess) || println(io, "$mess:")
     print(io, "Cannot convert input to `$target`:")
-    render_input(io, input, () -> (isnothing(mess) || print(io, "\n$mess")))
+    render_input(io, input, () -> (isnothing(reason) || print(io, "\n$reason")))
 end
-converr(input, target::Type, mess::Option{String} = nothing, throw = Base.throw) =
-    throw(ConvertError(input, target, mess))
+converr(
+    input,
+    target::Type,
+    reason::Option{String} = nothing,
+    context::Option{String} = nothing,
+    throw = Base.throw,
+) = throw(ConvertError(context, input, target, reason))
+function with_context!(e::ConvertError, ctx)
+    if isnothing(e.mess)
+        e.mess = ctx
+    else
+        e.mess = "$ctx:\n$(e.mess)"
+    end
+    rethrow(e)
+end
 
 """
 A generic kind of parse error.
