@@ -201,6 +201,51 @@ const View = # Tested viewtype.
         )
     end
 
+    # The field can also be pseudo-'reassigned', although this leaks no reference.
+    m.growth_rate = [6, 4]
+    @test m.growth_rate == v == [0, 6, 0, 4]
+
+    # Reassignnment also works with mapped input.
+    m.growth_rate = Dict(:b => 2, :d => 7)
+    @test m.growth_rate == v == [0, 2, 0, 7]
+
+    # It may be partial/incomplete in this case.
+    m.growth_rate = Dict(:d => 777)
+    @test m.growth_rate == v == [0, 2, 0, 777]
+
+    # Or anything that could be used as a typical blueprint constructor.
+    m.growth_rate = 5
+    @test m.growth_rate == v == [0, 5, 0, 5]
+
+    # Checked.
+    @inputfails(
+        m.growth_rate = [6, -1],
+        "When attempting to assign to <species:producers:growth> node field:\n\
+         At node index [2]:\n\
+         Value cannot be negative.",
+        -1,
+    )
+    @inputfails(
+        m.growth_rate = Dict(:c => 2),
+        "When attempting to assign to <species:producers:growth> node field:\n\
+         Not a :producers name: :c.",
+    )
+    @inputfails(
+        m.growth_rate = -1,
+        "When attempting to assign to <species:producers:growth> node field:\n\
+         Value cannot be negative.",
+        -1,
+    )
+    @inputfails(
+        m.growth_rate = :what,
+        "When attempting to assign to <species:producers:growth> node field:\n\
+         Cannot convert input to either:\n  \
+          - $Float64\n  \
+          - $Vector{$Float64}\n  \
+          - $OrderedDict{R, $Float64} where R",
+        :what,
+    )
+
     # Fail constructing from raw values.
     input = [5, -8]
     for invalid in (() -> GrowthRate.Raw(input), () -> GrowthRate(input))

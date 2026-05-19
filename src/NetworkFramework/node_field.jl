@@ -358,6 +358,11 @@ end
 function early_check(d::AbstractNodeField, map::Map)
     T, R = valtype(map), reftype(map)
     map = inputconvert(Map{T,R}, map) # Re-parse in case the map was mutated.
+    core_early_check(d, map)
+end
+
+# Assumes the input is a valid map.
+function core_early_check(d::AbstractNodeField, map::Map)
     for (label, value) in map
         map[label] = check_with_ref(d, value, label)
     end
@@ -395,29 +400,54 @@ function late_check(d::AbstractNodeField, model::Model, vec::Vector)
 end
 
 function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
+    core_late_check(d, model, map)
+    # Reorder values one by one into a vector.
+    [check_with_ref(d, model, map[label], label) for label in keys(map)]
+end
+
+# Same with index references instead.
+function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
+    core_late_check(d, model, map)
+    [check_with_ref(d, model, map[i], i) for i in eachindex(map)]
+end
+
+late_check(d::AbstractNodeField, model::Model, value) = check(d, model, value)
+
+# Check without producing returned data.
+function core_late_check(
+    d::AbstractNodeField,
+    model::Model,
+    map::Map{<:Any,Symbol};
+    must_be_complete = true, # Lower for assignment.
+)
     # Check labels first.
     network = NF.network(model)
     class = D.class(d)
     labels = N.node_labels(network, class)
     exp = Set(labels)
     act = Set(keys(map))
-    miss = setdiff(exp, act)
-    if !isempty(miss)
-        miss = EN.join_elided(sort!(collect(miss)), ", ", " and ")
-        conserr("Missing for $d, no value provided for $miss.")
+    if must_be_complete
+        miss = setdiff(exp, act)
+        if !isempty(miss)
+            miss = EN.join_elided(sort!(collect(miss)), ", ", " and ")
+            conserr("Missing for $d, no value provided for $miss.")
+        end
     end
     unexp = setdiff(act, exp)
     if !isempty(unexp)
-        unexp = EN.join_elided(sort!(collect(unexp)), ", ", " and ")
         a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
+        unexp = EN.join_elided(sort!(collect(unexp)), ", ", " and ")
         conserr("Not$a $(repr(class)) name$s: $unexp.")
     end
-    # Then reorder values one by one into a vector.
-    [check_with_ref(d, model, map[label], label) for label in labels]
+    nothing
 end
 
-# Same with index references instead.
-function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
+function core_late_check(
+    d::AbstractNodeField,
+    model::Model,
+    map::Map{<:Any,Int};
+    must_be_complete = true,
+)
     # Check indices first.
     network = NF.network(model)
     class = D.class(d)
@@ -427,7 +457,7 @@ function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
         haskey(map, exp) && continue
         push!(miss, exp)
     end
-    if !isempty(miss)
+    if must_be_complete && !isempty(miss)
         miss = EN.join_elided(miss, ", ", " and ")
         s = length(miss) == 1 ? "" : "s"
         conserr("Missing for $d, no value provided for node$s $miss.")
@@ -442,11 +472,8 @@ function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
         indices, s = length(unexp) == 1 ? ("index", "") : ("indices", "s")
         conserr("Invalid $indices for class $(repr(class)) with $n node$s: $unexp.")
     end
-    # Then reorder values one by one into a vector.
-    [check_with_ref(d, model, map[i], i) for i in 1:n]
+    nothing
 end
-
-late_check(d::AbstractNodeField, model::Model, value) = check(d, model, value)
 
 #-------------------------------------------------------------------------------------------
 # Implied class blueprint.
@@ -514,7 +541,7 @@ mutate_check(d::AbstractNodeField, model::Model, value, ref) =
 # Assignment: called when setting all values at once through a property.
 # Input may be anything, but the underlying model value can be assumed to be correct.
 
-assign!(d::NodeField, model::Model, input) =
+assign!(d::AbstractNodeField, model::Model, input) =
     try
         assign_parsed!(d, model, parse(d, input))
     catch e
@@ -522,10 +549,9 @@ assign!(d::NodeField, model::Model, input) =
         with_context!(e, "When attempting to assign to $d node field")
     end
 
-# Same code whether the assignment input is made of raw or mapped values.
-function assign_parsed!(d::NodeField, model::Model, parsed::Union{Vector,Map})
-    early = early_check(d, parsed)
-    # HERE: this'll fail on maps if incomplete, although it *could* be considered okay?
+# Reassign all values from raw input.
+function assign_parsed!(d::AbstractNodeField, model::Model, raw::Vector)
+    early = early_check(d, raw)
     late = late_check(d, model, early)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
@@ -538,8 +564,25 @@ function assign_parsed!(d::NodeField, model::Model, parsed::Union{Vector,Map})
     end
 end
 
-# Assume the assignment input is a single value to flatten to all nodes.
-function assign_parsed!(d::NodeField, model::Model, input)
+# Reassign *some* values from mapped input.
+function assign_parsed!(d::AbstractNodeField, model::Model, map::Map)
+    core_early_check(d, map) # (avoids reparsing)
+    core_late_check(d, model, map; must_be_complete = false) # Allow partial reassignment.
+    network = NF.network(model)
+    (classname, fieldname) = D.content(d)
+    class = N.class(network, classname)
+    entry = class.data[fieldname]
+    index = class.index
+    N.mutate!(entry) do nodes
+        for (label, new_value) in map
+            i = N.to_index(index, label)
+            nodes[i] = new_value
+        end
+    end
+end
+
+# Assume the assignment input is a scalar to flatten to all nodes.
+function assign_parsed!(d::AbstractNodeField, model::Model, input)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
     value = check(d, input)

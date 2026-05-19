@@ -207,8 +207,12 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @test m.body_mass == v == [6, 8, 4]
 
     # Reassignnment also works with mapped input.
-    m.body_mass = Dict(:a => 2, :b => 3, :c => 7) # HERE: allow partial reassignments?
+    m.body_mass = Dict(:a => 2, :b => 3, :c => 7)
     @test m.body_mass == v == [2, 3, 7]
+
+    # It may be partial/incomplete in this case.
+    m.body_mass = Dict(:b => 100)
+    @test m.body_mass == v == [2, 100, 7]
 
     # Or anything that could be used as a typical blueprint constructor.
     m.body_mass = 5
@@ -223,11 +227,9 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         -1,
     )
     @inputfails(
-        m.body_mass = Dict(:a => 2, :b => -1, :c => 7),
+        m.body_mass = Dict(:a => 2, :x => 5, :c => 7),
         "When attempting to assign to <species:body_mass> node field:\n\
-         At node with label :b:\n\
-         Value cannot be negative.",
-        -1,
+         Not a :species name: :x.",
     )
     @inputfails(
         m.body_mass = -1,
