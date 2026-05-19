@@ -74,7 +74,7 @@ using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
         m.metabolic_class[:c] = :i,
         metabolic_class[:c] = :i,
         """
-        When attempting to mutate <species:metabolic_class> node value:
+        When attempting to mutate <species:metabolic_class> node field:
         At node with label :c ([3]):
         Metabolic class for species :c cannot be :invertebrate since it is a producer.\
         """
@@ -83,7 +83,7 @@ using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
         m.metabolic_class[:a] = :p,
         metabolic_class[:a] = :p,
         """
-        When attempting to mutate <species:metabolic_class> node value:
+        When attempting to mutate <species:metabolic_class> node field:
         At node with label :a ([1]):
         Metabolic class for species :a cannot be :producer since it is a consumer.\
         """

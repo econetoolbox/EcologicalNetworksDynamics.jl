@@ -153,7 +153,7 @@ const View = # Tested viewtype.
     @writefails(
         v[2] = -1,
         growth[1] = -1, # /!\ Error yields local index.
-        "When attempting to mutate <species:producers:growth> node value:\n\
+        "When attempting to mutate <species:producers:growth> node field:\n\
          At node with label :b ([1]):\n\
          Value cannot be negative.\n\
          Received: -1.0"
@@ -161,7 +161,7 @@ const View = # Tested viewtype.
     @writefails(
         v[:b] = -10,
         growth[:b] = -10,
-        "When attempting to mutate <species:producers:growth> node value:\n\
+        "When attempting to mutate <species:producers:growth> node field:\n\
          At node with label :b ([1]):\n\
          Value cannot be negative.\n\
          Received: -10.0"
@@ -169,7 +169,7 @@ const View = # Tested viewtype.
     @writefails(
         v[2:2] .-= 10,
         growth[1] = -3, # /!\ Error yields local index again.
-        "When attempting to mutate <species:producers:growth> node value:\n\
+        "When attempting to mutate <species:producers:growth> node field:\n\
          At node with label :b ([1]):\n\
          Value cannot be negative.\n\
          Received: -3.0"

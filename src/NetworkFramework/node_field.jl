@@ -141,14 +141,14 @@ function define_node_field_component(
         quote
             $D.component(::$DT) = $comp
             (::$_Value)($field, args...; kwargs...) =
-                $construct($d, $Value, $field, args...; kwargs...)
+                $construct($d, $comp, $field, args...; kwargs...)
         end,
     )
 
     if may_flat(d)
         R = flat(d) # Receiver type.
         mod.eval(quote
-            (::$_Value)($field::$R) = $Value.Flat($field)
+            (::$_Value)($field::$R) = $comp.Flat($field)
         end)
     end
 
@@ -296,13 +296,27 @@ function construct(d::NodeField, Field::Component, input; kwargs...)
     Class = take_or!(class, D.component(nc), Any)
     no_unused_arguments()
     kwargs = [class => Class]
+    parsed = parse(d, input)
+    construct_from_parsed(d, Field, parsed; kwargs...)
+end
+
+construct_from_parsed(::NodeField, Field::Component, raw::Vector; kwargs...) =
+    Field.Raw(raw; kwargs...)
+construct_from_parsed(::NodeField, Field::Component, map::Map; kwargs...) =
+    Field.Map(map; kwargs...)
+construct_from_parsed(::NodeField, Field::Component, scalar; kwargs...) = Field.Flat(scalar)
+
+"""
+Pre-process whatever input into one of the three basic input types for this field.
+"""
+function parse(d::AbstractNodeField, input)
     T = D.type(d)
     tries = []
     if may_flat(d)
-        push!(tries, T => v -> Field.Flat(v))
+        push!(tries, T)
     end
-    push!(tries, Vector{T} => v -> Field.Raw(v; kwargs...))
-    push!(tries, Map{T} => m -> Field.Map(m; kwargs...))
+    push!(tries, Vector{T})
+    push!(tries, Map{T})
     try_convert(input, tries...)
 end
 
@@ -481,43 +495,27 @@ mutate_check(d::AbstractNodeField, model::Model, value, ref) =
         check_with_ref(d, WholeCheck(model), value, ref)
     catch e
         e isa F.InputError || rethrow(e)
-        with_context!(e, "When attempting to mutate $d node value")
+        with_context!(e, "When attempting to mutate $d node field")
     end
 
 #-------------------------------------------------------------------------------------------
 # Assignment: called when setting all values at once through a property.
 # Input may be anything, but the underlying model value can be assumed to be correct.
 
-function assign!(d::NodeField, model::Model, input)
-    err = FailedAttempts()
-    if may_flat(d)
-        try
-            assign_flat!(d, model, input)
-            return
-        catch _
-            push!(err, "assign from a flat value")
-        end
-    end
-    for (ctx, Bp) in (("raw", ClassFieldRawBlueprint), ("mapped", ClassFieldMapBlueprint))
-        try
-            assign!(d, model, Bp, input)
-            return
-        catch _
-            push!(err, "assign from $ctx values")
-        end
-    end
-    filter!(err, [ConsistencyError, CheckError, ParseError])
-    throw_unwrapped(err)
+assign!(d::NodeField, model::Model, input) = try
+    assign_parsed!(d, model, parse(d, input))
+catch e
+    e isa F.InputError || rethrow(e)
+    with_context!(e, "When attempting to assign to $d node field")
 end
 
-# Assume the assignment input is made of raw or mapped values.
-function assign!(d::NodeField, model::Model, Bp::Type{<:Blueprint}, input)
-    network = NF.network(model)
-    (classname, fieldname) = D.content(d)
-    raw = construct(d, Bp, input)
-    early = early_check(d, raw)
+# Same code whether the assignment input is made of raw or mapped values.
+function assign_parsed!(d::NodeField, model::Model, parsed::Union{Vector,Map})
+    early = early_check(d, parsed)
     # HERE: this'll fail on maps if incomplete, although it *could* be considered okay?
     late = late_check(d, model, early)
+    network = NF.network(model)
+    (classname, fieldname) = D.content(d)
     class = N.class(network, classname)
     entry = class.data[fieldname]
     N.mutate!(entry) do nodes
@@ -528,7 +526,7 @@ function assign!(d::NodeField, model::Model, Bp::Type{<:Blueprint}, input)
 end
 
 # Assume the assignment input is a single value to flatten to all nodes.
-function assign_flat!(d::NodeField, model::Model, input)
+function assign_parsed!(d::NodeField, model::Model, input)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
     value = check(d, input)

@@ -153,7 +153,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @writefails(
         v[2] = -1,
         body_mass[2] = -1,
-        "When attempting to mutate <species:body_mass> node value:\n\
+        "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :b ([2]):\n\
          Value cannot be negative.\n\
          Received: -1.0"
@@ -161,7 +161,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @writefails(
         v[:b] = -10,
         body_mass[:b] = -10,
-        "When attempting to mutate <species:body_mass> node value:\n\
+        "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :b ([2]):\n\
          Value cannot be negative.\n\
          Received: -10.0"
@@ -169,7 +169,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @writefails(
         v .-= 4,
         body_mass[3] = -1,
-        "When attempting to mutate <species:body_mass> node value:\n\
+        "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :c ([3]):\n\
          Value cannot be negative.\n\
          Received: -1.0"
@@ -217,29 +217,24 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     # Checked.
     @inputfails(
         m.body_mass = [6, -1, 4],
-        "When attempting to assign from raw values:\n\
-         When constructing <species:body_mass> from raw values:\n\
+        "When attempting to assign to <species:body_mass> node field:\n\
          At node index [2]:\n\
          Value cannot be negative.",
         -1,
     )
     @inputfails(
         m.body_mass = Dict(:a => 2, :b => -1, :c => 7),
-        "When attempting to assign from mapped values:\n\
-         When constructing <species:body_mass> from map:\n\
+        "When attempting to assign to <species:body_mass> node field:\n\
          At node with label :b:\n\
          Value cannot be negative.",
         -1,
     )
     @inputfails(
-        m.body_mass = -1, # HERE: disallow input_convert(Vector{Int}, 1) to make this pass.
-        "When attempting to assign from flat values:\n\
-         When constructing <species:body_mass> from map:\n\
-         At node with label :b:\n\
+        m.body_mass = -1,
+        "When attempting to assign to <species:body_mass> node field:\n\
          Value cannot be negative.",
         -1,
     )
-
 
     # Fail constructing from raw values.
     input = [4, -1, 2]

@@ -92,7 +92,6 @@ import EcologicalNetworksDynamics:
     KwargsHelpers,
     AD,
     FailedAttempts,
-    throw_unwrapped,
     render_input
 using .Networks
 using .Framework

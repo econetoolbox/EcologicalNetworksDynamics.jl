@@ -32,44 +32,6 @@ function Base.push!(f::FailedAttempts, context)
     push!(f.errors, (context, err, bt))
 end
 
-"""
-Filter out errors based on the given priority list.
-Errors are dropped if *other errors* are higher-ranking.
-The rank of an error is the index of its first supertype in the priority list.
-Lower index is higher-rank.
-"""
-function Base.filter!(f::FailedAttempts, priorities::Vector{<:Type})
-    # Sort based on rank then drop non-best-ranking ones.
-    ranked = map(f.errors) do err
-        (_, e, _) = err
-        for (i, P) in enumerate(priorities)
-            e isa P && return (i, err)
-        end
-        (0, err) # Unexpected errors don't go silently and rise to the top anyway.
-    end
-    sort!(ranked; by = first)
-    best = ranked |> first |> first
-    # Drop all.
-    empty!(f.errors)
-    # Reintroduce only best-ranking ones.
-    for (rank, err) in ranked
-        rank == best || return
-        push!(f.errors, err)
-    end
-end
-
-"""
-Throw underlying single failed attempt if there is only one.
-Otherwise just throw the failed attempt as a whole.
-ASSUME the error has a mutable `.mess` field that we can then prefix with the context.
-"""
-function throw_unwrapped(f::FailedAttempts, throw=Base.throw)
-    length(f.errors) > 1 && throw(f)
-    (ctx, err, _) = first(f.errors)
-    err.mess = "When attempting to $ctx:\n$(err.mess)"
-    throw(err)
-end
-
 function Base.showerror(io::IO, e::FailedAttempts)
     red, bold, reset = crayon"red", crayon"bold", crayon"reset"
     n = length(e.errors)
