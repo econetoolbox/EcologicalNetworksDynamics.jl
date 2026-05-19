@@ -36,10 +36,11 @@ include("./temperature.jl")
 # Nodes data only relevant to a sub-class.
 include("./growth_rate.jl")
 
-include("./hill_exponent.jl") # graph-level.
+# Graph-level data.
+include("./hill_exponent.jl")
 
-# HERE: Efficiency requires a new typical component: EdgeField. Implement.
-#  include("./efficiency.jl") # <- First, good example of 'edges' component. Read first.
+# Edge-level data.
+include("./efficiency.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================

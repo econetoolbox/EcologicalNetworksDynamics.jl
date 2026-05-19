@@ -20,7 +20,7 @@ using SparseArrays
 using Graphs
 
 # Dispatcher.
-const d = D.EdgeWeb(:foodweb)
+const d = D.EdgeWeb(:trophic)
 const DT = typeof(d)
 
 # Extensions.

@@ -126,7 +126,7 @@ include("./class.jl")
 include("./web.jl")
 include("./node_field.jl")
 include("./sparse_node_field.jl")
-include("./edges.jl")
+include("./edge_field.jl")
 
 include("./display.jl")
 
@@ -136,6 +136,12 @@ include("./display.jl")
 function non_negative(T, input)
     v = inputconvert(T, input)
     v < 0 && checkerr(v, "Value cannot be negative.")
+    v
+end
+
+function fraction(T, input)
+    v = inputconvert(T, input)
+    0.0 <= v <= 1.0 && checkerr(v, "Value must belong to [0, 1].")
     v
 end
 

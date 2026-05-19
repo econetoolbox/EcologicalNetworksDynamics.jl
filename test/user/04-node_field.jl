@@ -1,7 +1,7 @@
 """
 Test all aspects of typical NodeField component,
-using BodyMass as an example but without testing anything specific to BodyMass.
-Anything specific to BodyMass will be tested in a dedicated file.
+using BodyMass as an example but without testing anything specific to body mass.
+Anything specific to body mass will be tested in a dedicated file.
 """
 module NodeFieldTest
 

@@ -101,7 +101,7 @@ function check_ref(s::S, i::Int, ::Val{side}) where {side}
     w = D.web(s)
     d = disp_index(i, Val(side))
     y = Symbol(side)
-    i in 1:n || err(s, "Cannot index with $d into a web $(repr(w)) with $n $m $y nodes.")
+    i in 1:n || err(s, "Cannot index with $d into a $(repr(w)) web with $n $m $y nodes.")
     i
 end
 
@@ -113,7 +113,7 @@ function check_ref(s::S, l::Symbol, ::Val{side}) where {side}
     y = Symbol(side)
     N.is_label(class.index, l) || err(
         s,
-        "Cannot index with $d into a web $(repr(w)) \
+        "Cannot index with $d into a $(repr(w)) web \
          because $(repr(l)) is not a node label in $y class $(repr(m)).",
     )
     l

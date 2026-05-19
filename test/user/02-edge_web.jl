@@ -13,7 +13,7 @@ using SparseArrays
 using Test
 import EcologicalNetworksDynamics: EN, Network, Views, EdgeWeb, SparseMatrix
 import Main: is_repr, is_disp, @viewfails, @inputfails, @sysfails, Value
-const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
+const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
 
 @testset "Typical EdgeWeb component" begin
 
@@ -71,11 +71,11 @@ const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
     v = m.foodweb.mask
     @test v isa View
     @test v isa AbstractMatrix{Bool}
-    @test is_repr(v, "<foodweb>(3×3: 5 edges)")
+    @test is_repr(v, "<trophic>(3×3: 5 edges)")
     @test is_disp(
         v,
         """
-        EdgesMaskView<foodweb>{Bool} (3×3: 5 edges)
+        EdgesMaskView<trophic>{Bool} (3×3: 5 edges)
          · 1 1
          1 · ·
          1 1 ·\
@@ -111,18 +111,18 @@ const View = Views.EdgesMaskView{EdgeWeb(:foodweb)} # Tested view type.
     @viewfails(
         v[0, 1],
         View,
-        "Cannot index with [0, ·] into a web :foodweb with 3 species source nodes."
+        "Cannot index with [0, ·] into a :trophic web with 3 species source nodes."
     )
     @viewfails(
         v[:x, :b],
         View,
-        "Cannot index with [:x, ·] into a web :foodweb \
+        "Cannot index with [:x, ·] into a :trophic web \
          because :x is not a node label in source class :species."
     )
     @viewfails(
         v[:a, :y],
         View,
-        "Cannot index with [·, :y] into a web :foodweb \
+        "Cannot index with [·, :y] into a :trophic web \
          because :y is not a node label in target class :species."
     )
     for index in (() -> v[nothing], () -> v[nothing, 1], () -> v[1, nothing])

@@ -28,9 +28,9 @@ function define_reflexive_web_field_component(
     # TODO: have it generic over D.is_sparse(d) the day it's required.
 
     ew = EdgeWeb(d)
-    Web = D.CamelCaseSingular(ew)
+    Web = D.CamelCase(ew)
     web, field = D.content(d)
-    src, tgt = D.sourcename(d), D.targetname(d)
+    src, tgt = D.sourcename(ew), D.targetname(ew)
     value, values, Value, Values, short = D.name_variants(d)
     T = D.type(d)
     Value_ = Symbol(Value, :_) # Blueprints module name.
@@ -74,7 +74,7 @@ function define_reflexive_web_field_component(
 
     bpmod.eval(
         quote
-            mutable struct Adjacency <: NF.WebFieldAdjacencyBlueprint
+            mutable struct Adjacency <: NF.EdgeFieldAdjacencyBlueprint
                 $field::NF.Adjacency{$T}
                 $web::Brought(Web) # Not exactly useful. Keep for consistency.
                 Adjacency($field, $web) = new(NF.construct(d, Adjacency, $field), $web)
@@ -85,7 +85,7 @@ function define_reflexive_web_field_component(
             F.early_check(bp::Adjacency) = NF.early_check(d, bp)
             F.late_check(model, bp::Adjacency, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Adjacency, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Adjacency, "[$src => [$tgt => $field]] ajacency list")
+            NF.define_blueprint(Adjacency, $"[$src => [$tgt => $field]] adjacency list")
             export Adjacency
         end,
     )
@@ -96,7 +96,7 @@ function define_reflexive_web_field_component(
     if may_flat(d)
         bpmod.eval(
             quote
-                mutable struct Flat <: NF.WebFieldFlatBlueprint
+                mutable struct Flat <: NF.EdgeFieldFlatBlueprint
                     $field::$T
                 end
                 NF.data(bp::Flat) = bp.$field
