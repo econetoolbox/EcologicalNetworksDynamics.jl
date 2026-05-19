@@ -13,17 +13,17 @@ may_flat(d::AbstractField) = !isnothing(flat(d))
 """
 Expand to a class field from a vector of raw values.
 """
-abstract type ClassFieldRawBlueprint <: Blueprint end
+abstract type NodeFieldRawBlueprint <: Blueprint end
 
 """
 Expand to a class field from mapped values.
 """
-abstract type ClassFieldMapBlueprint <: Blueprint end
+abstract type NodeFieldMapBlueprint <: Blueprint end
 
 """
 Expand to a class field from a single value.
 """
-abstract type ClassFieldFlatBlueprint <: Blueprint end
+abstract type NodeFieldFlatBlueprint <: Blueprint end
 
 """
 Typical setup for a component bringing a new class field to the network.
@@ -59,7 +59,6 @@ function define_node_field_component(
             const _Class = typeof(Class)
             const d = $d
             const T = $T
-            const (class, field) = D.content(d)
             end
         end
     ).args |> last)
@@ -68,13 +67,13 @@ function define_node_field_component(
     # From raw values.
     bpmod.eval(
         quote
-            mutable struct Raw <: NF.ClassFieldRawBlueprint
-                $field::Vector{T}
+            mutable struct Raw <: NF.NodeFieldRawBlueprint
+                $short::Vector{T}
                 $class::Brought(Class)
-                Raw($field, $class) = new(NF.construct(d, Raw, $field), $class)
-                Raw($field; $class = _Class) = Raw($field, $class)
+                Raw($short, $class) = new(NF.construct(d, Raw, $short), $class)
+                Raw($short; $class = _Class) = Raw($short, $class)
             end
-            NF.data(bp::Raw) = bp.$field
+            NF.data(bp::Raw) = bp.$short
             F.implied_blueprint_for(bp::Raw, ::_Class) = NF.implied_class(d, Class, bp)
             F.early_check(bp::Raw) = NF.early_check(d, bp)
             F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
@@ -89,18 +88,18 @@ function define_node_field_component(
 
     bpmod.eval(
         quote
-            mutable struct Map <: NF.ClassFieldMapBlueprint
-                $field::NF.Map{T}
+            mutable struct Map <: NF.NodeFieldMapBlueprint
+                $short::NF.Map{T}
                 $class::Brought(Class) # Not exactly useful. Keep for consistency.
-                Map($field, $class) = new(NF.construct(d, Map, $field), $class)
-                Map($field; $class = _Class) = Map($field, $class)
+                Map($short, $class) = new(NF.construct(d, Map, $short), $class)
+                Map($short; $class = _Class) = Map($short, $class)
             end
-            NF.data(bp::Map) = bp.$field
+            NF.data(bp::Map) = bp.$short
             F.implied_blueprint_for(bp::Map, ::_Class) = NF.implied_class(d, Class, bp)
             F.early_check(bp::Map) = NF.early_check(d, bp)
             F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Map, "[$class => $field] map")
+            NF.define_blueprint(Map, $"[$class => $field] map")
             export Map
         end,
     )
@@ -110,11 +109,11 @@ function define_node_field_component(
     if may_flat(d)
         bpmod.eval(
             quote
-                mutable struct Flat <: NF.ClassFieldFlatBlueprint
-                    $field::T
-                    Flat($field) = new(NF.construct(d, Flat, $field))
+                mutable struct Flat <: NF.NodeFieldFlatBlueprint
+                    $short::T
+                    Flat($short) = new(NF.construct(d, Flat, $short))
                 end
-                NF.data(bp::Flat) = bp.$field
+                NF.data(bp::Flat) = bp.$short
                 F.early_check(bp::Flat) = NF.early_check(d, bp)
                 F.late_check(model, bp::Flat, data) = NF.late_check(d, model, bp, data)
                 F.expand!(model, bp::Flat, data) = NF.expand!(d, model, bp, data)
@@ -142,15 +141,15 @@ function define_node_field_component(
     mod.eval(
         quote
             $D.component(::$DT) = $comp
-            (::$_Value)($field, args...; kwargs...) =
-                $construct($d, $comp, $field, args...; kwargs...)
+            (::$_Value)($short, args...; kwargs...) =
+                $construct($d, $comp, $short, args...; kwargs...)
         end,
     )
 
     if may_flat(d)
         R = flat(d) # Receiver type.
         mod.eval(quote
-            (::$_Value)($field::$R) = $comp.Flat($field)
+            (::$_Value)($short::$R) = $comp.Flat($short)
         end)
     end
 
@@ -192,7 +191,7 @@ data(::Blueprint) = throw("unimplemented") # Extract main codegen named field.
 #-------------------------------------------------------------------------------------------
 # Check data values without model information, against the target type.
 
-check(d::AbstractNodeField, value) = inputconvert(D.type(d), value)
+check(d::AbstractField, value) = inputconvert(D.type(d), value)
 
 check_with_ref(d::AbstractNodeField, value, i::Int) =
     try
@@ -213,9 +212,9 @@ check_with_ref(d::AbstractNodeField, value, l::Symbol) =
 # Check against a model value, assuming the type and raw value is already correct.
 
 # No check by default.
-check(::AbstractNodeField, ::Model, value) = value
+check(::AbstractField, ::Model, value) = value
 # Contextualized.
-check(d::AbstractNodeField, m::Model, value, ::Int, ::Symbol) = check(d, m, value)
+check(d::AbstractField, m::Model, value, _index, _label) = check(d, m, value)
 
 #-------------------------------------------------------------------------------------------
 # Check against both the type and then immediately the model (useful for mutating).
@@ -226,7 +225,7 @@ end
 get_model(w::WholeCheck) = w.model
 get_model(m::Model) = m
 
-function check(d::AbstractNodeField, whole::WholeCheck, value)
+function check(d::AbstractField, whole::WholeCheck, value)
     converted = check(d, value)
     check(d, whole.model, converted)
 end
@@ -263,7 +262,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct: any input is possible, but we don't know anything about the model yet.
 
-function construct(d::AbstractNodeField, ::Type{<:ClassFieldRawBlueprint}, raw)
+function construct(d::AbstractNodeField, ::Type{<:NodeFieldRawBlueprint}, raw)
     T = D.type(d)
     try
         v = inputconvert(Vector{T}, raw)
@@ -277,7 +276,7 @@ function construct(d::AbstractNodeField, ::Type{<:ClassFieldRawBlueprint}, raw)
     end
 end
 
-function construct(d::AbstractNodeField, ::Type{<:ClassFieldMapBlueprint}, map)
+function construct(d::AbstractNodeField, ::Type{<:NodeFieldMapBlueprint}, map)
     T = D.type(d)
     try
         out = inputconvert(Map{T}, map)
@@ -291,7 +290,7 @@ function construct(d::AbstractNodeField, ::Type{<:ClassFieldMapBlueprint}, map)
     end
 end
 
-function construct(d::AbstractNodeField, ::Type{<:ClassFieldFlatBlueprint}, flat)
+function construct(d::AbstractNodeField, ::Type{<:NodeFieldFlatBlueprint}, flat)
     T = D.type(d)
     try
         inputconvert(T, flat)
@@ -478,13 +477,13 @@ end
 #-------------------------------------------------------------------------------------------
 # Implied class blueprint.
 
-function implied_class(::NodeField, Class, bp::ClassFieldRawBlueprint)
+function implied_class(::NodeField, Class, bp::NodeFieldRawBlueprint)
     raw = data(bp)
     n = length(raw)
     Class.Number(n)
 end
 
-implied_class(d::NodeField, Class, bp::ClassFieldMapBlueprint) =
+implied_class(d::NodeField, Class, bp::NodeFieldMapBlueprint) =
     implied_class(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
 
 function implied_class(::NodeField, Class, map::Map{<:Any,Symbol})
@@ -504,12 +503,12 @@ expand!(
     d::AbstractNodeField,
     model::Model,
     # The two provide the same `late_data` after late checking.
-    ::Union{ClassFieldRawBlueprint,ClassFieldMapBlueprint},
+    ::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint},
     late_data::Vector,
 ) = expand!(d, model, late_data)
 
 # Special case flat-blueprint.
-function expand!(d::AbstractNodeField, model::Model, ::ClassFieldFlatBlueprint, late_data)
+function expand!(d::AbstractNodeField, model::Model, ::NodeFieldFlatBlueprint, late_data)
     network = NF.network(model)
     class = D.class(d)
     n = N.n_nodes(network, class)

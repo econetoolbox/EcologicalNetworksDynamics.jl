@@ -12,7 +12,7 @@ using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
 
     # Values are symbols, checked and expanded against aliasing dict.
     bp = MetabolicClass(collect("iep"))
-    @test bp.metabolic_class == [:i, :e, :p]
+    @test bp.class == [:i, :e, :p]
     m = base + bp
     @test is_disp(
         m,

@@ -32,6 +32,18 @@
   m.growth_rate # Sparse view: [·, 5.0, ·, 8.0].
   ```
 
+- `Raw` blueprint for edge fields now expect a dense *vector* or raw values.
+  If you want to input a matrix instead. Use the `Matrix` blueprint.
+  ```julia
+  Efficiency.Raw([4, 5, 6]) # 3 values for a model with 3 trophic links.
+  Efficiency.Matrix([0 4 0; 5 0 0; 6 0 0]) # Matrix input version equivalent.
+  ```
+  Note that the generic constructor with component call still works as expected.
+  ```julia
+  Efficiency([4, 5, 6])             # Raw values input.
+  Efficiency([0 4 0; 5 0 0; 6 0 0]) # Matrix input.
+  ```
+
 - `model.trophic.levels` becomes `model.trophic.level` for consistency with
   other node properties being named with singular form.
 

@@ -10,7 +10,8 @@ using EcologicalNetworksDynamics
 
 # Additional imports only used here for testing purpose.
 using Test
-using EcologicalNetworksDynamics: EN
+using EcologicalNetworksDynamics: EN, N
+import Main: is_repr, is_disp
 
 @testset "Typical EdgeWeb component" begin
 
@@ -21,6 +22,7 @@ using EcologicalNetworksDynamics: EN
         """
         Efficiency (component for $(N.Network), expandable from:
           Raw: raw values,
+          Matrix: a sparse matrix,
           Adjacency: [species => [species => efficiency]] adjacency list,
           Flat: uniform value,
         )\
@@ -33,13 +35,19 @@ using EcologicalNetworksDynamics: EN
     base = Model(Foodweb([:a => :b, :b => :c, :d => (:a, :c)]))
 
     # Construct from raw values, regardless of input type.
-    e = [
-        0 5 0 0
-        0 0 8 0
-        0 0 0 0
-        2 0 4 0
-    ] / 10
-    bp = Efficiency.Raw(e)
+    bp = Efficiency.Raw([2, 5, 8, 4] / 10)
+    @test Efficiency.Raw(Bool[1, 0, 1, 0]) == Efficiency.Raw([1.0, 0.0, 1.0, 0.0])
+    @test bp == Efficiency([2, 5, 8, 4] / 10) # Implicit constructor.
+    @test Efficiency(Bool[1, 0, 1, 0]) == Efficiency([1.0, 0.0, 1.0, 0.0])
+    @test is_repr(bp, "<Efficiency>:Raw(e: [0.2, 0.5, 0.8, 0.4])")
+    @test is_disp(
+        bp,
+        """
+        blueprint for <Efficiency>: Raw {
+          e: [0.2, 0.5, 0.8, 0.4],
+        }\
+        """,
+    )
 
 end
 

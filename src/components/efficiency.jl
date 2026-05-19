@@ -11,6 +11,7 @@ using EcologicalNetworksDynamics: EN, F, NF, D
 const d = D.EdgeField(:trophic, :efficiency)
 const DT = typeof(d)
 
+D.is_sparse(::DT) = true
 D.name_variants(::DT) = (:efficiency, :efficiencies, :Efficiency, :Efficiencies, :e)
 D.type(::DT) = Float64
 NF.check(::DT, input) = NF.fraction(Float64, input)

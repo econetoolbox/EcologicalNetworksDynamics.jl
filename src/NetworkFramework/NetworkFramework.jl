@@ -141,7 +141,7 @@ end
 
 function fraction(T, input)
     v = inputconvert(T, input)
-    0.0 <= v <= 1.0 && checkerr(v, "Value must belong to [0, 1].")
+    0.0 <= v <= 1.0 || checkerr(v, "Value must belong to [0, 1].")
     v
 end
 

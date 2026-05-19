@@ -2,17 +2,17 @@
 Expand into a subclass field from a raw vector,
 one element per node in the subclass.
 """
-abstract type SubClassFieldRawBlueprint <: ClassFieldRawBlueprint end
+abstract type SparseNodeFieldRawBlueprint <: NodeFieldRawBlueprint end
 
 """
 Expand into a subclass field from mapped values.
 """
-abstract type SubClassFieldMapBlueprint <: ClassFieldMapBlueprint end
+abstract type SparseNodeFieldMapBlueprint <: NodeFieldMapBlueprint end
 
 """
 Expand into a subclass field from a single value.
 """
-abstract type SubClassFieldFlatBlueprint <: ClassFieldFlatBlueprint end
+abstract type SparseNodeFieldFlatBlueprint <: NodeFieldFlatBlueprint end
 
 """
 Typical setup for a componing bringing a new field to a network *sub*class,
@@ -54,7 +54,7 @@ function define_sparse_node_field_component(
     #---------------------------------------------------------------------------------------
     # From raw values: one per node in the subclass (=dense).
     bpmod.eval(quote
-        mutable struct Raw <: NF.SubClassFieldRawBlueprint
+        mutable struct Raw <: NF.SparseNodeFieldRawBlueprint
             $field::Vector{$T}
             Raw($field) = new(NF.construct(d, Raw, $field))
         end
@@ -70,7 +70,7 @@ function define_sparse_node_field_component(
     # From a node-indexed map.
 
     bpmod.eval(quote
-        mutable struct Map <: NF.SubClassFieldMapBlueprint
+        mutable struct Map <: NF.SparseNodeFieldMapBlueprint
             $field::NF.Map{$T}
             Map($field) = new(NF.construct(d, Map, $field))
         end
@@ -87,7 +87,7 @@ function define_sparse_node_field_component(
     if may_flat(d)
         bpmod.eval(
             quote
-                mutable struct Flat <: NF.SubClassFieldFlatBlueprint
+                mutable struct Flat <: NF.SparseNodeFieldFlatBlueprint
                     $field::$T
                     Flat($field) = new(NF.construct(d, Flat, $field))
                 end
@@ -198,7 +198,7 @@ end
 function late_check(
     d::SparseNodeField,
     model::Model,
-    ::SubClassFieldMapBlueprint,
+    ::SparseNodeFieldMapBlueprint,
     map::Map{<:Any,Int},
 )
     # Check indices first.
