@@ -44,13 +44,12 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     @test bp == BodyMass([4.0, 5.0, 6.0])
     @test bp == BodyMass([4, 5, 6])
     @test BodyMass(Bool[1, 0, 1]) == BodyMass([1.0, 0.0, 1.0])
-    @test is_repr(bp, "<BodyMass>:Raw(M: [4.0, 5.0, 6.0], species: <Species>)")
+    @test is_repr(bp, "<BodyMass>:Raw(M: [4.0, 5.0, 6.0])")
     @test is_disp(
         bp,
         """
         blueprint for <BodyMass>: Raw {
           M: [4.0, 5.0, 6.0],
-          species: <implied blueprint for <Species>>,
         }\
         """,
     )
@@ -71,11 +70,6 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
 
     # Or else we do specify during expansion.
     m = Model(Species([:a, :b, :c]), bp)
-    @test m.species.names == [:a, :b, :c]
-
-    # Or else we do specify within the blueprint itself.
-    bp.species = [:a, :b, :c]
-    m = Model(bp)
     @test m.species.names == [:a, :b, :c]
 
     # The values become available as a view.
@@ -281,17 +275,10 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         )
     )
 
-    # Brought node class.
-    bp = BodyMass.Raw([1, 2, 3], [:a, :b, :c])
-    @test bp.species == Species([:a, :b, :c])
-    @test bp == BodyMass.Raw([1, 2, 3]; species = [:a, :b, :c])
-    @test bp == BodyMass([1, 2, 3]; species = [:a, :b, :c])
-
-    # Inconsistencies are (still) okay..
-    bp = BodyMass([4, 1, 2]; species = 2)
-    # .. but then expansion fails.
+    # Fail against system value.
+    bp = BodyMass([4, 5, 6])
     @sysfails(
-        Model(bp),
+        Model(Species(2), bp),
         Check(
             late,
             [BodyMass.Raw],
@@ -304,13 +291,12 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     map = [:a => 4, :b => 5, :c => 6]
     bp = BodyMass.Map(map)
     @test bp == BodyMass(map) # Directly dispatched from component.
-    @test is_repr(bp, "<BodyMass>:Map(M: {a: 4.0, b: 5.0, c: 6.0}, species: <Species>)")
+    @test is_repr(bp, "<BodyMass>:Map(M: {a: 4.0, b: 5.0, c: 6.0})")
     @test is_disp(
         bp,
         """
         blueprint for <BodyMass>: Map {\n  \
-          M: {a: 4.0, b: 5.0, c: 6.0},\n  \
-          species: <implied blueprint for <Species>>,\n\
+          M: {a: 4.0, b: 5.0, c: 6.0},\n\
         }\
         """,
     )
@@ -347,13 +333,12 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
     imap = [1 => 4, 2 => 5, 3 => 6]
     bp = BodyMass.Map(imap)
     @test bp == BodyMass(imap)
-    @test is_repr(bp, "<BodyMass>:Map(M: {1: 4.0, 2: 5.0, 3: 6.0}, species: <Species>)")
+    @test is_repr(bp, "<BodyMass>:Map(M: {1: 4.0, 2: 5.0, 3: 6.0})")
     @test is_disp(
         bp,
         """
         blueprint for <BodyMass>: Map {\n  \
-          M: {1: 4.0, 2: 5.0, 3: 6.0},\n  \
-          species: <implied blueprint for <Species>>,\n\
+          M: {1: 4.0, 2: 5.0, 3: 6.0},\n\
         }\
         """,
     )
@@ -380,13 +365,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         )
     )
 
-    # Brought node class.
-    bp = BodyMass.Map(map, 3)
-    @test bp.species == Species(3)
-    @test bp == BodyMass.Map(map; species = 3)
-    @test bp == BodyMass(map; species = 3)
-
     # Alias blueprints if exact input type is used.
+    bp = BodyMass.Map(map)
     input = bp.M
     bp = BodyMass(input)
     @test bp.M === input

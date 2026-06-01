@@ -47,7 +47,7 @@ function define_reflexive_web_field_component(
     bpmod = mod.eval((
         quote
             module $Value_
-            import EcologicalNetworksDynamics: F, NF, D, Brought
+            import EcologicalNetworksDynamics: F, NF, D
             const ew = $ew
             const Web = D.component(ew)
             const _Web = typeof(Web)
@@ -101,9 +101,7 @@ function define_reflexive_web_field_component(
         quote
             mutable struct Adjacency <: NF.EdgeFieldAdjacencyBlueprint
                 $short::NF.Adjacency{T}
-                $web::Brought(Web) # Not exactly useful. Keep for consistency.
-                Adjacency($short, $web) = new(NF.construct(d, Adjacency, $short), $web)
-                Adjacency($short; $web = _Web) = Adjacency($short, $web)
+                Adjacency($short) = new(NF.construct(d, Adjacency, $short))
             end
             NF.data(bp::Adjacency) = bp.$short
             F.implied_blueprint_for(bp::Adjacency, ::_Web) = NF.implied_web(d, Web, bp)

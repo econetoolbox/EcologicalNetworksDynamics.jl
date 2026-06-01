@@ -137,8 +137,8 @@ using Logging
         xhu::Brought(Xhu)
         ejp::Brought(Ejp)
     end
-    F.implied_blueprint_for(::Bdz_b, ::Type{_Xhu}) = Xhu.b() # Regular method signature.
-    F.implied_blueprint_for(::Bdz_b, ::_Ejp) = Ejp.b(5, 8) # Convenience method signature.
+    F.implied_blueprint_for(::Bdz_b, ::_Xhu) = Xhu.b()
+    F.implied_blueprint_for(::Bdz_b, ::_Ejp) = Ejp.b(5, 8)
     define_blueprint(Bdz_b)
     define_component(:Bdz; blueprints = [:b => Bdz_b])
 
@@ -250,8 +250,8 @@ end
          to implicitly bring <$Xhu> from $Ihb_b blueprints."
     )
 
-    # Define one, but not the other.
-    F.implied_blueprint_for(::Ihb_b, ::Type{_Xhu}) = Xhu.b() # Regular method signature.
+    # Okay if you define it.
+    F.implied_blueprint_for(::Ihb_b, ::_Xhu) = Xhu.b()
     @bluefails(
         define_blueprint(Ihb_b),
         Ihb_b,
@@ -259,24 +259,7 @@ end
          to implicitly bring <$Ejp> from $Ihb_b blueprints."
     )
     F.implied_blueprint_for(::Ihb_b, ::_Ejp) = Ejp.b(5, 8) # Convenience method signature.
-
-    # Now it's okay.
     define_blueprint(Ihb_b)
-
-    # Can't define both the regular *and* convenience methods.
-    struct Ntz_b <: Blueprint{Value}
-        xhu::Brought(Xhu)
-    end
-    F.implied_blueprint_for(::Ntz_b, ::_Xhu) = Xhu.b()
-    F.implied_blueprint_for(::Ntz_b, ::Type{_Xhu}) = Xhu.b()
-    @bluefails(
-        define_blueprint(Ntz_b),
-        Ntz_b,
-        "Ambiguity: the two following methods have been defined:\n  \
-           $(F.implied_blueprint_for)(::$Ntz_b, ::<$Xhu>)\n  \
-           $(F.implied_blueprint_for)(::$Ntz_b, ::Type{<$Xhu>})\n\
-         Consider removing either one."
-    )
 
     #---------------------------------------------------------------------------------------
     # Guard against redundant brought blueprints.
@@ -446,7 +429,7 @@ define_component(name, V = Value; kwargs...) =
     mutable struct Pmi_b <: Blueprint{Value}
         a::Brought(A)
     end
-    F.implied_blueprint_for(::Pmi_b, ::Type{A}) = B.b()
+    F.implied_blueprint_for(::Pmi_b, ::A) = B.b()
     define_blueprint(Pmi_b)
     define_component(:Pmi; blueprints = [:b => Pmi_b])
     pmi = Pmi.b(nothing)
@@ -539,6 +522,8 @@ define_component(name, V = Value; kwargs...) =
     Pmi.b(input) # TODO: find a way to error at this point..
     pmi.a = input # .. or this point..
     @failswith(S(pmi), F.UnimplementedImpliedMethod(Pmi_b, A, _B)) # .. rather than then.
+    # HERE: the above does not error anymore while refactoring `*imply*` signatures.
+    # Investigate.
 
     # ======================================================================================
     # Valid uses.
@@ -546,7 +531,7 @@ define_component(name, V = Value; kwargs...) =
     mutable struct Wmu_b <: Blueprint{Value}
         a::Brought(A)
     end
-    F.implied_blueprint_for(::Wmu_b, ::Type{A}) = B.b() # Any is ok.
+    F.implied_blueprint_for(::Wmu_b, ::_A) = B.b() # Any is ok.
     define_blueprint(Wmu_b)
     define_component(:Wmu; blueprints = [:b => Wmu_b])
     # Not brought.
@@ -573,8 +558,8 @@ define_component(name, V = Value; kwargs...) =
     @test has_component(s, A)
 
     # Accept any sub-component as implied.
-    F.implied_blueprint_for(::Wmu_b, ::_B) = B.b() # (convenience form)
-    F.implied_blueprint_for(::Wmu_b, ::Type{_C}) = C.b() # (longer explicit form)
+    F.implied_blueprint_for(::Wmu_b, ::_B) = B.b()
+    F.implied_blueprint_for(::Wmu_b, ::_C) = C.b()
     F.implied_blueprint_for(::Wmu_b, ::_D) = D.b()
 
     wmu = Wmu.b(nothing)

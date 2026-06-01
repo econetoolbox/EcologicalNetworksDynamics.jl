@@ -50,7 +50,7 @@ using Main: is_disp, is_repr, @argfails, @sysfails, Value
 
     # Input guards.
     @argfails(BodyMass(), "Either 'M' or 'Z' must be provided to define body masses.")
-    @argfails(BodyMass([1, 2], Z = 3.4), "Unexpected argument: Z = 3.4.")
+    @test_throws(MethodError, BodyMass([1, 2], Z = 3.4))
     @argfails(
         BodyMass(M = [1, 2], Z = 3.4),
         "Cannot specify both 'M' and 'Z' to define body masses."

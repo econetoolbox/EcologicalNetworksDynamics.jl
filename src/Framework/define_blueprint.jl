@@ -59,6 +59,18 @@ blueprint.field = EmbeddedBlueprintConstructor(value)
 ERGONOMIC BET: This will only work if there is no ambiguity which constructor to call:
 make it only work if the component singleton instance brought by the field is callable,
 as this means there is an unambiguous default blueprint to be constructed.
+
+XXX: ON HOLD (BroughtFields) as it turns out,
+brought blueprints are either *implied*
+by blueprints with no strong necessity to embed them (data/topology blueprints),
+or *either embedded or nothing*
+by blueprints where implying doesn't exactly mean anything (functional blueprints).
+So maybe there should not be this way of alternating between these three variants.
+Maybe there should be only implied blueprints (not reified by fields)
+and deactivatable embedded blueprints.
+While rewriting the interface up there, try only using either of these two.
+And if it works out well,
+then s/BroughtField/EmbeddedField/g and drop its `Type{<:C}` variant.
 """
 
 # Dedicated field type to be automatically detected as brought blueprints.
@@ -106,6 +118,7 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
         C = componentof(fieldtype)
         # Check whether either the specialized method XOR its convenience alias
         # have been defined.
+        # HERE: why is that? Just use the convenience one now, right?
         sp = hasmethod(implied_blueprint_for, Tuple{B,Type{C}})
         conv = hasmethod(implied_blueprint_for, Tuple{B,C})
         (conv || sp) || err("Method $implied_blueprint_for($B, $C) unspecified \
@@ -182,10 +195,12 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
     end
 
     # Setup expansion dependencies.
-    eval(
-        quote
-            Framework.expands_from(::$B) = $checked_deps
+    eval(quote
+        Framework.expands_from(::$B) = $checked_deps
+    end)
 
+    isempty(broughts) || eval(
+        quote
             # Setup the blueprints brought.
             Framework.brought(b::$B) =
                 I.map(
@@ -194,7 +209,7 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
                         I.map(f -> refvalue(getfield(b, f)), keys($broughts)),
                     ),
                 ) do f
-                    f isa Component ? typeof(f) : f
+                    f isa CompType ? singleton_instance(f) : f
                 end
 
             # Protect/enhance field assignement for brought blueprints.
@@ -211,50 +226,53 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
                 end
                 setfield!(b, prop, bf)
             end
-
-            # Enhance display, special-casing brought fields.
-            Base.show(io::IO, b::$B) = display_short(io, b)
-            Base.show(io::IO, ::MIME"text/plain", b::$B) = display_long(io, b, 0)
-
-            function Framework.display_short(io::IO, bp::$B)
-                comps = provided_comps_display(bp, 0, false)
-                print(io, "$comps:$(nameof($B))(")
-                for (i, name) in enumerate(fieldnames($B))
-                    i > 1 && print(io, ", ")
-                    print(io, "$name: ")
-                    # Dispatch on both (bp, name) and field value to allow
-                    # either kind of specialization.
-                    value = getfield(bp, name)
-                    display_blueprint_field_short(io, value, bp, Val(name))
-                end
-                print(io, ")")
-            end
-
-            function Framework.display_long(io::IO, bp::$B, level)
-                comps = provided_comps_display(bp, level, true)
-                g = level == 0 ? "" : grayed
-                print(
-                    io,
-                    "$(g)blueprint for$reset $comps: \
-                     $blueprint_color$(nameof($B))$reset {",
-                )
-                preindent = repeat("  ", level)
-                level += 1
-                indent = repeat("  ", level)
-                names = fieldnames($B)
-                for name in names
-                    print(io, "\n$indent$field_color$name:$reset ")
-                    value = getfield(bp, name)
-                    display_blueprint_field_long(io, value, bp, Val(name), level)
-                    print(io, ",")
-                end
-                if !isempty(names)
-                    print(io, "\n$preindent")
-                end
-                print(io, "}")
-            end
         end,
     )
+
+    eval(quote
+
+        # Enhance display, special-casing brought fields.
+        Base.show(io::IO, b::$B) = display_short(io, b)
+        Base.show(io::IO, ::MIME"text/plain", b::$B) = display_long(io, b, 0)
+
+        function Framework.display_short(io::IO, bp::$B)
+            comps = provided_comps_display(bp, 0, false)
+            print(io, "$comps:$(nameof($B))(")
+            for (i, name) in enumerate(fieldnames($B))
+                i > 1 && print(io, ", ")
+                print(io, "$name: ")
+                # Dispatch on both (bp, name) and field value to allow
+                # either kind of specialization.
+                value = getfield(bp, name)
+                display_blueprint_field_short(io, value, bp, Val(name))
+            end
+            print(io, ")")
+        end
+
+        function Framework.display_long(io::IO, bp::$B, level)
+            comps = provided_comps_display(bp, level, true)
+            g = level == 0 ? "" : grayed
+            print(
+                io,
+                "$(g)blueprint for$reset $comps: \
+                 $blueprint_color$(nameof($B))$reset {",
+            )
+            preindent = repeat("  ", level)
+            level += 1
+            indent = repeat("  ", level)
+            names = fieldnames($B)
+            for name in names
+                print(io, "\n$indent$field_color$name:$reset ")
+                value = getfield(bp, name)
+                display_blueprint_field_long(io, value, bp, Val(name), level)
+                print(io, ",")
+            end
+            if !isempty(names)
+                print(io, "\n$preindent")
+            end
+            print(io, "}")
+        end
+    end)
 
     # Record to avoid multiple calls to `define_blueprint(A)`.
     if !isnothing(shortline)

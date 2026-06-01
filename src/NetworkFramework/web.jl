@@ -32,8 +32,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
         (
             quote
                 module $Web_
-                import EcologicalNetworksDynamics:
-                    F, NF, SparseMatrix, BinAdjacency, Brought, Model
+                import EcologicalNetworksDynamics: F, NF, SparseMatrix, BinAdjacency, Model
                 const d = $d
                 const src = $src
                 const Class = $(D.component(src))
@@ -49,12 +48,10 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
         quote
             mutable struct Matrix <: NF.ReflexiveWebMatrixBlueprint
                 A::SparseMatrix{Bool}
-                $class::Brought(Class)
-                Matrix(A, $class) = new(to_matrix(A), $class)
-                Matrix(A; $class = Class) = new(to_matrix(A), $class)
+                Matrix(A) = new(NF.inputconvert(SparseMatrix{Bool}, A))
             end
-            to_matrix(A) = NF.inputconvert(SparseMatrix{Bool}, A)
             # Infer number of class nodes from matrix size.
+            F.brought(::Matrix) = (Class,)
             F.implied_blueprint_for(bp::Matrix, ::_Class) = NF.implied_class(d, Class, bp)
             F.early_check(bp::Matrix) = NF.early_check(d, bp)
             F.late_check(model, bp::Matrix) = NF.late_check(d, model, bp)
@@ -70,11 +67,10 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
         quote
             mutable struct Adjacency <: NF.ReflexiveWebAdjacencyBlueprint
                 A::BinAdjacency
-                $class::Brought(Class)
-                Adjacency(A, $class = Class) =
-                    new(NF.inputconvert(BinAdjacency, A), $class)
+                Adjacency(A) = new(NF.inputconvert(BinAdjacency, A))
             end
             # Infer number or names of class nodes from the lists.
+            F.brought(::Adjacency) = (Class,)
             F.implied_blueprint_for(bp::Adjacency, ::_Class) =
                 NF.implied_class(d, Class, bp)
             F.late_check(model, bp::Adjacency) = NF.late_check(d, model, bp)

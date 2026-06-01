@@ -50,16 +50,12 @@ const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
         """
         blueprint for <Foodweb>: Matrix {
           A: 3×3 sparse matrix with 5 values (true),
-          species: <implied blueprint for <Species>>,
         }\
         """,
     )
 
-    # Explicit species names.
-    bp.species = collect("abc")
-
     # Expand into a web component.
-    m = Model(bp)
+    m = Model(Species("abc"), bp)
     @test m.trophic.n_edges == m.trophic.n_links == 5
 
     # The adjacence property becomes available as a view.
@@ -165,7 +161,7 @@ const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
         )
     )
     @sysfails(
-        Model(Foodweb([0 1; 0 0]; species = 3)),
+        Model(Species(3), Foodweb([0 1; 0 0])),
         Check(
             late,
             [Foodweb.Matrix],
@@ -176,31 +172,16 @@ const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
         )
     )
 
-    # Various implicit/explicit forms for brought field in constructors.
-    bp = Foodweb.Matrix(A, Species(2))
-    @test bp == Foodweb.Matrix(A; species = Species(2))
-    @test bp == Foodweb.Matrix(A, Species(2))
-    @test bp == Foodweb.Matrix(A; species = 2)
-    @test bp == Foodweb.Matrix(A, 2)
-    @test bp == Foodweb(A; species = Species(2))
-    @test bp == Foodweb(A; species = 2)
-    @test bp == Foodweb(A, Species(2))
-    @test bp == Foodweb(A, 2)
-
     # Construct from adjacency matrix.
     A = [:a => (:b, :c), (:d, :c) => (:b, :e)]
     bp = Foodweb.Adjacency(A)
     @test bp == Foodweb(A) # Directly dispatched from component.
-    @test is_repr(
-        bp,
-        "<Foodweb>:Adjacency(A: {a: {b, c}, d: {b, e}, c: {b, e}}, species: <Species>)",
-    )
+    @test is_repr(bp, "<Foodweb>:Adjacency(A: {a: {b, c}, d: {b, e}, c: {b, e}})")
     @test is_disp(
         bp,
         """
         blueprint for <Foodweb>: Adjacency {
           A: {a: {b, c}, d: {b, e}, c: {b, e}},
-          species: <implied blueprint for <Species>>,
         }\
         """,
     )
@@ -225,16 +206,12 @@ const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
     A = [1 => (2, 3), (4, 3) => (2, 5)]
     bp = Foodweb.Adjacency(A)
     @test bp == Foodweb(A) # Directly dispatched from component.
-    @test is_repr(
-        bp,
-        "<Foodweb>:Adjacency(A: {1: {2, 3}, 4: {2, 5}, 3: {2, 5}}, species: <Species>)",
-    )
+    @test is_repr(bp, "<Foodweb>:Adjacency(A: {1: {2, 3}, 4: {2, 5}, 3: {2, 5}})")
     @test is_disp(
         bp,
         """
         blueprint for <Foodweb>: Adjacency {
           A: {1: {2, 3}, 4: {2, 5}, 3: {2, 5}},
-          species: <implied blueprint for <Species>>,
         }\
         """,
     )

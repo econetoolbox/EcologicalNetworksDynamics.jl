@@ -54,7 +54,7 @@ function define_node_field_component(
     bpmod = mod.eval((
         quote
             module $Value_
-            import EcologicalNetworksDynamics: F, NF, D, Brought
+            import EcologicalNetworksDynamics: F, NF, D
             const Class = $mod.$Class
             const _Class = typeof(Class)
             const d = $d
@@ -69,11 +69,10 @@ function define_node_field_component(
         quote
             mutable struct Raw <: NF.NodeFieldRawBlueprint
                 $short::Vector{T}
-                $class::Brought(Class)
-                Raw($short, $class) = new(NF.construct(d, Raw, $short), $class)
-                Raw($short; $class = _Class) = Raw($short, $class)
+                Raw($short) = new(NF.construct(d, Raw, $short))
             end
             NF.data(bp::Raw) = bp.$short
+            F.brought(::Raw) = (Class,)
             F.implied_blueprint_for(bp::Raw, ::_Class) = NF.implied_class(d, Class, bp)
             F.early_check(bp::Raw) = NF.early_check(d, bp)
             F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
@@ -90,11 +89,10 @@ function define_node_field_component(
         quote
             mutable struct Map <: NF.NodeFieldMapBlueprint
                 $short::NF.Map{T}
-                $class::Brought(Class) # Not exactly useful. Keep for consistency.
-                Map($short, $class) = new(NF.construct(d, Map, $short), $class)
-                Map($short; $class = _Class) = Map($short, $class)
+                Map($short) = new(NF.construct(d, Map, $short))
             end
             NF.data(bp::Map) = bp.$short
+            F.brought(::Map) = (Class,)
             F.implied_blueprint_for(bp::Map, ::_Class) = NF.implied_class(d, Class, bp)
             F.early_check(bp::Map) = NF.early_check(d, bp)
             F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
@@ -138,13 +136,10 @@ function define_node_field_component(
         end,
     )
     C = typeof(comp)
-    mod.eval(
-        quote
-            $D.component(::$DT) = $comp
-            (::$_Value)($short, args...; kwargs...) =
-                $construct($d, $comp, $short, args...; kwargs...)
-        end,
-    )
+    mod.eval(quote
+        $D.component(::$DT) = $comp
+        (::$_Value)($short, args...) = $construct($d, $comp, $short, args...)
+    end)
 
     if may_flat(d)
         R = flat(d) # Receiver type.
@@ -300,22 +295,14 @@ function construct(d::AbstractNodeField, ::Type{<:NodeFieldFlatBlueprint}, flat)
     end
 end
 
-function construct(d::NodeField, Field::Component, input; kwargs...)
-    @kwargs_helpers(kwargs)
-    nc = NodeClass(d)
-    class = D.class(nc)
-    Class = take_or!(class, D.component(nc), Any)
-    no_unused_arguments()
-    kwargs = [class => Class]
+function construct(d::NodeField, Field::Component, input)
     parsed = parse(d, input)
-    construct_from_parsed(d, Field, parsed; kwargs...)
+    construct_from_parsed(d, Field, parsed)
 end
 
-construct_from_parsed(::NodeField, Field::Component, raw::Vector; kwargs...) =
-    Field.Raw(raw; kwargs...)
-construct_from_parsed(::NodeField, Field::Component, map::Map; kwargs...) =
-    Field.Map(map; kwargs...)
-construct_from_parsed(::NodeField, Field::Component, scalar; kwargs...) = Field.Flat(scalar)
+construct_from_parsed(::NodeField, Field::Component, raw::Vector) = Field.Raw(raw)
+construct_from_parsed(::NodeField, Field::Component, map::Map) = Field.Map(map)
+construct_from_parsed(::NodeField, Field::Component, scalar) = Field.Flat(scalar)
 
 """
 Pre-process whatever input into one of the three basic input types for this field.

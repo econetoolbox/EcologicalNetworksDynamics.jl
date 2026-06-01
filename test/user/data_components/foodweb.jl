@@ -18,8 +18,7 @@ using Main: @viewfails, is_disp
         1 1 1 0
     ]
     bp = Foodweb.Matrix(A)
-    bp.species = collect("abcd")
-    m = Model(bp)
+    m = Model(Species("abcd"), bp)
 
     # Expanding the foodweb actually produces extra subclasses.
     @test is_disp(

@@ -91,17 +91,18 @@ end
 # List brought blueprints.
 # Yield blueprint values for embedded blueprints.
 # Yield component types for implied blueprints (possibly abstract).
-brought(b::Blueprint) = throw("Blueprints brought by $(typeof(b)) are unspecified.")
+brought(::Blueprint) = () # Default to nothing brought.
 # Implied blueprints need to be constructed from the value on-demand,
 # for a target component.
 # Define no default method, so it can be checked
 # whether it has been set from within the `define_blueprint()`.
-function implied_blueprint_for end # (blueprint, comptype) -> blueprint for this component.
+function implied_blueprint_for end # (blueprint, component) -> blueprint for this component.
 # Raise this error when "brought" blueprints can be 'embedded' or 'missing' but not implied.
 struct _CannotImplyConstruct <: Exception end
 cannot_imply_construct() = throw(_CannotImplyConstruct())
-function checked_implied_blueprint_for(b::Blueprint, C::CompType)
-    bp = implied_blueprint_for(b, C)
+function checked_implied_blueprint_for(b::Blueprint, c::Component)
+    C = typeof(c)
+    bp = implied_blueprint_for(b, c)
     if !any(comp -> comp <: C, componentsof(bp))
         throw("Blueprint $(typeof(b)) is supposed to imply a blueprint for $C,
                but it implied a blueprint for $(collect(componentsof(bp))) instead:\n
@@ -110,10 +111,8 @@ function checked_implied_blueprint_for(b::Blueprint, C::CompType)
     bp
 end
 # Query.
-implies_blueprint_for(b::Blueprint, C::CompType) =
-    hasmethod(implied_blueprint_for, Tuple{typeof(b),C})
-implies_blueprint_for(b::Blueprint, c::Component) = implies_blueprint_for(b, typeof(c))
-
+implies_blueprint_for(b::Blueprint, c::Component) =
+    hasmethod(implied_blueprint_for, Tuple{typeof(b),typeof(c)})
 
 #-------------------------------------------------------------------------------------------
 # Conflicts.

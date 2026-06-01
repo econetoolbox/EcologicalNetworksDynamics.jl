@@ -89,8 +89,9 @@ struct AddState{V}
     AddState{V}(target::System{V}) where {V} =
         new(target, [], Dict(), OrderedDict(), OrderedDict(), Dict(), [])
 end
-is_excluded(add::AddState, C) = any(X <: C for X in add.excluded)
-is_brought(add::AddState, C) = any(B <: C for B in keys(add.brought))
+is_excluded(add::AddState, c::CompRef) = any(X <: component_type(c) for X in add.excluded)
+is_brought(add::AddState, c::CompRef) =
+    any(B <: component_type(c) for B in keys(add.brought))
 
 #-------------------------------------------------------------------------------------------
 # Recursively create during first pass, pre-order,
@@ -131,16 +132,16 @@ function Node(
 
     # Recursively construct children.
     for br in Framework.brought(blueprint)
-        if br isa CompType
+        if br isa Component
             # An 'implied' brought blueprint possibly needs to be constructed.
-            implied_C = br
+            c = br
             # Skip it if already brought or already present in the target system.
-            has_component(system, implied_C) && continue
-            is_brought(add, implied_C) && continue
+            has_component(system, c) && continue
+            is_brought(add, c) && continue
             implied_bp = try
-                checked_implied_blueprint_for(blueprint, implied_C)
+                checked_implied_blueprint_for(blueprint, c)
             catch e
-                e isa _CannotImplyConstruct && throw(CannotImplyConstruct(implied_C, node))
+                e isa _CannotImplyConstruct && throw(CannotImplyConstruct(c, node))
                 rethrow(e)
             end
             child = Node(implied_bp, node, true, system, add)
@@ -522,7 +523,7 @@ struct BroughtAlreadyInValue <: AddException
 end
 
 struct CannotImplyConstruct <: AddException
-    comp::CompType
+    comp::Component
     node::Node
 end
 
