@@ -114,6 +114,13 @@ _all_refs(a::BinAdjacency) = I.map(a) do (src, targets)
     ((src,), targets) |> I.flatten
 end |> I.flatten
 
+# Iterate over (ref, ref, value) triplets, assuming no duplicates.
+iter(a::Adjacency) = I.map(a) do (src, targets)
+    I.map(targets) do (tgt, value)
+        (src, tgt, value)
+    end
+end |> I.flatten
+
 #-------------------------------------------------------------------------------------------
 # Exception handling .
 

@@ -68,6 +68,7 @@ import Main: is_repr, is_disp, @inputfails
     )
 
     # Construct from a matrix (here sparse).
+    # TODO: test for dense constructs when such a component shows up.
     e = sparse([
         0 1 0 0
         0 0 2 0
@@ -95,6 +96,10 @@ import Main: is_repr, is_disp, @inputfails
          Value must belong to [0, 1].",
         -1.0
     )
+
+    # Construct from adjacency lists.
+    e = [:a => (:b => 0.1), :b => (:c => 0.2), :d => (:a => 0.3, :c => 0.4)]
+    bp = Efficiency.Adjacency(e)
 
 end
 

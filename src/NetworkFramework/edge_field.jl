@@ -270,6 +270,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct.
 
+# From raw edges.
 function construct(d::EdgeField, ::Type{<:EdgeFieldRawBlueprint}, raw)
     T = D.type(d)
     try
@@ -284,6 +285,7 @@ function construct(d::EdgeField, ::Type{<:EdgeFieldRawBlueprint}, raw)
     end
 end
 
+# From matrix.
 function construct(d::EdgeField, ::Type{<:EdgeFieldMatrixBlueprint}, raw)
     T = D.type(d)
     M = D.is_sparse(d) ? SparseMatrix : Matrix
@@ -312,6 +314,21 @@ function checkmat(d::EdgeField, mat::SparseMatrix)
     end
 end
 
+# From adjacency lists.
+function construct(d::EdgeField, ::Type{<:EdgeFieldAdjacencyBlueprint}, raw)
+    T = D.type(d)
+    try
+        adj = inputconvert(Adjacency{T}, raw)
+        for (i, j, value) in NF.iter(adj)
+            check_with_ref(d, value, (i, j))
+        end
+        adj
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When constructing $d from an adjacency list")
+    end
+end
+
 function construct(d::EdgeField, Field::Component, input; _...)
     parsed = parse(d, input)
     construct_from_parsed(d, Field, parsed)
@@ -320,6 +337,7 @@ end
 construct_from_parsed(::EdgeField, Field::Component, raw::Vector) = Field.Raw(raw)
 construct_from_parsed(::EdgeField, Field::Component, raw::AbstractMatrix) =
     Field.Matrix(raw)
+construct_from_parsed(::EdgeField, Field::Component, raw::Adjacency) = Field.Adjacency(raw)
 
 function parse(d::EdgeField, input)
     T = D.type(d)
