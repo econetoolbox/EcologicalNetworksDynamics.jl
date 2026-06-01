@@ -7,11 +7,12 @@ module EdgeFieldTest
 
 # What the end user should have to import.
 using EcologicalNetworksDynamics
+using SparseArrays
 
 # Additional imports only used here for testing purpose.
 using Test
-using EcologicalNetworksDynamics: EN, N
-import Main: is_repr, is_disp
+using EcologicalNetworksDynamics: EN, N, SparseMatrix, Adjacency
+import Main: is_repr, is_disp, @inputfails
 
 @testset "Typical EdgeWeb component" begin
 
@@ -47,6 +48,52 @@ import Main: is_repr, is_disp
           e: [0.2, 0.5, 0.8, 0.4],
         }\
         """,
+    )
+
+    @inputfails(
+        Efficiency('x'),
+        "Cannot convert input to either:\n  \
+          - $Float64\n  \
+          - $Vector{$Float64}\n  \
+          - $(SparseMatrix{Float64})\n  \
+          - $(Adjacency{Float64})",
+        'x',
+    )
+    @inputfails(
+        Efficiency([0.1, 1.5, 0.3]),
+        "When constructing <trophic:efficiency> from raw values:\n\
+         At raw edge value [2]:\n\
+         Value must belong to [0, 1].",
+        1.5
+    )
+
+    # Construct from a matrix (here sparse).
+    e = sparse([
+        0 1 0 0
+        0 0 2 0
+        0 0 0 0
+        3 0 4 0
+    ] / 10)
+    bp = Efficiency.Matrix(e)
+    @test Efficiency.Matrix(Bool[0 1; 1 0]) == Efficiency.Matrix([0.0 1.0; 1.0 0.0])
+    @test bp == Efficiency.Matrix(Matrix(e)) # From a dense matrix as well.
+    @test bp == Efficiency(e) # Implicit constructor.
+    @test is_repr(bp, "<Efficiency>:Matrix(e: 4×4:4 [0.1:0.4])")
+    @test is_disp(
+        bp,
+        """
+        blueprint for <Efficiency>: Matrix {
+          e: 4×4 sparse matrix with 4 values (0.1 to 0.4),
+        }\
+        """,
+    )
+
+    @inputfails(
+        Efficiency([0.1 0.5; -1 0.2]),
+        "When constructing <trophic:efficiency> from a matrix:\n\
+         On edge [2, 1]:\n\
+         Value must belong to [0, 1].",
+        -1.0
     )
 
 end

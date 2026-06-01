@@ -44,12 +44,7 @@ const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
     # Implicit constructor.
     @test bp == Foodweb(A)
     @test bp == Foodweb(Ai)
-    @test is_repr(
-        bp,
-        "<Foodweb>:Matrix(\
-         A: 3×3 sparse matrix with 5 values (true), \
-         species: <Species>)",
-    )
+    @test is_repr(bp, "<Foodweb>:Matrix(A: 3×3:5 (true))")
     @test is_disp(
         bp,
         """

@@ -36,6 +36,20 @@ end
 # Sparse matrix.
 function F.display_blueprint_field_short(io::IO, m::EN.SparseMatrix, ::Blueprint)
     (p, q) = size(m)
+    _, _, values = EN.findnz(m)
+    n = length(values)
+    print(io, "$p×$q:$n")
+    if n > 0
+        min, max = extrema(values)
+        if min == max
+            print(io, " ($(first(values)))")
+        else
+            print(io, " [$min:$max]")
+        end
+    end
+end
+function F.display_blueprint_field_long(io::IO, m::EN.SparseMatrix, ::Blueprint)
+    (p, q) = size(m)
     print(io, "$p×$q ")
     _, _, values = EN.findnz(m)
     n = length(values)

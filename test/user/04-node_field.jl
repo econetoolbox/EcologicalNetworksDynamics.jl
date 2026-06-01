@@ -11,7 +11,7 @@ using EcologicalNetworksDynamics
 # Additional imports only used here for testing purpose.
 using Test
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, N, F, Views, NodeField
+import EcologicalNetworksDynamics: EN, N, F, Views, NodeField, Map
 import Main: is_repr, is_disp, @inputfails, @viewfails, @writefails, @sysfails, Value
 const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Tested viewtype.
 
@@ -242,8 +242,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         "When attempting to assign to <species:body_mass> node field:\n\
          Cannot convert input to either:\n  \
           - $Float64\n  \
-          - $Vector{$Float64}\n  \
-          - $OrderedDict{R, $Float64} where R",
+          - $(Vector{Float64})\n  \
+          - $(Map{Float64})",
         :what,
     )
 
@@ -446,8 +446,8 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         BodyMass(:what),
         "Cannot convert input to either:\n  \
           - $Float64\n  \
-          - $Vector{$Float64}\n  \
-          - $OrderedDict{R, $Float64} where R",
+          - $(Vector{Float64})\n  \
+          - $(Map{Float64})",
         :what,
     )
 

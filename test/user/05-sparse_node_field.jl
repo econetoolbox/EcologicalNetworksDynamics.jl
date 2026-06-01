@@ -10,7 +10,7 @@ using SparseArrays
 
 using Test
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, N, F, Views, SparseNodeField
+import EcologicalNetworksDynamics: EN, N, F, Views, SparseNodeField, Map
 import Main:
     is_disp, is_repr, @argfails, @writefails, @inputfails, @viewfails, @sysfails, Value
 const View = # Tested viewtype.
@@ -404,8 +404,8 @@ const View = # Tested viewtype.
         GrowthRate('w'),
         "Cannot convert input to either:\n  \
           - $Float64\n  \
-          - $Vector{$Float64}\n  \
-          - $OrderedDict{R, $Float64} where R",
+          - $(Vector{Float64})\n  \
+          - $(Map{Float64})",
         'w',
     )
 

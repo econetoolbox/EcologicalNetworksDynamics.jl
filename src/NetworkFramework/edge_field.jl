@@ -284,12 +284,42 @@ function construct(d::EdgeField, ::Type{<:EdgeFieldRawBlueprint}, raw)
     end
 end
 
+function construct(d::EdgeField, ::Type{<:EdgeFieldMatrixBlueprint}, raw)
+    T = D.type(d)
+    M = D.is_sparse(d) ? SparseMatrix : Matrix
+    try
+        mat = inputconvert(M{T}, raw)
+        checkmat(d, mat) # Specialized impl for sparse matrices.
+        mat
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When constructing $d from a matrix")
+    end
+end
+
+function checkmat(d::EdgeField, mat::Matrix)
+    m, n = size(mat)
+    for i in 1:m, j in 1:n
+        value = mat[i, j]
+        check_with_ref(d, value, (i, j))
+    end
+end
+
+function checkmat(d::EdgeField, mat::SparseMatrix)
+    is, js, vals = findnz(mat)
+    for (i, j, value) in zip(is, js, vals)
+        check_with_ref(d, value, (i, j))
+    end
+end
+
 function construct(d::EdgeField, Field::Component, input; _...)
     parsed = parse(d, input)
     construct_from_parsed(d, Field, parsed)
 end
 
 construct_from_parsed(::EdgeField, Field::Component, raw::Vector) = Field.Raw(raw)
+construct_from_parsed(::EdgeField, Field::Component, raw::AbstractMatrix) =
+    Field.Matrix(raw)
 
 function parse(d::EdgeField, input)
     T = D.type(d)
