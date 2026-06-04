@@ -1,16 +1,16 @@
 """
 This framework is dedicated to wrap a sophisticated value into a 'System'.
 
-Motivation:
-
-  The wrapped value is powerful but complicated
-  and its state needs to be carefully maintained.
-  Lib devs want to expose it to their users so they can enjoy the benefit of it,
-  but they also want to protect them from breaking the internal state.
+Motivation: The wrapped value is powerful but complicated
+and its state needs to be carefully maintained.
+Lib devs want to expose it to their users so they can enjoy the benefit of it,
+but they also want to protect them from breaking the internal state.
 
 Instead of exposing the value directly, lib devs wrap it into a 'System':
 
-  s = System{WrappedValue}()
+```jl
+s = System{WrappedValue}()
+```
 
 And then they carefully develop an associated collection of 'components' and 'methods'.
 
@@ -41,18 +41,24 @@ and/or the current state of the system.
 
 Adding a component to the system therefore reduces to:
 
-  add!(s, blueprint)
+```jl
+add!(s, blueprint)
+```
 
 And using exposed methods as simple:
 
-  method(s, args...; kwargs...)
+```jl
+method(s, args...; kwargs...)
+```
 
 Additional sugar is provided:
 
-  s = System{WrappedValue}(blueprints...) # Start from a sequence of initial blueprints.
-  s += blueprint                          # Provide new component from extra blueprint.
-  s.property                              # Implicit `get_property(s, :property)`
-  s.property = value                      # Implicit `set_property!(s, :property, value)`
+```jl
+s = System{WrappedValue}(blueprints...) # Start from a sequence of initial blueprints.
+s += blueprint                          # Provide new component from extra blueprint.
+s.property                              # Implicit `get_property(s, :property)`
+s.property = value                      # Implicit `set_property!(s, :property, value)`
+```
 
 Components and methods are organized into a dependency network,
 with components requiring each other
@@ -71,11 +77,13 @@ so the system evolution is monotonic.
 However, if the underlying wrapped value can be safely copied,
 then it is always possible to "fork" the system:
 
-  s = System{CopyableWrappedValue}(a::A, b::B, c::C)
-  fork = copy(s)
-  add!(fork, d::D)
-  has_component(fork, D) # True.
-  has_component(s, D) # False.
+```jl
+s = System{CopyableWrappedValue}(a::A, b::B, c::C)
+fork = copy(s)
+add!(fork, d::D)
+has_component(fork, D) # True.
+has_component(s, D) # False.
+```
 
 This *may* make it useless to ever feature component removal.
 """
@@ -85,6 +93,8 @@ import EcologicalNetworksDynamics: I, Option, argerr
 
 using Crayons
 using OrderedCollections
+
+const F = Framework
 
 struct PhantomData{T} end
 
@@ -121,7 +131,7 @@ export InputError
 const component_color = crayon"yellow"
 const blueprint_color = crayon"blue"
 const field_color = crayon"cyan"
-const grayed = crayon"dark_gray"
+const gray = crayon"dark_gray"
 const reset = crayon"reset"
 cc(C) = "$component_color$C$reset"
 bc(B) = "$blueprint_color$B$reset"

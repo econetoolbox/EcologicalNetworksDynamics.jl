@@ -1,6 +1,7 @@
 module Blueprints
 
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 # Testing these macros requires generating numerous new types
 # which are bound to constant julia variables.
@@ -18,22 +19,21 @@ struct Value
     Value() = new(Dict())
 end
 Base.copy(v::Value) = deepcopy(v)
-Base.getproperty(s::Framework.System{Value}, name::Symbol) =
+Base.getproperty(s::System{Value}, name::Symbol) =
     name in fieldnames(System) ? getfield(s, name) : value(s).d[name]
-export Value
 
 # ==========================================================================================
 module Calls
 
-using Crayons
-
-using ..Blueprints
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 using Test
+using Crayons
 using Main: @failswith, @sysfails, @bluefails
 
-const F = Framework
+using ..Blueprints: Value
+
 const S = System{Value}
 
 comps(s) = collect(components(s))
@@ -105,306 +105,26 @@ define_component(name, V = Value; kwargs...) = F.define_component(name, V, Calls
 
 end
 
-using Logging
-
-@testset "Brought fields: valid uses." begin
-
-    #---------------------------------------------------------------------------------------
-    # Definition.
-
-    # Empty blueprint to be brought.
-    struct Xhu_b <: Blueprint{Value} end
-    define_blueprint(Xhu_b)
-    define_component(:Xhu; blueprints = [:b => Xhu_b])
-
-    # Blueprint with data to be brought.
-    struct Ejp_b <: Blueprint{Value}
-        u::Int64
-        v::Int64
-    end
-    function F.expand!(s, ejp::Ejp_b)
-        v = value(s)
-        v.d[:u] = ejp.u
-        v.d[:v] = ejp.v
-    end
-    define_blueprint(Ejp_b)
-    define_component(:Ejp; blueprints = [:b => Ejp_b])
-
-    # Forget to specify how to construct implied blueprints.
-    mutable struct Bdz_b <: Blueprint{Value}
-        x::Float64
-        y::Float64
-        xhu::Brought(Xhu)
-        ejp::Brought(Ejp)
-    end
-    F.implied_blueprint_for(::Bdz_b, ::_Xhu) = Xhu.b()
-    F.implied_blueprint_for(::Bdz_b, ::_Ejp) = Ejp.b(5, 8)
-    define_blueprint(Bdz_b)
-    define_component(:Bdz; blueprints = [:b => Bdz_b])
-
-    #---------------------------------------------------------------------------------------
-    # Use.
-
-    # Bring nothing.
-    bdz = Bdz_b(1, 2, nothing, nothing)
-    @test comps(S(bdz)) == [Bdz]
-    @test comps(S(Xhu.b(), bdz)) == [Xhu, Bdz]
-    s = S(Xhu.b(), Ejp.b(1, 2), bdz)
-    @test comps(s) == [Xhu, Ejp, Bdz]
-    @test (s.u, s.v) == (1, 2)
-
-    # Imply component.
-    s = S(Bdz_b(1, 2, nothing, Ejp))
-    @test comps(s) == [Ejp, Bdz]
-    @test (s.u, s.v) == (5, 8) # Default ones.
-
-    # Only bring the ones missing.
-    #    already here                  implied
-    #     vvvvvvvvvvv                   vvv
-    s = S(Ejp.b(4, 5), Bdz_b(1, 2, Xhu, Ejp))
-    @test comps(s) == [Ejp, Xhu, Bdz]
-    @test (s.u, s.v) == (4, 5) # (not the implied one)
-
-    # Embed blueprints.
-    s = S(Bdz_b(1, 2, Xhu.b(), Ejp.b(15, 30)))
-    @test comps(s) == [Xhu, Ejp, Bdz]
-    @test (s.u, s.v) == (15, 30)
-
-    # It's an error to embed into a system when it's already there.
-    @sysfails(
-        S(Xhu.b(), Bdz_b(1, 2, Xhu.b(), Ejp.b(15, 30))),
-        Add(BroughtAlreadyInValue, Xhu, [Xhu_b, false, Bdz_b]),
-    )
-
-    # Same tests, but from a blueprint modified on the fly.
-    bdz = Bdz_b(1, 2, nothing, nothing)
-    # Imply.
-    bdz.ejp = Ejp
-    s = S(bdz)
-    @test comps(s) == [Ejp, Bdz]
-    @test (s.u, s.v) == (5, 8)
-    # Only bring the ones missing.
-    bdz.xhu = Xhu
-    s = S(Ejp.b(4, 5), bdz)
-    @test comps(s) == [Ejp, Xhu, Bdz]
-    @test (s.u, s.v) == (4, 5) # (not the implied one)
-    # Embed.
-    bdz.ejp = Ejp.b(15, 30)
-    s = S(bdz)
-    @test comps(s) == [Xhu, Ejp, Bdz]
-    @test (s.u, s.v) == (15, 30)
-
-    # Embed using implicit blueprint construction.
-    (::typeof(Ejp))(u, v; shift = 0) = Ejp.b(u + shift, v + shift)
-
-    # As field assignments.
-    bdz.ejp = (15, 30)
-    s = S(bdz)
-    @test comps(s) == [Xhu, Ejp, Bdz]
-    @test (s.u, s.v) == (15, 30)
-
-    # As constructor arguments.
-    bdz = Bdz_b(1, 2, nothing, (15, 30))
-    s = S(bdz)
-    @test comps(s) == [Ejp, Bdz]
-    @test (s.u, s.v) == (15, 30)
-
-    # Constructors accept keyword arguments.
-    bdz = Bdz_b(1, 2, nothing, ((15, 30), (; shift = 2))) # ← The way to use it.
-    s = S(bdz)
-    @test comps(s) == [Ejp, Bdz]
-    @test (s.u, s.v) == (17, 32)
-
-    bdz.ejp = ((15, 30), (; shift = 5)) # ← The way to use it again.
-    s = S(bdz)
-    @test comps(s) == [Ejp, Bdz]
-    @test (s.u, s.v) == (20, 35)
-
-end
-
-@testset "Brought fields: invalid uses." begin
-
-    @failswith(Brought(5), MethodError)
-    @failswith(Brought(Int), MethodError)
-    @failswith(Brought(Vector{Int}), MethodError)
-    @failswith(Brought(Vector), MethodError)
-    @failswith(Brought(F.Component), MethodError)
-    struct Amg_b <: Blueprint{Value} end
-    define_blueprint(Amg_b)
-    @failswith(Brought(Amg_b), MethodError)
-
-    #---------------------------------------------------------------------------------------
-    # Implied blueprint constructors.
-
-    # Forgot to define it.
-    struct Ihb_b <: Blueprint{Value}
-        x::Float64
-        y::Float64
-        xhu::Brought(Xhu)
-        ejp::Brought(Ejp)
-    end
-    @bluefails(
-        define_blueprint(Ihb_b),
-        Ihb_b,
-        "Method implied_blueprint_for($Ihb_b, <$Xhu>) unspecified \
-         to implicitly bring <$Xhu> from $Ihb_b blueprints."
-    )
-
-    # Okay if you define it.
-    F.implied_blueprint_for(::Ihb_b, ::_Xhu) = Xhu.b()
-    @bluefails(
-        define_blueprint(Ihb_b),
-        Ihb_b,
-        "Method implied_blueprint_for($Ihb_b, <$Ejp>) unspecified \
-         to implicitly bring <$Ejp> from $Ihb_b blueprints."
-    )
-    F.implied_blueprint_for(::Ihb_b, ::_Ejp) = Ejp.b(5, 8) # Convenience method signature.
-    define_blueprint(Ihb_b)
-
-    #---------------------------------------------------------------------------------------
-    # Guard against redundant brought blueprints.
-    struct Qev_b <: Blueprint{Value}
-        data::Brought(Ejp)
-        other::Brought(Ejp)
-    end
-    F.implied_blueprint_for(::Qev_b, ::_Ejp) = Ejp.b(5, 8)
-    @bluefails(
-        define_blueprint(Qev_b),
-        Qev_b,
-        "Both fields 'data' and 'other' potentially bring <$Ejp>.",
-    )
-
-    # Redundancy is guarded through abstract component hierarchy.
-    abstract type TopComp <: Component{Value} end
-    struct Agf_b <: Blueprint{Value} end
-    define_blueprint(Agf_b)
-    define_component(:BottomComp; super = TopComp, blueprints = [:b => Agf_b])
-
-    struct Jzd_b <: Blueprint{Value}
-        sup::Brought(TopComp)
-        sub::Brought(BottomComp)
-    end
-    F.implied_blueprint_for(::Jzd_b, ::TopComp) = Agf.b()
-    F.implied_blueprint_for(::Jzd_b, ::_BottomComp) = Agf.b()
-    @bluefails(
-        define_blueprint(Jzd_b),
-        Jzd_b,
-        "Fields 'sub' and 'sup': \
-         brought blueprint <$BottomComp> \
-         is also specified as $TopComp."
-    )
-
-    #---------------------------------------------------------------------------------------
-    # Implicit brought blueprints constructor.
-
-    struct Opv_b <: Blueprint{Value} end
-    define_blueprint(Opv_b)
-    define_component(:Opv; blueprints = [:b => Opv_b])
-
-    mutable struct Twt_b <: Blueprint{Value}
-        opv::Brought(Opv)
-    end
-    F.implied_blueprint_for(::Twt_b, ::_Opv) = Opv.b()
-    define_blueprint(Twt_b)
-    define_component(:Twt; blueprints = [:b => Twt_b])
-    twt = Twt_b(nothing)
-
-    # Check both failure on constructor and on field assignment.
-    input = () # (rebind to not trigger the 'WARNING: Method definition overwritten')
-    constructed = nothing # (same)
-    erm = nothing # (same)
-    bcf() = F.BroughtConvertFailure(_Opv, erm, input)
-    baf() = F.BroughtAssignFailure(Twt_b, :opv, bcf())
-
-    # Can't call if undefined.
-    erm = "'$Opv' is not (yet?) callable. \
-           Consider providing a blueprint value instead."
-    @failswith(Twt_b(()), bcf())
-    @failswith((twt.opv = ()), baf())
-
-    # Must construct a consistent blueprint.
-    (::typeof(Opv))() = constructed
-    red, res = (crayon"bold red", crayon"reset")
-    bug = "\n$(red)This is a bug in the components library.$res"
-
-    # Not a blueprint.
-    constructed = 5
-    erm = "Implicit blueprint constructor did not yield a blueprint, but: 5 ::$Int.$bug"
-    @failswith(Twt_b(()), bcf())
-    @failswith((twt.opv = ()), baf())
-
-    # Not for the right value type.
-    struct Yfi_b <: Blueprint{Int} end
-    constructed = Yfi_b()
-    erm = "Implicit blueprint constructor did not yield a blueprint for '$Value', \
-           but for '$Int': $Yfi_b().$bug"
-    @failswith(Twt_b(()), bcf())
-    @failswith((twt.opv = ()), baf())
-
-    # Not for the right component*s.
-    struct Sxo_b <: Blueprint{Value} end
-    define_blueprint(Sxo_b)
-    define_component(:Iej)
-    define_component(:Axl)
-    F.componentsof(::Sxo_b) = [Iej, Axl]
-    constructed = Sxo_b()
-    erm = "Implicit blueprint constructor yielded instead \
-           a blueprint for: [$Iej, $Axl].$bug"
-    @failswith(Twt_b(()), bcf())
-    @failswith((twt.opv = ()), baf())
-
-    # Not for the right component.
-    struct Dpt_b <: Blueprint{Value} end
-    define_blueprint(Dpt_b)
-    define_component(:Dpt; blueprints = [:b => Dpt_b])
-    constructed = Dpt_b()
-    erm = "Implicit blueprint constructor yielded instead a blueprint for: <$Dpt>.$bug"
-    @failswith(Twt_b(()), bcf())
-    @failswith((twt.opv = ()), baf())
-
-    # No corresponding method for the constructor.
-    input = 5
-    erm = "No method matching $Opv(5). (See further down the stacktrace.)"
-    @failswith(Twt_b(input), bcf())
-    @failswith((twt.opv = input), baf())
-
-    input = (5, 8)
-    erm = "No method matching $Opv(5, 8). (See further down the stacktrace.)"
-    @failswith(Twt_b(input), bcf())
-    @failswith((twt.opv = input), baf())
-
-    input = (; c = 13)
-    erm = "No method matching $Opv(; c = 13). (See further down the stacktrace.)"
-    @failswith(Twt_b(input), bcf())
-    @failswith((twt.opv = input), baf())
-
-    input = ((5, 8), (; c = 13))
-    erm = "No method matching $Opv(5, 8; c = 13). (See further down the stacktrace.)"
-    @failswith(Twt_b(input), bcf())
-    @failswith((twt.opv = input), baf())
-
-end
 end
 
 # ==========================================================================================
 module Abstracts
 
-using Crayons
-
-using ..Blueprints
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 using Test
+using Crayons
 using Main: @failswith, @sysfails, @compfails, @bluefails
 
-const F = Framework
+using ..Blueprints: Value
 const S = System{Value}
 
 comps(s) = sort(collect(components(s)); by = repr)
 define_component(name, V = Value; kwargs...) =
     F.define_component(name, V, Abstracts; kwargs...)
 
-@testset "Bringing abstract component types." begin
+@testset "Blueprints imply each other." begin
 
     # Component type hierachy.
     #
@@ -423,172 +143,78 @@ define_component(name, V = Value; kwargs...) =
     define_component(:C; super = A, blueprints = [:b => C_b])
     define_component(:D; super = A, blueprints = [:b => D_b])
 
-    # ======================================================================================
-    # Invalid uses.
+    # An alternate blueprint..
+    struct X_b <: Blueprint{Value} end
+    define_blueprint(X_b)
+    define_component(:X; blueprints = [:b => X_b])
+    x = X.b()
 
-    mutable struct Pmi_b <: Blueprint{Value}
-        a::Brought(A)
-    end
-    F.implied_blueprint_for(::Pmi_b, ::A) = B.b()
-    define_blueprint(Pmi_b)
-    define_component(:Pmi; blueprints = [:b => Pmi_b])
-    pmi = Pmi.b(nothing)
+    # Indirect implementation to avoid `redefinition warnings` during testing.
+    impl = Ref{Any}(nothing)
+    F.implied(::X_b) = impl[]
 
-    # Consistent values must be given to brought fields.
-    #   - Either during blueprint construction.
-    #   - Or during field assignments.
-    #   - Or as the result of calls to implicit brought constructor.
-    input = nothing
-    erm = nothing
-    bcf() = F.BroughtConvertFailure(A, erm, input)
-    baf() = F.BroughtAssignFailure(Pmi.b, :a, bcf())
-    red, res = (crayon"bold red", crayon"reset")
-    bug = "\n$(red)This is a bug in the components library.$res"
+    # .. implies another component.
+    impl[] = (_B,) # Concrete component.
+    F.implied_blueprint_for(::X_b, ::Type{_B}) = B.b()
+    s = S(x)
+    @test has_component(s, X)
+    @test has_component(s, B)
 
-    # Abstract component has not yet been turned into a constructor.
-    input = ()
-    erm = "'$A' is not (yet?) callable. \
-           Consider providing a blueprint value instead."
-    @failswith(Pmi.b(), MethodError)
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
+    impl[] = (A,) # Abstract component.
+    F.implied_blueprint_for(::X_b, ::Type{A}) = C.b() # Can have any type.
+    s = S(x)
+    @test has_component(s, X)
+    @test has_component(s, C)
 
-    # Now defined.
-    A() = input
+    #---------------------------------------------------------------------------------------
+    # Guard component authors against invalid specs.
 
-    # Not a blueprint.
-    input = 5
-    erm = "No method matching $A(5). (See further down the stacktrace.)"
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
+    # Wrong implied values.
+    impl[] = :a
+    @sysfails(
+        S(x),
+        Add(ComponentError, "Not an iterable list of component types: :a ::$Symbol.")
+    )
+    impl[] = (5,)
+    @sysfails(S(x), Add(ComponentError, "Not a component type: 5 ::$Int."))
+    impl[] = (B,)
+    @sysfails(
+        S(x),
+        Add(ComponentError, "Not a component type but a component instance: $B.")
+    )
 
-    # Not a blueprint for the right value type.
-    struct Tcv_b <: Blueprint{Int} end
-    define_blueprint(Tcv_b)
-    define_component(:Tcv, Int; blueprints = [:b => Tcv_b])
-    input = Tcv.b()
-    erm = "The input does not embed a blueprint for '$Value', but for '$Int'."
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
+    # Forgot to specify implicit constructor.
+    impl[] = (_D,)
+    @sysfails(
+        S(x),
+        Add(
+            ComponentError,
+            "Blueprint $X_b is supposed to imply $_D \
+             but the corresponding method is not defined: $F.implied_blueprint_for.",
+        )
+    )
 
-    # Not a blueprint for the right component*s.
-    struct Trl_b <: Blueprint{Value} end
-    define_blueprint(Trl_b)
-    define_component(:Trl)
-    define_component(:Oyt)
-    define_component(:Yxt)
-    F.componentsof(::Trl_b) = [Oyt, Yxt]
-    input = Trl_b()
-    erm = "Blueprint would instead expand into [$Oyt, $Yxt]."
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
+    # Wrong implicit constructors.
+    F.implied_blueprint_for(::X_b, ::Type{_D}) = :a
+    @sysfails(
+        S(x),
+        Add(
+            ComponentError,
+            "Implicit constructor to implying $_D from $X_b did not yield a blueprint \
+             but: :a ::$Symbol.",
+        )
+    )
 
-    # Not a blueprint for a component subtyping A.
-    struct Mjv_b <: Blueprint{Value} end
-    define_blueprint(Mjv_b)
-    define_component(:Mjv; blueprints = [:b => Mjv_b])
-    input = Mjv.b()
-    erm = "Blueprint would instead expand into <$Mjv>."
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
-    erm = "Implicit blueprint constructor yielded instead a blueprint for: <$Mjv>.$bug"
-    err = F.BroughtConvertFailure(A, erm, ())
-    @failswith(Pmi.b(()), err)
-    @failswith((pmi.a = ()), F.BroughtAssignFailure(Pmi_b, :a, err))
-
-    # Not an implied component for the right value type.
-    define_component(:Mbl, Int)
-    input = Mbl
-    erm = "The input would not imply a component for '$Value', but for '$Int'."
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
-    input = _Mbl # (same with actual component type)
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
-
-    # Not an implied component subtyping A.
-    define_component(:Cif)
-    input = Cif
-    erm = "The input would instead imply <$Cif>."
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
-    input = _Cif
-    @failswith(Pmi.b(input), bcf())
-    @failswith((pmi.a = input), baf())
-
-    # An implied component subtyping A,
-    # but with no implicit constructor defined.
-    input = B
-    Pmi.b(input) # TODO: find a way to error at this point..
-    pmi.a = input # .. or this point..
-    @failswith(S(pmi), F.UnimplementedImpliedMethod(Pmi_b, A, _B)) # .. rather than then.
-
-    # ======================================================================================
-    # Valid uses.
-
-    mutable struct Wmu_b <: Blueprint{Value}
-        a::Brought(A)
-    end
-    F.implied_blueprint_for(::Wmu_b, ::_A) = B.b() # Any is ok.
-    define_blueprint(Wmu_b)
-    define_component(:Wmu; blueprints = [:b => Wmu_b])
-    # Not brought.
-    s = S(Wmu_b(nothing))
-    @test !has_component(s, A)
-    @test comps(s) == [Wmu]
-    # Implied.
-    s = S(Wmu_b(A))
-    @test has_component(s, A)
-    @test comps(s) == [B, Wmu] # B is actually brought.
-    # Embedded.
-    s = S(Wmu_b(B.b()))
-    @test has_component(s, A)
-    @test comps(s) == [B, Wmu] # B is actually brought.
-    # Embedding another is ok..
-    s = S(Wmu_b(D.b()))
-    @test has_component(s, A) # ← ..because this still holds.
-    @test comps(s) == [D, Wmu] # D is actually brought.
-
-    # Implicit blueprint constructor can bring any sub-component.
-    input = C.b() # Say (defined output of `A()` constructor (see tests above))
-    s = S(Wmu.b(()))
-    @test comps(s) == [C, Wmu]
-    @test has_component(s, A)
-
-    # Accept any sub-component as implied.
-    F.implied_blueprint_for(::Wmu_b, ::_B) = B.b()
-    F.implied_blueprint_for(::Wmu_b, ::_C) = C.b()
-    F.implied_blueprint_for(::Wmu_b, ::_D) = D.b()
-
-    wmu = Wmu.b(nothing)
-    wmu.a = A
-    @test comps(S(wmu)) == [B, Wmu] # Get the default.
-    wmu.a = B
-    @test comps(S(wmu)) == [B, Wmu] # Get the implied one, but explicitly.
-    wmu.a = C
-    @test comps(S(wmu)) == [C, Wmu]
-    wmu.a = D
-    @test comps(S(wmu)) == [D, Wmu]
-
-    # Accept any sub-component as embedded.
-    wmu.a = B.b()
-    @test comps(S(wmu)) == [B, Wmu]
-    wmu.a = C.b()
-    @test comps(S(wmu)) == [C, Wmu]
-    wmu.a = D.b()
-    @test comps(S(wmu)) == [D, Wmu]
-
-    # Expanding from an abstract component.
-    struct Som_b <: Blueprint{Value} end
-    define_blueprint(Som_b, ""; depends = [A])
-    define_component(:Som; blueprints = [:b => Som_b])
-    @test isempty(F.requires(Som)) # The component requires nothing..
-    # .. but expansion of this blueprint does.
-    @sysfails(S(Som.b()), Missing(A, nothing, [Som.b], nothing))
-    # Any concrete component A enables expansion.
-    s = S(B.b(), Som.b())
-    @test comps(s) == [B, Som]
-    @test has_component(s, A) # Same B but as an abstract A.
+    impl[] = (_C,)
+    F.implied_blueprint_for(::X_b, ::Type{_C}) = D.b()
+    @sysfails(
+        S(x),
+        Add(
+            ComponentError,
+            "Blueprint $X_b is supposed to imply a blueprint for $_C, \
+             but it implied a blueprint for [$_D] instead.",
+        )
+    )
 
 end
 end

@@ -45,13 +45,13 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
 
     # Setup expansion dependencies.
     eval(quote
-        Framework.expands_from(::$B) = $checked_deps
+        F.expands_from(::$B) = $checked_deps
 
         # Enhance display.
         Base.show(io::IO, b::$B) = display_short(io, b)
         Base.show(io::IO, ::MIME"text/plain", b::$B) = display_long(io, b, 0)
 
-        function Framework.display_short(io::IO, bp::$B)
+        function F.display_short(io::IO, bp::$B)
             comps = provided_comps_display(bp, 0, false)
             print(io, "$comps:$(nameof($B))(")
             for (i, name) in enumerate(fieldnames($B))
@@ -65,9 +65,9 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
             print(io, ")")
         end
 
-        function Framework.display_long(io::IO, bp::$B, level)
+        function F.display_long(io::IO, bp::$B, level)
             comps = provided_comps_display(bp, level, true)
-            g = level == 0 ? "" : grayed
+            g = level == 0 ? "" : gray
             print(
                 io,
                 "$(g)blueprint for$reset $comps: \
@@ -93,11 +93,11 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
     # Record to avoid multiple calls to `define_blueprint(A)`.
     if !isnothing(shortline)
         eval(quote
-            Framework.shortline(io, ::Type{$B}) = print(io, $shortline)
+            F.shortline(io, ::Type{$B}) = print(io, $shortline)
         end)
     end
     eval(quote
-        Framework.specified_as_blueprint(::Type{$B}) = true # Seal.
+        F.specified_as_blueprint(::Type{$B}) = true # Seal.
     end)
 
 end

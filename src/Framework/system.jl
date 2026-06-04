@@ -90,6 +90,7 @@ components(s::System, C::CompType{V}) where {V} =
 has_component(s::System{V}, C::Type{<:Component{V}}) where {V} = !isempty(components(s, C))
 has_component(s::System{V}, c::Component{V}) where {V} = has_component(s, typeof(c))
 has_concrete_component(s::System{V}, c::Component{V}) where {V} = typeof(c) in concrete(s)
+export has_component, has_concrete_component
 
 #-------------------------------------------------------------------------------------------
 

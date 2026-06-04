@@ -13,28 +13,27 @@ module ComponentMacro
 # The plain value to wrap in a "system" in subsequent tests.
 struct Value end
 Base.copy(v::Value) = deepcopy(v)
-export Value
 
 # ==========================================================================================
 module Calls
 
-using ..ComponentMacro
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 using Test
 using Main: @sysfails, @compfails, @failswith
 
-const F = Framework
+using ..ComponentMacro: Value
 const S = System{Value}
 
-comps(s) = collect(components(s))
+comps(s) = collect(F.components(s))
 define_component(name, V = Value; kwargs...) = F.define_component(name, V, Calls; kwargs...)
 
-# Testing blueprint collectiong from module.
+# Testing blueprint collection from module.
 # (must be declared at toplevel)
 module Plv_b
-using ..F
-using ..Calls: Value
+using ..Calls: Value, F
+using .F
 struct Ibh_b <: Blueprint{Value} end # Collected.
 struct Fek_b <: Blueprint{Value} end # Collected.
 struct Zpp_b <: Blueprint{Value} end # Not collected (not exported)
@@ -100,7 +99,7 @@ module Zru end # Test empty module.
     @sysfails((s + Zjz.b()), Missing(Cvh, _Zjz, [Zjz_b], nothing))
     s += Cvh.b() # Meet the requirement.
     s += Zjz.b() # Now it's okay.
-    @test collect(components(s)) == [Cvh, Zjz]
+    @test collect(F.components(s)) == [Cvh, Zjz]
 
     #---------------------------------------------------------------------------------------
     # Alternate syntax in blocks.
@@ -120,7 +119,7 @@ module Zru end # Test empty module.
     s = System{Value}()
     @sysfails((s + Lev.b()), Missing(Dsy, _Lev, [Lev_b], nothing))
     s += Dsy.b() + Lev.b()
-    @test collect(components(s)) == [Dsy, Lev]
+    @test collect(F.components(s)) == [Dsy, Lev]
 
     #---------------------------------------------------------------------------------------
     # Explicit empty lists.
@@ -207,7 +206,7 @@ module Zru end # Test empty module.
     define_component(:Plv; blueprints = [:b => Yrv_b, Plv_b])
 
     # Those exported from the module have been added.
-    @test fieldnames(_Plv) == (:b, :Ibh_b, :Fek_b)
+    @test fieldnames(_Plv) == (:b, :Ibh_b, :Fek_b) # Missing Zpp and Qqu as expected.
     @test Plv.b == Yrv_b
     @test Plv.Ibh_b == Plv_b.Ibh_b
     @test Plv.Fek_b == Plv_b.Fek_b
@@ -288,16 +287,16 @@ end
 # ==========================================================================================
 module Abstracts
 
-using ..ComponentMacro
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 using Test
 using Main: @sysfails
 
-const F = Framework
+using ..ComponentMacro: Value
 const S = System{Value}
 
-comps(s) = sort(collect(components(s)); by = repr)
+comps(s) = sort(collect(F.components(s)); by = repr)
 define_component(name, V = Value; kwargs...) =
     F.define_component(name, V, Abstracts; kwargs...)
 

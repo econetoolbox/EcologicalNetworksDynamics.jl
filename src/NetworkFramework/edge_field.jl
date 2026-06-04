@@ -85,7 +85,7 @@ function define_reflexive_web_field_component(
                 Matrix($short) = new(NF.construct(d, Matrix, $short))
             end
             NF.data(bp::Matrix) = bp.$short
-            F.implied_blueprint_for(bp::Matrix, ::_Web) = NF.implied_web(d, Web, bp)
+            F.implied_blueprint_for(bp::Matrix, ::Type{_Web}) = NF.implied_web(d, Web, bp)
             F.early_check(bp::Matrix) = NF.early_check(d, bp)
             F.late_check(model, bp::Matrix, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Matrix, data) = NF.expand!(d, model, bp, data)
@@ -104,7 +104,8 @@ function define_reflexive_web_field_component(
                 Adjacency($short) = new(NF.construct(d, Adjacency, $short))
             end
             NF.data(bp::Adjacency) = bp.$short
-            F.implied_blueprint_for(bp::Adjacency, ::_Web) = NF.implied_web(d, Web, bp)
+            F.implied_blueprint_for(bp::Adjacency, ::Type{_Web}) =
+                NF.implied_web(d, Web, bp)
             F.early_check(bp::Adjacency) = NF.early_check(d, bp)
             F.late_check(model, bp::Adjacency, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Adjacency, data) = NF.expand!(d, model, bp, data)

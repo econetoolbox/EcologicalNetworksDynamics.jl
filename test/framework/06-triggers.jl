@@ -2,12 +2,12 @@
 # Test it separately.
 module Triggers
 
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 using Test
 using Main: @argfails
-
-const F = Framework
+using .F: value
 
 mutable struct Value
     _vec::Vector{Symbol}

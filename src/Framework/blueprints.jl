@@ -83,29 +83,29 @@ end
 
 """
 List implied blueprints by yielding the corresponding component types.
+Yielding components instances instead is supported.
+Expected signature for a component `C` of type `_C`:
+`function(::Blueprint)::"Iterable"{Union{C, _C}}`
+(singleton instances are supported).
 """
 implied(::Blueprint) = () # Default to nothing implied.
 
 """
 Implied blueprints need to be constructed from the focal blueprint value on-demand
 for every target component. This is called "implicit blueprint construction".
+Expected signature for a component `C` of type `_C`:
+`function(::Blueprint, ::Type{_C})::Blueprint`.
+Ergonomy quirk: `Type{..}` is required here
+because it needs to work consistently with abstract components:
+the `add` procedure will only call the method with component types.
 """
 function implied_blueprint_for end
-function checked_implied_blueprint_for(b::Blueprint, C::CompType)
-    bp = implied_blueprint_for(b, C)
-    if !any(comp -> comp <: C, componentsof(bp))
-        throw("Blueprint $(typeof(b)) is supposed to imply a blueprint for $C,
-               but it implied a blueprint for $(collect(componentsof(bp))) instead:\n
-               $b\n --- implied --->\n$bp")
-    end
-    bp
-end
 
 # Define no default method to the above, so it can be queried
 # whether one has been set during `define_blueprint()` call.
 # (focal blueprint, component) -> blueprint for this component.
 implies_blueprint_for(b::Blueprint, C::CompType) =
-    hasmethod(implied_blueprint_for, Tuple{typeof(b),C})
+    hasmethod(implied_blueprint_for, Tuple{typeof(b),Type{C}})
 
 #-------------------------------------------------------------------------------------------
 # Conflicts.
@@ -175,7 +175,7 @@ function Base.show(io::IO, ::MIME"text/plain", B::Type{<:Blueprint{V}}) where {V
     print(
         io,
         "$blueprint_color$B$reset \
-         $grayed(blueprint type for $(nameof(System)){$V})$reset",
+         $gray(blueprint type for $(nameof(System)){$V})$reset",
     )
 end
 

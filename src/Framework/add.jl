@@ -92,26 +92,21 @@ is_brought(add::AddState, c::CompRef) =
 
 #-------------------------------------------------------------------------------------------
 # Recursively create during first pass, pre-order,
-# possibly checking the indexed list of nodes already implied.
-function Node(
-    blueprint::Blueprint,
-    parent::Option{Node},
-    implied::Bool,
-    system::System,
-    add::AddState,
-)
+# possibly checking the indexed list of nodes already brought.
+function Node(blueprint::Blueprint, parent::Option{Node}, system::System, add::AddState)
     (; brought) = add
 
     # Create node and connect to parent, without its children yet.
     node = Node(blueprint, parent, [])
 
     for C in componentsof(blueprint)
-        isabstracttype(C) && throw("No blueprint expands into an abstract component. \
-                                    This is a bug in the framework.")
+        isabstracttype(C) &&
+            throw(InternalAddError("No blueprint expands into an abstract component."))
 
         is_excluded(add, C) && throw(ExcludedBrought(C, node))
 
         # Check for duplication.
+        implied = !isnothing(parent)
         !implied && has_component(system, C) && throw(BroughtAlreadyInValue(C, node))
 
         # Check for consistency with other possible blueprints bringing the same component.
@@ -128,20 +123,38 @@ function Node(
     end
 
     # Recursively construct children.
-    for C in Framework.implied(blueprint)
-        implies_blueprint_for(blueprint, C) && throw(CannotImplyConstruct(C, node))
+    B = typeof(blueprint)
+    comperr(m) = throw(ComponentError(m))
+    report(v) = ": $(repr(v)) ::$(typeof(v))."
+    implied = F.implied(blueprint)
+    applicable(iterate, implied) ||
+        comperr("Not an iterable list of component types$(report(implied))")
+    for C in implied
+        C isa Component && (C = typeof(C)) # (accepting component instances)
+        C isa CompType || comperr("Not a component type$(report(C))")
+        eV = system_value_type(system)
+        aV = system_value_type(C)
+        eV === aV || comperr("Blueprint $(bc(B)) for values of `$eV` is \
+                             implying component $(cc(C)) for values of `$aV`.")
+        implies_blueprint_for(blueprint, C) || comperr(
+            "Blueprint $(bc(B)) is supposed to imply $(cc(C)) \
+             but the corresponding method is not defined: $F.$implied_blueprint_for.",
+        )
         # Skip it if already brought or already present in the target system.
         has_component(system, C) && continue
         is_brought(add, C) && continue
-        implied_bp = implied_blueprint_for(blueprint, C)
-        comps = componentsof(blueprint)
-        any(comp -> comp <: C, comps) || throw("Blueprint $(typeof(blueprint)) \
-                                                is supposed to imply a blueprint for $C,
-                                                but it implied a blueprint \
-                                                for $(collect(comps)) instead:\n
-                                                $blueprint\n ---implied--->\n$implied_bp\n\
-                                                This is a bug in the components library.")
-        child = Node(implied_bp, node, system, add)
+        bp = implied_blueprint_for(blueprint, C)
+        bp isa Blueprint ||
+            comperr("Implicit constructor to implying $(cc(C)) from $(bc(B)) \
+                     did not yield a blueprint but$(report(bp))")
+        comps = componentsof(bp)
+        any(comp -> comp <: C, comps) || comperr("Blueprint $(bc(typeof(blueprint))) \
+                                                  is supposed to imply a blueprint \
+                                                  for $(cc(C)), \
+                                                  but it implied a blueprint for \
+                                                  [$(join(map(cc, collect(comps)), ","))] \
+                                                  instead.")
+        child = Node(bp, node, system, add)
         push!(node.children, child)
     end
 
@@ -198,7 +211,7 @@ function check!(add::AddState, node::Node)
     for C in componentsof(blueprint)
         for (C_as, Other, reason) in all_conflicts(C)
             if has_component(target, Other)
-                (Other, Other_abstract) =
+                (Other, OtherAbstract) =
                     isabstracttype(Other) ? (first(abstract(target)[Other]), Other) :
                     (Other, nothing)
                 throw(
@@ -207,7 +220,7 @@ function check!(add::AddState, node::Node)
                         C_as === C ? nothing : C_as,
                         node,
                         Other,
-                        Other_abstract,
+                        OtherAbstract,
                         reason,
                     ),
                 )
@@ -295,7 +308,7 @@ function add!(
 
         # Preorder visit: construct the trees.
         for bp in blueprints
-            root = Node(bp, nothing, false, system, add)
+            root = Node(bp, nothing, system, add)
             push!(forest, root)
         end
 
@@ -327,12 +340,13 @@ function add!(
         if E in (
             BroughtAlreadyInValue,
             ExcludedBrought,
-            CannotImplyConstruct,
             InconsistentForSameComponent,
             MissingRequiredComponent,
             ConflictWithSystemComponent,
             ConflictWithBroughtComponent,
             HookCheckFailure,
+            InternalAddError,
+            ComponentError,
         )
             rethrow(AddError(V, e))
         else
@@ -460,6 +474,7 @@ function add!(
             raise = if e isa ExpansionAborted
                 title = "Failure during blueprint expansion."
                 subtitle = "This is a bug in the components library."
+                who = "component authors"
                 epilog = render_path(e.node)
                 rethrow
             elseif e isa TriggerAborted
@@ -467,11 +482,13 @@ function add!(
                          for the combination of components \
                          {$(join(sort(collect(e.combination); by=T->T.name.name), ", "))}."
                 subtitle = "This is a bug in the components library."
+                who = "component authors"
                 epilog = render_path(e.node)
                 rethrow
             else
                 title = "Failure during blueprint addition."
                 subtitle = "This is a bug in the internal addition procedure."
+                who = "package developers"
                 epilog = ""
                 throw
             end
@@ -481,8 +498,8 @@ function add!(
                    $subtitle\n\
                    This system state consistency \
                    is no longer guaranteed by the program. \
-                   This should not happen and must be considered a bug.\n\
-                   Consider reporting if you can reproduce \
+                   This should not have happened.\n\
+                   Consider reporting to $who if you can reproduce \
                    with a minimal example.\n\
                    In any case, please drop the current system value \
                    and create a new one.\n\
@@ -503,73 +520,6 @@ export add!
 
 abstract type AddException <: SystemException end
 
-struct BroughtAlreadyInValue <: AddException
-    comp::CompType
-    node::Node
-end
-
-struct CannotImplyConstruct <: AddException
-    comp::Component
-    node::Node
-end
-
-struct ExcludedBrought <: AddException
-    comp::CompType
-    node::Node
-end
-
-struct InconsistentForSameComponent <: AddException
-    comp::CompType
-    focal::Node
-    other::Node
-end
-
-struct MissingRequiredComponent <: AddException
-    miss::CompType
-    comp::Option{CompType} # Set if the *component* requires, none if the *blueprint* does.
-    node::Node
-    reason::Reason
-end
-
-struct ConflictWithSystemComponent <: AddException
-    comp::CompType
-    comp_abstract::Option{CompType} # Fill if 'comp' conflicts as this abstract type.
-    node::Node
-    other::CompType
-    other_abstract::Option{CompType} # Fill if 'other' conflicts as this abstract type.
-    reason::Reason
-end
-
-struct ConflictWithBroughtComponent <: AddException
-    comp::CompType
-    comp_abstract::Option{CompType}
-    node::Node
-    other::CompType
-    other_abstract::Option{CompType}
-    other_node::Node
-    reason::Reason
-end
-
-struct HookCheckFailure <: AddException
-    node::Node
-    message::String
-    late::Bool
-end
-
-struct UnexpectedHookFailure <: AddException
-    node::Node
-    late::Bool
-end
-
-struct ExpansionAborted <: AddException
-    node::Node
-end
-
-struct TriggerAborted <: AddException
-    node::Node
-    combination::Set
-end
-
 # Once the above have been processed,
 # convert into this dedicated user-facing one:
 struct AddError{V} <: SystemException
@@ -586,6 +536,14 @@ Base.showerror(io::IO, e::AddError{V}) where {V} = showerror(io, e.e)
 const PathElement = Type{<:Blueprint}
 const BpPath = Vector{PathElement}
 
+compreport = "\nThis is a bug in the component library. \
+              Please report to component authors \
+              if you can reproduce with a minimal example."
+
+frareport = "\nThis is a bug in the framework. \
+             Please report to package authors \
+             if you can reproduce with a minimal example."
+
 # Extract path from Node.
 function path(node::Node)::BpPath
     res = PathElement[typeof(node.blueprint)]
@@ -596,49 +554,52 @@ function path(node::Node)::BpPath
     res
 end
 
-# ==========================================================================================
 # Render errors into proper error messages.
-
-function render_path(path::BpPath)
+function render_path(path::BpPath; prefix = true)
     p1 = stripped_path(path[1])
-    res = "$(grayed)in$reset $blueprint_color$p1$reset\n"
-    for parent in path
+    res = prefix ? "$(gray)in$reset " : ""
+    res *= "$blueprint_color$p1$reset\n"
+    for parent in path[2:end]
         parent = stripped_path(parent)
-        res *= "$grayed     implied by:$reset $blueprint_color$parent$reset\n"
+        res *= "$gray implied by:$reset $blueprint_color$parent$reset\n"
     end
     res
 end
-render_path(node::Node) = render_path(path(node))
+render_path(node::Node; kwargs...) = render_path(path(node); kwargs...)
 
+struct BroughtAlreadyInValue <: AddException
+    Comp::CompType
+    node::Node
+end
 function Base.showerror(io::IO, e::BroughtAlreadyInValue)
-    (; comp, node) = e
+    (; C, node) = e
     path = render_path(node)
     print(
         io,
-        "Blueprint would expand into component $(cc(comp)), \
+        "Blueprint would expand into component $(cc(C)), \
          which is already in the system.\n$path",
     )
 end
 
-function Base.showerror(io::IO, e::CannotImplyConstruct)
-    (; comp, node) = e
-    path = render_path(node)
-    print(
-        io,
-        "This particular brought $(cc(comp)) cannot be implicitly constructed.\n$path",
-    )
+struct ExcludedBrought <: AddException
+    Comp::CompType
+    node::Node
 end
-
 function Base.showerror(io::IO, e::ExcludedBrought)
-    (; comp, node) = e
+    (; C, node) = e
     path = render_path(node)
     print(
         io,
-        "Component $(cc(comp)) is explicitly excluded \
+        "Component $(cc(C)) is explicitly excluded \
          but this blueprint is bringing it:\n$path",
     )
 end
 
+struct InconsistentForSameComponent <: AddException
+    Comp::CompType
+    focal::Node
+    other::Node
+end
 function Base.showerror(io::IO, e::InconsistentForSameComponent)
     (; focal, other) = e
     println(io, "Component would be brought by two inconsistent blueprints:")
@@ -649,13 +610,19 @@ function Base.showerror(io::IO, e::InconsistentForSameComponent)
     println(io, '\n' * render_path(other))
 end
 
+struct MissingRequiredComponent <: AddException
+    Miss::CompType
+    Comp::Option{CompType} # Set if the *component* requires, none if the *blueprint* does.
+    node::Node
+    reason::Reason
+end
 function Base.showerror(io::IO, e::MissingRequiredComponent)
-    (; miss, comp, node, reason) = e
+    (; Miss, Comp, node, reason) = e
     path = render_path(node)
-    if isnothing(comp)
-        header = "Blueprint cannot expand without component $(cc(miss))"
+    if isnothing(Comp)
+        header = "Blueprint cannot expand without component $(cc(Miss))"
     else
-        header = "Component $(cc(comp)) requires $(cc(miss)), neither found in the system \
+        header = "Component $(cc(Comp)) requires $(cc(Miss)), neither found in the system \
                   nor brought by the blueprints"
     end
     if isnothing(reason)
@@ -672,6 +639,11 @@ late_fail_warn(path) = "Not all blueprints have been expanded.\n\
                         but some components have not been added.\n\
                         $path"
 
+struct HookCheckFailure <: AddException
+    node::Node
+    message::String
+    late::Bool
+end
 function Base.showerror(io::IO, e::HookCheckFailure)
     (; node, message, late) = e
     path = render_path(node)
@@ -686,6 +658,10 @@ function Base.showerror(io::IO, e::HookCheckFailure)
     print(io, "$header:\n$it$message$reset\n$footer")
 end
 
+struct UnexpectedHookFailure <: AddException
+    node::Node
+    late::Bool
+end
 function Base.showerror(io::IO, e::UnexpectedHookFailure)
     (; node, late) = e
     path = render_path(node)
@@ -696,22 +672,24 @@ function Base.showerror(io::IO, e::UnexpectedHookFailure)
         header = "Unexpected failure during early blueprint checking."
         footer = path
     end
-    print(
-        io,
-        "$header\n\
-         This is a bug in the components library. \
-         Please report if you can reproduce with a minimal example.\n\
-         $footer",
-    )
+    print(io, "$header$compreport\n$footer")
 end
 
+struct ConflictWithSystemComponent <: AddException
+    Comp::CompType
+    comp_abstract::Option{CompType} # Fill if 'comp' conflicts as this abstract type.
+    node::Node
+    Other::CompType
+    OtherAbstract::Option{CompType} # Fill if 'other' conflicts as this abstract type.
+    reason::Reason
+end
 function Base.showerror(io::IO, e::ConflictWithSystemComponent)
-    (; comp, comp_abstract, node, other, other_abstract, reason) = e
+    (; Comp, CompAbstract, node, Other, OtherAbstract, reason) = e
     path = render_path(node)
-    comp_as = isnothing(comp_abstract) ? "" : " (as a $(cc(comp_abstract)))"
-    other_as = isnothing(other_abstract) ? "" : " (as a $(cc(other_abstract)))"
-    header = "Blueprint would expand into $(cc(comp)), \
-              which$comp_as conflicts with $other$other_as already in the system"
+    comp_as = isnothing(CompAbstract) ? "" : " (as a $(cc(CompAbstract)))"
+    other_as = isnothing(OtherAbstract) ? "" : " (as a $(cc(OtherAbstract)))"
+    header = "Blueprint would expand into $(cc(Comp)), \
+              which$comp_as conflicts with $Other$other_as already in the system"
     if isnothing(reason)
         body = "."
     else
@@ -720,14 +698,23 @@ function Base.showerror(io::IO, e::ConflictWithSystemComponent)
     print(io, "$header$body\n$path")
 end
 
+struct ConflictWithBroughtComponent <: AddException
+    Comp::CompType
+    CompAbstract::Option{CompType}
+    node::Node
+    Other::CompType
+    OtherAbstract::Option{CompType}
+    other_node::Node
+    reason::Reason
+end
 function Base.showerror(io::IO, e::ConflictWithBroughtComponent)
-    (; comp, comp_abstract, node, other, other_abstract, other_node, reason) = e
+    (; Comp, CompAbstract, node, Other, OtherAbstract, other_node, reason) = e
     path = render_path(node)
-    other_path = render_path(other_node)
-    comp_as = isnothing(comp_abstract) ? "" : " (as a $(cc(comp_abstract)))"
-    other_as = isnothing(other_abstract) ? "" : " (as a $(cc(other_abstract)))"
-    header = "Blueprint would expand into $(cc(comp)), \
-              which$comp_as would conflict with $other$other_as \
+    other_path = render_path(other_node; prefix = false)
+    comp_as = isnothing(CompAbstract) ? "" : " (as a $(cc(CompAbstract)))"
+    other_as = isnothing(OtherAbstract) ? "" : " (as a $(cc(OtherAbstract)))"
+    header = "Blueprint would expand into $(cc(Comp)), \
+              which$comp_as would conflict with $(cc(Other))$other_as \
               already brought by the same blueprint"
     if isnothing(reason)
         body = "."
@@ -735,4 +722,31 @@ function Base.showerror(io::IO, e::ConflictWithBroughtComponent)
         body = ":\n  $reason"
     end
     print(io, "$header$body\nAlready brought: $other_path---\n$path")
+end
+
+struct InternalAddError <: AddException
+    mess::String
+end
+function Base.showerror(io::IO, e::InternalAddError)
+    (; mess) = e
+    print(io, mess)
+    print(io, frareport)
+end
+
+struct ComponentError <: AddException
+    mess::String
+end
+function Base.showerror(io::IO, e::ComponentError)
+    (; mess) = e
+    print(io, mess)
+    print(io, compreport)
+end
+
+struct ExpansionAborted <: AddException
+    node::Node
+end
+
+struct TriggerAborted <: AddException
+    node::Node
+    combination::Set
 end

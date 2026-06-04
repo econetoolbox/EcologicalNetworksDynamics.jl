@@ -146,7 +146,7 @@ function define_component(
     TC = Type{CompType} # (or would trigger 'local variable cannot be used in closure decl')
     # Connect instance to type.
     eval(quote
-        $Framework.singleton_instance(::$TC) = $CompInstance
+        $F.singleton_instance(::$TC) = $CompInstance
     end)
 
     # Ensure singleton unicity.
@@ -159,14 +159,14 @@ function define_component(
     # Connect to blueprint types.
     for (_, B) in base_blueprints
         eval(quote
-            Framework.componentsof(::$B) = ($CompType,)
+            F.componentsof(::$B) = ($CompType,)
         end)
     end
 
     # Setup the components required.
     iter() = CompsReasons{V}(k => v for (k, v) in reqs) # Copy to avoid leaks.
     eval(quote
-        Framework.requires(::$TC) = $iter()
+        F.requires(::$TC) = $iter()
     end)
     CompInstance
 end
@@ -180,7 +180,7 @@ shortline(io, B::Type{<:Blueprint}) = @invoke show(io, B::DataType)
 function Base.show(io::IO, ::MIME"text/plain", c::Component)
     it = crayon"italics"
     V = system_value_type(c)
-    print(io, "$component_color$c$reset $grayed(component for $V")
+    print(io, "$component_color$c$reset $gray(component for $V")
     names = fieldnames(typeof(c))
     if isempty(names)
         print(io, " with no base blueprint")
@@ -188,9 +188,9 @@ function Base.show(io::IO, ::MIME"text/plain", c::Component)
         println(io, ", expandable from:")
         for name in names
             B = getfield(c, name)
-            print(io, "  $blueprint_color$name$reset$grayed: $it")
+            print(io, "  $blueprint_color$name$reset$gray: $it")
             shortline(io, B)
-            println(io, "$reset$grayed,")
+            println(io, "$reset$gray,")
         end
     end
     print(io, ")$reset")

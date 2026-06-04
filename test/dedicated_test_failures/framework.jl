@@ -3,9 +3,9 @@
 import EcologicalNetworksDynamics.Framework:
     AddError,
     BroughtAlreadyInValue,
-    CannotImplyConstruct,
     CompType,
     Component,
+    ComponentError,
     ConflictError,
     ConflictWithBroughtComponent,
     ConflictWithSystemComponent,

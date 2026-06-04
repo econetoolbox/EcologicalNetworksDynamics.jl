@@ -366,9 +366,10 @@ Alias = _Alias() # Use as an unambiguous keyword.
     input = [0, 1, 2]
     @inputfails(
         (inputconvert(Vector{Bool}, input)),
-        "(detail down the stacktrace)",
+        nothing,
         [0, 1, 2],
         Vector{Bool},
+        "(detail down the stacktrace)",
     )
 
     #---------------------------------------------------------------------------------------

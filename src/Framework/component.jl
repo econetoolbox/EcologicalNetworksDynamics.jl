@@ -203,6 +203,7 @@ function add_trigger!(components, fn::Function)
 
     nothing
 end
+export add_trigger!
 
 # ==========================================================================================
 # Display.
@@ -226,7 +227,7 @@ Base.show(io::IO, c::Component) = print(io, comp_path(typeof(c)))
 # More explicit terminal display.
 function Base.show(io::IO, ::MIME"text/plain", C::CompType)
     abs = isabstracttype(C) ? "abstract " : ""
-    print(io, "$component_color$C$reset $grayed($(abs)component type ")
+    print(io, "$component_color$C$reset $gray($(abs)component type ")
     @invoke show(io::IO, C::DataType)
     print(io, ")$reset")
 end

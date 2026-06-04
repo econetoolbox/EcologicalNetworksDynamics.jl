@@ -1,17 +1,14 @@
 module MethodMacro
 
-using EcologicalNetworksDynamics.Framework
-
 # Use submodules to not clash component names.
 # ==========================================================================================
 module Calls
 
-using ..MethodMacro
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 using Test
 using Main: @failswith, @sysfails, @methfails
-const F = Framework
 
 # The plain value to wrap in a "system" in subsequent tests.
 mutable struct Value
@@ -20,8 +17,8 @@ mutable struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 # Willing to enjoy wrapped value properties.
-Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
-Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
+Base.getproperty(v::Value, p::Symbol) = F.unchecked_getproperty(v, p)
+Base.setproperty!(v::Value, p::Symbol, rhs) = F.unchecked_setproperty!(v, p, rhs)
 
 define_component(name, V = Value; kwargs...) = F.define_component(name, V, Calls; kwargs...)
 define_method(fn, V = Value; kwargs...) = F.define_method(fn, V; kwargs...)
@@ -35,7 +32,7 @@ define_method(fn, V = Value; kwargs...) = F.define_method(fn, V; kwargs...)
     struct Unf_b <: Blueprint{Value} end
     define_blueprint(Unf_b)
     define_component(:Unf; blueprints = [:b => Unf_b])
-    Framework.expand!(s, ::Unf_b) = (value(s)._member = 0)
+    F.expand!(s, ::Unf_b) = (F.value(s)._member = 0)
     s = System{Value}(Unf.b())
 
     # Simple valid invocation.
@@ -329,7 +326,7 @@ define_method(fn, V = Value; kwargs...) = F.define_method(fn, V; kwargs...)
 
     #---------------------------------------------------------------------------------------
     # Guard against double specifications.
-    Framework.REVISING = false
+    F.REVISING = false
     eval(quote
         yqp(v::Value) = v.m
     end)
@@ -339,7 +336,7 @@ define_method(fn, V = Value; kwargs...) = F.define_method(fn, V; kwargs...)
         yqp,
         "Function `$yqp` already marked as a method for systems of `$Value`."
     )
-    Framework.REVISING = true
+    F.REVISING = true
 
 end
 end
@@ -347,8 +344,8 @@ end
 # ==========================================================================================
 module Abstracts
 
-using ..MethodMacro
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 using Test
 using Main: @sysfails
@@ -360,10 +357,9 @@ mutable struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 # Willing to enjoy wrapped value properties.
-Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
-Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
+Base.getproperty(v::Value, p::Symbol) = F.unchecked_getproperty(v, p)
+Base.setproperty!(v::Value, p::Symbol, rhs) = F.unchecked_setproperty!(v, p, rhs)
 export Value
-const F = Framework
 
 define_component(name, V = Value; kwargs...) =
     F.define_component(name, V, Abstracts; kwargs...)
@@ -424,8 +420,8 @@ define_method(fn; kwargs...) = F.define_method(fn, Value; kwargs...)
     define_method(trt; depends = [A]) # Abstract.
     define_method(rrk; depends = [tai, trt])
     define_method(dgw; depends = [trt, tai]) # Order does not matter.
-    @test collect(Framework.depends(System{Value}, rrk)) == [A] # Only.
-    @test collect(Framework.depends(System{Value}, dgw)) == [A] # Only.
+    @test collect(F.depends(System{Value}, rrk)) == [A] # Only.
+    @test collect(F.depends(System{Value}, dgw)) == [A] # Only.
 
 end
 end
@@ -434,12 +430,11 @@ end
 module PropertySpaces
 
 using ..MethodMacro
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 using Test
 using Main: @sysfails, @methfails
-
-const F = Framework
 
 # The plain value to wrap in a "system" in subsequent tests.
 mutable struct Value
@@ -448,8 +443,8 @@ mutable struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 # Willing to enjoy wrapped value properties.
-Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
-Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
+Base.getproperty(v::Value, p::Symbol) = F.unchecked_getproperty(v, p)
+Base.setproperty!(v::Value, p::Symbol, rhs) = F.unchecked_setproperty!(v, p, rhs)
 export Value
 
 define_component(name, V = Value; kwargs...) =
@@ -458,7 +453,7 @@ define_method(fn; kwargs...) = F.define_method(fn, Value; kwargs...)
 
 @testset "Property spaces." begin
 
-    check_props(s, expected) = @test sort(first.(properties(s))) == expected
+    check_props(s, expected) = @test sort(first.(F.properties(s))) == expected
 
     s = System{Value}()
 
@@ -577,12 +572,12 @@ define_method(fn; kwargs...) = F.define_method(fn, Value; kwargs...)
     # Finally succeed.
     define_method(set_htl!; write_as = [:(mre.htl)])
 
-    @test isnothing(value(s)._member)
+    @test isnothing(F.value(s)._member)
     s.mre.htl = 5
-    @test value(s)._member == 5
+    @test F.value(s)._member == 5
     mre = s.mre # Delayed access.
     mre.htl = 8
-    @test value(s)._member == 8
+    @test F.value(s)._member == 8
 
     # Dependent write.
     struct Vnq_b <: Blueprint{Value} end
@@ -656,11 +651,11 @@ define_method(fn; kwargs...) = F.define_method(fn, Value; kwargs...)
     )
     s += Tkq.b()
     s.btt = 44
-    @test value(s)._member == 440
+    @test F.value(s)._member == 440
     s.goa.btt = 55
-    @test value(s)._member == 550
+    @test F.value(s)._member == 550
     s.goa.gyq.btt = 66
-    @test value(s)._member == 660
+    @test F.value(s)._member == 660
 
 end
 

@@ -51,8 +51,9 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
                 Matrix(A) = new(NF.inputconvert(SparseMatrix{Bool}, A))
             end
             # Infer number of class nodes from matrix size.
-            F.brought(::Matrix) = (Class,)
-            F.implied_blueprint_for(bp::Matrix, ::_Class) = NF.implied_class(d, Class, bp)
+            F.implied(::Matrix) = (Class,)
+            F.implied_blueprint_for(bp::Matrix, ::Type{_Class}) =
+                NF.implied_class(d, Class, bp)
             F.early_check(bp::Matrix) = NF.early_check(d, bp)
             F.late_check(model, bp::Matrix) = NF.late_check(d, model, bp)
             F.expand!(model, bp::Matrix) = NF.expand!(d, model, bp)
@@ -70,8 +71,8 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
                 Adjacency(A) = new(NF.inputconvert(BinAdjacency, A))
             end
             # Infer number or names of class nodes from the lists.
-            F.brought(::Adjacency) = (Class,)
-            F.implied_blueprint_for(bp::Adjacency, ::_Class) =
+            F.implied(::Adjacency) = (Class,)
+            F.implied_blueprint_for(bp::Adjacency, ::Type{_Class}) =
                 NF.implied_class(d, Class, bp)
             F.late_check(model, bp::Adjacency) = NF.late_check(d, model, bp)
             F.expand!(model, bp::Adjacency) = NF.expand!(d, model, bp)

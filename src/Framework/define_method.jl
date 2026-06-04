@@ -224,7 +224,7 @@ function define_method(
     deps = OrderedSet{CompType{V}}()
     for rdep in raw_deps
         subdeps = if rdep isa Function
-            Framework.depends(System{V}, typeof(rdep))
+            F.depends(System{V}, typeof(rdep))
         else
             [rdep]
         end
@@ -290,7 +290,7 @@ function define_method(
     Fn = Type{typeof(fn)}
     Target = System{V}
     eval(quote
-        Framework.depends(::Type{$Target}, ::$Fn) = $deps
+        F.depends(::Type{$Target}, ::$Fn) = $deps
     end)
 
     # Wrap the detected methods within checked methods receiving 'System' values.
@@ -345,13 +345,13 @@ function define_method(
 
     # Record as specified to avoid it being recorded again.
     eval(quote
-        $Framework.specified_as_method(::Type{$V}, ::$Fn) = true
+        $F.specified_as_method(::Type{$V}, ::$Fn) = true
     end)
     vals = method_for_values(typeof(fn))
     if isempty(vals)
         # Specialize for this freshly created value.
         eval(quote
-            $Framework.method_for_values(::$Fn) = $vals
+            $F.method_for_values(::$Fn) = $vals
         end)
     end
     push!(vals, V) # Append the new one in any case.

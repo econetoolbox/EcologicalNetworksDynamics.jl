@@ -1,8 +1,8 @@
 # Test the system behaviour when correcty setup by framework users.
 module RegularUse
 
-using EcologicalNetworksDynamics.Framework
-const F = Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 export F
 
 # The aggregate value to wrap in a "system" in subsequent tests.
@@ -14,8 +14,8 @@ mutable struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 # Willing to enjoy wrapped value properties.
-Base.getproperty(v::Value, p::Symbol) = Framework.unchecked_getproperty(v, p)
-Base.setproperty!(v::Value, p::Symbol, rhs) = Framework.unchecked_setproperty!(v, p, rhs)
+Base.getproperty(v::Value, p::Symbol) = F.unchecked_getproperty(v, p)
+Base.setproperty!(v::Value, p::Symbol, rhs) = F.unchecked_setproperty!(v, p, rhs)
 export Value
 
 struct CheckError <: F.InputError
@@ -45,7 +45,7 @@ mutable struct NLines <: Blueprint{Value}
 end
 F.early_check(nl::NLines) =
     nl.n > 0 || checkfails("Not a positive number of lines: $(nl.n).")
-F.expand!(s, nl::NLines) = (value(s)._n = nl.n)
+F.expand!(s, nl::NLines) = (F.value(s)._n = nl.n)
 define_blueprint(NLines)
 define_component(:Size, Value, Basics; blueprints = [:N => NLines])
 export NLines, Size, _Size
@@ -60,26 +60,26 @@ define_method(get_n; depends = [Size], read_as = [:n])
 module ABlueprints # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 using ..Basics
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 mutable struct Uniform <: Blueprint{Value}
     value::Float64
 end
-F.expand!(s, u::Uniform) = (value(s)._dict[:a] = [u.value for _ in 1:s.n])
+F.expand!(s, u::Uniform) = (F.value(s)._dict[:a] = [u.value for _ in 1:s.n])
 define_blueprint(Uniform)
 
 mutable struct Raw <: Blueprint{Value}
     a::Vector{Float64}
-    size::Brought(Size)
-    Raw(a) = new(a, _Size) # Default to implying brought blueprint.
 end
-F.implied_blueprint_for(r::Raw, ::_Size) = NLines(length(r.a))
+F.implied(::Raw) = (_Size,)
+F.implied_blueprint_for(r::Raw, ::Type{_Size}) = NLines(length(r.a))
 function F.late_check(s, raw::Raw)
     na = length(raw.a)
     nv = s.n
     na == nv || checkfails("Cannot expand $na 'a' values into $nv lines.")
 end
-F.expand!(s, r::Raw) = (value(s)._dict[:a] = deepcopy(r.a))
+F.expand!(s, r::Raw) = (F.value(s)._dict[:a] = deepcopy(r.a))
 define_blueprint(Raw)
 
 end # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -102,20 +102,19 @@ define_method(get_a; depends = [A], read_as = [:a])
 module BBlueprints # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 using ..Basics
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework, F
+using .Framework
 
 mutable struct Uniform <: Blueprint{Value}
     value::Float64
 end
 F.late_check(s, u::Uniform) =
     maximum(s.a) <= u.value || checkfails("Values 'b' not larger than maximum 'a' values.")
-F.expand!(s, u::Uniform) = (value(s)._dict[:b] = [u.value for _ in 1:s.n])
+F.expand!(s, u::Uniform) = (F.value(s)._dict[:b] = [u.value for _ in 1:s.n])
 define_blueprint(Uniform)
 
 mutable struct Raw <: Blueprint{Value}
     b::Vector{Float64}
-    size::Brought(Size)
-    Raw(b) = new(b, _Size)
 end
 function F.late_check(v, raw::Raw)
     nb = length(raw.b)
@@ -125,7 +124,8 @@ function F.late_check(v, raw::Raw)
 end
 F.expand!(s, r::Raw) = (value(s)._dict[:b] = deepcopy(r.b))
 Basics.NLines(r::Raw) = NLines(length(r.b))
-F.implied_blueprint_for(r::Raw, ::_Size) = NLines(length(r.b))
+F.implied(::Raw) = (Size,) # (also works with singleton instance)
+F.implied_blueprint_for(r::Raw, ::Type{_Size}) = NLines(length(r.b))
 define_blueprint(Raw)
 
 end # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -169,7 +169,7 @@ function F.expand!(s, ::ReflectionMark)
         push!(rf, 'B')
     end
     rf = collect(Iterators.take(Iterators.cycle(rf), s.n))
-    value(s)._dict[:reflection] = rf
+    F.value(s)._dict[:reflection] = rf
 end
 define_blueprint(ReflectionMark)
 
@@ -179,7 +179,7 @@ define_blueprint(ReflectionMark)
 # but it needs A to expand.
 struct ReflectFromB <: Blueprint{Value} end
 function F.expand!(s, ::ReflectFromB)
-    value(s)._dict[:reflection] =
+    F.value(s)._dict[:reflection] =
         collect(first.(repr.(Iterators.take(Iterators.cycle(s.a), s.n))))
 end
 define_blueprint(ReflectFromB; depends = [A])
@@ -306,7 +306,7 @@ define_method(set_reflection!; depends = [Reflection], write_as = [:reflection, 
     # List properties.
 
     # All possible system properties and their dependencies.
-    props = properties(typeof(sa))
+    props = F.properties(typeof(sa))
     @test sort(map(((n, r, w, g),) -> (n, r, w, F.singleton_instance.(g)), props)) == [
         (:a, get_a, nothing, Component[A]),
         (:b, get_b, nothing, Component[B]),
@@ -317,11 +317,11 @@ define_method(set_reflection!; depends = [Reflection], write_as = [:reflection, 
     ]
 
     # Only the ones available on this instance.
-    props = properties(sa)
+    props = F.properties(sa)
     @test sort(collect(props)) == [(:a, get_a, nothing), (:n, get_n, nothing)]
 
     # Only the ones *missing* on this instance.
-    props = latent_properties(sa)
+    props = F.latent_properties(sa)
     @test sort(map(((n, r, w, g),) -> (n, r, w, F.singleton_instance.(g)), props)) == [
         (:b, get_b, nothing, Component[B]),
         (:ref, get_reflection, set_reflection!, Component[Reflection]),
@@ -332,12 +332,9 @@ define_method(set_reflection!; depends = [Reflection], write_as = [:reflection, 
 end
 
 # ==========================================================================================
-@testset "Blueprints bring each other: imply/embed." begin
+@testset "Blueprints imply each other." begin
 
     e = System{Value}() # Empty.
-
-    #---------------------------------------------------------------------------------------
-    # Implied blueprints.
 
     # Implying NLines from A.Raw for Size..
     a = A.Raw([5, 5])
@@ -349,12 +346,7 @@ end
     # Display path to failing brought sub-blueprint in case of failure.
     @sysfails(
         e + A.Raw([]),
-        Add(
-            HookCheckFailure,
-            [NLines, true, A.Raw],
-            "Not a positive number of lines: 0.",
-            false,
-        )
+        Add(HookCheckFailure, [NLines, A.Raw], "Not a positive number of lines: 0.", false)
     )
 
     # Implied blueprint are not expanded if their component is already there.
@@ -369,44 +361,6 @@ end
         Add(HookCheckFailure, [A.Raw], "Cannot expand 2 'a' values into 3 lines.", true)
     )
 
-    #---------------------------------------------------------------------------------------
-    # Embedded blueprints.
-
-    # Explicitly bring it instead of implying.
-    a.size = NLines(2)
-
-    # The component is also brought.
-    s = e + a
-    @test has_component(s, Size)
-    @test has_component(s, A)
-    @test s.n == 2
-
-    # But the path connection differs in case of failure.
-    z = A.Raw([])
-    z.size = NLines(0)
-    @sysfails(
-        e + z,
-        Add(
-            HookCheckFailure,
-            [NLines, false, A.Raw],
-            "Not a positive number of lines: 0.",
-            false,
-        )
-    )
-
-    # And it is an error to bring it if the component is already there.
-    s = e + NLines(2) # (*even* if the data are consistent)
-    @sysfails(s += a, Add(BroughtAlreadyInValue, Size, [NLines, false, A.Raw]))
-
-    #---------------------------------------------------------------------------------------
-    # Unbrought blueprints.
-
-    # Alternately: don't bring the blueprint at all.
-    a.size = nothing
-
-    # The component is not brought then.
-    @sysfails(e + a, Missing(Size, A, [A.Raw], nothing))
-
 end
 
 # ==========================================================================================
@@ -414,12 +368,12 @@ end
 
     init = System{Value}()
     s = copy(init)
-    @test collect(components(s)) == []
-    @test collect(properties(s)) == []
+    @test collect(F.components(s)) == []
+    @test collect(F.properties(s)) == []
 
     # Check that the original system is always empty.
     function test_empty(i)
-        @test isempty(collect(components(i)))
+        @test isempty(collect(F.components(i)))
         @sysfails(get_a(i), Method(get_a, "Requires component $_A."))
         @sysfails(i.a, Property(a, "Component $_A is required to read this property."))
     end

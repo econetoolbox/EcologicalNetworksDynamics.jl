@@ -72,8 +72,9 @@ function define_node_field_component(
                 Raw($short) = new(NF.construct(d, Raw, $short))
             end
             NF.data(bp::Raw) = bp.$short
-            F.brought(::Raw) = (Class,)
-            F.implied_blueprint_for(bp::Raw, ::_Class) = NF.implied_class(d, Class, bp)
+            F.implied(::Raw) = (Class,)
+            F.implied_blueprint_for(bp::Raw, ::Type{_Class}) =
+                NF.implied_class(d, Class, bp)
             F.early_check(bp::Raw) = NF.early_check(d, bp)
             F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
@@ -92,8 +93,9 @@ function define_node_field_component(
                 Map($short) = new(NF.construct(d, Map, $short))
             end
             NF.data(bp::Map) = bp.$short
-            F.brought(::Map) = (Class,)
-            F.implied_blueprint_for(bp::Map, ::_Class) = NF.implied_class(d, Class, bp)
+            F.implied(::Map) = (Class,)
+            F.implied_blueprint_for(bp::Map, ::Type{_Class}) =
+                NF.implied_class(d, Class, bp)
             F.early_check(bp::Map) = NF.early_check(d, bp)
             F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)

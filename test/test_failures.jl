@@ -17,6 +17,8 @@ module TestFailures
 
 using Test
 using Crayons
+using StringManipulation
+const Option{T} = Union{T,Nothing}
 
 # Default exposed macro,
 # build your own  from `failswith()` function, doing most of the job.
@@ -150,12 +152,13 @@ error(mess, throw = throw) = throw(FailedFailure(mess))
 #-------------------------------------------------------------------------------------------
 # Convenience message checking utils.
 
-function check_message(exact::String, m)
-    (exact == m) || error("Expected vs. actual error messages:\n\
-                           --------------------------------------\n\
-                           >>> $exact\n\
-                           <<< $m\n\
-                           -------------------------------------")
+function check_message(expected::Option{String}, actual::Option{String})
+    act = actual isa String ? remove_decorations(actual) : actual
+    (expected == act) || error("Expected vs. actual error messages:\n\
+                                --------------------------------------\n\
+                                >>> $expected\n\
+                                <<< $actual\n\
+                                -------------------------------------")
 end
 
 function check_message(substrings::Vector{String}, m)

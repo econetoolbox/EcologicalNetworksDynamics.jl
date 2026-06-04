@@ -9,11 +9,13 @@ export Value
 # ==========================================================================================
 module Calls
 
-using ..ConflictsMacro
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework
+using .Framework
 
 using Test
 using Main: @sysfails, @conffails
+
+using ..ConflictsMacro: Value
 
 define_component(name; kwargs...) =
     Framework.define_component(name, Value, Calls; kwargs...)
@@ -216,15 +218,16 @@ end
 # ==========================================================================================
 module Abstracts
 
-using ..ConflictsMacro
-using EcologicalNetworksDynamics.Framework
+using EcologicalNetworksDynamics: Framework
+using .Framework
 
 using Test
 using Main: @sysfails, @conffails
 
+using ..ConflictsMacro: Value
 const S = System{Value}
 
-comps(s) = collect(components(s))
+comps(s) = collect(Framework.components(s))
 define_component(name; kwargs...) =
     Framework.define_component(name, Value, Abstracts; kwargs...)
 
@@ -313,45 +316,18 @@ define_component(name; kwargs...) =
          for the following reason:\n  C dislikes B."
     )
 
-    # Conflict with brought components.
-    struct Crh_b <: Blueprint{Value}
-        c::Brought(C)
-    end
-    Framework.implied_blueprint_for(::Crh_b, ::C) = E.b()
+    # Conflict with implied components.
+    struct Crh_b <: Blueprint{Value} end
+    Framework.implied(::Crh_b) = (C,)
+    Framework.implied_blueprint_for(::Crh_b, ::Type{C}) = E.b()
     define_blueprint(Crh_b)
     Framework.componentsof(::Crh_b) = (_D,)
 
-    crh = Crh_b(E.b())
+    crh = Crh_b()
     @sysfails(
         S(crh),
-        Add(
-            ConflictWithBroughtComponent,
-            _D,
-            B,
-            [Crh_b],
-            _E,
-            C,
-            [E.b, false, Crh_b],
-            nothing,
-        )
+        Add(ConflictWithBroughtComponent, _D, B, [Crh_b], _E, C, [E.b, Crh_b], nothing)
     )
-
-    # Or implied.
-    crh = Crh_b(E)
-    @sysfails(
-        S(crh),
-        Add(
-            ConflictWithBroughtComponent,
-            _D,
-            B,
-            [Crh_b],
-            _E,
-            C,
-            [E.b, true, Crh_b],
-            nothing,
-        )
-    )
-
 
 end
 end
