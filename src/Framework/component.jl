@@ -1,31 +1,34 @@
-# Components are not values, conceptually,
-# but they are reified here as julia *singletons types*
-# whose corresponding blueprints associate to.
-#
-# No concrete component type can be added twice to the system.
-#
-# When user wants to add components to the system,
-# they provide a blueprint value which is then *expanded* into components.
-#
-# Components may 'require' other components,
-# because the data they represent are meaningless without them.
-# If A requires B, it means that A cannot be added in a system with no B.
-#
-# Components also 'conflict' with each other:
-# because the data they represent make no sense within their context.
-# If A conflicts with B, it means that an error should be raised
-# to prevent from adding A in a system with B.
-#
-# Component types can be structured with julia's abstract type hierarchy:
-#
-#   - Conflicting with an abstract component A
-#     means conflicting with any component subtyping A.
-#
-#   - If component B subtypes A, then A and B cannot conflict with each other.
-#
-# It is not currently possible for an abstract component to 'require'.
-# This might be implemented in the future for a convincingly motivated need,
-# at the cost of extending @component macro to produce abstract types.
+"""
+Components are not values, conceptually,
+but they are reified here as julia *singletons types*
+whose corresponding blueprints associate to.
+
+No concrete component type can be added twice to the system.
+
+When user wants to add components to the system,
+they provide a blueprint value which is then *expanded* into components.
+
+Components may 'require' other components,
+because the data they represent are meaningless without them.
+If A requires B, it means that A cannot be added in a system with no B.
+
+Components also 'conflict' with each other:
+because the data they represent make no sense within their context.
+If A conflicts with B, it means that an error should be raised
+to prevent from adding A in a system with B.
+
+Component types can be structured with julia's abstract type hierarchy:
+
+  - Conflicting with an abstract component A
+    means conflicting with any component subtyping A.
+
+  - If component B subtypes A, then A and B cannot conflict with each other.
+
+It is not currently possible for an abstract component to 'require'.
+This might be implemented in the future for a convincingly motivated need,
+at the cost of extending the `define_component()` function to produce abstract types.
+"""
+Component
 
 # Retrieve type from either instance or the type itself.
 component_type(C::CompType) = C
@@ -33,7 +36,8 @@ component_type(c::Component) = typeof(c)
 component_type(x::Any) =
     argerr("Not a component or a component type: $(repr(x)) ::$(typeof(x))")
 
-# Component types being singleton, we *can* infer the value from the type at runtime.
+# Component types being singleton, we *can* infer the value from the type at runtime,
+# provided it is not abstract.
 singleton_instance(c::Component) = c
 singleton_instance(C::CompType) = throw("No concrete singleton instance of '$C'.")
 
@@ -44,7 +48,6 @@ system_value_type(::CompRef{V}) where {V} = V
 isacomponent(::CompType) = true
 isacomponent(::Component) = true
 isacomponent(::Any) = false
-export isacomponent
 
 #-------------------------------------------------------------------------------------------
 # Requirements.
@@ -200,16 +203,14 @@ function add_trigger!(components, fn::Function)
 
     nothing
 end
-export add_trigger! # Expose directly..
 
 # ==========================================================================================
 # Display.
 
 # By default, strip the standard leading '_' in component type, wrap in angle brackets <>,
 # and don't display blueprint details within component values.
-# NOTE: this enhances ergonomics
-# but it makes unexpected framework errors rather confusing.
-# Comment out when debugging.
+# NOTE: This enhances ergonomics but it makes unexpected framework errors rather confusing.
+#       Comment out when debugging.
 
 strip_compname(name::Symbol) = Symbol(lstrip(String(name), '_'))
 function fmt_compname(name; col = false)

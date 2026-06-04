@@ -1,17 +1,21 @@
-# Methods add functionalities to the system,
-# in the sense that components add the *data* while methods add the *code*.
-#
-# Methods are never "added" onto the system's value. They are already there.
-# But they come in two styles:
-#
-#   - method(s::System, ..) -> Checks that required components are loaded before it runs.
-#
-#   - method(v::Value, ..) -> Runs, with undefined behaviour if components are missing.
-#
-# Only the second one needs to be specified by the framework user,
-# and then the @method macro should do the rest (see documentation there).
-#
-# The polymorphism of methods use julia dispatch over function types.
+"""
+Methods add functionalities to the system,
+in the sense that components add the *data* while methods add the *code*.
+
+Methods are never "added" onto the system's value. They are already there.
+But they come in two styles:
+
+```jl
+method(s::System, ..) # Checks that required components are loaded before it runs.
+method(v::Value, ..)  # Runs, with undefined behaviour if components are missing.
+```
+
+Only the second one needs to be specified by component authors.
+and then the `define_method()` function should do the rest (see documentation there).
+
+The polymorphism of methods use julia dispatch over function types.
+"""
+() # TODO: not sure what to bind that docstring to?
 
 # Methods depend on nothing by default.
 depends(S::Type{<:System}, ::Type{<:Function}) = CompType{system_value_type(S)}[]
@@ -34,8 +38,8 @@ first_missing_dependency_for(fn::Function, s::System) =
     first_missing_dependency_for(typeof(fn), s)
 
 # Hack flag to avoid interrupting the `Revise` process.
-# Raise when done defining methods in the package.
-global REVISING = false # TODO: Revise stopped working again. Is that the problem?
+# Raise when done defining methods in the components library.
+global REVISING = false # TODO: Is this still needed after refactoring?
 
 # ==========================================================================================
 # Dedicated exceptions.

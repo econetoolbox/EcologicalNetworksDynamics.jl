@@ -1,83 +1,84 @@
-# This framework is dedicated to wrap a sophisticated value into a 'System'.
-#
-# Motivation:
-#
-#   The wrapped value is powerful but complicated
-#   and its state needs to be carefully maintained.
-#   Lib devs want to expose it to their users so they can enjoy the benefit of it,
-#   but they also want to protect them from breaking the internal state.
-#
-# Instead of exposing the value directly,
-# lib devs wrap it into a 'System':
-#
-#   s = System{WrappedValue}()
-#
-# And then they carefully develop an associated collection of 'components' and 'methods'.
-#
-# The whole module can be viewed as an extension of the "builder" pattern.
-# Instead of constructing the value directly,
-# lib users will start from an "empty" or "default" base system,
-# then populate it with the 'components' at hand
-# until it contains all the data required to exhibit the behaviour they need
-# via the 'methods' at hand.
-#
-# Consistently with this "builder" approach,
-# 'components' are not actual values,
-# but rather abstract, diffuse sets of data appended to the protected state.
-# In consequence, lib users cannot get a 'component' variable
-# referring to data inside the system.
-# Instead, they get 'blueprints' for components,
-# which they can construct and tweak like regular julia structs.
-# When ready, a blueprint can be read by the system, 'check'ed,
-# and 'expand'ed into the actual component(s).
-#
-# No component can be added twice to the same system,
-# but blueprints can be read and expanded into different components types.
-# Also, the components they 'provide' may depend on their value
-# and/or the current state of the system.
-#
-# 'Components' contain no data and are implemented as julia singletons marker types.
-# 'Blueprints' are regular data structures implementing the blueprint interface.
-#
-# Adding a component to the system therefore reduces to:
-#
-#   add!(s, blueprint)
-#
-# And using exposed methods as simple:
-#
-#   method(s)
-#
-# Additional sugar is provided:
-#
-#   s = System{WrappedValue}(blueprints...) # Start from a sequence of initial blueprints.
-#   s += blueprint                          # Provide new component from extra blueprint.
-#   s.property                              # Implicit `get_property(s, :property)`
-#   s.property = value                      # Implicit `set_property!(s, :property, value)`
-#
-# Components and methods are organized into a dependency network,
-# with components requiring each other
-# and methods depending on the presence of certain components to run.
-# This makes it possible to emit useful errors
-# when lib users attempt to invoke the above behaviour
-# but not all required components have been added to the system.
-#
-# Before being expanded into the components they provide,
-# every blueprint is carefully checked by lib devs
-# so they can guarantee that the internal state cannot be corrupted during expansion,
-# and by the exposed System/Blueprints/Components/Methods interface in general.
-#
-# As a current limitation, there is no way to "remove" a component from the system,
-# so the system evolution is monotonic.
-# However, if the underlying wrapped value can be safely copied,
-# then it is always possible to "fork" the system:
-#
-#   s = System{CopyableWrappedValue}(a::A, b::B, c::C)
-#   fork = copy(s)
-#   add!(fork, d::D)
-#   has_component(fork, D) # True.
-#   has_component(s, D) # False.
-#
-# This *may* make it useless to ever feature component removal.
+"""
+This framework is dedicated to wrap a sophisticated value into a 'System'.
+
+Motivation:
+
+  The wrapped value is powerful but complicated
+  and its state needs to be carefully maintained.
+  Lib devs want to expose it to their users so they can enjoy the benefit of it,
+  but they also want to protect them from breaking the internal state.
+
+Instead of exposing the value directly, lib devs wrap it into a 'System':
+
+  s = System{WrappedValue}()
+
+And then they carefully develop an associated collection of 'components' and 'methods'.
+
+The whole module can be viewed as an extension of the "builder" pattern.
+Instead of constructing the value directly,
+lib users will start from an "empty" or "default" base system,
+then populate it with the 'components' at hand
+until it contains all the data required to exhibit the behaviour they need
+via the 'methods' at hand.
+
+Consistently with this "builder" approach,
+'components' are not actual values,
+but rather abstract, diffuse sets of data appended to the protected state.
+In consequence, lib users cannot get a 'component' variable
+referring to data inside the system.
+Instead, they get 'blueprints' for components,
+which they can construct and tweak like regular julia structs.
+When ready, a blueprint can be read by the system, 'check'ed,
+and 'expand'ed into the actual component(s).
+
+No component can be added twice to the same system,
+but blueprints can be read and expanded into different components types.
+Also, the components they 'provide' may depend on their value
+and/or the current state of the system.
+
+'Components' contain no data and are implemented as julia singletons marker types.
+'Blueprints' are regular data structures implementing the blueprint interface.
+
+Adding a component to the system therefore reduces to:
+
+  add!(s, blueprint)
+
+And using exposed methods as simple:
+
+  method(s, args...; kwargs...)
+
+Additional sugar is provided:
+
+  s = System{WrappedValue}(blueprints...) # Start from a sequence of initial blueprints.
+  s += blueprint                          # Provide new component from extra blueprint.
+  s.property                              # Implicit `get_property(s, :property)`
+  s.property = value                      # Implicit `set_property!(s, :property, value)`
+
+Components and methods are organized into a dependency network,
+with components requiring each other
+and methods depending on the presence of certain components to run.
+This makes it possible to emit useful errors
+when lib users attempt to invoke the above behaviour
+but not all required components have been added to the system.
+
+Before being expanded into the components they provide,
+every blueprint is carefully checked by lib devs
+so they can guarantee that the internal state cannot be corrupted during expansion,
+and by the exposed System/Blueprints/Components/Methods interface in general.
+
+As a current limitation, there is no way to "remove" a component from the system,
+so the system evolution is monotonic.
+However, if the underlying wrapped value can be safely copied,
+then it is always possible to "fork" the system:
+
+  s = System{CopyableWrappedValue}(a::A, b::B, c::C)
+  fork = copy(s)
+  add!(fork, d::D)
+  has_component(fork, D) # True.
+  has_component(s, D) # False.
+
+This *may* make it useless to ever feature component removal.
+"""
 module Framework
 
 import EcologicalNetworksDynamics: I, Option, argerr

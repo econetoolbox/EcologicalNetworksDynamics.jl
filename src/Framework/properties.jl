@@ -1,32 +1,31 @@
-# Methods with these exact signatures:
-#
-#   - method(v::Value)
-#   - method!(v::Value, rhs)
-#
-# .. can optionally become properties of the system/value,
-# in the sense of julia's `getproperty/setproperty!`.
-#
-# The properties come in two styles:
-#
-#   - system.property -> Checks that the required components exist.
-#   - value.property -> Runs and see what happens.
-#
-# Properties can be namespaced into packed accessors like:
-#
-#   system.space.a
-#   system.space.b
-#   system.other.subspace.a # (different from 'space.a')
-#
-# Where `system.space` and `system.other.subspace` are raw opaque accessor types
-# called *property spaces* and wrapping a simple reference to the underlying systems.
+"""
+Methods with these exact signatures:
 
-# In this context, 'P' or *property target*
-# refers to either the wrapped system value type
-# *or* a property space dedicated to systems for this value type.
+```jl
+method(v::Value)
+method!(v::Value, rhs)
+```
 
-# ==========================================================================================
-# Properties space forward `.name` accesses.
+.. can optionally become properties of the system/value,
+in the sense of julia's `getproperty/setproperty!`.
 
+Properties can be namespaced into packed accessors like:
+
+```
+system.space.a
+system.space.b
+system.other.subspace.a # (different from 'system.space.a')
+```
+
+Where `system.space` and `system.other.subspace` are raw opaque accessor types
+called *property spaces* and wrapping a simple reference to the underlying systems.
+
+In this context, 'P' or *property target*
+refers to either the wrapped system value type
+*or* a property space dedicated to systems for this value type.
+
+Properties space forward `.name` accesses.
+"""
 struct PropertySpace{name,P,V}
     _system::System{V}
 end
@@ -101,7 +100,7 @@ end
 # also forward the properties to the wrapped value.
 # Note that this happens without checking dependent components,
 # and that the `; _system` hook cannot be provided then in this context.
-# Still, a lot of things *are* checked, so this 'unchecked' does *not* mean 'performant'.
+# Still, a lot of things *are* checked, so this 'unchecked' does not mean 'performant'.
 function unchecked_getproperty(value::V, p::Symbol) where {V}
     p in fieldnames(V) && return getfield(value, p)
     fn = read_property(System{V}, Val(p))
@@ -197,9 +196,11 @@ end
 set_property!(P, name, fn, ::Nothing) = set_read_property!(P, name, fn)
 
 # ==========================================================================================
-# List all properties and associated functions for this type.
-# Yields (property_name, fn_read, Option{fn_write}, iterator{dependencies...}).
 
+"""
+List all properties and associated functions for this type.
+Yield `(property_name, fn_read, Option{fn_write}, iterator{dependencies...})`.
+"""
 function properties(P::PropertyTargetType)
     I.map(
         I.filter(methods(read_property, Tuple{Type{P},Val}, Framework)) do mth
@@ -217,10 +218,11 @@ function properties(P::PropertyTargetType)
         (name, read_fn, write_fn, I.map(identity, depends(system(P), read_fn)))
     end
 end
-export properties
 
-# List properties available for *this* particular instance.
-# Yields (:propname, read, Option{write})
+"""
+List properties available for *this* particular instance.
+Yield `(:propname, read, Option{write})`.
+"""
 function properties(target::PropertyTarget)
     I.map(
         I.filter(properties(typeof(target))) do (_, read, _, _)
@@ -231,9 +233,11 @@ function properties(target::PropertyTarget)
     end
 end
 
-# List *unavailable* properties for this instance
-# along with the components missing to support them.
-# Yields (:propname, read, Option{write}, iterator{missing_dependencies...})
+"""
+List *unavailable* properties for this instance
+along with the components missing to support them.
+Yield `(:propname, read, Option{write}, iterator{missing_dependencies...})`.
+"""
 function latent_properties(target::PropertyTarget)
     I.map(
         I.filter(properties(typeof(target))) do (_, read, _, _)
@@ -243,14 +247,15 @@ function latent_properties(target::PropertyTarget)
         (name, read, write, I.filter(d -> !has_component(target, d), deps))
     end
 end
-export latent_properties
 
 # Consistency + REPL completion.
 Base.propertynames(target::PropertyTarget) = I.map(first, properties(target))
 
 # ==========================================================================================
-# Helper macro to define deep nested type paths.
 
+"""
+Helper macro to define deep nested type paths.
+"""
 macro PropertySpace(path, V)
     try
         property_space_type(path, Core.eval(__module__, V))

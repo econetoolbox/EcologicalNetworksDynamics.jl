@@ -522,8 +522,6 @@ define_component(name, V = Value; kwargs...) =
     Pmi.b(input) # TODO: find a way to error at this point..
     pmi.a = input # .. or this point..
     @failswith(S(pmi), F.UnimplementedImpliedMethod(Pmi_b, A, _B)) # .. rather than then.
-    # HERE: the above does not error anymore while refactoring `*imply*` signatures.
-    # Investigate.
 
     # ======================================================================================
     # Valid uses.

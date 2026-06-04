@@ -3,35 +3,33 @@
 # The expansion procedure is rather general,
 # as it assumes that several blueprints are added at once
 # and that they constitute an ordered *forest*
-# since they each may bring sub-blueprints.
+# since they each may imply "sub-blueprints".
 #
 # In addition, the caller can provide:
 #   - `defaults`: a set of blueprints to be automatically added
 #      if not explicitly provided as the main input.
-#   - `hooks`: a set of sub-blueprints to be automatically brought
+#   - `hooks`: a set of blueprints to be automatically added
 #      if either defaults or given blueprints require it.
-#   - `excluded/without`: a set of components to explicitly *not* bring
-#      from the defaults, or the hooks.
+#   - `excluded/without`: a set of components to explicitly not pick
+#      from the defaults or the hooks.
 #
 # The challenge here is to correctly check for conflicts/inconsistencies etc.
 # and then pick a correct expansion order.
 # Here is the general procedure without additional options:
 #   - The forest is visited pre-order to collect the corresponding graph of sub-blueprints:
-#     the ones given by the caller are root nodes,
-#     and edges are colored depending on whether the 'broughts' are 'embedded' or 'implied'.
-#     - Error if an embedded blueprint brings a component already in the system.
-#     - Ignore implied blueprints bringing components already in the system.
-#     - Build implied blueprints if they are not already brought.
-#     - Ignore implied blueprints if they are already brought.
-#     - Error if any brought component is already brought by another blueprint
-#       and the two differ.
-#     - Error if any brought components was supposed to be excluded.
+#     the ones given by the caller are root nodes.
+#     - Ignore implied blueprints for components already in the system.
+#     - Build implied blueprints if they are not going to be added.
+#     - Ignore implied blueprints if they are going to be added.
+#     - Error if any implied component is already implied by another blueprint
+#       and the two blueprints differ.
+#     - Error if any required components was supposed to be excluded.
 #   - When collection is over, decide whether to construct the defaults blueprints
-#     and append them at the end of the forest,
-#     pre-order again like an extension of the above step.
+#     and append them at the end of the forest.
+#     Do this in pre-order again like an extension of the above step.
 #   - Second traversal: visit the forest post-order to:
-#     - Error if any brought component conflicts with components already in the system.
-#     - Check requirements/conflicts against components already brought in pre-order.
+#     - Error if any implied component conflicts with components already in the system.
+#     - Check requirements/conflicts against components already implied in pre-order.
 #     - Trigger any required 'hook' by appending them to the forest (pre-order)
 #       if this can avoid a 'MissingRequiredComponent' error.
 #     - Run the `early_check`.
@@ -41,13 +39,12 @@
 #     - Expand the blueprint into a component.
 #     - Execute possible triggers.
 
-# Prepare thorough analysis of recursive sub-blueprints possibly brought
-# by the blueprints given.
+# Prepare thorough analysis of recursive sub-blueprints possibly implied
+# by the blueprints received.
 # Reify the underlying 'forest' structure.
 struct Node
     blueprint::Blueprint # Owned copy, so it doesn't leave refs to add! caller.
     parent::Option{Node}
-    implied::Bool # Raise if 'implied' by the parent and not 'embedded'.
     children::Vector{Node}
 end
 
@@ -57,26 +54,26 @@ struct AddState{V}
     target::System{V}
     forest::Vector{Node}
 
-    # Keep track of the blueprints about to be brought (including root blueprints),
+    # Keep track of all blueprints about to be brought,
     # indexed by the concrete components they provide.
     # Blueprints providing several components are duplicated.
     # Populated during pre-order traversal.
     brought::Dict{CompType{V},Vector{Node}}
 
     # Keep track of the fully checked blueprints,
-    # along with the brought blueprints that need to be expanded *prior* to themselves,
+    # along with the implied blueprints that need to be expanded *prior* to them,
     # and the arbitrary data created by `early_check`.
     # Populated during post-order traversal.
     checked::OrderedDict{CompType{V},Tuple{Node,Requirements{V},Any}}
 
-    # Bring defaults.
+    # Defaults to be picked from.
     # The callables signature is (caller_status, if_unbrought) -> Blueprint:
     #  - `caller_status`: any value constructed after first pass
-    #    from the `defaults_status`(is_brought) function provided by caller.
+    #    from the `defaults_status(is_brought)` function provided by caller.
     #    where `is_brought` is a callable we provide to check whether
-    #    the given component is found to be brought after the first forest visit.
+    #    the given component is found to be about to be added after the first forest visit.
     #  - `if_unbrought(C, BP)` is a callable we provide to fill default sub-blueprints.
-    #    It either returns nothing if C is already brought\
+    #    It either returns nothing if C is already brought
     #    or it calls the caller-provided constructor `BP`.
     defaults::OrderedDict{CompType{V},Function}
 
@@ -95,7 +92,7 @@ is_brought(add::AddState, c::CompRef) =
 
 #-------------------------------------------------------------------------------------------
 # Recursively create during first pass, pre-order,
-# possibly checking the indexed list of nodes already brought.
+# possibly checking the indexed list of nodes already implied.
 function Node(
     blueprint::Blueprint,
     parent::Option{Node},
@@ -106,7 +103,7 @@ function Node(
     (; brought) = add
 
     # Create node and connect to parent, without its children yet.
-    node = Node(blueprint, parent, implied, [])
+    node = Node(blueprint, parent, [])
 
     for C in componentsof(blueprint)
         isabstracttype(C) && throw("No blueprint expands into an abstract component. \
@@ -114,7 +111,7 @@ function Node(
 
         is_excluded(add, C) && throw(ExcludedBrought(C, node))
 
-        # Check for duplication if embedded.
+        # Check for duplication.
         !implied && has_component(system, C) && throw(BroughtAlreadyInValue(C, node))
 
         # Check for consistency with other possible blueprints bringing the same component.
@@ -131,32 +128,21 @@ function Node(
     end
 
     # Recursively construct children.
-    for br in Framework.brought(blueprint)
-        if br isa Component
-            # An 'implied' brought blueprint possibly needs to be constructed.
-            c = br
-            # Skip it if already brought or already present in the target system.
-            has_component(system, c) && continue
-            is_brought(add, c) && continue
-            implied_bp = try
-                checked_implied_blueprint_for(blueprint, c)
-            catch e
-                e isa _CannotImplyConstruct && throw(CannotImplyConstruct(c, node))
-                rethrow(e)
-            end
-            child = Node(implied_bp, node, true, system, add)
-            push!(node.children, child)
-        elseif br isa Blueprint
-            # An 'embedded' blueprint is brought.
-            embedded_bp = br
-            child = Node(embedded_bp, node, false, system, add)
-            push!(node.children, child)
-        else
-            throw("⚠ Invalid brought value. ⚠ \
-                   This is either a bug in the framework or in the components library. \
-                   Please report if you can reproduce with a minimal example.\n\
-                   Received brought value: $br ::$(typeof(br)).")
-        end
+    for C in Framework.implied(blueprint)
+        implies_blueprint_for(blueprint, C) && throw(CannotImplyConstruct(C, node))
+        # Skip it if already brought or already present in the target system.
+        has_component(system, C) && continue
+        is_brought(add, C) && continue
+        implied_bp = implied_blueprint_for(blueprint, C)
+        comps = componentsof(blueprint)
+        any(comp -> comp <: C, comps) || throw("Blueprint $(typeof(blueprint)) \
+                                                is supposed to imply a blueprint for $C,
+                                                but it implied a blueprint \
+                                                for $(collect(comps)) instead:\n
+                                                $blueprint\n ---implied--->\n$implied_bp\n\
+                                                This is a bug in the components library.")
+        child = Node(implied_bp, node, system, add)
+        push!(node.children, child)
     end
 
     node
@@ -597,16 +583,13 @@ Base.showerror(io::IO, e::AddError{V}) where {V} = showerror(io, e.e)
 # Ease exception testing by comparing blueprint paths along tree to simple vectors.
 # The vector starts from current node,
 # and expands up to a sequence of blueprint types and flags:
-#   true: implied
-#   false: embedded
-const PathElement = Union{Bool,Type{<:Blueprint}}
+const PathElement = Type{<:Blueprint}
 const BpPath = Vector{PathElement}
 
 # Extract path from Node.
 function path(node::Node)::BpPath
     res = PathElement[typeof(node.blueprint)]
     while !isnothing(node.parent)
-        push!(res, node.implied)
         node = node.parent
         push!(res, typeof(node.blueprint))
     end
@@ -619,13 +602,9 @@ end
 function render_path(path::BpPath)
     p1 = stripped_path(path[1])
     res = "$(grayed)in$reset $blueprint_color$p1$reset\n"
-    i = 2
-    while i <= length(path)
-        broughtby = path[i] ? "     implied by:" : "embedded within:"
-        parent = path[i+1]
+    for parent in path
         parent = stripped_path(parent)
-        res *= "$grayed$broughtby$reset $blueprint_color$parent$reset\n"
-        i += 2
+        res *= "$grayed     implied by:$reset $blueprint_color$parent$reset\n"
     end
     res
 end

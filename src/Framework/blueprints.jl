@@ -1,41 +1,33 @@
-# Blueprint provide components by expanding into them within a system.
-#
-# The components added during blueprint expansion depend on the blueprint value.
-#
-# The data inside the blueprint is only useful to run the internal `expand!()` method once,
-# and must not lend caller references to the system
-# or the internal state could possibly be corrupted later.
-#
-# Blueprint values may 'bring' other blueprints than themselves,
-# because they contain enough data to do so.
-# This loosely feels like "sub-components", although it is more subtle.
-# There are two ways for blueprints to bring each other:
-#
-#   - Either they 'embed' other blueprints as sub-blueprints,
-#     which expand as part of their own expansion process.
-#     It is an error to embed a blueprint for a component already in the system.
-#
-#   - Or they 'imply' other blueprints for designated components,
-#     which could be calculated from the data they contain if needed.
-#     This does not need to happen if the components provided by the implied blueprints
-#     are already in the system.
-#     A blueprint does not 'imply' another specific blueprint,
-#     but it 'implies' *some* blueprint bringing the other specific components.
-#     Implying an abstract component means implying any blueprint
-#     bringing a concrete subtype of this component.
-#
-# Whether a brought blueprint is embedded or implied
-# depends on the bringer value.
-# For instance, it can be implied if user has not specified brought-blueprint data,
-# and embedded if user has explicitly asked that it be.
-#
-# Blueprint may also require that other components be present
-# for their expansion process to happen correctly,
-# even though the components they bring actually do not.
-# This blueprint-level requirement is specified by the 'expands_from' function.
-# Expanding-from an abstract component A is expanding from any component subtyping A.
+"""
+Blueprint provide components by expanding into them within a system.
 
-# Every blueprint provides only concrete components, and at least one.
+The components added during blueprint expansion depend on the blueprint value.
+
+The data inside the blueprint is only useful to run the internal `expand!()` method once,
+and must not lend caller references to the system
+or the internal state could possibly be corrupted later.
+
+Blueprint values may 'imply' other blueprints than themselves,
+because they contain enough information to do so.
+This loosely feels like "sub-components", although it is more subtle.
+When a blueprint implies other blueprints for designated components,
+they could be calculated from the data it contains if needed.
+This does not need to happen if the components provided by the implied blueprints
+are already in the system.
+A blueprint does not 'imply' another specific blueprint,
+but it 'implies' *some* blueprint bringing the other specific components.
+Implying an abstract component means implying any blueprint
+bringing a concrete subtype of this component.
+
+Blueprint may also require that other components be present
+for their expansion process to happen correctly.
+This blueprint-level requirement is specified by the 'expands_from' function.
+Expanding-from an abstract component A is expanding from any component subtyping A.
+
+Every blueprint provides only concrete components, and at least one.
+"""
+Blueprint
+
 struct UnspecifiedComponents{B<:Blueprint} end
 componentsof(::B) where {B<:Blueprint} = throw(UnspecifiedComponents{B}())
 
@@ -45,13 +37,14 @@ system_value_type(::Blueprint{V}) where {V} = V
 #-------------------------------------------------------------------------------------------
 # Requirements.
 
-# Return non-empty list if components are required
-# for this blueprint to expand,
-# even though the corresponding component itself would make sense without these.
+"""
+Return non-empty list if components are required for this blueprint to expand,
+even though the corresponding component itself would make sense without these.
+"""
 expands_from(::Blueprint{V}) where {V} = () # Require nothing by default.
+
 # The above is specialized by hand by framework users,
-# so make its return type flexible,
-# guarded by the below.
+# so make its return type flexible, guarded by the below.
 function checked_expands_from(bp::Blueprint{V}) where {V}
     err(x) = throw(InvalidBlueprintDependency("Invalid expansion requirement. \
                                                Expected either a component for $V \
@@ -88,21 +81,18 @@ struct InvalidBlueprintDependency <: Exception
     message::String
 end
 
-# List brought blueprints.
-# Yield blueprint values for embedded blueprints.
-# Yield component types for implied blueprints (possibly abstract).
-brought(::Blueprint) = () # Default to nothing brought.
-# Implied blueprints need to be constructed from the value on-demand,
-# for a target component.
-# Define no default method, so it can be checked
-# whether it has been set from within the `define_blueprint()`.
-function implied_blueprint_for end # (blueprint, component) -> blueprint for this component.
-# Raise this error when "brought" blueprints can be 'embedded' or 'missing' but not implied.
-struct _CannotImplyConstruct <: Exception end
-cannot_imply_construct() = throw(_CannotImplyConstruct())
-function checked_implied_blueprint_for(b::Blueprint, c::Component)
-    C = typeof(c)
-    bp = implied_blueprint_for(b, c)
+"""
+List implied blueprints by yielding the corresponding component types.
+"""
+implied(::Blueprint) = () # Default to nothing implied.
+
+"""
+Implied blueprints need to be constructed from the focal blueprint value on-demand
+for every target component. This is called "implicit blueprint construction".
+"""
+function implied_blueprint_for end
+function checked_implied_blueprint_for(b::Blueprint, C::CompType)
+    bp = implied_blueprint_for(b, C)
     if !any(comp -> comp <: C, componentsof(bp))
         throw("Blueprint $(typeof(b)) is supposed to imply a blueprint for $C,
                but it implied a blueprint for $(collect(componentsof(bp))) instead:\n
@@ -110,52 +100,60 @@ function checked_implied_blueprint_for(b::Blueprint, c::Component)
     end
     bp
 end
-# Query.
-implies_blueprint_for(b::Blueprint, c::Component) =
-    hasmethod(implied_blueprint_for, Tuple{typeof(b),typeof(c)})
+
+# Define no default method to the above, so it can be queried
+# whether one has been set during `define_blueprint()` call.
+# (focal blueprint, component) -> blueprint for this component.
+implies_blueprint_for(b::Blueprint, C::CompType) =
+    hasmethod(implied_blueprint_for, Tuple{typeof(b),C})
 
 #-------------------------------------------------------------------------------------------
 # Conflicts.
 
-# Framework users will use this method to verify blueprint value
-# before brought blueprints are expanded.
-# When this runs, it is guaranteed
-# that there is no conflicting component in the system
-# and that all required components are met,
-# but, as it cannot be assumed that required components have already been expanded,
-# the check should not depend on the system value.
-# Issue `InputError` on failure.
-# On success, return arbitrary data useful for `late_check`.
+"""
+Component authors use this method to verify blueprint value
+before implied blueprints are expanded.
+When this runs, it is guaranteed that there is no conflicting component in the system
+and that all required components are met, but,
+as it cannot be assumed that required components have already been expanded,
+the check cannot depend on the system value.
+Issue `InputError` on failure.
+On success, return arbitrary data useful for `late_check`.
+"""
 # TODO: add formal test for this.
 early_check(::Blueprint) = nothing # No particular constraint to enforce by default.
 
-# Assuming that all component addition / blueprint expansion conditions are met,
-# and that brought blueprints have already been expanded,
-# verify that the internal system value can still receive it.
-# Framework users will use this method to verify
-# that the blueprint received matches the current system state
-# and that it makes sense to expand within in.
-# The objective is to avoid failure during expansion,
-# as it could result in inconsistent system state.
-# Raise the dedicated blueprint check exception if not the case.
-# On success, return arbitrary data useful for `expand!`.
-# NOTE: a failure during late check does not compromise the system state consistency,
-#       but it does result in that not all blueprints
-#       brought by the toplevel added blueprint
-#       be added as expected.
-#       This is to avoid the need for making the system mutable and systematically fork it
-#       to possibly revert to original state in case of failure.
-#       TODO: would a swap!(::Network, ::Network) help?
+"""
+Assuming that all component addition / blueprint expansion conditions are met,
+and that implied blueprints have already been expanded,
+verify that the internal system value can still receive it.
+Component authors use this method to verify
+that the blueprint received matches the current system state
+and that it makes sense to expand within in.
+The objective is to avoid failure during expansion,
+as it could result in inconsistent system state.
+Issue `InputError` on failure.
+On success, return arbitrary data useful for `expand!`.
+
+*NOTE*: a failure during late check does not compromise the system state consistency,
+but it does result in that not all blueprints brought by the toplevel added blueprint
+be added as expected.
+This is to avoid the need for making the system mutable and systematically fork it
+to possibly revert to original state in case of failure.
+"""
+# TODO: would a swap!(::Network, ::Network) help in making add! transactional?
 late_check(s, bp::Blueprint, _early_check_data) = late_check(s, bp)
 late_check(_, ::Blueprint) = nothing # Ignore additional data by default.
 
-# The expansion step is when the wrapped system value is finally modified,
-# based on the information contained in the blueprint,
-# to feature the provided components.
-# This is only called if all component addition conditions are met
-# and the above check passed.
-# Expansion feeds from arbitrary data produced by a success in `late_check`.
-# This function must not fail or the system may end up in a corrupt state.
+"""
+The expansion step is when the wrapped system value is finally modified,
+based on the information contained in the blueprint,
+to feature the provided components.
+This is only called if all component addition conditions are met
+and the above check passed.
+Expansion feeds from arbitrary data produced by success in `late_check`.
+This function must not fail or the system may end up in a corrupt state.
+"""
 # TODO: must it also be deterministic?
 #       Or can a random component expansion happen
 #       if infallible and based on consistent blueprint input.

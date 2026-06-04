@@ -44,6 +44,10 @@
   Efficiency([0 4 0; 5 0 0; 6 0 0]) # Matrix input.
   ```
 
+- "Embedded" blueprints and their "brought" fields are no more.
+  They can now only be implied instead.
+  TODO: figure resulting interface change and attempt to keep ergonomics.
+
 - `model.trophic.levels` becomes `model.trophic.level` for consistency with
   other node properties being named with singular form.
 

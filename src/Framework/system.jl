@@ -1,21 +1,23 @@
-# Components consist in data stored to a value wrapped in a 'System'.
-# The system keeps track of all the components added.
-# It also checks that the method called and properties invoked
-# do meet the components requirements.
-#
-# The whole framework responsibility is to ensure consistency of the wrapped value.
-# As a consequence, don't leak references to it or its inner data
-# unless user cannot corrupt the value state through them.
-#
-# The value wrapped needs to be constructible from no arguments,
-# so the user can start with an "empty system".
-#
-# The value wrapped needs to be copy-able for the system to be forked.
-
 struct RawConstruct end # Used to dispatch constructor.
 
-# The 'system' newtypes any possible value::V.
-# V needs to be copy-able for the system to be forked.
+"""
+Components consist in data stored to a value wrapped in a `System`.
+The system keeps track of all the components added.
+It also checks that the method called and properties invoked
+do meet the components requirements.
+
+The whole framework responsibility is to ensure consistency of the wrapped value.
+As a consequence, don't leak references to it or its inner data
+unless user cannot corrupt the value state through them.
+
+The value wrapped needs to be constructible from no arguments,
+so the user can start with an "empty system".
+
+The value wrapped needs to be copy-able for the system to be forked.
+
+The 'system' newtypes any possible `value::V`.
+`V` needs to be copy-able for the system to be forked.
+"""
 struct System{V}
 
     _value::V
@@ -56,7 +58,6 @@ system_value_type(::System{V}) where {V} = V
 value(s::System) = getfield(s, :_value)
 concrete(s::System) = getfield(s, :_concrete)
 abstract(s::System) = getfield(s, :_abstract)
-export value
 
 #-------------------------------------------------------------------------------------------
 # Fork the system, recursively copying the wrapped value and every component.
@@ -84,13 +85,11 @@ components_types(system::System{V}, C::CompType{V}) where {V} =
     end
 components(s::System, C::CompType{V}) where {V} =
     I.map(singleton_instance, components_types(s, C))
-export components, component_types
 
 # Basic check.
 has_component(s::System{V}, C::Type{<:Component{V}}) where {V} = !isempty(components(s, C))
 has_component(s::System{V}, c::Component{V}) where {V} = has_component(s, typeof(c))
 has_concrete_component(s::System{V}, c::Component{V}) where {V} = typeof(c) in concrete(s)
-export has_component, has_concrete_component
 
 #-------------------------------------------------------------------------------------------
 
