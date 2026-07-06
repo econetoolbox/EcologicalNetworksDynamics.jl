@@ -174,7 +174,7 @@ function define_node_field_component(
 
     # Display.
     mod.eval(quote
-        $F.shortline(io::IO, model::Model, ::$C) = $nodes_shortline(io, model, $d)
+        $F.shortline(io::IO, model::Model, ::$C) = $NF.nodes_shortline(io, model, $d)
     end)
 
     comp
@@ -323,7 +323,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Early-check: correct type, unchecked values, no model information yet.
 
-function early_check(d::AbstractNodeField, bp::Blueprint)
+function early_check(d::AbstractField, bp::Blueprint)
     data = NF.data(bp)
     try
         early_check(d, data)
@@ -363,8 +363,7 @@ early_check(d::AbstractNodeField, value) = check(d, value)
 #-------------------------------------------------------------------------------------------
 # Late-check: correct type, checked values, model information is now available.
 
-# Typical vector case for Raw blueprint.
-function late_check(d::AbstractNodeField, model::Model, ::Blueprint, early_data)
+function late_check(d::AbstractField, model::Model, ::Blueprint, early_data)
     try
         late_check(d, model, early_data)
     catch e
@@ -593,6 +592,6 @@ function nodes_shortline(io::IO, model::Model, d::NodeField)
     class = N.class(network, c)
     entry = class.data[f]
     N.read(entry) do data
-        print(io, "$Field: [$(EN.join_elided(data, ", "))]")
+        print(io, "$Field: [$(EN.join_elided(data, ", "))].")
     end
 end

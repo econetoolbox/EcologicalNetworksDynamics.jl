@@ -186,9 +186,11 @@ function define_reflexive_web_field_component(
     )
 
     # Display.
-    mod.eval(quote
-        $F.shortline(io::IO, model::Model, ::$C) = $nodes_shortline(io, model, $d)
-    end)
+    mod.eval(
+        quote
+            $F.shortline(io::IO, model::Model, ::$C) = $NF.edges_shortline(io, model, $d)
+        end,
+    )
 
     comp
 
@@ -232,7 +234,15 @@ check_with_raw_ref(d::EdgeField, value, i::Int) =
 #-------------------------------------------------------------------------------------------
 # Model-aware checks.
 
-function check_with_ref(d::EdgeField, against::Model, value, i::EdgeIndex, l::EdgeLabel)
+function check_with_ref(
+    d::EdgeField,
+    against::Model,
+    value,
+    i::EdgeIndex,
+    l::EdgeLabel,
+    # Provide if available and useful as context (for Raw).
+    raw_i::Option{Int} = nothing,
+)
     try
         value = check(d, value)
         check(d, against, value, i, l)
@@ -240,7 +250,8 @@ function check_with_ref(d::EdgeField, against::Model, value, i::EdgeIndex, l::Ed
         e isa F.InputError || rethrow(e)
         i, j = i
         a, b = l
-        with_context!(e, "On edge $(repr(a)) => $(repr(b)) ([$i, $j])")
+        raw = isnothing(raw_i) ? "" : " ($raw_i)"
+        with_context!(e, "On edge$raw $(repr(a)) => $(repr(b)) ([$i, $j])")
     end
 end
 
@@ -349,4 +360,76 @@ function parse(d::EdgeField, input)
     push!(tries, M{T})
     push!(tries, Adjacency{T})
     try_convert(input, tries...)
+end
+
+#-------------------------------------------------------------------------------------------
+# Early check (dispatched from the generic method in `node_field.jl`).
+
+# Raw.
+function early_check(d::EdgeField, vec::Vector)
+    T = eltype(vec)
+    data = T[]
+    for (i, value) in enumerate(vec)
+        value = check_with_raw_ref(d, value, i)
+        push!(data, value)
+    end
+    data
+end
+
+#-------------------------------------------------------------------------------------------
+# Late check (dispatched from the generic method in `node_field.jl`).
+
+# Raw.
+function late_check(d::EdgeField, model::Model, vec::Vector)
+    network = NF.network(model)
+    web = D.web(d)
+    src, tgt = D.sidenames(D.EdgeWeb(d))
+    # Check number of values first.
+    n = N.n_edges(network, web)
+    l = length(vec)
+    n == l || conserr("Wrong number of values received for $d: expected $n, got $l.")
+    # Then check values one by one, with context to produce useful reports.
+    src_labels = collect(N.node_labels(network, src))
+    tgt_labels = collect(N.node_labels(network, tgt))
+    web = N.web(network, web)
+    edges = N.edges(web.topology)
+    map(enumerate(zip(edges, vec))) do (i, ((s, t), value))
+        check_with_ref(d, model, value, (s, t), (src_labels[s], tgt_labels[t]), i)
+    end
+end
+
+#-------------------------------------------------------------------------------------------
+# Expand.
+
+expand!(
+    d::EdgeField,
+    model::Model,
+    # These provide the same `late_data` after late checking (= a raw vector).
+    ::Union{EdgeFieldRawBlueprint,EdgeFieldMatrixBlueprint,EdgeFieldAdjacencyBlueprint},
+    late_data::Vector,
+) = expand!(d, model, late_data)
+
+function expand!(d::EdgeField, model::Model, data::Vector)
+    network = NF.network(model)
+    (webname, fieldname) = D.content(d)
+    web = N.web(network, webname)
+    N.add_field!(web, fieldname, data)
+end
+
+#-------------------------------------------------------------------------------------------
+# Display.
+
+function edges_shortline(io::IO, model::Model, d::EdgeField)
+    Field = D.CamelCaseSingular(d)
+    w, f = D.content(d)
+    network = NF.network(model)
+    web = N.web(network, w)
+    n = N.n_edges(web.topology)
+    entry = web.data[f]
+    s = n == 1 ? "" : "s"
+    N.read(entry) do data
+        min, max = extrema(data)
+        vals = min == max ? "$min" : "$min to $max"
+        print(io, "$Field: $vals ($n value$s).")
+    end
 end
