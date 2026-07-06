@@ -165,25 +165,37 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         )
     )
     @sysfails(
-        base + Efficiency([0.1 0; 0 0.2]),
+        base + Efficiency(zeros(2, 3)),
         Check(
             late,
             [Efficiency.Matrix],
             """
             When checking <trophic:efficiency> blueprint against model:
-            Wrong number of values received: the matrix provides 2, expected 4.\
+            The expected topology size for :trophic is 4×4 \
+            but the matrix provided is 2×3.\
             """,
         )
     )
     @sysfails(
-        base + Efficiency([0 0.1 0 0; 0 0.2 0 0; 0 0.3 0 0; 0 0.4 0 0]),
+        base + Efficiency(zeros(4, 4)),
         Check(
             late,
             [Efficiency.Matrix],
             """
             When checking <trophic:efficiency> blueprint against model:
-            Edge [2, 2] does not exist in :trophic, \
-            but the matrix provides a value for it: 0.2.\
+            Edge [1, 2] has no value in the provided sparse matrix.\
+            """,
+        )
+    )
+    @sysfails(
+        base + Efficiency(ones(4, 4)),
+        Check(
+            late,
+            [Efficiency.Matrix],
+            """
+            When checking <trophic:efficiency> blueprint against model:
+            Edge [3, 1] does not exist in :trophic \
+            but the matrix provides a value for it: 1.0.\
             """,
         )
     )
@@ -220,7 +232,26 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         """,
     )
 
-    m = base + bp # HERE: expand from adjacency.
+    # Expand.
+    @sysfails(
+        let
+            b = deepcopy(bp)
+            b.e[:d][:a] *= 10
+            base + b
+        end,
+        Check(
+            early,
+            [Efficiency.Adjacency],
+            """
+            When checking <trophic:efficiency> blueprint data:
+            On edge :d => :a:
+            Value must belong to [0, 1].
+            Received: 3.0\
+            """,
+        )
+    )
+
+    #  m = base + bp # HERE: expand from adjacency.
 
 end
 

@@ -378,12 +378,31 @@ function early_check(d::EdgeField, vec::Vector)
 end
 
 # Matrix: construct a raw repr but also pass the original matrix to late_check.
+# TODO: maybe cleanup internals conversions to `raw` because it's actually done here?
 function early_check(d::EdgeField, mat::AbstractMatrix)
+    D.is_symmetric(D.EdgeWeb(d)) && return early_check_symmetric(d, mat)
     T = eltype(mat)
     raw = T[]
     sizehint!(raw, n_edges(mat))
     for (i, j, v) in edges_values(mat)
         value = check_with_ref(d, v, (i, j))
+        push!(raw, value)
+    end
+    (raw, mat)
+end
+
+# Enforce that matrices be symmetric for symmetric topologies in blueprints.
+function early_check_symmetric(d::EdgeField, mat::AbstractMatrix)
+    T = eltype(mat)
+    raw = T[]
+    for (i, j, v) in edges_values(mat)
+        i < j && continue
+        value = check_with_ref(d, v, (i, j))
+        sym = mat[j, i]
+        mat[j, i] == value || conserr("The matrix should be symmetric, \
+                                       but obtained different values \
+                                       for [$i, $j] and [$j, $i]: \
+                                       $(repr(value)) ≠ $(repr(sym)).")
         push!(raw, value)
     end
     (raw, mat)
@@ -399,6 +418,20 @@ end
 function edges_values(m::AbstractSparseMatrix)
     is, js, vs = findnz(m)
     zip(is, js, vs)
+end
+
+# The raw vector cannot be directly extracted from the adjacency list
+# because there is no guarantee on the input edges ordering.
+# Take this first iteration opportunity to count provided values.
+function early_check(d::EdgeField, adj::Adjacency)
+    n = 0
+    for (src, targets) in adj
+        for (tgt, v) in targets
+            check_with_ref(d, v, (src, tgt))
+            n += 1
+        end
+    end
+    (n, adj)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -426,24 +459,64 @@ end
 # Matrix (receive the raw vector produced during early_check).
 function late_check(d::EdgeField, model::Model, (raw, mat)::Tuple{Vector,AbstractMatrix})
     network = NF.network(model)
+    web = N.web(network, D.web(d))
+    w = D.EdgeWeb(d)
+    src, tgt = D.sidenames(w)
+    src_labels = collect(N.node_labels(network, src))
+    tgt_labels = collect(N.node_labels(network, tgt))
+    compare_topologies(w, web.topology, mat, web.name)
+    map(edges_values(mat)) do (s, t, value)
+        check_with_ref(d, model, value, (s, t), (src_labels[s], tgt_labels[t]))
+    end
+end
+
+compare_topologies(::EdgeWeb, top::FullTopology, mat::AbstractMatrix, web::Symbol) =
+    compare_size(top, mat, web)
+function compare_size(top::Topology, mat::AbstractMatrix, web::Symbol)
+    expected = N.n_sources(top), N.n_targets(top)
+    actual = size(mat)
+    if expected != actual
+        a, b = expected
+        u, v = actual
+        conserr("The expected topology size for $(repr(web)) is $a×$b \
+                 but the matrix provided is $u×$v.")
+    end
+end
+
+function compare_topologies(
+    d::EdgeWeb,
+    top::SparseTopology,
+    mat::AbstractSparseMatrix,
+    web::Symbol,
+)
+    compare_size(top, mat, web)
+    sym = D.is_symmetric(d)
+    expected = Set(N.edges(top))
+    actual = Set((i, j) for (i, j, _) in edges_values(mat) if (!sym || i <= j))
+    miss = setdiff(expected, actual)
+    y() = sym ? " (symmetric)" : ""
+    if !isempty(miss)
+        i, j = first(miss)
+        conserr("Edge [$i, $j]$(y()) has no value in the provided sparse matrix.")
+    end
+    extra = setdiff(actual, expected)
+    if !isempty(extra)
+        i, j = first(extra)
+        value = mat[i, j]
+        conserr("Edge [$i, $j]$(y()) does not exist in $(repr(web)) \
+                 but the matrix provides a value for it: $(repr(value)).")
+    end
+end
+
+# Adjacency.
+function late_check(d::EdgeField, model::Model, (n, adj)::Union{Int,Adjacency})
+    network = NF.network(model)
     w = D.EdgeWeb(d)
     web = D.web(d)
     src, tgt = D.sidenames(w)
-    # Check number of values first.
-    n = N.n_edges(network, web)
-    l = length(raw)
-    n == l ||
-        conserr("Wrong number of values received: the matrix provides $l, expected $n.")
-    # Then check values one by one, and against existing edges.
-    src_labels = collect(N.node_labels(network, src))
-    tgt_labels = collect(N.node_labels(network, tgt))
-    web = N.web(network, web)
-    map(edges_values(mat)) do (s, t, value)
-        N.is_edge(web.topology, s, t) ||
-            conserr("Edge [$s, $t] does not exist in $(repr(D.web(w))), \
-                     but the matrix provides a value for it: $value.")
-        check_with_ref(d, model, value, (s, t), (src_labels[s], tgt_labels[t]))
-    end
+    # Check number of values.
+    e = N.n_edges(network, web)
+    e == n || conserr("Wrong number of values received: ")
 end
 
 #-------------------------------------------------------------------------------------------
