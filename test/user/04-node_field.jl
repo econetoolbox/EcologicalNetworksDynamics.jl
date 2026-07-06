@@ -61,7 +61,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         """
         Model (alias for $(F.System){$(N.Network)}) with 2 components:
           - Species: 3 (:s1, :s2, :s3)
-          - BodyMass: [4.0, 5.0, 6.0]\
+          - BodyMass: [4.0, 5.0, 6.0].\
         """,
     )
 

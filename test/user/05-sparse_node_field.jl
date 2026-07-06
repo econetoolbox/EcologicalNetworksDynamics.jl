@@ -52,7 +52,7 @@ const View = # Tested viewtype.
         Model (alias for $(F.System){$(N.Network)}) with 3 components:
           - Species: 4 (:a, :b, :c, :d)
           - Foodweb: 3 links, 2 producers, 2 consumers, 2 preys, 2 tops.
-          - GrowthRate: [·, 5.0, ·, 8.0]\
+          - GrowthRate: [·, 5.0, ·, 8.0].\
         """,
     )
     @sysfails(Model(bp), Missing(Foodweb, GrowthRate, [GrowthRate.Raw], nothing))
@@ -302,7 +302,7 @@ const View = # Tested viewtype.
         Check(
             late,
             [GrowthRate.Map],
-            "When checking <species:producers:growth> blueprint values against model:\n\
+            "When checking <species:producers:growth> blueprint against model:\n\
              Missing for <species:producers:growth>, no value provided for :d.",
         )
     )
@@ -311,7 +311,7 @@ const View = # Tested viewtype.
         Check(
             late,
             [GrowthRate.Map],
-            "When checking <species:producers:growth> blueprint values against model:\n\
+            "When checking <species:producers:growth> blueprint against model:\n\
              Not :producers names: :x and :y.",
         )
     )

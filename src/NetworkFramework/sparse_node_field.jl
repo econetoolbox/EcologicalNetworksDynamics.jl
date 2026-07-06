@@ -155,9 +155,11 @@ function define_sparse_node_field_component(
     )
 
     # Display.
-    mod.eval(quote
-        $F.shortline(io::IO, model::Model, ::$C) = $nodes_shortline(io, model, $d)
-    end)
+    mod.eval(
+        quote
+            $F.shortline(io::IO, model::Model, ::$C) = $NF.nodes_shortline(io, model, $d)
+        end,
+    )
 
     comp
 
@@ -190,7 +192,7 @@ function nodes_shortline(io::IO, model::Model, d::SparseNodeField)
     entry = subclass.data[f]
     N.read(entry) do data
         sparse = N.expand(T, r, n_parents, data)
-        print(io, "$Field: [$(EN.join_elided(sparse, ", "))]")
+        print(io, "$Field: [$(EN.join_elided(sparse, ", "))].")
     end
 end
 

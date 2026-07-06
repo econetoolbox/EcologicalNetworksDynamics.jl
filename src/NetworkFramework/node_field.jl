@@ -358,7 +358,7 @@ function core_early_check(d::AbstractNodeField, map::Map)
 end
 
 # That intermediate name has to be introduced to avoid ambiguous dispatch.
-early_check(d::AbstractNodeField, value) = check(d, value)
+early_check(d::AbstractField, value) = check(d, value)
 
 #-------------------------------------------------------------------------------------------
 # Late-check: correct type, checked values, model information is now available.

@@ -11,7 +11,7 @@ using SparseArrays
 
 # Additional imports only used here for testing purpose.
 using Test
-using EcologicalNetworksDynamics: EN, N, SparseMatrix, Adjacency
+using EcologicalNetworksDynamics: EN, N, F, SparseMatrix, Adjacency
 import Main: is_repr, is_disp, Value, @inputfails, @sysfails
 
 @testset "Typical EdgeWeb component" begin
@@ -91,7 +91,7 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             late,
             [Efficiency.Raw],
             """
-            When checking <trophic:efficiency> blueprint values against model:
+            When checking <trophic:efficiency> blueprint against model:
             Wrong number of values received: expected 4, got 2.\
             """,
         )
@@ -99,15 +99,31 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
 
     # Success.
     m = base + bp
+    @test is_disp(
+        m,
+        """
+        Model (alias for $(F.System){$(N.Network)}) with 3 components:
+          - Species: 4 (:a, :b, :c, :d)
+          - Foodweb: 4 links, 1 producer, 3 consumers, 3 preys, 1 top.
+          - Efficiency: 0.2 to 0.8 (4 values).\
+        """,
+    )
+    # The result is col-wise, as a julia user would expect.
+    @test extract(m.efficiency) == [
+        0 5 0 0
+        0 0 8 0
+        0 0 0 0
+        2 0 4 0
+    ] / 10
 
     #---------------------------------------------------------------------------------------
     # Construct from a matrix (sparse in this example).
     # TODO: test for dense constructs when such a component shows up.
     mat = sparse([
-        0 1 0 0
-        0 0 2 0
+        0 2 0 0
+        0 0 3 0
         0 0 0 0
-        3 0 4 0
+        1 0 4 0
     ] / 10)
     bp = Efficiency.Matrix(mat)
     @test Efficiency.Matrix(Bool[0 1; 1 0]) == Efficiency.Matrix([0.0 1.0; 1.0 0.0])
@@ -134,7 +150,7 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
     @sysfails(
         let
             b = deepcopy(bp)
-            b.e[4] *= 10
+            b.e[5] *= 10
             base + b
         end,
         Check(
@@ -142,9 +158,9 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             [Efficiency.Matrix],
             """
             When checking <trophic:efficiency> blueprint data:
-            On edge [4, 1]:
+            On edge [1, 2]:
             Value must belong to [0, 1].
-            Received: 3.0\
+            Received: 2.0\
             """,
         )
     )
@@ -174,10 +190,15 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
 
     # Success.
     m = base + bp
+    @test extract(m.efficiency) == sparse([
+        0 2 0 0
+        0 0 3 0
+        0 0 0 0
+        1 0 4 0
+    ] / 10)
 
     # The matrix structure implies the underlying web.
-    # XXX test
-    #  m = Model(bp)
+    #  m = Model(bp) # XXX test
 
     #---------------------------------------------------------------------------------------
     # Construct from adjacency lists.
@@ -198,6 +219,8 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         }\
         """,
     )
+
+    m = base + bp # HERE: expand from adjacency.
 
 end
 
