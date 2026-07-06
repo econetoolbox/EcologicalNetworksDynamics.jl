@@ -85,7 +85,17 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             """,
         )
     )
-    # TODO: test late_check when such a component shows up.
+    @sysfails(
+        base + Efficiency([0.5, 0.8]),
+        Check(
+            late,
+            [Efficiency.Raw],
+            """
+            When checking <trophic:efficiency> blueprint values against model:
+            Wrong number of values received: expected 4, got 2.\
+            """,
+        )
+    )
 
     # Success.
     m = base + bp
@@ -119,6 +129,51 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
          Value must belong to [0, 1].",
         -1.0
     )
+
+    # Expand.
+    @sysfails(
+        let
+            b = deepcopy(bp)
+            b.e[4] *= 10
+            base + b
+        end,
+        Check(
+            early,
+            [Efficiency.Matrix],
+            """
+            When checking <trophic:efficiency> blueprint data:
+            On edge [4, 1]:
+            Value must belong to [0, 1].
+            Received: 3.0\
+            """,
+        )
+    )
+    @sysfails(
+        base + Efficiency([0.1 0; 0 0.2]),
+        Check(
+            late,
+            [Efficiency.Matrix],
+            """
+            When checking <trophic:efficiency> blueprint against model:
+            Wrong number of values received: the matrix provides 2, expected 4.\
+            """,
+        )
+    )
+    @sysfails(
+        base + Efficiency([0 0.1 0 0; 0 0.2 0 0; 0 0.3 0 0; 0 0.4 0 0]),
+        Check(
+            late,
+            [Efficiency.Matrix],
+            """
+            When checking <trophic:efficiency> blueprint against model:
+            Edge [2, 2] does not exist in :trophic, \
+            but the matrix provides a value for it: 0.2.\
+            """,
+        )
+    )
+
+    # Success.
+    m = base + bp
 
     # The matrix structure implies the underlying web.
     # XXX test

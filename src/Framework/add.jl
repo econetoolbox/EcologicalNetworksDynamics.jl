@@ -572,11 +572,11 @@ struct BroughtAlreadyInValue <: AddException
     node::Node
 end
 function Base.showerror(io::IO, e::BroughtAlreadyInValue)
-    (; C, node) = e
+    (; Comp, node) = e
     path = render_path(node)
     print(
         io,
-        "Blueprint would expand into component $(cc(C)), \
+        "Blueprint would expand into component $(cc(Comp)), \
          which is already in the system.\n$path",
     )
 end
@@ -586,11 +586,11 @@ struct ExcludedBrought <: AddException
     node::Node
 end
 function Base.showerror(io::IO, e::ExcludedBrought)
-    (; C, node) = e
+    (; Comp, node) = e
     path = render_path(node)
     print(
         io,
-        "Component $(cc(C)) is explicitly excluded \
+        "Component $(cc(Comp)) is explicitly excluded \
          but this blueprint is bringing it:\n$path",
     )
 end

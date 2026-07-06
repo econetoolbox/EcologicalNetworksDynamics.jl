@@ -369,11 +369,36 @@ end
 function early_check(d::EdgeField, vec::Vector)
     T = eltype(vec)
     data = T[]
+    sizehint!(data, length(vec))
     for (i, value) in enumerate(vec)
         value = check_with_raw_ref(d, value, i)
         push!(data, value)
     end
     data
+end
+
+# Matrix: construct a raw repr but also pass the original matrix to late_check.
+function early_check(d::EdgeField, mat::AbstractMatrix)
+    T = eltype(mat)
+    raw = T[]
+    sizehint!(raw, n_edges(mat))
+    for (i, j, v) in edges_values(mat)
+        value = check_with_ref(d, v, (i, j))
+        push!(raw, value)
+    end
+    (raw, mat)
+end
+
+# Abstract over dense/sparse matrices.
+n_edges(m::AbstractMatrix) = prod(size(m))
+n_edges(m::AbstractSparseMatrix) = length(findnz(m))
+function edges_values(m::AbstractMatrix)
+    m, n = size(m)
+    ((i, j, m[i, j]) for i in 1:m, j in 1:n)
+end
+function edges_values(m::AbstractSparseMatrix)
+    is, js, vs = findnz(m)
+    zip(is, js, vs)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -387,7 +412,7 @@ function late_check(d::EdgeField, model::Model, vec::Vector)
     # Check number of values first.
     n = N.n_edges(network, web)
     l = length(vec)
-    n == l || conserr("Wrong number of values received for $d: expected $n, got $l.")
+    n == l || conserr("Wrong number of values received: expected $n, got $l.")
     # Then check values one by one, with context to produce useful reports.
     src_labels = collect(N.node_labels(network, src))
     tgt_labels = collect(N.node_labels(network, tgt))
@@ -395,6 +420,29 @@ function late_check(d::EdgeField, model::Model, vec::Vector)
     edges = N.edges(web.topology)
     map(enumerate(zip(edges, vec))) do (i, ((s, t), value))
         check_with_ref(d, model, value, (s, t), (src_labels[s], tgt_labels[t]), i)
+    end
+end
+
+# Matrix (receive the raw vector produced during early_check).
+function late_check(d::EdgeField, model::Model, (raw, mat)::Tuple{Vector,AbstractMatrix})
+    network = NF.network(model)
+    w = D.EdgeWeb(d)
+    web = D.web(d)
+    src, tgt = D.sidenames(w)
+    # Check number of values first.
+    n = N.n_edges(network, web)
+    l = length(raw)
+    n == l ||
+        conserr("Wrong number of values received: the matrix provides $l, expected $n.")
+    # Then check values one by one, and against existing edges.
+    src_labels = collect(N.node_labels(network, src))
+    tgt_labels = collect(N.node_labels(network, tgt))
+    web = N.web(network, web)
+    map(edges_values(mat)) do (s, t, value)
+        N.is_edge(web.topology, s, t) ||
+            conserr("Edge [$s, $t] does not exist in $(repr(D.web(w))), \
+                     but the matrix provides a value for it: $value.")
+        check_with_ref(d, model, value, (s, t), (src_labels[s], tgt_labels[t]))
     end
 end
 

@@ -282,7 +282,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Raw],
-            "When checking <species:body_mass> blueprint values against model:\n\
+            "When checking <species:body_mass> blueprint against model:\n\
              Wrong number of values received for <species:body_mass>: expected 2, got 3.",
         )
     )
@@ -312,7 +312,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Map],
-            "When checking <species:body_mass> blueprint values against model:\n\
+            "When checking <species:body_mass> blueprint against model:\n\
              Missing for <species:body_mass>, no value provided for :b and :c.",
         )
     )
@@ -321,7 +321,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Map],
-            "When checking <species:body_mass> blueprint values against model:\n\
+            "When checking <species:body_mass> blueprint against model:\n\
              Not :species names: :x and :y.",
         )
     )
@@ -351,7 +351,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Map],
-            "When checking <species:body_mass> blueprint values against model:\n\
+            "When checking <species:body_mass> blueprint against model:\n\
              Missing for <species:body_mass>, no value provided for nodes 2 and 3.",
         )
     )
@@ -360,7 +360,7 @@ const View = Views.NodesDataView{NodeField(:species, :body_mass),Float64} # Test
         Check(
             late,
             [BodyMass.Map],
-            "When checking <species:body_mass> blueprint values against model:\n\
+            "When checking <species:body_mass> blueprint against model:\n\
              Invalid indices for class :species with 3 nodes: 4 and 5.",
         )
     )

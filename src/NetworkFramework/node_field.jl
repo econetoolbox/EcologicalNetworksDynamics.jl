@@ -368,7 +368,7 @@ function late_check(d::AbstractField, model::Model, ::Blueprint, early_data)
         late_check(d, model, early_data)
     catch e
         e isa F.InputError || rethrow(e)
-        with_context!(e, "When checking $d blueprint values against model")
+        with_context!(e, "When checking $d blueprint against model")
     end
 end
 
