@@ -68,19 +68,19 @@ end
         @test is_edge(sf, 1, 4)
         @test is_edge(sf, 5, 1)
 
-        # Row-wise edges ordering.
-        @test 1 == edge(sf, 1, 4)
+        # Col-wise edges ordering.
+        @test 1 == edge(sf, 5, 1)
         @test 2 == edge(sf, 2, 2)
         @test 3 == edge(sf, 4, 2)
-        @test 4 == edge(sf, 4, 4)
-        @test 5 == edge(sf, 5, 1)
+        @test 4 == edge(sf, 1, 4)
+        @test 5 == edge(sf, 4, 4)
         @test 6 == edge(sf, 5, 4)
         @test collect(edges(sf)) == [
-            (1, 4)
+            (5, 1)
             (2, 2)
             (4, 2)
+            (1, 4)
             (4, 4)
-            (5, 1)
             (5, 4)
         ]
 
@@ -88,40 +88,40 @@ end
         check_nested(
             forward(sf),
             [
-                1 => [(4, 1)]
+                1 => [(4, 4)]
                 2 => [(2, 2)]
                 3 => [] # Don't skip by default.
-                4 => [(2, 3), (4, 4)]
-                5 => [(1, 5), (4, 6)]
+                4 => [(2, 3), (4, 5)]
+                5 => [(1, 1), (4, 6)]
             ],
         )
 
         check_nested(
             forward(sf; skip = true),
             [
-                1 => [(4, 1)]
+                1 => [(4, 4)]
                 2 => [(2, 2)]
-                4 => [(2, 3), (4, 4)]
-                5 => [(1, 5), (4, 6)]
+                4 => [(2, 3), (4, 5)]
+                5 => [(1, 1), (4, 6)]
             ],
         )
 
         check_nested(
             backward(sf),
             [
-                1 => [(5, 5)]
+                1 => [(5, 1)]
                 2 => [(2, 2), (4, 3)]
                 3 => []
-                4 => [(1, 1), (4, 4), (5, 6)]
+                4 => [(1, 4), (4, 5), (5, 6)]
             ],
         )
 
         check_nested(
             backward(sf; skip = true),
             [
-                1 => [(5, 5)]
+                1 => [(5, 1)]
                 2 => [(2, 2), (4, 3)]
-                4 => [(1, 1), (4, 4), (5, 6)]
+                4 => [(1, 4), (4, 5), (5, 6)]
             ],
         )
 
@@ -173,16 +173,16 @@ end
 
         # Row-wise edges ordering.
         @test 1 == edge(sr, 2, 1)
-        @test 2 == edge(sr, 2, 2)
-        @test 3 == edge(sr, 3, 1)
-        @test 4 == edge(sr, 4, 1)
+        @test 2 == edge(sr, 3, 1)
+        @test 3 == edge(sr, 4, 1)
+        @test 4 == edge(sr, 2, 2)
         @test 5 == edge(sr, 4, 2)
         @test 6 == edge(sr, 4, 4)
         @test collect(edges(sr)) == [
             (2, 1)
-            (2, 2)
             (3, 1)
             (4, 1)
+            (2, 2)
             (4, 2)
             (4, 4)
         ]
@@ -192,26 +192,26 @@ end
             forward(sr),
             [
                 1 => [] # Don't skip by default.
-                2 => [(1, 1), (2, 2)]
-                3 => [(1, 3)]
-                4 => [(1, 4), (2, 5), (4, 6)]
+                2 => [(1, 1), (2, 4)]
+                3 => [(1, 2)]
+                4 => [(1, 3), (2, 5), (4, 6)]
             ],
         )
 
         check_nested(
             forward(sr; skip = true),
             [
-                2 => [(1, 1), (2, 2)]
-                3 => [(1, 3)]
-                4 => [(1, 4), (2, 5), (4, 6)]
+                2 => [(1, 1), (2, 4)]
+                3 => [(1, 2)]
+                4 => [(1, 3), (2, 5), (4, 6)]
             ],
         )
 
         check_nested(
             backward(sr),
             [
-                1 => [(2, 1), (3, 3), (4, 4)]
-                2 => [(2, 2), (4, 5)]
+                1 => [(2, 1), (3, 2), (4, 3)]
+                2 => [(2, 4), (4, 5)]
                 3 => []
                 4 => [(4, 6)]
             ],
@@ -220,8 +220,8 @@ end
         check_nested(
             backward(sr; skip = true),
             [
-                1 => [(2, 1), (3, 3), (4, 4)]
-                2 => [(2, 2), (4, 5)]
+                1 => [(2, 1), (3, 2), (4, 3)]
+                2 => [(2, 4), (4, 5)]
                 4 => [(4, 6)]
             ],
         )
@@ -235,16 +235,16 @@ end
     # Same two construction inputs.
     # Upper triangle is ignored.
     a = Bool[
-        0 0 1 1
-        1 1 1 1
-        0 0 0 0
+        0 1 0 1
+        0 1 0 1
+        1 1 0 0
         1 1 0 1
     ]
     b = sparse([
-        0 0 9 9
-        1 2 9 9
-        0 0 0 0
-        3 4 0 5
+        0 1 0 3
+        0 2 0 4
+        9 9 0 0
+        9 9 0 5
     ])
 
     for input in (a, b)
@@ -274,7 +274,7 @@ end
         @test is_edge(sm, 2, 4)
         @test is_edge(sm, 4, 4)
 
-        # Row-wise, lower-triangular edges ordering.
+        # Col-wise, upper-triangular edges ordering.
         @test 1 == edge(sm, 2, 1)
         @test 2 == edge(sm, 2, 2)
         @test 3 == edge(sm, 4, 1)

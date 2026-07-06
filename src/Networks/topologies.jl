@@ -3,9 +3,7 @@ The topology specifies edges within a web,
 and the neighbouring relation among source and target nodes in incident classes.
 Source and target classes are only described by their number of nodes.
 Edges are ordered so they can be contiguously indexed by a number.
-Watch that they are ordered *row-wise*
-in the standard '(row, column)' ~ '(source, target)' dimensions ordering,
-therefore *not* complying to julia's column-wise matrices convention.
+Watch that they are ordered *column-wise*, complying to julia's convention.
 
 There are various kinds of topologies with different implementations.
 
@@ -16,7 +14,7 @@ Regarding incident classes:
   - Symmetric: reflexive + edges are undirected ('a' points to 'b' => 'b' points to 'a').
     In this *bidirectional* situation: the number of edges
     is the number of conceptual *undirected* edges,
-    And their order is the row-wise lower triangular only: (source >= target) pairs.
+    And their order is the col-wise upper triangular order.
 
 Regarding edges density:
 
@@ -157,7 +155,7 @@ is_edge(s::S, src::Int, tgt::Int) = haskey(s.forward[src], tgt)
 n_edges(s::S) = s.n_edges
 edge(s::S, src::Int, tgt::Int) = s.forward[src][tgt]
 edges(s::S) =
-    ((src, tgt) for (src, targets) in enumerate(s.forward) for tgt in keys(targets))
+    ((src, tgt) for (tgt, sources) in enumerate(s.backward) for src in keys(sources))
 forward(s::S; skip = false) = (
     (src, (tgt, edge) for (tgt, edge) in targets) for
     (src, targets) in enumerate(s.forward) if !(skip && isempty(targets))
@@ -176,7 +174,8 @@ Construct from non-empty entries in a sparse matrix
 """
 function SparseForeign(m::AbstractSparseMatrix)
     n_sources, n_targets = size(m)
-    (sources, targets, n_edges) = rowwise(m)
+    (sources, targets, _) = findnz(m)
+    n_edges = length(sources)
     (forward, backward) = vecmap.((n_sources, n_targets))
     for (edge, (source, target)) in enumerate(zip(sources, targets))
         forward[source][target] = edge
@@ -184,14 +183,6 @@ function SparseForeign(m::AbstractSparseMatrix)
     end
     SparseForeign(forward, backward, n_edges)
 end
-# Extract data from sparse matrix with *row-wise* ordering.
-function rowwise(m::AbstractSparseMatrix)
-    (sources, targets, _) = findnz(m)
-    n_edges = length(sources)
-    o = sortperm(sources)
-    (sources[o], targets[o], n_edges)
-end
-
 
 """
 Construct from lit entries in a dense boolean matrix.
@@ -200,7 +191,7 @@ function SparseForeign(m::AbstractMatrix{Bool})
     n_sources, n_targets = size(m)
     (forward, backward) = vecmap.((n_sources, n_targets))
     n_edges = 0
-    for source in 1:n_sources, target in 1:n_targets
+    for target in 1:n_targets, source in 1:n_sources # (colwise)
         m[source, target] || continue
         n_edges += 1
         forward[source][target] = n_edges
@@ -230,7 +221,7 @@ is_edge(s::S, src::Int, tgt::Int) = haskey(s.nodes[src][2], tgt)
 n_edges(s::S) = s.n_edges
 edge(s::S, src::Int, tgt::Int) = s.nodes[src][2][tgt]
 edges(s::S) =
-    ((src, tgt) for (src, (_, targets)) in enumerate(s.nodes) for (tgt, _) in targets)
+    ((src, tgt) for (tgt, (sources, _)) in enumerate(s.nodes) for (src, _) in sources)
 forward(s::S; skip = false) = (
     (src, ((tgt, edge) for (tgt, edge) in targets)) for
     (src, (_, targets)) in enumerate(s.nodes) if !(skip && isempty(targets))
@@ -251,7 +242,8 @@ Construct from non-empty entries in a sparse matrix (disregarding values).
 """
 function SparseReflexive(m::AbstractSparseMatrix)
     n_nodes = check_square(m)
-    (sources, targets, n_edges) = rowwise(m)
+    (sources, targets, _) = findnz(m)
+    n_edges = length(sources)
     nodes = [(Map(), Map()) for _ in 1:n_nodes]
     for (edge, (source, target)) in enumerate(zip(sources, targets))
         nodes[source][2][target] = edge
@@ -274,7 +266,7 @@ function SparseReflexive(m::AbstractMatrix{Bool})
     n_nodes = check_square(m)
     nodes = [(Map(), Map()) for _ in 1:n_nodes]
     n_edges = 0
-    for source in 1:n_nodes, target in 1:n_nodes
+    for target in 1:n_nodes, source in 1:n_nodes # (colwise)
         m[source, target] || continue
         n_edges += 1
         nodes[source][2][target] = n_edges
@@ -285,18 +277,17 @@ end
 
 """
 Construct from adjacency list iterable, assuming valid, non-duplicate indices.
+Edges are going to be sorted into their canonical order.
 """
 function SparseReflexive(n_nodes::Int, adj)
-    nodes = [(Map(), Map()) for _ in 1:n_nodes]
-    n_edges = 0
+    # Translate into a sparse matrix to enforce proper edges ordering.
+    m = spzeros(Bool, (n_nodes, n_nodes))
     for (source, sub) in adj
         for target in sub
-            n_edges += 1
-            nodes[source][2][target] = n_edges
-            nodes[target][1][source] = n_edges
+            m[source, target] = true
         end
     end
-    SparseReflexive(nodes, n_edges)
+    SparseReflexive(m)
 end
 
 # ==========================================================================================
@@ -346,16 +337,16 @@ adjacency(s::S; skip = false, upper = true) = (
 # Construct.
 
 """
-Construct from non-empty entries in a lower-triangular sparse matrix
-(disregarding values and upper triangle).
+Construct from non-empty entries in a upper-triangular sparse matrix
+(disregarding values and lower triangle).
 """
 function SparseSymmetric(m::AbstractSparseMatrix)
     n_nodes = check_square(m)
-    (sources, targets, _) = rowwise(m)
+    (sources, targets, _) = findnz(m)
     nodes = vecmap(n_nodes)
     n_edges = 0
     for (source, target) in zip(sources, targets)
-        source < target && continue # Dismiss upper triangle.
+        source > target && continue # Dismiss lower triangle.
         n_edges += 1
         nodes[source][target] = n_edges
         nodes[target][source] = n_edges
@@ -364,14 +355,15 @@ function SparseSymmetric(m::AbstractSparseMatrix)
 end
 
 """
-Construct from lit entries in a lower-triangular dense boolean matrix
-(disregarding upper triangle).
+Construct from lit entries in a upper-triangular dense boolean matrix
+(disregarding lower triangle).
 """
 function SparseSymmetric(m::AbstractMatrix{Bool})
     n_nodes = check_square(m)
     nodes = vecmap(n_nodes)
     n_edges = 0
-    for source in 1:n_nodes, target in 1:source # Triangular iteration.
+    # Colwise upper-triangular iteration.
+    for target in 1:n_nodes, source in 1:target
         m[source, target] || continue
         n_edges += 1
         nodes[source][target] = n_edges

@@ -15,15 +15,21 @@ disp(x) = repr(MIME("text/plain"), x)
 
 function edges_vec(t::FullTopology, m::AbstractMatrix)
     check_dims(t, m)
-    collect(I.flatten(eachrow(m)))
+    collect(I.flatten(eachcol(m)))
 end
-function edges_vec(t::FullSymmetric, m::AbstractMatrix)
-    check_dims(t, m)
-    collect(I.flatten(row[1:i] for (i, row) in enumerate(eachrow(m))))
-end
-function edges_vec(t::T, m::AbstractSparseMatrix) where {T<:SparseTopology}
+function edges_vec(t::SparseTopology, m::AbstractSparseMatrix)
     check_topology(t, m)
     [m[i, j] for (i, j) in edges(t)]
+end
+
+# Only half the entries are edges in the symmetric cases.
+function edges_vec(t::FullSymmetric, m::AbstractMatrix)
+    check_dims(t, m)
+    collect(I.flatten(col[1:i] for (i, col) in enumerate(eachcol(m))))
+end
+function edges_vec(t::SparseSymmetric, m::AbstractSparseMatrix)
+    check_topology(t, m)
+    [m[j, i] for (i, j) in edges(t)] # Pick from upper triangle.
 end
 export edges_vec
 

@@ -44,7 +44,7 @@ import Main: @netfails
         species (5): [:a, :b, :c, :d, :e]
       Edges:
         flow: nutrients => species (8, sparse)
-          intensity: [4, 9, 3, 5, 8, 1, 7, 2]
+          intensity: [1, 3, 4, 5, 7, 2, 9, 8]
     """))
 
     @netfails(
@@ -73,19 +73,19 @@ import Main: @netfails
         species (5): [:a, :b, :c, :d, :e]
       Edges:
         convert: nutrients => nutrients (4, sparse)
-          intensity: [4, 5, 1, 2]
+          intensity: [2, 4, 5, 1]
         flow: nutrients => species (8, sparse)
-          intensity: [4, 9, 3, 5, 8, 1, 7, 2]
+          intensity: [1, 3, 4, 5, 7, 2, 9, 8]
     """))
 
     #---------------------------------------------------------------------------------------
     # SparseSymmetric.
-    m = sparse([ # Upper triangle ignored.
-        0 9 9 9 9
-        0 5 9 9 9
-        4 0 6 9 9
-        0 0 2 1 9
-        0 8 0 3 0
+    m = sparse([ # Lower triangle ignored.
+        0 0 4 0 0
+        9 5 0 0 8
+        9 9 6 2 0
+        9 9 9 1 3
+        9 9 9 9 0
     ])
     comp = SparseSymmetric(m)
     add_web!(n, :compete, (:species, :species), comp)
@@ -99,9 +99,9 @@ import Main: @netfails
         compete: species => species (7, symmetric, sparse)
           intensity: [5, 4, 6, 2, 1, 8, 3]
         convert: nutrients => nutrients (4, sparse)
-          intensity: [4, 5, 1, 2]
+          intensity: [2, 4, 5, 1]
         flow: nutrients => species (8, sparse)
-          intensity: [4, 9, 3, 5, 8, 1, 7, 2]
+          intensity: [1, 3, 4, 5, 7, 2, 9, 8]
     """))
 
     #---------------------------------------------------------------------------------------
@@ -124,7 +124,7 @@ import Main: @netfails
         species (5): [:a, :b, :c, :d, :e]
       Edges:
         affinity: species => nutrients (15, full)
-          value: [1, 3, 1, 2, 4, 2, 8, 5, 5, 6, 6, 4, 0, 7, 5]
+          value: [1, 2, 8, 6, 0, 3, 4, 5, 6, 7, 1, 2, 5, 4, 5]
     """))
 
     #---------------------------------------------------------------------------------------
@@ -145,16 +145,16 @@ import Main: @netfails
         species (5): [:a, :b, :c, :d, :e]
       Edges:
         trade: nutrients => nutrients (9, full)
-          rate: [1, 3, 1, 2, 4, 2, 8, 5, 5]
+          rate: [1, 2, 8, 3, 4, 5, 1, 2, 5]
     """))
 
     #---------------------------------------------------------------------------------------
     # FullSymmetric.
     n = copy(f)
     m = [
-        1 9 9
-        2 4 9
-        8 5 5
+        1 2 8
+        9 4 5
+        9 9 5
     ]
     paths = FullSymmetric(m)
     add_web!(n, :paths, (:nutrients, :nutrients), paths)
@@ -178,11 +178,11 @@ end
     add_class!(n, :nutrients, "uvw")
 
     m = sparse([
-        0 9 9 9 9
-        0 5 9 9 9
-        4 0 6 9 9
-        0 0 2 1 9
-        0 8 0 3 0
+        0 0 4 0 0
+        9 5 0 0 8
+        9 9 6 2 0
+        9 9 9 1 3
+        9 9 9 9 0
     ])
     comp = SparseSymmetric(m)
     add_web!(n, :compete, (:species, :species), comp)
@@ -252,11 +252,11 @@ end
     add_class!(n, :species, "abcde")
     add_class!(n, :nutrients, "uvw")
     m = sparse([
-        0 9 9 9 9
-        0 5 9 9 9
-        4 0 6 9 9
-        0 0 2 1 9
-        0 8 0 3 0
+        0 0 4 0 0
+        9 5 0 0 8
+        9 9 6 2 0
+        9 9 9 1 3
+        9 9 9 9 0
     ])
     comp = SparseSymmetric(m)
     add_web!(n, :compete, (:species, :species), comp)
