@@ -97,19 +97,25 @@ valtype(T::Type) = throw("Unimplemented for $T.")
 #-------------------------------------------------------------------------------------------
 # Basic queries.
 
+const AbstractAdjacency{R} = Union{Adjacency{<:Any,R},BinAdjacency{R}}
+
 # Deduplicate to obtain marginal references.
-source_refs(a::BinAdjacency{Symbol}) = _source_refs(a)
-target_refs(a::BinAdjacency{Symbol}) = OrderedSet{Symbol}(_target_refs(a))
-all_refs(a::BinAdjacency{Symbol}) = OrderedSet{Symbol}(_all_refs(a))
+source_refs(a::AbstractAdjacency{Symbol}) = _source_refs(a)
+target_refs(a::AbstractAdjacency{Symbol}) = OrderedSet{Symbol}(_target_refs(a))
+all_refs(a::AbstractAdjacency{Symbol}) = OrderedSet{Symbol}(_all_refs(a))
 
 # Indices not appearing in the list are inferred to exist anyway.
-source_refs(a::BinAdjacency{Int}) = 1:maximum(_source_refs(a))
-target_refs(a::BinAdjacency{Int}) = 1:maximum(_target_refs(a))
-all_refs(a::BinAdjacency{Int}) = 1:maximum(_all_refs(a))
+source_refs(a::AbstractAdjacency{Int}) = 1:maximum(_source_refs(a))
+target_refs(a::AbstractAdjacency{Int}) = 1:maximum(_target_refs(a))
+all_refs(a::AbstractAdjacency{Int}) = 1:maximum(_all_refs(a))
 
 # Raw, non-deduplicated iterators.
-_source_refs(a::BinAdjacency) = keys(a)
+_source_refs(a::AbstractAdjacency) = keys(a)
+_target_refs(a::Adjacency) = I.flatten(I.map(keys, a))
 _target_refs(a::BinAdjacency) = I.flatten(values(a))
+_all_refs(a::Adjacency) = I.map(a) do (src, targets)
+    ((src,), keys(targets)) |> I.flatten
+end |> I.flatten
 _all_refs(a::BinAdjacency) = I.map(a) do (src, targets)
     ((src,), targets) |> I.flatten
 end |> I.flatten
@@ -395,7 +401,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
         plain_error isa Forgiveness || rethrow(plain_error) # (not to miss bugs)
         try
             f = fork(p, R -> BinMap{R})
-            refs = inputconvert(
+            refs = parse(
                 BinMap{<:Any},
                 input;
                 ExpectedRefType,
@@ -439,7 +445,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
         plain_error isa Forgiveness || rethrow(plain_error)
         try
             f = fork(p, R -> Map{p.T,R})
-            pairs = inputconvert(
+            pairs = parse(
                 Map{p.T},
                 input;
                 parser = f,
@@ -480,7 +486,7 @@ parse_grouped_pairs_priorities = priorities([
 #-------------------------------------------------------------------------------------------
 # Parse binary maps.
 
-function inputconvert(
+function parse(
     ::Type{BinMap{<:Any}},
     input;
     ExpectedRefType = nothing,
@@ -516,7 +522,7 @@ function inputconvert(
 end
 
 # The binary case *can* accept boolean masks.
-function inputconvert(
+function parse(
     ::Type{BinMap{<:Any}},
     input::AbstractVector{Bool};
     # Match the general case..
@@ -577,7 +583,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse general maps.
 
-function inputconvert(
+function parse(
     ::Type{Map{T}},
     input;
     ExpectedRefType = nothing,
@@ -628,7 +634,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse binary adjacency maps.
 
-function inputconvert(
+function parse(
     ::Type{BinAdjacency{<:Any}},
     input;
     ExpectedRefType = nothing,
@@ -699,7 +705,7 @@ function inputconvert(
 end
 
 # The binary case *can* accept boolean matrices.
-function inputconvert(
+function parse(
     ::Type{BinAdjacency{<:Any}},
     input::AbstractMatrix{Bool};
     ExpectedRefType = nothing,
@@ -746,7 +752,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Parse adjacency maps.
 
-function inputconvert(
+function parse(
     ::Type{Adjacency{T}},
     input;
     ExpectedRefType = nothing,
@@ -869,6 +875,12 @@ adjacency_map_priorities = priorities([
 ])
 
 #-------------------------------------------------------------------------------------------
+# Parse to convert input.
+inputconvert(L::Type{Map{T}}, i; k...) where {T} = parse(L, i; k...)
+inputconvert(L::Type{Adjacency{T}}, i; k...) where {T} = parse(L, i; k...)
+inputconvert(L::Type{BinMap{<:Any}}, i; k...) = parse(L, i; k...)
+inputconvert(L::Type{BinAdjacency{<:Any}}, i; k...) = parse(L, i; k...)
+
 # Alias if types matches exactly.
 # Resolves the ambiguity introduced by *not* typing `input` in the methods above.
 inputconvert(::Type{BinMap{R}}, i::BinMap{R}) where {R} = i
@@ -884,14 +896,14 @@ inputconvert(::Type{Adjacency{T}}, i::Adjacency{T,<:Ref}) where {T} = i
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.
-function inputconvert(::Type{BinMap}, input::Map{R}) where {R}
+function parse(::Type{BinMap}, input::Map{R}) where {R}
     res = BinMap{R}()
     for (k, _) in input
         push!(res, k)
     end
     res
 end
-function inputconvert(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
+function parse(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
     res = BinAdjacency{R}()
     for (i, sub) in input
         res[i] = inputconvert(BinMap, sub)

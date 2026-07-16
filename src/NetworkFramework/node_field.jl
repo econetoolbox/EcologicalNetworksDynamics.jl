@@ -344,8 +344,8 @@ function early_check(d::AbstractNodeField, vec::Vector)
 end
 
 function early_check(d::AbstractNodeField, map::Map)
-    T, R = valtype(map), reftype(map)
-    map = inputconvert(Map{T,R}, map) # Re-parse in case the map was mutated.
+    T = valtype(map)
+    map = NF.parse(Map{T}, map) # Re-parse in case the map was mutated.
     core_early_check(d, map)
 end
 

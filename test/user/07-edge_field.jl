@@ -35,8 +35,11 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
 
     base = Model(Foodweb([:a => :b, :b => :c, :d => (:a, :c)]))
 
+    # ======================================================================================
+    # Raw blueprint.
+
     #---------------------------------------------------------------------------------------
-    # Construct from raw values, regardless of input type.
+    # Construct, regardless of input type.
     bp = Efficiency.Raw([2, 5, 8, 4] / 10)
     @test Efficiency.Raw(Bool[1, 0, 1, 0]) == Efficiency.Raw([1.0, 0.0, 1.0, 0.0])
     @test bp == Efficiency([2, 5, 8, 4] / 10) # Implicit constructor.
@@ -67,7 +70,9 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         1.5
     )
 
-    # Expand.
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
     @sysfails(
         let
             b = deepcopy(bp)
@@ -85,6 +90,10 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             """,
         )
     )
+
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
     @sysfails(
         base + Efficiency([0.5, 0.8]),
         Check(
@@ -97,7 +106,9 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         )
     )
 
-    # Success.
+    #---------------------------------------------------------------------------------------
+    # Expand.
+
     m = base + bp
     @test is_disp(
         m,
@@ -108,6 +119,7 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
           - Efficiency: 0.2 to 0.8 (4 values).\
         """,
     )
+
     # The result is col-wise, as a julia user would expect.
     @test extract(m.efficiency) == [
         0 5 0 0
@@ -116,9 +128,13 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         2 0 4 0
     ] / 10
 
+    # ======================================================================================
+    # Matrix blueprint.
+
     #---------------------------------------------------------------------------------------
     # Construct from a matrix (sparse in this example).
     # TODO: test for dense constructs when such a component shows up.
+
     mat = sparse([
         0 2 0 0
         0 0 3 0
@@ -138,6 +154,7 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         }\
         """,
     )
+
     @inputfails(
         Efficiency([0.1 0.5; -1 0.2]),
         "When constructing <trophic:efficiency> from a matrix:\n\
@@ -146,7 +163,9 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         -1.0
     )
 
-    # Expand.
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
     @sysfails(
         let
             b = deepcopy(bp)
@@ -164,6 +183,10 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             """,
         )
     )
+
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
     @sysfails(
         base + Efficiency(zeros(2, 3)),
         Check(
@@ -176,6 +199,7 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             """,
         )
     )
+
     @sysfails(
         base + Efficiency(zeros(4, 4)),
         Check(
@@ -187,6 +211,7 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             """,
         )
     )
+
     @sysfails(
         base + Efficiency(ones(4, 4)),
         Check(
@@ -195,13 +220,15 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             """
             When checking <trophic:efficiency> blueprint against model:
             Edge [3, 1] does not exist in :trophic \
-            but the matrix provides a value for it: 1.0.\
+            but the sparse matrix provides a value for it: 1.0.\
             """,
         )
     )
 
-    # Success.
+    #---------------------------------------------------------------------------------------
+    # Expand.
     m = base + bp
+
     @test extract(m.efficiency) == sparse([
         0 2 0 0
         0 0 3 0
@@ -210,33 +237,71 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
     ] / 10)
 
     # The matrix structure implies the underlying web.
-    #  m = Model(bp) # XXX test
+    #  m = Model(bp) # XXX test that (↑)
+
+    # ======================================================================================
+    # Adjacency blueprint.
 
     #---------------------------------------------------------------------------------------
-    # Construct from adjacency lists.
-    adj = [:a => (:b => 0.1), :b => (:c => 0.2), :d => (:a => 0.3, :c => 0.4)]
-    bp = Efficiency.Adjacency(adj)
+    # Construct (with labels or integer references).
+
+    adj_r = [:a => (:b => 0.2), :b => (:c => 0.3), :d => (:a => 0.1, :c => 0.4)]
+    adj_i = [1 => (2 => 0.2), 2 => (3 => 0.3), 4 => (1 => 0.1, 3 => 0.4)]
+    bp_r = Efficiency.Adjacency(adj_r)
+    bp_i = Efficiency.Adjacency(adj_i)
     @test Efficiency.Adjacency([:a => (:b => true, :c => false)]) ==
           Efficiency.Adjacency([:a => (:b => 1.0, :c => 0.0)])
-    @test bp == Efficiency(adj) # Implicit constructor.
+    @test Efficiency.Adjacency([1 => (2 => true, 3 => false)]) ==
+          Efficiency.Adjacency([1 => (2 => 1.0, 3 => 0.0)])
+    # Implicit constructor.
+    @test bp_r == Efficiency(adj_r)
+    @test bp_i == Efficiency(adj_i)
     @test is_repr(
-        bp,
-        "<Efficiency>:Adjacency(e: {a: {b: 0.1}, b: {c: 0.2}, d: {a: 0.3, c: 0.4}})",
+        bp_r,
+        "<Efficiency>:Adjacency(e: {a: {b: 0.2}, b: {c: 0.3}, d: {a: 0.1, c: 0.4}})",
+    )
+    @test is_repr(
+        bp_i,
+        "<Efficiency>:Adjacency(e: {1: {2: 0.2}, 2: {3: 0.3}, 4: {1: 0.1, 3: 0.4}})",
     )
     @test is_disp(
-        bp,
+        bp_r,
         """
         blueprint for <Efficiency>: Adjacency {
-          e: {a: {b: 0.1}, b: {c: 0.2}, d: {a: 0.3, c: 0.4}},
+          e: {a: {b: 0.2}, b: {c: 0.3}, d: {a: 0.1, c: 0.4}},
+        }\
+        """,
+    )
+    @test is_disp(
+        bp_i,
+        """
+        blueprint for <Efficiency>: Adjacency {
+          e: {1: {2: 0.2}, 2: {3: 0.3}, 4: {1: 0.1, 3: 0.4}},
         }\
         """,
     )
 
-    # Expand.
+    @inputfails(
+        Efficiency.Adjacency([:a => (:b => :x)]),
+        "When constructing <trophic:efficiency> from an adjacency list:\n\
+         Expected values of type '$Float64', \
+         received instead at [1][right][right]: :x ::$Symbol."
+    )
+    @inputfails(
+        Efficiency.Adjacency([1 => (2 => -1)]),
+        "When constructing <trophic:efficiency> from an adjacency list:\n\
+         On edge [1, 2]:\n\
+         Value must belong to [0, 1].",
+        -1.0,
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
     @sysfails(
         let
-            b = deepcopy(bp)
-            b.e[:d][:a] *= 10
+            b = deepcopy(bp_r)
+            b.e[:d][:a] *= 15
             base + b
         end,
         Check(
@@ -246,12 +311,89 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             When checking <trophic:efficiency> blueprint data:
             On edge :d => :a:
             Value must belong to [0, 1].
-            Received: 3.0\
+            Received: 1.5\
             """,
         )
     )
 
-    #  m = base + bp # HERE: expand from adjacency.
+    @sysfails(
+        let
+            b = deepcopy(bp_i)
+            b.e[4][1] *= 15
+            base + b
+        end,
+        Check(
+            early,
+            [Efficiency.Adjacency],
+            """
+            When checking <trophic:efficiency> blueprint data:
+            On edge [4, 1]:
+            Value must belong to [0, 1].
+            Received: 1.5\
+            """,
+        )
+    )
+
+    # Break adjacency list (guarded by a reparse).
+    @sysfails(
+        let
+            b = deepcopy(bp_i)
+            b.e[1][-1] = 0.8
+            base + b
+        end,
+        Check(
+            early,
+            [Efficiency.Adjacency],
+            "When checking <trophic:efficiency> blueprint data:\n\
+             Integer reference must be a positive index. \
+             Received at [1][right][2][left]: -1 ::$Int.",
+        )
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
+    @sysfails(
+        let
+            b = deepcopy(bp_r)
+            pop!(b.e, :d)
+            base + b
+        end,
+        Check(
+            late,
+            [Efficiency.Adjacency],
+            "When checking <trophic:efficiency> blueprint against model:\n\
+             Edge [:d, :a] has no value in the provided adjacency list.",
+        )
+    )
+
+    @sysfails(
+        let
+            b = deepcopy(bp_i)
+            b.e[1][3] = 0.5
+            base + b
+        end,
+        Check(
+            late,
+            [Efficiency.Adjacency],
+            "When checking <trophic:efficiency> blueprint against model:\n\
+             Edge [1, 3] does not exist in :trophic \
+             but the adjacency list provides a value for it: 0.5.",
+        )
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Expand.
+
+    for bp in (bp_r, bp_i)
+        local m = base + bp_r
+        @test extract(m.efficiency) == sparse([
+            0 2 0 0
+            0 0 3 0
+            0 0 0 0
+            1 0 4 0
+        ] / 10)
+    end
 
 end
 

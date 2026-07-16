@@ -198,7 +198,7 @@ end
 
 # ==========================================================================================
 # Extracted logic + extension points.
-# Mostly duplicated from node field.
+# Mostly inspired from node field.
 
 #-------------------------------------------------------------------------------------------
 # Contextless check.
@@ -413,7 +413,7 @@ n_edges(m::AbstractMatrix) = prod(size(m))
 n_edges(m::AbstractSparseMatrix) = length(findnz(m))
 function edges_values(m::AbstractMatrix)
     m, n = size(m)
-    ((i, j, m[i, j]) for i in 1:m, j in 1:n)
+    ((i, j, m[i, j]) for j in 1:n, i in 1:m) # Column-major.
 end
 function edges_values(m::AbstractSparseMatrix)
     is, js, vs = findnz(m)
@@ -421,17 +421,64 @@ function edges_values(m::AbstractSparseMatrix)
 end
 
 # The raw vector cannot be directly extracted from the adjacency list
-# because there is no guarantee on the input edges ordering.
-# Take this first iteration opportunity to count provided values.
+# because input edges ordering cannot be checked.
+# Collect {edges ↦ values} mapping instead.
 function early_check(d::EdgeField, adj::Adjacency)
-    n = 0
-    for (src, targets) in adj
-        for (tgt, v) in targets
-            check_with_ref(d, v, (src, tgt))
-            n += 1
+    T = valtype(adj)
+    adj = NF.parse(Adjacency{T}, adj) # Re-parse in case the list was mutated.
+    D.is_sparse(d) ? early_check_sparse(d, adj) : early_check_dense(d, adj)
+end
+
+# In the sparse case, prepare an edge to value mapping.
+early_check_sparse(d::EdgeField, adj::Adjacency) =
+    Dict((src, tgt) => check_with_ref(d, v, (src, tgt)) for (src, tgt, v) in NF.iter(adj))
+
+# In the dense case, check that the list is actually dense
+# and arange checked values in a matrix.
+function early_check_dense(d::EdgeField, adj::Adjacency{<:Any,Int})
+    T = D.type(d)
+    n_src = length(NF.source_refs(adj))
+    n_tgt = length(NF.target_refs(adj))
+    mat = zeros(T, (n_src, n_tgt))
+    if length(adj) < n_src
+        for miss in 1:n_src
+            miss in keys(adj) || conserr("No value provided for edges with source $miss.")
         end
     end
-    (n, adj)
+    for (src, targets) in adj
+        if length(targets) < n_tgt
+            for miss in 1:n_tgt
+                miss in keys(targets) ||
+                    conserr("No value provided for edge ($src, $miss).")
+            end
+        end
+        for (tgt, v) in targets
+            mat[src, tgt] = check_with_ref(d, v, (src, tgt))
+        end
+    end
+    mat
+end
+
+# With labels as references, also collect a mapping to local/input indices.
+function early_check_dense(d::EdgeField, adj::Adjacency{<:Any,Symbol})
+    T = D.type(d)
+    sources = Dict{Symbol,I}() # Filled during main iteration.
+    targets = Dict(tgt => j for (j, tgt) in enumerate(NF.target_refs(adj)))
+    n_src, n_tgt = length(sources), length(targets)
+    mat = zeros(T, (n_src, n_tgt))
+    for (i, (src, sub)) in enumerate(adj)
+        sources[src] = i
+        if length(sub) < length(targets)
+            for miss in keys(targets)
+                miss in keys(sub) || conserr("No value provided for edge ($src, $miss).")
+            end
+        end
+        for (tgt, v) in sub
+            j = targets[tgt]
+            mat[i, j] = check_with_ref(d, v, (src, tgt))
+        end
+    end
+    (mat, sources, targets)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -464,15 +511,17 @@ function late_check(d::EdgeField, model::Model, (raw, mat)::Tuple{Vector,Abstrac
     src, tgt = D.sidenames(w)
     src_labels = collect(N.node_labels(network, src))
     tgt_labels = collect(N.node_labels(network, tgt))
-    compare_topologies(w, web.topology, mat, web.name)
+    compare_topologies(w, web.topology, mat)
     map(edges_values(mat)) do (s, t, value)
         check_with_ref(d, model, value, (s, t), (src_labels[s], tgt_labels[t]))
     end
 end
 
-compare_topologies(::EdgeWeb, top::FullTopology, mat::AbstractMatrix, web::Symbol) =
-    compare_size(top, mat, web)
-function compare_size(top::Topology, mat::AbstractMatrix, web::Symbol)
+# Comparing dense matrices topology is straightforward: only size matters.
+compare_topologies(d::EdgeWeb, top::FullTopology, mat::AbstractMatrix) =
+    compare_size(d, top, mat)
+function compare_size(d::EdgeWeb, top::Topology, mat::AbstractMatrix)
+    web = D.web(d)
     expected = N.n_sources(top), N.n_targets(top)
     actual = size(mat)
     if expected != actual
@@ -483,40 +532,68 @@ function compare_size(top::Topology, mat::AbstractMatrix, web::Symbol)
     end
 end
 
-function compare_topologies(
-    d::EdgeWeb,
-    top::SparseTopology,
-    mat::AbstractSparseMatrix,
-    web::Symbol,
-)
-    compare_size(top, mat, web)
+# Comparing sparse matrices requires checking every expected/provided edge.
+function compare_topologies(d::EdgeWeb, top::SparseTopology, mat::AbstractSparseMatrix)
+    web = D.web(d)
     sym = D.is_symmetric(d)
+    compare_size(d, top, mat)
     expected = Set(N.edges(top))
     actual = Set((i, j) for (i, j, _) in edges_values(mat) if (!sym || i <= j))
+    compare_edges(d, expected, actual, (i, j) -> mat[i, j], "sparse matrix")
+end
+
+# Comparing two set of edges for identity.
+function compare_edges(d::EdgeWeb, expected::Set, actual::Set, value::Function, input)
+    web = D.web(d)
+    sym = D.is_symmetric(d)
     miss = setdiff(expected, actual)
     y() = sym ? " (symmetric)" : ""
     if !isempty(miss)
-        i, j = first(miss)
-        conserr("Edge [$i, $j]$(y()) has no value in the provided sparse matrix.")
+        src, tgt = first(miss)
+        conserr(
+            "Edge [$(repr(src)), $(repr(tgt))]$(y()) has no value in the provided $input.",
+        )
     end
     extra = setdiff(actual, expected)
     if !isempty(extra)
-        i, j = first(extra)
-        value = mat[i, j]
-        conserr("Edge [$i, $j]$(y()) does not exist in $(repr(web)) \
-                 but the matrix provides a value for it: $(repr(value)).")
+        src, tgt = first(extra)
+        value = value(src, tgt)
+        conserr("Edge [$(repr(src)), $(repr(tgt))]$(y()) does not exist in $(repr(web)) \
+                 but the $input provides a value for it: $(repr(value)).")
     end
 end
 
-# Adjacency.
-function late_check(d::EdgeField, model::Model, (n, adj)::Union{Int,Adjacency})
+# Adjacency, sparse.
+function late_check(d::EdgeField, model::Model, edges::Dict{Tuple{R,R}}) where {R}
     network = NF.network(model)
-    w = D.EdgeWeb(d)
-    web = D.web(d)
-    src, tgt = D.sidenames(w)
-    # Check number of values.
-    e = N.n_edges(network, web)
-    e == n || conserr("Wrong number of values received: ")
+    w = D.web(d)
+    web_edges() = expected_edges(R, network, w)
+    expected = Set(web_edges())
+    actual = Set(keys(edges))
+    val(s, t) = edges[(s, t)]
+    compare_edges(D.EdgeWeb(d), expected, actual, val, "adjacency list")
+    # Construct raw vectors values in correct order.
+    [val(s, t) for (s, t) in web_edges()]
+end
+function expected_edges(::Type{Int}, network::Network, web::Symbol)
+    top = N.web(network, web).topology
+    N.edges(top)
+end
+function expected_edges(::Type{Symbol}, network::Network, web::Symbol)
+    web = N.web(network, web)
+    src = N.class(network, web.source).index
+    tgt = N.class(network, web.target).index
+    ((N.to_label(src, i), N.to_label(tgt, j)) for (i, j) in N.edges(web.topology))
+end
+
+# Adjacency, dense.
+late_check(d::EdgeField, model::Model, mat::Matrix) = throw("TODO")
+function late_check(
+    d::EdgeField,
+    model::Model,
+    (mat, sources, targets)::Tuple{Matrix,Dict,Dict},
+)
+    throw("TODO")
 end
 
 #-------------------------------------------------------------------------------------------
