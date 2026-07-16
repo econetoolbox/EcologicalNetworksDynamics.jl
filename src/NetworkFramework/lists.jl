@@ -324,13 +324,13 @@ parse_pair(p::Parser, input, what) =
 struct TripleWorks end
 
 function parse_plain_ref!(p::Parser, input, what)
-    (ref, R, ok) = try
-        (inputconvert(Symbol, input), Symbol, true)
+    (ref, ok) = try
+        (inputconvert(Symbol, input), true)
     catch
         try
-            (inputconvert(Int, input), Int, true)
+            (inputconvert(Int, input), true)
         catch
-            (nothing, nothing, false)
+            (nothing, false)
         end
     end
     ok || forgerr(
@@ -339,6 +339,12 @@ function parse_plain_ref!(p::Parser, input, what)
          as integer index or symbol label: \
          received$(report(p, input)).",
     )
+    (ref isa Int && ref <= 0) && forgerr(
+        :invalid_index,
+        "Integer reference must be a positive index. \
+         Received$(report(p, input)).",
+    )
+    R = typeof(ref)
     if !isnothing(p.expected_R)
         R == p.expected_R || unexpected_reftype(what, p, input)
     end
@@ -413,6 +419,7 @@ parse_grouped_refs_priorities = priorities([
     :duplicate_edge,
     :boolean_label,
     :pair_as_iterable,
+    :invalid_index,
     :not_a_ref,
     :not_iterable,
     :no_targets,
@@ -459,6 +466,7 @@ parse_grouped_pairs_priorities = priorities([
     :duplicate_edge,
     :boolean_label,
     :not_a_value,
+    :invalid_index,
     :not_a_ref,
     :no_targets,
     :no_sources,
@@ -849,6 +857,7 @@ adjacency_map_priorities = priorities([
     :duplicate_edge,
     :boolean_label,
     :not_a_value,
+    :invalid_index,
     :not_a_ref,
     :not_a_pair,
     :no_targets,

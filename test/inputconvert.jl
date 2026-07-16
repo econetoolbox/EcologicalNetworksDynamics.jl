@@ -399,6 +399,12 @@ Alias = _Alias() # Use as an unambiguous keyword.
          received at [1]: Type ::UnionAll.",
     )
 
+    @inputfails( #  :invalid_index
+        cv(BinMap, [-1]),
+        "Integer reference must be a positive index. \
+         Received at [1]: -1 ::$Int.",
+    )
+
     @inputfails( #  :unexpected_ref_type
         cv(BinMap, [5], Symbol),
         "Invalid node reference type. \
@@ -449,6 +455,12 @@ Alias = _Alias() # Use as an unambiguous keyword.
          received at [1][left]: Type ::UnionAll.",
     )
 
+    @inputfails( #  :invalid_index (plain)
+        cv(M, [(-1, "a")]),
+        "Integer reference must be a positive index. \
+         Received at [1][left]: -1 ::$Int.",
+    )
+
     @inputfails( #  :unexpected_ref_type (plain)
         cv(M, [(5, "a")], Symbol),
         "Invalid node reference type. \
@@ -481,6 +493,12 @@ Alias = _Alias() # Use as an unambiguous keyword.
         cv(M, [[:a, Type] => 5]),
         "Cannot interpret node reference as integer index or symbol label: \
          received at [1][left][2]: Type ::UnionAll."
+    )
+
+    @inputfails( #  :invalid_index (grouped)
+        cv(M, [[:a, -1] => 5]),
+        "Integer reference must be a positive index. \
+         Received at [1][left][2]: -1 ::$Int."
     )
 
     @inputfails( #  :unexpected_ref_type (grouped)
@@ -549,10 +567,22 @@ Alias = _Alias() # Use as an unambiguous keyword.
          received at [1][left]: Type ::UnionAll.",
     )
 
+    @inputfails( #  :invalid_index (plain source)
+        cv(BinAdjacency, [-1 => 5]),
+        "Integer reference must be a positive index. \
+         Received at [1][left]: -1 ::$Int.",
+    )
+
     @inputfails( #  :not_a_ref (plain target)
         cv(BinAdjacency, [5 => Type]),
         "Cannot interpret target node reference as integer index or symbol label: \
          received at [1][right]: Type ::UnionAll.",
+    )
+
+    @inputfails( #  :invalid_index (plain target)
+        cv(BinAdjacency, [5 => -1]),
+        "Integer reference must be a positive index. \
+         Received at [1][right]: -1 ::$Int.",
     )
 
     @inputfails( #  :unexpected_ref_type (plain source)
@@ -589,10 +619,22 @@ Alias = _Alias() # Use as an unambiguous keyword.
          received at [2][left][2]: Type ::UnionAll.",
     )
 
+    @inputfails( #  :invalid_index (grouped sources)
+        cv(BinAdjacency, [2 => 5, [1, -1] => 3]),
+        "Integer reference must be a positive index. \
+         Received at [2][left][2]: -1 ::$Int.",
+    )
+
     @inputfails( #  :not_a_ref (grouped targets)
         cv(BinAdjacency, [2 => 5, 1 => [3, Type]]),
         "Cannot interpret target node reference as integer index or symbol label: \
          received at [2][right][2]: Type ::UnionAll.",
+    )
+
+    @inputfails( #  :invalid_index (grouped targets)
+        cv(BinAdjacency, [2 => 5, 1 => [3, -1]]),
+        "Integer reference must be a positive index. \
+         Received at [2][right][2]: -1 ::$Int.",
     )
 
     @inputfails( #  :unexpected_ref_type (grouped sources)
@@ -721,6 +763,12 @@ Alias = _Alias() # Use as an unambiguous keyword.
          received at [1][left]: $Type ::$UnionAll.",
     )
 
+    @inputfails( #  :not_a_pair (plain sources) : pick :invalid_index
+        cv(A, [-1 => 5]),
+        "Integer reference must be a positive index. \
+         Received at [1][left]: -1 ::$Int.",
+    )
+
     @inputfails( #  :unexpected_ref_type (plain source)
         cv(A, [:a => 5], Int),
         "Invalid source reference type. \
@@ -745,6 +793,12 @@ Alias = _Alias() # Use as an unambiguous keyword.
         cv(A, [[Type] => 5]),
         "Cannot interpret source reference as integer index or symbol label: \
          received at [1][left][1]: $Type ::$UnionAll.",
+    )
+
+    @inputfails( # :not_a_pair (map source) : pick :invalid_index
+        cv(A, [[-1] => 5]),
+        "Integer reference must be a positive index. \
+         Received at [1][left][1]: -1 ::$Int.",
     )
 
     @inputfails( # :unexpected_ref_type (map source)
@@ -817,6 +871,11 @@ Alias = _Alias() # Use as an unambiguous keyword.
         "Cannot interpret target reference as integer index or symbol label: \
          received at [1][right]: $Type ::$UnionAll.",
     )
+    @inputfails( #  :not_a_pair (plain targets) : pick :invalid_index
+        cv(A, [5 => -1]),
+        "Integer reference must be a positive index. \
+         Received at [1][right]: -1 ::$Int.",
+    )
 
     @inputfails( #  :unexpected_ref_type (plain target)
         cv(A, [1 => (:a => 5)], Int),
@@ -842,6 +901,12 @@ Alias = _Alias() # Use as an unambiguous keyword.
         cv(A, [5 => [Type]]),
         "Cannot interpret target reference as integer index or symbol label: \
          received at [1][right][1]: $Type ::$UnionAll.",
+    )
+
+    @inputfails( # :not_a_pair (map target) : pick :invalid_index
+        cv(A, [5 => [-1]]),
+        "Integer reference must be a positive index. \
+         Received at [1][right][1]: -1 ::$Int.",
     )
 
     @inputfails( # :unexpected_ref_type (map target)
