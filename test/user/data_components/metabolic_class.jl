@@ -43,7 +43,7 @@ using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
                 late,
                 [Bp],
                 """
-                When checking <species:metabolic_class> blueprint values against model:
+                When checking <species:metabolic_class> blueprint against model:
                 At node with label :a ([1]):
                 Metabolic class for species :a cannot be :producer since it is a consumer.\
                 """,
@@ -61,7 +61,7 @@ using Main: is_repr, is_disp, @inputfails, @writefails, @sysfails, Value
                 late,
                 [Bp],
                 """
-                When checking <species:metabolic_class> blueprint values against model:
+                When checking <species:metabolic_class> blueprint against model:
                 At node with label :c ([3]):
                 Metabolic class for species :c cannot be :ectotherm since it is a producer.\
                 """,

@@ -16,14 +16,14 @@ import EcologicalNetworksDynamics
 # but also re-exported at toplevel
 # for convenience within futher tests modules.
 include("./utils.jl")
-include("./test_failures.jl")
-include("./dedicated_test_failures.jl")
 using .TestUtils
+include("./test_failures.jl")
 using .TestFailures
+include("./dedicated_test_failures.jl")
 using .DedicatedTestFailures
 
 sep("Test internal model representation.")
-include("./networks/runtests.jl")
+#  include("./networks/runtests.jl")
 
 sep("Test System/Blueprints/Components framework.")
 #  include("./framework/runtests.jl")

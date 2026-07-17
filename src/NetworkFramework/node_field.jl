@@ -173,9 +173,11 @@ function define_node_field_component(
     )
 
     # Display.
-    mod.eval(quote
-        $F.shortline(io::IO, model::Model, ::$C) = $NF.nodes_shortline(io, model, $d)
-    end)
+    mod.eval(
+        quote
+            $F.shortline(io::IO, model::Model, ::$C) = $NF.nodes_shortline(io, model, $d)
+        end,
+    )
 
     comp
 end
@@ -592,6 +594,6 @@ function nodes_shortline(io::IO, model::Model, d::NodeField)
     class = N.class(network, c)
     entry = class.data[f]
     N.read(entry) do data
-        print(io, "$Field: [$(EN.join_elided(data, ", "))].")
+        print(io, "$Field: [$(EN.join_elided(data, ", "))]")
     end
 end
