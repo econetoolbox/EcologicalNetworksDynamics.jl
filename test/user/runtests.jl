@@ -8,7 +8,7 @@ only = [
     "02-edge_web.jl",
     "03-graph_scalar.jl",
     "04-node_field.jl",
-    "05-sparse_node_field.jl",
+    "05-subnode_field.jl",
     "06-allometric_blueprints.jl",
     "07-edge_field.jl",
     "99-components.jl",

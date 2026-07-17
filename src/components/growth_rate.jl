@@ -12,7 +12,7 @@ module GrowthRateDef
 
 using EcologicalNetworksDynamics: EN, D, NF, Allometry, @alias
 
-const d = D.SparseNodeField(:producers, :growth, :species)
+const d = D.SubnodeField(:producers, :growth, :species)
 const DT = typeof(d)
 
 D.name_variants(::DT) = (:growth_rate, :growth_rates, :GrowthRate, :GrowthRates, :r)
@@ -26,7 +26,7 @@ binzer2016() =
 albp = EN.define_allometry_blueprints(EN, d, miele2019(), binzer2016())
 
 # Codegen + exec.
-NF.define_sparse_node_field_component(EN, d; blueprints = [albp])
+NF.define_subnode_field_component(EN, d; blueprints = [albp])
 using .EN: GrowthRate, _GrowthRate
 
 @alias producers.growth growth_rate

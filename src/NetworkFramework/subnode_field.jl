@@ -2,17 +2,17 @@
 Expand into a subclass field from a raw vector,
 one element per node in the subclass.
 """
-abstract type SparseNodeFieldRawBlueprint <: NodeFieldRawBlueprint end
+abstract type SubnodeFieldRawBlueprint <: NodeFieldRawBlueprint end
 
 """
 Expand into a subclass field from mapped values.
 """
-abstract type SparseNodeFieldMapBlueprint <: NodeFieldMapBlueprint end
+abstract type SubnodeFieldMapBlueprint <: NodeFieldMapBlueprint end
 
 """
 Expand into a subclass field from a single value.
 """
-abstract type SparseNodeFieldFlatBlueprint <: NodeFieldFlatBlueprint end
+abstract type SubnodeFieldFlatBlueprint <: NodeFieldFlatBlueprint end
 
 """
 Typical setup for a componing bringing a new field to a network *sub*class,
@@ -20,9 +20,9 @@ with a `sparse` logic.
 It gets its own blueprints types, but substantial parts of their behaviour
 is inherited from the regular abstract functions for root node fields.
 """
-function define_sparse_node_field_component(
+function define_subnode_field_component(
     mod::Module,
-    d::SparseNodeField;
+    d::SubnodeField;
     blueprints = [],
     requires = [],
 )
@@ -54,7 +54,7 @@ function define_sparse_node_field_component(
     #---------------------------------------------------------------------------------------
     # From raw values: one per node in the subclass (=dense).
     bpmod.eval(quote
-        mutable struct Raw <: NF.SparseNodeFieldRawBlueprint
+        mutable struct Raw <: NF.SubnodeFieldRawBlueprint
             $field::Vector{$T}
             Raw($field) = new(NF.construct(d, Raw, $field))
         end
@@ -70,7 +70,7 @@ function define_sparse_node_field_component(
     # From a node-indexed map.
 
     bpmod.eval(quote
-        mutable struct Map <: NF.SparseNodeFieldMapBlueprint
+        mutable struct Map <: NF.SubnodeFieldMapBlueprint
             $field::NF.Map{$T}
             Map($field) = new(NF.construct(d, Map, $field))
         end
@@ -87,7 +87,7 @@ function define_sparse_node_field_component(
     if may_flat(d)
         bpmod.eval(
             quote
-                mutable struct Flat <: NF.SparseNodeFieldFlatBlueprint
+                mutable struct Flat <: NF.SubnodeFieldFlatBlueprint
                     $field::$T
                     Flat($field) = new(NF.construct(d, Flat, $field))
                 end
@@ -169,7 +169,7 @@ end
 # Only redefine parts that do not already work with regular NodeField.
 
 # No need to bring the class (yet).
-function construct(d::SparseNodeField, Field::Component, input)
+function construct(d::SubnodeField, Field::Component, input)
     T = D.type(d)
     tries = []
     if may_flat(d)
@@ -181,7 +181,7 @@ function construct(d::SparseNodeField, Field::Component, input)
 end
 
 # Display it sparse within its parent class.
-function nodes_shortline(io::IO, model::Model, d::SparseNodeField)
+function nodes_shortline(io::IO, model::Model, d::SubnodeField)
     T = D.type(d)
     c, f, p = D.content(d)
     Field = D.CamelCaseSingular(d)
@@ -198,9 +198,9 @@ end
 
 # Check index references against *parent* class.
 function late_check(
-    d::SparseNodeField,
+    d::SubnodeField,
     model::Model,
-    ::SparseNodeFieldMapBlueprint,
+    ::SubnodeFieldMapBlueprint,
     map::Map{<:Any,Int},
 )
     # Check indices first.

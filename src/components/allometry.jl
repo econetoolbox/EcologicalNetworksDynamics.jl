@@ -210,7 +210,7 @@ function expand!(d::NodeField, model::Model, al::Allometry; kwargs...)
 end
 
 # Expand for sparse nodes.
-function expand!(d::SparseNodeField, model::Model, al::Allometry; kwargs...)
+function expand!(d::SubnodeField, model::Model, al::Allometry; kwargs...)
     n = N.network(model)
     c = D.class(d)
     class = N.class(n, c)

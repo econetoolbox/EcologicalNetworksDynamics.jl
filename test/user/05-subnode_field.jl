@@ -1,22 +1,22 @@
 """
-Test all aspects of typical SparseNodeField component,
+Test all aspects of typical SubnodeField component,
 using producer Growth as an example but without testing anything specific to Growth.
 Anything specific to Growth will be tested in a dedicated file.
 """
-module SparseNodeFieldTest
+module SubnodeFieldTest
 
 using EcologicalNetworksDynamics
 using SparseArrays
 
 using Test
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, N, F, Views, SparseNodeField, Map
+import EcologicalNetworksDynamics: EN, N, F, Views, SubnodeField, Map
 import Main:
     is_disp, is_repr, @argfails, @writefails, @inputfails, @viewfails, @sysfails, Value
 const View = # Tested viewtype.
-    Views.SparseNodesDataView{SparseNodeField(:producers, :growth, :species),Float64}
+    Views.SubnodesDataView{SubnodeField(:producers, :growth, :species),Float64}
 
-@testset "Typical SparseNodeField component" begin
+@testset "Typical SubnodeField component" begin
 
     @test GrowthRate isa EN.Component
     @test is_repr(GrowthRate, "GrowthRate")
@@ -66,7 +66,7 @@ const View = # Tested viewtype.
     @test is_disp(
         v,
         """
-        SparseNodesDataView<species:producers:growth>{Float64} (2/4 values)
+        SubnodesDataView<species:producers:growth>{Float64} (2/4 values)
          ·
          5.0
          ·

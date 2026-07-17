@@ -68,7 +68,7 @@ using .D:
     EdgeWeb,
     GraphField,
     NodeField,
-    SparseNodeField,
+    SubnodeField,
     AbstractNodeField,
     EdgeField,
     AbstractField

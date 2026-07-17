@@ -4,7 +4,7 @@ function inline_info(v::NodesDataView)
     "<$class:$field>"
 end
 
-function inline_info(v::SparseNodesDataView)
+function inline_info(v::SubnodesDataView)
     class = D.class(v)
     parent = D.parent(v)
     parent = isnothing(parent) ? ":" : parent
@@ -30,10 +30,10 @@ function display_info(v::NodesDataView)
     "NodesDataView$info{$T}"
 end
 
-function display_info(v::SparseNodesDataView)
+function display_info(v::SubnodesDataView)
     T = eltype(v)
     info = inline_info(v)
-    "SparseNodesDataView$info{$T}"
+    "SubnodesDataView$info{$T}"
 end
 
 function display_info(v::NodesNamesView)
@@ -49,7 +49,7 @@ function display_info(v::NodesMaskView)
 end
 
 type_info(::Type{<:NodesDataView}) = "nodes"
-type_info(::Type{<:SparseNodesDataView}) = "sparse nodes"
+type_info(::Type{<:SubnodesDataView}) = "sub-nodes"
 type_info(::Type{<:NodesNamesView}) = "nodes names"
 type_info(::Type{<:NodesMaskView}) = "nodes mask"
 
@@ -67,7 +67,7 @@ function Base.show(io::IO, v::NodesDataView)
     print(io, ']')
 end
 
-function Base.show(io::IO, v::SparseNodesDataView)
+function Base.show(io::IO, v::SubnodesDataView)
     print(io, inline_info(v))
     print(io, '[')
     n = length(v)
@@ -133,7 +133,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodesDataView)
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::SparseNodesDataView)
+function Base.show(io::IO, ::MIME"text/plain", v::SubnodesDataView)
     print(io, display_info(v))
     mask = N.mask(N.network(v), D.class(v), D.parent(v))
     n, _ = ns(length(v))

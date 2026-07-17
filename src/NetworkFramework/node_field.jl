@@ -1,5 +1,5 @@
 # This abstracts over both subclass/sparse and root/dense fields,
-# but any code easily moved to `sparse_nodes.jl` lives there.
+# but any code easily moved to `subnode_field.jl` lives there.
 
 """
 Raise to produce a 'Flat' blueprint
