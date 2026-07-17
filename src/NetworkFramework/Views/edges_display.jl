@@ -31,15 +31,16 @@ type_info(::Type{<:EdgesMaskView}) = "edges mask"
 function Base.show(io::IO, v::EdgesDataView)
     print(io, inline_info(v))
     raw = N.entry(v)
-    l, (m, n) = length(v), size(v)
+    l, (m, n) = N.n_edges(v), size(v)
     if l == 0
         print(io, "($m×$n: no values)")
     elseif l == 1
         (x,) = read(identity, raw)
         print(io, "($m×$n: 1 value: $x)")
     else
-        min, max = read(minmax, raw)
-        print(io, "($m×$n: $l values ranging from $min to $max)")
+        min, max = read(extrema, raw)
+        range = min == max ? "($min)" : "ranging from $min to $max"
+        print(io, "($m×$n: $l values $range)")
     end
 end
 
@@ -59,7 +60,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", v::EdgesDataView)
     print(io, display_info(v))
-    l, (m, n) = length(v), size(v)
+    l, (m, n) = N.n_edges(v), size(v)
     l, s = ns(l)
     top = N.topology(v)
     print(io, " ($m×$n: $l value$s)")

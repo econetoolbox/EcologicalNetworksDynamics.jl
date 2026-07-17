@@ -70,6 +70,7 @@ using .D:
     NodeField,
     SparseNodeField,
     AbstractNodeField,
+    EdgeField,
     AbstractField
 using .V: extract
 export Model, extract

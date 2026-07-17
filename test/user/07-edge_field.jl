@@ -11,8 +11,9 @@ using SparseArrays
 
 # Additional imports only used here for testing purpose.
 using Test
-using EcologicalNetworksDynamics: EN, N, F, NF, SparseMatrix, Adjacency
+using EcologicalNetworksDynamics: EN, N, F, NF, V, EdgeField, SparseMatrix, Adjacency
 import Main: is_repr, is_disp, Value, @inputfails, @sysfails
+const View = V.EdgesDataView{EdgeField(:trophic, :efficiency),Float64} # Tested viewtype.
 
 @testset "Typical EdgeWeb component" begin
 
@@ -477,6 +478,41 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         .5  0 .5  0
     ]
     #! format: on
+
+    # ======================================================================================
+    # Views.
+
+    # Cannot access without the data.
+    @sysfails(
+        Model().efficiency,
+        Property(
+            efficiency,
+            "Component $(EN._Efficiency) is required to read this property.",
+        )
+    )
+
+    # Regular access.
+    m = base + Efficiency(mat)
+    v = m.efficiency
+    @test v isa View
+    @test v isa AbstractMatrix{Float64}
+    @test is_repr(v, "<trophic:efficiency>(4×4: 4 values ranging from 0.1 to 0.4)")
+    @test is_disp(
+        v,
+        """
+        EdgesDataView<trophic:efficiency>{Float64} (4×4: 4 values)
+           · 0.2   · ·
+           ·   · 0.3 ·
+           ·   ·   · ·
+         0.1   · 0.4 ·\
+         """,
+    )
+
+    # Basic matrix-like interface.
+    # HERE: we need an extra view type to correctly feature sparsity behaviour.
+    # But first distinguish 'sparse' = result from nodes being nodes in a subclass
+    # from 'sparse' = web with a sparse topology.
+    @test v == collect(v)
 
 end
 

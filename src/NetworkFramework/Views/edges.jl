@@ -25,9 +25,11 @@ Base.setindex!(s::S, x, i, j) = setindex!(N.view(s), x, check_refs(s, i, j))
 Base.setindex!(s::S, _) = erredgesdim(s, ())
 Base.setindex!(s::S, _, i::Ref) = erredgesdim(s, (i,))
 Base.setindex!(s::S, _, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
-extract(s::S; kw...) = N.to_sparse(N.view(s), kw...)
+extract(s::S; kw...) =
+    D.is_sparse(dispatcher(s)) ? N.to_sparse(N.view(s); kw...) :
+    N.to_dense(N.view(s); kw...)
 
-# TODO: do we need an SparseEdgesView? Maybe refactor components first to figure this.
+# TODO: do we need a SparseEdgesView? Maybe refactor components first to figure this.
 
 # ==========================================================================================
 # Topology mask.
@@ -74,6 +76,7 @@ N.target(s::S) = N.class(N.network(s), D.target(s))
 N.source_index(s::S) = N.source_index(N.network(s), D.web(s))
 N.target_index(s::S) = N.target_index(N.network(s), D.web(s))
 Base.size(s::S) = s |> N.web |> size
+N.n_edges(s::S) = s |> N.topology |> N.n_edges
 Base.getindex(s::S) = erredgesdim(s, ())
 Base.getindex(s::S, i::Ref) = erredgesdim(s, (i,))
 Base.getindex(s::S, i::Ref, j::Ref, k::Ref, l::Ref...) = erredgesdim(s, (i, j, k, l...))
