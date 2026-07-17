@@ -132,6 +132,7 @@ function define_reflexive_web_field_component(
             quote
                 mutable struct Flat <: NF.EdgeFieldFlatBlueprint
                     $short::T
+                    Flat($short) = new(NF.construct(d, Flat, $short))
                 end
                 NF.data(bp::Flat) = bp.$short
                 F.early_check(bp::Flat) = NF.early_check(d, bp)
@@ -349,6 +350,18 @@ function construct(d::EdgeField, ::Type{<:EdgeFieldAdjacencyBlueprint}, raw)
     end
 end
 
+# From flat scalar.
+function construct(d::EdgeField, ::Type{<:EdgeFieldFlatBlueprint}, flat)
+    T = D.type(d)
+    try
+        val = inputconvert(T, flat)
+        check(d, val)
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When constructing $d from a flat value")
+    end
+end
+
 function construct(d::EdgeField, Field::Component, input; _...)
     parsed = parse(d, input)
     construct_from_parsed(d, Field, parsed)
@@ -358,6 +371,7 @@ construct_from_parsed(::EdgeField, Field::Component, raw::Vector) = Field.Raw(ra
 construct_from_parsed(::EdgeField, Field::Component, raw::AbstractMatrix) =
     Field.Matrix(raw)
 construct_from_parsed(::EdgeField, Field::Component, raw::Adjacency) = Field.Adjacency(raw)
+construct_from_parsed(::EdgeField, Field::Component, scalar) = Field.Flat(scalar)
 
 function parse(d::EdgeField, input)
     T = D.type(d)
@@ -606,6 +620,9 @@ function late_check(
     throw("TODO")
 end
 
+# Flat, default.
+late_check(d::EdgeField, model::Model, value) = check(d, model, value)
+
 #-------------------------------------------------------------------------------------------
 # Implied web blueprint.
 
@@ -629,13 +646,21 @@ end
 #-------------------------------------------------------------------------------------------
 # Expand.
 
+# These provide the same `late_data` after late checking (= the raw vector).
 expand!(
     d::EdgeField,
     model::Model,
-    # These provide the same `late_data` after late checking (= a raw vector).
     ::Union{EdgeFieldRawBlueprint,EdgeFieldMatrixBlueprint,EdgeFieldAdjacencyBlueprint},
     late_data::Vector,
 ) = expand!(d, model, late_data)
+
+# Flat: expand the raw vector.
+function expand!(d::EdgeField, model::Model, ::EdgeFieldFlatBlueprint, value)
+    network = NF.network(model)
+    top = N.web(network, D.web(d)).topology
+    raw = fill(value, N.n_edges(top))
+    expand!(d, model, raw)
+end
 
 function expand!(d::EdgeField, model::Model, data::Vector)
     network = NF.network(model)

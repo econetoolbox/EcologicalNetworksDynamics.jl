@@ -40,6 +40,7 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
 
     #---------------------------------------------------------------------------------------
     # Construct, regardless of input type.
+
     bp = Efficiency.Raw([2, 5, 8, 4] / 10)
     @test Efficiency.Raw(Bool[1, 0, 1, 0]) == Efficiency.Raw([1.0, 0.0, 1.0, 0.0])
     @test bp == Efficiency([2, 5, 8, 4] / 10) # Implicit constructor.
@@ -415,7 +416,68 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         end
     end
 
-    # TODO: test flat blueprint.
+    # ======================================================================================
+    # Flat blueprint.
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
+
+    bp = Efficiency.Flat(0.5)
+    @test Efficiency.Flat(true) == Efficiency.Flat(1.0) # Input conversion.
+    @test bp == Efficiency(0.5) # Implicit constructor.
+    @test Efficiency(true) == Efficiency(1.0)
+    @test is_repr(bp, "<Efficiency>:Flat(e: 0.5)")
+    @test is_disp(
+        bp,
+        "blueprint for <Efficiency>: Flat {\n  \
+           e: 0.5,\n\
+         }",
+    )
+
+    @inputfails(
+        Efficiency(5),
+        "When constructing <trophic:efficiency> from a flat value:\n\
+         Value must belong to [0, 1].",
+        5.0
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
+    @sysfails(
+        let
+            b = deepcopy(bp)
+            b.e = 5
+            base + b
+        end,
+        Check(
+            early,
+            [Efficiency.Flat],
+            """
+            When checking <trophic:efficiency> blueprint data:
+            Value must belong to [0, 1].
+            Received: 5.0\
+            """,
+        ),
+    )
+
+    #---------------------------------------------------------------------------------------
+    # Late check.
+    # <no example to be tested yet>
+
+    #---------------------------------------------------------------------------------------
+    # Expand.
+
+    m = base + bp
+    #! format: off
+    @test extract(m.efficiency) == [
+         0 .5  0  0
+         0  0 .5  0
+         0  0  0  0
+        .5  0 .5  0
+    ]
+    #! format: on
+
 end
 
 end

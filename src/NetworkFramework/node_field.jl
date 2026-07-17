@@ -293,7 +293,8 @@ end
 function construct(d::AbstractNodeField, ::Type{<:NodeFieldFlatBlueprint}, flat)
     T = D.type(d)
     try
-        inputconvert(T, flat)
+        val = inputconvert(T, flat)
+        check(d, val)
     catch e
         e isa F.InputError || rethrow(e)
         with_context!(e, "When constructing $d from a flat value")
