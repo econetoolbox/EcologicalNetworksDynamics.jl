@@ -30,7 +30,7 @@ export @inputfails
 
 function TestFailures.check_exception(e::Views.Error, type, message_pattern)
     e.type == type ||
-        error("Expected error for view type '$type', got '$(e.type)' instead.")
+        error("Error type mismatch for view type (expected/actual):\n  $type\n  $(e.type)")
     TestFailures.check_message(message_pattern, e.mess)
 end
 macro viewfails(xp, type, mess)
@@ -59,13 +59,13 @@ function TestFailures.check_exception(
     TestFailures.check_message(message_pattern, e.message)
 end
 macro writefails(xp, expected, mess)
-    @capture(expected, fieldname_[index_] = value_)
+    @capture(expected, fieldname_[index__] = value_)
     fieldname = Meta.quot(fieldname)
     TestFailures.failswith(
         __source__,
         __module__,
         xp,
-        :($(Views.WriteError) => ($fieldname, $index, $value, $mess)),
+        :($(Views.WriteError) => ($fieldname, ($(index...),), $value, $mess)),
         false,
     )
 end

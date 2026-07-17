@@ -113,6 +113,25 @@ check_ref(s::S, x::Any) = err(
      Cannot index with: $(repr(x)) ::$(typeof(x)).",
 )
 
+"""
+Generic checking logic, assuming checked ref(s),
+delegating to the `mutate_check` function later defined with typical node data components.
+"""
+check_write(s::S, x, ref...) =
+    if D.readonly(s)
+        err(s, "Values of $(repr(D.field(s))) are readonly.")
+    else
+        x = try
+            d = dispatcher(s)
+            m = NF.model(s)
+            NF.mutate_check(d, m, x, ref...)
+        catch e
+            e isa F.InputError || rethrow(e)
+            rethrow(V.WriteError(F.message(e), D.field(s), ref, x))
+        end
+        x
+    end
+
 # ==========================================================================================
 # Dedicated view exception.
 

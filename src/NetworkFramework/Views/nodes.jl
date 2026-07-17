@@ -1,8 +1,3 @@
-(false) && begin # (fix JuliaLS missing refs)
-    using EcologicalNetworksDynamics.Networks
-    using EcologicalNetworksDynamics.Framework
-end
-
 # ==========================================================================================
 # Data views.
 
@@ -14,7 +9,6 @@ struct NodesDataView{d,T} <: AbstractVector{T}
     model::Model
     view::N.NodesView{T}
 end
-export NodesDataView
 function data_view(m::Model, d::D.NodeField)
     (class, fieldname) = D.content(d)
     n = NF.network(m)
@@ -22,7 +16,6 @@ function data_view(m::Model, d::D.NodeField)
     T = eltype(view)
     NodesDataView{d,T}(m, view)
 end
-export data_view
 S = NodesDataView
 N.restriction(s::S) = N.class(s).restriction
 Base.size(s::S) = (s |> N.view |> length,)
@@ -46,7 +39,6 @@ struct SubnodesDataView{d,T} <: AbstractSparseVector{T,Int}
     model::Model
     view::N.NodesView{T}
 end
-export SubnodesDataView
 function data_view(m::Model, d::D.SubnodeField)
     (class, fieldname, _) = D.content(d)
     n = NF.network(m)
@@ -173,17 +165,17 @@ Base.setindex!(s::S, _) = errnodesdim(s, ())
 Base.setindex!(s::S, _, i, j, k...) = errnodesdim(s, (i, j, k...))
 
 """
-Generic checking logic, assuming checked ref,
+Generic checking logic, assuming checked ref(s),
 delegating to the `mutate_check` function later defined with typical node data components.
 """
-check_write(s::S, x, ref) =
+check_write(s::S, x, ref...) =
     if D.readonly(s)
         err(s, "Values of $(repr(D.field(s))) are readonly.")
     else
         x = try
             d = dispatcher(s)
             m = NF.model(s)
-            NF.mutate_check(d, m, x, ref)
+            NF.mutate_check(d, m, x, ref...)
         catch e
             e isa F.InputError || rethrow(e)
             rethrow(V.WriteError(F.message(e), D.field(s), ref, x))
@@ -211,7 +203,6 @@ struct NodesNamesView{d} <: AbstractVector{Symbol}
     model::Model
     index::N.Index # Cache an underlying class index alias.
 end
-export NodesNamesView
 function names_view(m::Model, d::D.NodeClass)
     n = NF.network(m)
     class = D.class(d)
@@ -225,7 +216,6 @@ Base.getindex(s::S, i::Int) = N.to_label(s, check_ref(s, i))
 Base.getindex(s::S, l::Symbol) = check_ref(s, l) # (not exactly useful but consistent)
 Base.setindex!(s::S, _...) =
     err(s, "Cannot change :$(D.class(s)) nodes names after they have been set.")
-export names_view
 extract(s::S) = copy(N.index(s).reverse)
 
 #-------------------------------------------------------------------------------------------
@@ -237,14 +227,12 @@ struct NodesMaskView{d} <: AbstractVector{Bool}
     model::Model
     restriction::N.Restriction
 end
-export NodesMaskView
 function mask_view(m::Model, d::D.NodeMask)
     (class, parent) = D.content(d)
     n = NF.network(m)
     r = N.restriction(n, class, parent)
     NodesMaskView{d}(m, r)
 end
-export mask_view
 S = NodesMaskView
 D.parent(s::S) = D.parent(dispatcher(s))
 N.parent(s::S) = N.class(N.network(s), D.parent(s))

@@ -12,8 +12,10 @@ using SparseArrays
 # Additional imports only used here for testing purpose.
 using Test
 using EcologicalNetworksDynamics: EN, N, F, NF, V, EdgeField, SparseMatrix, Adjacency
-import Main: is_repr, is_disp, Value, @inputfails, @sysfails
-const View = V.EdgesDataView{EdgeField(:trophic, :efficiency),Float64} # Tested viewtype.
+import Main: is_repr, is_disp, Value, @inputfails, @sysfails, @viewfails
+const View = V.SparseEdgesDataView{EdgeField(:trophic, :efficiency),Float64}
+
+# TODO: test for dense constructs when such a component shows up.
 
 @testset "Typical EdgeWeb component" begin
 
@@ -135,7 +137,6 @@ const View = V.EdgesDataView{EdgeField(:trophic, :efficiency),Float64} # Tested 
 
     #---------------------------------------------------------------------------------------
     # Construct from a matrix (sparse in this example).
-    # TODO: test for dense constructs when such a component shows up.
 
     mat = sparse([
         0 2 0 0
@@ -491,7 +492,9 @@ const View = V.EdgesDataView{EdgeField(:trophic, :efficiency),Float64} # Tested 
         )
     )
 
-    # Regular access.
+    #---------------------------------------------------------------------------------------
+    # Read.
+
     m = base + Efficiency(mat)
     v = m.efficiency
     @test v isa View
@@ -509,10 +512,92 @@ const View = V.EdgesDataView{EdgeField(:trophic, :efficiency),Float64} # Tested 
     )
 
     # Basic matrix-like interface.
-    # HERE: we need an extra view type to correctly feature sparsity behaviour.
-    # But first distinguish 'sparse' = result from nodes being nodes in a subclass
-    # from 'sparse' = web with a sparse topology.
-    # @test v == collect(v)
+    @test v == collect(v) == mat == [i for i in v]
+
+    # Extract as a regular sparse matrix.
+    e = extract(v)
+    @test e isa SparseMatrix{Float64}
+    @test e == v
+
+    # "same-type-value"
+    function stv(exp, act)
+        @test typeof(exp) == typeof(act)
+        @test exp == act
+    end
+
+    # Index with either integers or labels.
+    stv(v[4, 1], 0.1)
+    stv(v[1, 1], 0.0) # Obtain null values off-web.
+    stv(v[:a, :b], 0.2)
+    stv(v[:b, 3], 0.3)
+    stv(v[4, :c], 0.4)
+    stv(v[1:2, 3], sparse([0, 0.3]))
+    stv(v[1, 1:2], sparse([0, 0.2]))
+    stv(v[1:2, 2:3], sparse([0.2 0; 0 0.3]))
+    stv(v[2:(end-1), 3], sparse([0.3, 0]))
+    stv(v[2, 2:(end-1)], sparse([0, 0.3]))
+    stv(v[2:(end-1), 2:(end-1)], sparse([0 0.3; 0 0]))
+
+
+    @viewfails(v[], View, "Two indices are required to index into webs. Received 0: [].")
+    for single in (nothing, 1, :a)
+        @viewfails(
+            v[single],
+            View,
+            "Two indices are required to index into webs. Received 1: [$(repr(single))]."
+        )
+    end
+    @viewfails(
+        v[1, 2, 3],
+        View,
+        "Two indices are required to index into webs. Received 3: [1, 2, 3]."
+    )
+    for wrong in (0, 5)
+        @viewfails(
+            v[wrong, 2],
+            View,
+            "Cannot index with [$wrong, ·] into a :trophic web with 4 species source nodes."
+        )
+        @viewfails(
+            v[2, wrong],
+            View,
+            "Cannot index with [·, $wrong] into a :trophic web with 4 species target nodes."
+        )
+    end
+    @viewfails(
+        v[:x, 2],
+        View,
+        "Cannot index with [:x, ·] into this :trophic web \
+         because :x is not a node label in source class :species."
+    )
+    @viewfails(
+        v[2, :x],
+        View,
+        "Cannot index with [·, :x] into this :trophic web \
+         because :x is not a node label in target class :species."
+    )
+    for invalid in [() -> v[nothing, 1], () -> v[1, nothing]]
+        @viewfails(
+            invalid(),
+            View,
+            "Views are indexed with indices (::Int) or labels (::Symbol). \
+             Cannot index with: nothing ::Nothing."
+        )
+    end
+
+    #---------------------------------------------------------------------------------------
+    # Write.
+
+    w = m.efficiency # Alternate view to the same model.
+    alt = copy(m) # Forked model.
+    a = alt.efficiency # Alternate view to the forked model.
+    @test a == w == mat
+
+    # Mutate, invoking COW.
+    #  v[1, 2] += .7 # HERE: make it work.
+
+    # TODO: once all tests pass here, do cleanup view indexing code,
+    # could be much more compact with check_ref, to_index, _is_edge etc.
 
 end
 

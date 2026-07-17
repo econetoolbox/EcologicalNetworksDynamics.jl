@@ -98,7 +98,13 @@ const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
 
     # Wrong access.
     @viewfails(v[], View, "Two indices are required to index into webs. Received 0: [].")
-    @viewfails(v[2], View, "Two indices are required to index into webs. Received 1: [2].")
+    for single in (nothing, 2, :b)
+        @viewfails(
+            v[single],
+            View,
+            "Two indices are required to index into webs. Received 1: [$(repr(single))]."
+        )
+    end
     @viewfails(
         v[0, 1],
         View,
@@ -107,16 +113,16 @@ const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
     @viewfails(
         v[:x, :b],
         View,
-        "Cannot index with [:x, ·] into a :trophic web \
+        "Cannot index with [:x, ·] into this :trophic web \
          because :x is not a node label in source class :species."
     )
     @viewfails(
         v[:a, :y],
         View,
-        "Cannot index with [·, :y] into a :trophic web \
+        "Cannot index with [·, :y] into this :trophic web \
          because :y is not a node label in target class :species."
     )
-    for index in (() -> v[nothing], () -> v[nothing, 1], () -> v[1, nothing])
+    for index in (() -> v[nothing, 1], () -> v[1, nothing])
         @viewfails(
             index(),
             View,

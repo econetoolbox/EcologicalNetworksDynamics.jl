@@ -670,6 +670,22 @@ function expand!(d::EdgeField, model::Model, data::Vector)
 end
 
 #-------------------------------------------------------------------------------------------
+# Mutation: called when setting through a view.
+# Input may be anything,
+# but the underlying model value and the reference can be assumed to be correct.
+
+# HERE: this is very much like the node field one except for two indices instead of one.
+# Maybe it is a good opportunity to harmonize all indices handling/checking
+# from the views up to here?
+mutate_check(d::EdgeField, model::Model, value, ref) =
+    try
+        check_with_ref(d, WholeCheck(model), value, ref)
+    catch e
+        e isa F.InputError || rethrow(e)
+        with_context!(e, "When attempting to mutate $d node field")
+    end
+
+#-------------------------------------------------------------------------------------------
 # Display.
 
 function edges_shortline(io::IO, model::Model, d::EdgeField)

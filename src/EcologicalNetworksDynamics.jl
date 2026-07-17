@@ -11,6 +11,8 @@ const I = Iterators
 const Option{T} = Union{T,Nothing}
 const SparseMatrix{T} = SparseMatrixCSC{T,Int}
 
+# TODO: drop all internal 'export' statements and harmonize all namespacing shenanigans.
+
 #-------------------------------------------------------------------------------------------
 # Common utils.
 
