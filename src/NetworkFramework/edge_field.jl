@@ -69,7 +69,7 @@ function define_reflexive_web_field_component(
         F.early_check(bp::Raw) = NF.early_check(d, bp)
         F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
         F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
-        NF.define_blueprint(Raw, "raw values")
+        NF.define_blueprint(Raw, "raw values"; depends = [Web])
         export Raw
     end)
 
@@ -85,11 +85,16 @@ function define_reflexive_web_field_component(
                 Matrix($short) = new(NF.construct(d, Matrix, $short))
             end
             NF.data(bp::Matrix) = bp.$short
+            F.implied(bp::Matrix) = (Web,)
             F.implied_blueprint_for(bp::Matrix, ::Type{_Web}) = NF.implied_web(d, Web, bp)
             F.early_check(bp::Matrix) = NF.early_check(d, bp)
             F.late_check(model, bp::Matrix, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Matrix, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Matrix, $"a $(sparse ? "sparse " : "")matrix")
+            NF.define_blueprint(
+                Matrix,
+                $"a $(sparse ? "sparse " : "")matrix";
+                depends = [Web],
+            )
             export Matrix
         end,
     )
@@ -104,12 +109,17 @@ function define_reflexive_web_field_component(
                 Adjacency($short) = new(NF.construct(d, Adjacency, $short))
             end
             NF.data(bp::Adjacency) = bp.$short
+            F.implied(bp::Adjacency) = (Web,)
             F.implied_blueprint_for(bp::Adjacency, ::Type{_Web}) =
                 NF.implied_web(d, Web, bp)
             F.early_check(bp::Adjacency) = NF.early_check(d, bp)
             F.late_check(model, bp::Adjacency, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Adjacency, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Adjacency, $"[$src => [$tgt => $field]] adjacency list")
+            NF.define_blueprint(
+                Adjacency,
+                $"[$src => [$tgt => $field]] adjacency list";
+                depends = [Web],
+            )
             export Adjacency
         end,
     )
@@ -594,6 +604,26 @@ function late_check(
     (mat, sources, targets)::Tuple{Matrix,Dict,Dict},
 )
     throw("TODO")
+end
+
+#-------------------------------------------------------------------------------------------
+# Implied web blueprint.
+
+function implied_web(::EdgeField, Web, bp::EdgeFieldMatrixBlueprint)
+    mat = data(bp)
+    m, n = size(mat)
+    mask = spzeros(Bool, (m, n))
+    is, js, _ = findnz(mat)
+    for (i, j) in zip(is, js)
+        mask[i, j] = true
+    end
+    Web.Matrix(mask)
+end
+
+function implied_web(::EdgeField, Web, bp::EdgeFieldAdjacencyBlueprint)
+    adj = data(bp)
+    mask = NF.parse(BinAdjacency, adj)
+    Web.Adjacency(mask)
 end
 
 #-------------------------------------------------------------------------------------------

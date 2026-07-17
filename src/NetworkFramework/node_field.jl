@@ -37,7 +37,7 @@ function define_node_field_component(
 
     #---------------------------------------------------------------------------------------
     # Extract particular information for this (class, field) pair.
-    nc = NodeClass(d)
+    nc = D.NodeClass(d)
     Class = D.CamelCaseSingular(nc)
     class, field = D.content(d)
     value, values, Value, Values, short = D.name_variants(d)
@@ -55,7 +55,8 @@ function define_node_field_component(
         quote
             module $Value_
             import EcologicalNetworksDynamics: F, NF, D
-            const Class = $mod.$Class
+            const nc = $nc
+            const Class = D.component(nc)
             const _Class = typeof(Class)
             const d = $d
             const T = $T
@@ -78,7 +79,7 @@ function define_node_field_component(
             F.early_check(bp::Raw) = NF.early_check(d, bp)
             F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Raw, "raw values")
+            NF.define_blueprint(Raw, "raw values"; depends = [Class])
             export Raw
         end,
     )
@@ -99,7 +100,7 @@ function define_node_field_component(
             F.early_check(bp::Map) = NF.early_check(d, bp)
             F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Map, $"[$class => $field] map")
+            NF.define_blueprint(Map, $"[$class => $field] map"; depends = [Class])
             export Map
         end,
     )

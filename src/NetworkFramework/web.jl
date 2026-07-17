@@ -91,7 +91,7 @@ function define_reflexive_web_component(mod::Module, d::EdgeWeb)
     end)
     C = typeof(comp)
     mod.eval(quote
-        $D.component(::$DT) = $C
+        $D.component(::$DT) = $comp
         (::$_Web)(args...; kwargs...) = NF.construct($d, $Web, args...; kwargs...)
     end)
 

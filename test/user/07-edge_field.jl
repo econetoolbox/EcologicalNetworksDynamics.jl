@@ -11,7 +11,7 @@ using SparseArrays
 
 # Additional imports only used here for testing purpose.
 using Test
-using EcologicalNetworksDynamics: EN, N, F, SparseMatrix, Adjacency
+using EcologicalNetworksDynamics: EN, N, F, NF, SparseMatrix, Adjacency
 import Main: is_repr, is_disp, Value, @inputfails, @sysfails
 
 @testset "Typical EdgeWeb component" begin
@@ -236,8 +236,15 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
         1 0 4 0
     ] / 10)
 
-    # The matrix structure implies the underlying web.
-    #  m = Model(bp) # XXX test that (↑)
+    # The sole matrix structure implies the underlying web, which also implies the class.
+    m = Model(bp)
+    @test m.foodweb.A == [
+        0 1 0 0
+        0 0 1 0
+        0 0 0 0
+        1 0 1 0
+    ]
+    @test m.species.names == [:s1, :s2, :s3, :s4]
 
     # ======================================================================================
     # Adjacency blueprint.
@@ -393,8 +400,22 @@ import Main: is_repr, is_disp, Value, @inputfails, @sysfails
             0 0 0 0
             1 0 4 0
         ] / 10)
+        # The underlying web and nodes can be implied from the lists.
+        m = Model(bp)
+        @test m.foodweb.A == [
+            0 1 0 0
+            0 0 1 0
+            0 0 0 0
+            1 0 1 0
+        ]
+        @test m.species.names == if NF.reftype(bp.e) === Symbol
+            [:a, :b, :c, :d]
+        else
+            [:s1, :s2, :s3, :s4]
+        end
     end
 
+    # TODO: test flat blueprint.
 end
 
 end

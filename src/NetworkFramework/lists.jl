@@ -896,17 +896,21 @@ inputconvert(::Type{Adjacency{T}}, i::Adjacency{T,<:Ref}) where {T} = i
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.
-function parse(::Type{BinMap}, input::Map{R}) where {R}
+
+function parse(::Type{BinMap}, input::Map)
+    R = reftype(input)
     res = BinMap{R}()
     for (k, _) in input
         push!(res, k)
     end
     res
 end
-function parse(::Type{BinAdjacency{<:Any}}, input::Adjacency{R}) where {R}
+
+function parse(::Type{BinAdjacency}, input::Adjacency)
+    R = reftype(input)
     res = BinAdjacency{R}()
     for (i, sub) in input
-        res[i] = inputconvert(BinMap, sub)
+        res[i] = parse(BinMap, sub)
     end
     res
 end
