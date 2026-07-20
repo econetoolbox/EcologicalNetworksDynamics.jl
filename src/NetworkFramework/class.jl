@@ -12,7 +12,7 @@ abstract type ClassNumberBlueprint <: Blueprint end
 """
 Typical setup for a component bringing a new class to the network.
 """
-function define_class_component(mod::Module, d::NodeClass)
+function define_class_component(mod::Module, d::D.Class)
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
     Plural_ = Symbol(Plural, :_) # Blueprints module name.
     _Plural = Symbol(:_, Plural) # Component type name.
@@ -94,7 +94,7 @@ end
 
 # ==========================================================================================
 
-function define_class_properties(mod::Module, d::NodeClass; depends = [])
+function define_class_properties(mod::Module, d::D.Class; depends = [])
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
 
     NF.define_propspace(plural)
@@ -123,13 +123,13 @@ function define_class_properties(mod::Module, d::NodeClass; depends = [])
                 # The 'ref' variant is more efficient but unexposed.
                 get_number(n::Network) = N.n_nodes(n, c)
                 ref_names(n::Network) = ref_index(n).reverse
-                get_names(::Network, m::Model) = V.names_view(m, d)
+                get_names(::Network, m::Model) = V.names_view(d, m)
 
                 # Mask within parent class.
                 get_parent_index(n::Network) =
                     OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
                 mask(n::Network, m::Model) =
-                    V.mask_view(m, D.NodeMask(c, N.class(n, c).parent))
+                    V.mask_view(D.NodeSubclass(c, N.class(n, c).parent), m)
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)
@@ -149,7 +149,7 @@ end
 # Extract implementation detail to ease Revise work.
 
 # Forbid duplicates (triangular check).
-function early_check(d::NodeClass, bp::ClassNamesBlueprint)
+function early_check(d::D.Class, bp::ClassNamesBlueprint)
     (; names) = bp
     Class = D.CamelCaseSingular(d)
     already = OrderedDict{Symbol,Int}() # {name: index}
@@ -164,23 +164,23 @@ function early_check(d::NodeClass, bp::ClassNamesBlueprint)
 end
 
 # Forbid negative number of nodes.
-function early_check(d::NodeClass, bp::ClassNumberBlueprint)
+function early_check(d::D.Class, bp::ClassNumberBlueprint)
     (; n) = bp
     class = D.snake_case_plural(d)
     n >= 0 || checkerr(n, "Cannot construct a negative number of $class.")
 end
 
-expand!(d::NodeClass, model::Model, bp::ClassNamesBlueprint) = expand!(d, model, bp.names)
-expand!(d::NodeClass, model::Model, bp::ClassNumberBlueprint) =
+expand!(d::D.Class, model::Model, bp::ClassNamesBlueprint) = expand!(d, model, bp.names)
+expand!(d::D.Class, model::Model, bp::ClassNumberBlueprint) =
     expand!(d, model, (Symbol(D.short_prefix(d), i) for i in 1:bp.n))
-function expand!(d::NodeClass, model::Model, names)
+function expand!(d::D.Class, model::Model, names)
     class = D.class(d)
     network = NF.network(model)
     N.add_class!(network, class, names)
 end
 
 # Display.
-function class_shortline(d::NodeClass, io::IO, model::Model)
+function class_shortline(d::D.Class, io::IO, model::Model)
     class = D.snake_case_plural(d)
     Class = D.CamelCaseSingular(d)
     names = getproperty(model, class)._names

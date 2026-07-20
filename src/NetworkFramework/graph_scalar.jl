@@ -7,7 +7,7 @@ abstract type GraphScalarBlueprint <: Blueprint end
 Typical setup for a component bringing a new graph-level scalar data to the network.
 The data is passed as-is to the internals, so it is enforced to be immutable.
 """
-function define_graph_scalar(mod::Module, d::GraphField)
+function define_graph_scalar(mod::Module, d::D.GraphField)
     shortname, singular, Singular = D.name_variants(d)
     Singular_ = Symbol(Singular, :_)
 
@@ -91,7 +91,7 @@ function define_graph_scalar(mod::Module, d::GraphField)
 
 end
 
-early_check(d::GraphField, bp::GraphScalarBlueprint) =
+early_check(d::D.GraphField, bp::GraphScalarBlueprint) =
     try
         check(d, data(bp))
     catch e
@@ -99,14 +99,14 @@ early_check(d::GraphField, bp::GraphScalarBlueprint) =
         with_context!(e, "When checking raw value for $d")
     end
 
-function expand!(d::GraphField, m::Model, bp::GraphScalarBlueprint)
+function expand!(d::D.GraphField, m::Model, bp::GraphScalarBlueprint)
     field = D.field(d)
     data = NF.data(bp)
     n = N.network(m)
     N.add_field!(n, field, data)
 end
 
-function get_value(d::GraphField, n::Network)
+function get_value(d::D.GraphField, n::Network)
     field = D.field(d)
     entry = n.data[field]
     N.read(entry) do value
@@ -114,7 +114,7 @@ function get_value(d::GraphField, n::Network)
     end
 end
 
-function reassign!(d::GraphField, n::Network, input)
+function reassign!(d::D.GraphField, n::Network, input)
     T = D.type(d)
     conv = NF.inputconvert(T, input)
     checked = check(d, conv)
@@ -123,7 +123,7 @@ function reassign!(d::GraphField, n::Network, input)
     N.reassign!(entry, checked) # Just feed it down: typechecked for immutability.
 end
 
-function graph_scalar_shortline(d::GraphField, io, m::Model)
+function graph_scalar_shortline(d::D.GraphField, io, m::Model)
     field = D.field(d)
     Field = D.CamelCaseSingular(d)
     net = N.network(m)

@@ -1,9 +1,9 @@
 """
-Test all aspects of typical NodeClass component,
+Test all aspects of typical Class component,
 using Species as an example, but without testing anything specific to species.
 Anything specific to species will be tested in a dedicated file.
 """
-module NodeClassTest
+module ClassTest
 
 # What the end user should have to import.
 using EcologicalNetworksDynamics
@@ -11,11 +11,11 @@ using EcologicalNetworksDynamics
 # Additional imports only used here for testing purpose.
 using Test
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, F, Network, Views, NodeClass, NodeMask
+import EcologicalNetworksDynamics: EN, F, D, Network, Views
 import Main: is_repr, is_disp, @viewfails, @sysfails, Value
-const View = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
+const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
 
-@testset "Typical NodeClass component" begin
+@testset "Typical Class component" begin
 
     # Blueprints available from component.
     @test Species isa EN.Component
@@ -184,7 +184,7 @@ const View = Views.NodesNamesView{NodeClass(:species)} # Tested view type.
     @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
 
     # Mask within the parent class (no parent class with this root example).
-    K = Views.NodesMaskView{NodeMask(:species, nothing)}
+    K = Views.NodesMaskView{D.NodeMask(:species, nothing)}
     k = m.species.mask
     @test k isa K
     @test k isa AbstractVector{Bool}

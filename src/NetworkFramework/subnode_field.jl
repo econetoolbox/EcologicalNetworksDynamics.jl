@@ -22,11 +22,11 @@ is inherited from the regular abstract functions for root node fields.
 """
 function define_subnode_field_component(
     mod::Module,
-    d::SubnodeField;
+    d::D.SubnodeField;
     blueprints = [],
     requires = [],
 )
-    nc = NodeClass(d)
+    nc = D.Class(d)
     Class = D.CamelCaseSingular(nc)
     class, field = D.content(d)
     value, values, Value, Values, short = D.name_variants(d)
@@ -143,7 +143,8 @@ function define_subnode_field_component(
                 const d = $d
                 const prop = $prop
                 const C = $C
-                get_value(::Network, m::Model) = V.data_view(m, d)
+                D.viewtype(::typeof(d)) = V.SubnodeFieldView
+                get_value(::Network, m::Model) = V.data_view(d, m)
                 NF.define_method(get_value; read_as = prop, depends = [C])
                 if !D.readonly(d)
                     set_value!(::Network, m::Model, input) = NF.assign!(d, m, input)
@@ -169,7 +170,7 @@ end
 # Only redefine parts that do not already work with regular NodeField.
 
 # No need to bring the class (yet).
-function construct(d::SubnodeField, Field::Component, input)
+function construct(d::D.SubnodeField, Field::Component, input)
     T = D.type(d)
     tries = []
     if may_flat(d)
@@ -181,7 +182,7 @@ function construct(d::SubnodeField, Field::Component, input)
 end
 
 # Display it sparse within its parent class.
-function nodes_shortline(io::IO, model::Model, d::SubnodeField)
+function nodes_shortline(io::IO, model::Model, d::D.SubnodeField)
     T = D.type(d)
     c, f, p = D.content(d)
     Field = D.CamelCaseSingular(d)
@@ -198,7 +199,7 @@ end
 
 # Check index references against *parent* class.
 function late_check(
-    d::SubnodeField,
+    d::D.SubnodeField,
     model::Model,
     ::SubnodeFieldMapBlueprint,
     map::Map{<:Any,Int},

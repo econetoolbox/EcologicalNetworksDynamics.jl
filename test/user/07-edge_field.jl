@@ -13,11 +13,11 @@ using SparseArrays
 using Test
 using EcologicalNetworksDynamics: EN, N, F, NF, V, EdgeField, SparseMatrix, Adjacency
 import Main: is_repr, is_disp, Value, @inputfails, @sysfails, @viewfails
-const View = V.SparseEdgesDataView{EdgeField(:trophic, :efficiency),Float64}
+const View = V.SparseEdgesFieldView{EdgeField(:trophic, :efficiency),Float64}
 
 # TODO: test for dense constructs when such a component shows up.
 
-@testset "Typical EdgeWeb component" begin
+@testset "Typical EdgeField component" begin
 
     @test Efficiency isa EN.Component
     @test is_repr(Efficiency, "Efficiency")

@@ -2,7 +2,7 @@
     using EcologicalNetworksDynamics.Networks
 end
 
-function inline_info(v::EdgesDataView)
+function inline_info(v::EdgesFieldView)
     web = D.web(v)
     field = D.field(v)
     "<$web:$field>"
@@ -13,10 +13,10 @@ function inline_info(v::EdgesMaskView)
     "<$web>"
 end
 
-function display_info(v::EdgesDataView)
+function display_info(v::EdgesFieldView)
     T = eltype(v)
     info = inline_info(v)
-    "EdgesDataView$info{$T}"
+    "EdgesFieldView$info{$T}"
 end
 
 function display_info(v::EdgesMaskView)
@@ -25,10 +25,10 @@ function display_info(v::EdgesMaskView)
     "EdgesMaskView$info{$T}"
 end
 
-type_info(::Type{<:EdgesDataView}) = "edges"
+type_info(::Type{<:EdgesFieldView}) = "edges"
 type_info(::Type{<:EdgesMaskView}) = "edges mask"
 
-function Base.show(io::IO, v::EdgesDataView)
+function Base.show(io::IO, v::EdgesFieldView)
     print(io, inline_info(v))
     raw = N.entry(v)
     l, (m, n) = N.n_edges(v), size(v)
@@ -58,7 +58,7 @@ function Base.show(io::IO, v::EdgesMaskView)
     print(io, ")")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::EdgesDataView)
+function Base.show(io::IO, ::MIME"text/plain", v::EdgesFieldView)
     print(io, display_info(v))
     l, (m, n) = N.n_edges(v), size(v)
     l, s = ns(l)

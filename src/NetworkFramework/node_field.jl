@@ -7,8 +7,8 @@ expanding the same scalar value to the whole class or web,
 and allow flattening assignment.
 If raised, provide the argument type for component-call constructor.
 """
-flat(d::AbstractField) = D.type(d)
-may_flat(d::AbstractField) = !isnothing(flat(d))
+flat(d::D.AbstractField) = D.type(d)
+may_flat(d::D.AbstractField) = !isnothing(flat(d))
 
 """
 Expand to a class field from a vector of raw values.
@@ -30,14 +30,14 @@ Typical setup for a component bringing a new class field to the network.
 """
 function define_node_field_component(
     mod::Module,
-    d::NodeField;
+    d::D.NodeField;
     blueprints = [], # Extra blueprints for the component.
     requires = [], # Extra requirements for the component.
 )
 
     #---------------------------------------------------------------------------------------
     # Extract particular information for this (class, field) pair.
-    nc = D.NodeClass(d)
+    nc = D.Class(d)
     Class = D.CamelCaseSingular(nc)
     class, field = D.content(d)
     value, values, Value, Values, short = D.name_variants(d)
@@ -162,7 +162,8 @@ function define_node_field_component(
                 const d = $d
                 const prop = $prop
                 const C = $C
-                get_value(::Network, m::Model) = V.data_view(m, d)
+                D.viewtype(::typeof(d)) = V.NodesFieldView
+                get_value(::Network, m::Model) = V.field_view(d, m)
                 NF.define_method(get_value; read_as = prop, depends = [C])
                 if !D.readonly(d)
                     set_value!(::Network, m::Model, input) = NF.assign!(d, m, input)
@@ -191,16 +192,16 @@ data(::Blueprint) = throw("unimplemented") # Extract main codegen named field.
 #-------------------------------------------------------------------------------------------
 # Check data values without model information, against the target type.
 
-check(d::AbstractField, value) = inputconvert(D.type(d), value)
+check(d::D.AbstractField, value) = inputconvert(D.type(d), value)
 
-check_with_ref(d::AbstractNodeField, value, i::Int) =
+check_with_ref(d::D.AbstractNodeField, value, i::Int) =
     try
         check(d, value)
     catch e
         e isa F.InputError || rethrow(e)
         with_context!(e, "At node index [$i]")
     end
-check_with_ref(d::AbstractNodeField, value, l::Symbol) =
+check_with_ref(d::D.AbstractNodeField, value, l::Symbol) =
     try
         check(d, value)
     catch e
@@ -212,9 +213,9 @@ check_with_ref(d::AbstractNodeField, value, l::Symbol) =
 # Check against a model value, assuming the type and raw value is already correct.
 
 # No check by default.
-check(::AbstractField, ::Model, value) = value
+check(::D.AbstractField, ::Model, value) = value
 # Contextualized.
-check(d::AbstractField, m::Model, value, _index, _label) = check(d, m, value)
+check(d::D.AbstractField, m::Model, value, _index, _label) = check(d, m, value)
 
 #-------------------------------------------------------------------------------------------
 # Check against both the type and then immediately the model (useful for mutating).
@@ -225,13 +226,13 @@ end
 get_model(w::WholeCheck) = w.model
 get_model(m::Model) = m
 
-function check(d::AbstractField, whole::WholeCheck, value)
+function check(d::D.AbstractField, whole::WholeCheck, value)
     converted = check(d, value)
     check(d, whole.model, converted)
 end
 
 # Abstract over either whole check or just-model check.
-function check_with_ref(d::AbstractNodeField, against::Model, value, i::Int, l::Symbol)
+function check_with_ref(d::D.AbstractNodeField, against::Model, value, i::Int, l::Symbol)
     try
         value = check(d, value)
         check(d, against, value, i, l)
@@ -242,7 +243,7 @@ function check_with_ref(d::AbstractNodeField, against::Model, value, i::Int, l::
 end
 
 # Use the model to automatically infer any reference type from the other one.
-function check_with_ref(d::AbstractNodeField, against, value, i::Int)
+function check_with_ref(d::D.AbstractNodeField, against, value, i::Int)
     model = get_model(against)
     network = NF.network(model)
     class = D.class(d)
@@ -250,7 +251,7 @@ function check_with_ref(d::AbstractNodeField, against, value, i::Int)
     l = N.to_label(index, i)
     check_with_ref(d, model, value, i, l)
 end
-function check_with_ref(d::AbstractNodeField, against, value, l::Symbol)
+function check_with_ref(d::D.AbstractNodeField, against, value, l::Symbol)
     model = get_model(against)
     network = NF.network(model)
     class = D.class(d)
@@ -262,7 +263,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct: any input is possible, but we don't know anything about the model yet.
 
-function construct(d::AbstractNodeField, ::Type{<:NodeFieldRawBlueprint}, raw)
+function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldRawBlueprint}, raw)
     T = D.type(d)
     try
         v = inputconvert(Vector{T}, raw)
@@ -276,7 +277,7 @@ function construct(d::AbstractNodeField, ::Type{<:NodeFieldRawBlueprint}, raw)
     end
 end
 
-function construct(d::AbstractNodeField, ::Type{<:NodeFieldMapBlueprint}, map)
+function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldMapBlueprint}, map)
     T = D.type(d)
     try
         out = inputconvert(Map{T}, map)
@@ -290,7 +291,7 @@ function construct(d::AbstractNodeField, ::Type{<:NodeFieldMapBlueprint}, map)
     end
 end
 
-function construct(d::AbstractNodeField, ::Type{<:NodeFieldFlatBlueprint}, flat)
+function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldFlatBlueprint}, flat)
     T = D.type(d)
     try
         val = inputconvert(T, flat)
@@ -301,19 +302,19 @@ function construct(d::AbstractNodeField, ::Type{<:NodeFieldFlatBlueprint}, flat)
     end
 end
 
-function construct(d::NodeField, Field::Component, input)
+function construct(d::D.NodeField, Field::Component, input)
     parsed = parse(d, input)
     construct_from_parsed(d, Field, parsed)
 end
 
-construct_from_parsed(::NodeField, Field::Component, raw::Vector) = Field.Raw(raw)
-construct_from_parsed(::NodeField, Field::Component, map::Map) = Field.Map(map)
-construct_from_parsed(::NodeField, Field::Component, scalar) = Field.Flat(scalar)
+construct_from_parsed(::D.NodeField, Field::Component, raw::Vector) = Field.Raw(raw)
+construct_from_parsed(::D.NodeField, Field::Component, map::Map) = Field.Map(map)
+construct_from_parsed(::D.NodeField, Field::Component, scalar) = Field.Flat(scalar)
 
 """
 Pre-process whatever input into one of the three basic input types for this field.
 """
-function parse(d::AbstractNodeField, input)
+function parse(d::D.AbstractNodeField, input)
     T = D.type(d)
     tries = []
     if may_flat(d)
@@ -327,7 +328,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Early-check: correct type, unchecked values, no model information yet.
 
-function early_check(d::AbstractField, bp::Blueprint)
+function early_check(d::D.AbstractField, bp::Blueprint)
     data = NF.data(bp)
     try
         early_check(d, data)
@@ -337,7 +338,7 @@ function early_check(d::AbstractField, bp::Blueprint)
     end
 end
 
-function early_check(d::AbstractNodeField, vec::Vector)
+function early_check(d::D.AbstractNodeField, vec::Vector)
     T = eltype(vec)
     data = T[]
     for (i, value) in enumerate(vec)
@@ -347,14 +348,14 @@ function early_check(d::AbstractNodeField, vec::Vector)
     data
 end
 
-function early_check(d::AbstractNodeField, map::Map)
+function early_check(d::D.AbstractNodeField, map::Map)
     T = valtype(map)
     map = NF.parse(Map{T}, map) # Re-parse in case the map was mutated.
     core_early_check(d, map)
 end
 
 # Assumes the input is a valid map.
-function core_early_check(d::AbstractNodeField, map::Map)
+function core_early_check(d::D.AbstractNodeField, map::Map)
     for (label, value) in map
         map[label] = check_with_ref(d, value, label)
     end
@@ -362,12 +363,12 @@ function core_early_check(d::AbstractNodeField, map::Map)
 end
 
 # That intermediate name has to be introduced to avoid ambiguous dispatch.
-early_check(d::AbstractField, value) = check(d, value)
+early_check(d::D.AbstractField, value) = check(d, value)
 
 #-------------------------------------------------------------------------------------------
 # Late-check: correct type, checked values, model information is now available.
 
-function late_check(d::AbstractField, model::Model, ::Blueprint, early_data)
+function late_check(d::D.AbstractField, model::Model, ::Blueprint, early_data)
     try
         late_check(d, model, early_data)
     catch e
@@ -376,7 +377,7 @@ function late_check(d::AbstractField, model::Model, ::Blueprint, early_data)
     end
 end
 
-function late_check(d::AbstractNodeField, model::Model, vec::Vector)
+function late_check(d::D.AbstractNodeField, model::Model, vec::Vector)
     # Check number of values first.
     network = NF.network(model)
     class = D.class(d)
@@ -390,23 +391,23 @@ function late_check(d::AbstractNodeField, model::Model, vec::Vector)
     end
 end
 
-function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
+function late_check(d::D.AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
     core_late_check(d, model, map)
     # Reorder values one by one into a vector.
     [check_with_ref(d, model, map[label], label) for label in keys(map)]
 end
 
 # Same with index references instead.
-function late_check(d::AbstractNodeField, model::Model, map::Map{<:Any,Int})
+function late_check(d::D.AbstractNodeField, model::Model, map::Map{<:Any,Int})
     core_late_check(d, model, map)
     [check_with_ref(d, model, map[i], i) for i in eachindex(map)]
 end
 
-late_check(d::AbstractNodeField, model::Model, value) = check(d, model, value)
+late_check(d::D.AbstractNodeField, model::Model, value) = check(d, model, value)
 
 # Check without producing returned data.
 function core_late_check(
-    d::AbstractNodeField,
+    d::D.AbstractNodeField,
     model::Model,
     map::Map{<:Any,Symbol};
     must_be_complete = true, # Lower for assignment.
@@ -434,7 +435,7 @@ function core_late_check(
 end
 
 function core_late_check(
-    d::AbstractNodeField,
+    d::D.AbstractNodeField,
     model::Model,
     map::Map{<:Any,Int};
     must_be_complete = true,
@@ -469,21 +470,21 @@ end
 #-------------------------------------------------------------------------------------------
 # Implied class blueprint.
 
-function implied_class(::NodeField, Class, bp::NodeFieldRawBlueprint)
+function implied_class(::D.NodeField, Class, bp::NodeFieldRawBlueprint)
     raw = data(bp)
     n = length(raw)
     Class.Number(n)
 end
 
-implied_class(d::NodeField, Class, bp::NodeFieldMapBlueprint) =
+implied_class(d::D.NodeField, Class, bp::NodeFieldMapBlueprint) =
     implied_class(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
 
-function implied_class(::NodeField, Class, map::Map{<:Any,Symbol})
+function implied_class(::D.NodeField, Class, map::Map{<:Any,Symbol})
     refs = NF.keys(map)
     Class.Names(collect(refs))
 end
 
-function implied_class(::NodeField, Class, map::Map{<:Any,Int})
+function implied_class(::D.NodeField, Class, map::Map{<:Any,Int})
     n = length(map) # (assuming no hole) TODO: how is that enforced?
     Class.Number(n)
 end
@@ -492,7 +493,7 @@ end
 # Expansion: input is completely trusted, just fill the inner network from late data.
 
 expand!(
-    d::AbstractNodeField,
+    d::D.AbstractNodeField,
     model::Model,
     # The two provide the same `late_data` after late checking.
     ::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint},
@@ -500,7 +501,7 @@ expand!(
 ) = expand!(d, model, late_data)
 
 # Special case flat-blueprint.
-function expand!(d::AbstractNodeField, model::Model, ::NodeFieldFlatBlueprint, late_data)
+function expand!(d::D.AbstractNodeField, model::Model, ::NodeFieldFlatBlueprint, late_data)
     network = NF.network(model)
     class = D.class(d)
     n = N.n_nodes(network, class)
@@ -508,7 +509,7 @@ function expand!(d::AbstractNodeField, model::Model, ::NodeFieldFlatBlueprint, l
     expand!(d, model, vec)
 end
 
-function expand!(d::AbstractNodeField, model::Model, data::Vector)
+function expand!(d::D.AbstractNodeField, model::Model, data::Vector)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
     class = N.class(network, classname)
@@ -520,7 +521,7 @@ end
 # Input may be anything,
 # but the underlying model value and the reference can be assumed to be correct.
 
-mutate_check(d::AbstractNodeField, model::Model, value, ref) =
+mutate_check(d::D.AbstractNodeField, model::Model, value, ref) =
     try
         check_with_ref(d, WholeCheck(model), value, ref)
     catch e
@@ -532,7 +533,7 @@ mutate_check(d::AbstractNodeField, model::Model, value, ref) =
 # Assignment: called when setting all values at once through a property.
 # Input may be anything, but the underlying model value can be assumed to be correct.
 
-assign!(d::AbstractNodeField, model::Model, input) =
+assign!(d::D.AbstractNodeField, model::Model, input) =
     try
         assign_parsed!(d, model, parse(d, input))
     catch e
@@ -541,7 +542,7 @@ assign!(d::AbstractNodeField, model::Model, input) =
     end
 
 # Reassign all values from raw input.
-function assign_parsed!(d::AbstractNodeField, model::Model, raw::Vector)
+function assign_parsed!(d::D.AbstractNodeField, model::Model, raw::Vector)
     early = early_check(d, raw)
     late = late_check(d, model, early)
     network = NF.network(model)
@@ -556,7 +557,7 @@ function assign_parsed!(d::AbstractNodeField, model::Model, raw::Vector)
 end
 
 # Reassign *some* values from mapped input.
-function assign_parsed!(d::AbstractNodeField, model::Model, map::Map)
+function assign_parsed!(d::D.AbstractNodeField, model::Model, map::Map)
     core_early_check(d, map) # (avoids reparsing)
     core_late_check(d, model, map; must_be_complete = false) # Allow partial reassignment.
     network = NF.network(model)
@@ -573,7 +574,7 @@ function assign_parsed!(d::AbstractNodeField, model::Model, map::Map)
 end
 
 # Assume the assignment input is a scalar to flatten to all nodes.
-function assign_parsed!(d::AbstractNodeField, model::Model, input)
+function assign_parsed!(d::D.AbstractNodeField, model::Model, input)
     network = NF.network(model)
     (classname, fieldname) = D.content(d)
     value = check(d, input)
@@ -589,7 +590,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function nodes_shortline(io::IO, model::Model, d::NodeField)
+function nodes_shortline(io::IO, model::Model, d::D.NodeField)
     Field = D.CamelCaseSingular(d)
     c, f = D.content(d)
     network = NF.network(model)

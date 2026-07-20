@@ -20,6 +20,8 @@ to_index(s::S, l::Symbol) = s.forward[l]
 to_label(s::S, i::Int) = s.reverse[i]
 is_label(s::S, l::Symbol) = haskey(s.forward, l)
 is_index(s::S, i::Int) = 1 <= i <= length(s)
+is_ref(s::S, i::Int) = is_index(s, i)
+is_ref(s::S, l::Symbol) = is_label(s, l)
 
 """
 Build from a parent index and a restriction, assuming they are consistent.

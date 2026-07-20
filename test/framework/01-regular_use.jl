@@ -28,6 +28,8 @@ export checkfails
 # ==========================================================================================
 # Define basic blueprints/components to work with the above value.
 
+# TODO: have juliaformatter indent_submodules.
+# https://juliaeditorsupport.github.io/JuliaFormatter.jl/stable/formatting_options/#options-indent-submodule
 module Basics # Use submodules to not clash blueprints/components names.
 
 using ..RegularUse

@@ -23,7 +23,7 @@ Typical setup for a component bringing a new web field to the network.
 """
 function define_reflexive_web_field_component(
     mod::Module,
-    d::EdgeField;
+    d::D.EdgeField;
     blueprints = [], # Extra blueprints for the component.
     requires = [], # Extra requirements for the component.
 )
@@ -32,7 +32,7 @@ function define_reflexive_web_field_component(
 
     # TODO: have it generic over D.is_sparse(d) the day it's required.
 
-    ew = EdgeWeb(d)
+    ew = D.Web(d)
     Web = D.CamelCase(ew)
     web, field = D.content(d)
     src, tgt = D.sourcename(ew), D.targetname(ew)
@@ -185,7 +185,8 @@ function define_reflexive_web_field_component(
                 const d = $d
                 const prop = $prop
                 const C = $C
-                get_value(::Network, m::Model) = V.data_view(m, d)
+                D.viewtype(::typeof(d)) = V.EdgeFieldView
+                get_value(::Network, m::Model) = V.data_view(d, m)
                 NF.define_method(get_value; read_as = prop, depends = [C])
                 if !D.readonly(d)
                     set_value!(::Network, m::Model, input) = assign!(d, m, input)
@@ -214,19 +215,19 @@ end
 #-------------------------------------------------------------------------------------------
 # Contextless check.
 
-check(d::EdgeField, value) = inputconvert(D.type(d), value)
+check(d::D.EdgeField, value) = inputconvert(D.type(d), value)
 
 const EdgeIndex = Tuple{Int,Int}
 const EdgeLabel = Tuple{Symbol,Symbol}
 
-check_with_ref(d::EdgeField, value, (i, j)::EdgeIndex) =
+check_with_ref(d::D.EdgeField, value, (i, j)::EdgeIndex) =
     try
         check(d, value)
     catch e
         e isa F.InputError || rethrow(e)
         with_context!(e, "On edge [$i, $j]")
     end
-check_with_ref(d::EdgeField, value, (a, b)::EdgeLabel) =
+check_with_ref(d::D.EdgeField, value, (a, b)::EdgeLabel) =
     try
         check(d, value)
     catch e
@@ -234,7 +235,7 @@ check_with_ref(d::EdgeField, value, (a, b)::EdgeLabel) =
         with_context!(e, "On edge $(repr(a)) => $(repr(b))")
     end
 # Useful when constructing from raw values because edge indices are unknown yet.
-check_with_raw_ref(d::EdgeField, value, i::Int) =
+check_with_raw_ref(d::D.EdgeField, value, i::Int) =
     try
         check(d, value)
     catch e
@@ -246,7 +247,7 @@ check_with_raw_ref(d::EdgeField, value, i::Int) =
 # Model-aware checks.
 
 function check_with_ref(
-    d::EdgeField,
+    d::D.EdgeField,
     against::Model,
     value,
     i::EdgeIndex,
@@ -267,20 +268,20 @@ function check_with_ref(
 end
 
 # Extract indexes for both incident classes.
-function indexes(d::EdgeField, network::Network)
+function indexes(d::D.EdgeField, network::Network)
     web = D.web(d)
     N.index.(network, D.sidenames(web))
 end
 
 # Infer any reference type from the other one.
-function check_with_ref(d::EdgeField, against, value, (i, j)::EdgeIndex)
+function check_with_ref(d::D.EdgeField, against, value, (i, j)::EdgeIndex)
     model = get_model(against)
     network = NF.network(model)
     src, tgt = indexes(d, network)
     (a, b) = N.to_label.((src, tgt), (i, j))
     check_with_ref(d, model, value, (i, j), (a, b))
 end
-function check_with_ref(d::EdgeField, against, value, (a, b)::EdgeLabel)
+function check_with_ref(d::D.EdgeField, against, value, (a, b)::EdgeLabel)
     model = get_model(against)
     network = NF.network(model)
     src, tgt = indexes(d, network)
@@ -292,7 +293,7 @@ end
 # Construct.
 
 # From raw edges.
-function construct(d::EdgeField, ::Type{<:EdgeFieldRawBlueprint}, raw)
+function construct(d::D.EdgeField, ::Type{<:EdgeFieldRawBlueprint}, raw)
     T = D.type(d)
     try
         v = inputconvert(Vector{T}, raw)
@@ -307,7 +308,7 @@ function construct(d::EdgeField, ::Type{<:EdgeFieldRawBlueprint}, raw)
 end
 
 # From matrix.
-function construct(d::EdgeField, ::Type{<:EdgeFieldMatrixBlueprint}, raw)
+function construct(d::D.EdgeField, ::Type{<:EdgeFieldMatrixBlueprint}, raw)
     T = D.type(d)
     M = D.is_sparse(d) ? SparseMatrix : Matrix
     try
@@ -320,7 +321,7 @@ function construct(d::EdgeField, ::Type{<:EdgeFieldMatrixBlueprint}, raw)
     end
 end
 
-function checkmat(d::EdgeField, mat::Matrix)
+function checkmat(d::D.EdgeField, mat::Matrix)
     m, n = size(mat)
     for i in 1:m, j in 1:n
         value = mat[i, j]
@@ -328,7 +329,7 @@ function checkmat(d::EdgeField, mat::Matrix)
     end
 end
 
-function checkmat(d::EdgeField, mat::SparseMatrix)
+function checkmat(d::D.EdgeField, mat::SparseMatrix)
     is, js, vals = findnz(mat)
     for (i, j, value) in zip(is, js, vals)
         check_with_ref(d, value, (i, j))
@@ -336,7 +337,7 @@ function checkmat(d::EdgeField, mat::SparseMatrix)
 end
 
 # From adjacency lists.
-function construct(d::EdgeField, ::Type{<:EdgeFieldAdjacencyBlueprint}, raw)
+function construct(d::D.EdgeField, ::Type{<:EdgeFieldAdjacencyBlueprint}, raw)
     T = D.type(d)
     try
         adj = inputconvert(Adjacency{T}, raw)
@@ -351,7 +352,7 @@ function construct(d::EdgeField, ::Type{<:EdgeFieldAdjacencyBlueprint}, raw)
 end
 
 # From flat scalar.
-function construct(d::EdgeField, ::Type{<:EdgeFieldFlatBlueprint}, flat)
+function construct(d::D.EdgeField, ::Type{<:EdgeFieldFlatBlueprint}, flat)
     T = D.type(d)
     try
         val = inputconvert(T, flat)
@@ -362,18 +363,18 @@ function construct(d::EdgeField, ::Type{<:EdgeFieldFlatBlueprint}, flat)
     end
 end
 
-function construct(d::EdgeField, Field::Component, input; _...)
+function construct(d::D.EdgeField, Field::Component, input; _...)
     parsed = parse(d, input)
     construct_from_parsed(d, Field, parsed)
 end
 
-construct_from_parsed(::EdgeField, Field::Component, raw::Vector) = Field.Raw(raw)
-construct_from_parsed(::EdgeField, Field::Component, raw::AbstractMatrix) =
+construct_from_parsed(::D.EdgeField, Field::Component, raw::Vector) = Field.Raw(raw)
+construct_from_parsed(::D.EdgeField, Field::Component, raw::AbstractMatrix) =
     Field.Matrix(raw)
-construct_from_parsed(::EdgeField, Field::Component, raw::Adjacency) = Field.Adjacency(raw)
-construct_from_parsed(::EdgeField, Field::Component, scalar) = Field.Flat(scalar)
+construct_from_parsed(::D.EdgeField, Field::Component, raw::Adjacency) = Field.Adjacency(raw)
+construct_from_parsed(::D.EdgeField, Field::Component, scalar) = Field.Flat(scalar)
 
-function parse(d::EdgeField, input)
+function parse(d::D.EdgeField, input)
     T = D.type(d)
     tries = []
     if may_flat(d)
@@ -390,7 +391,7 @@ end
 # Early check (dispatched from the generic method in `node_field.jl`).
 
 # Raw.
-function early_check(d::EdgeField, vec::Vector)
+function early_check(d::D.EdgeField, vec::Vector)
     T = eltype(vec)
     data = T[]
     sizehint!(data, length(vec))
@@ -403,8 +404,8 @@ end
 
 # Matrix: construct a raw repr but also pass the original matrix to late_check.
 # TODO: maybe cleanup internals conversions to `raw` because it's actually done here?
-function early_check(d::EdgeField, mat::AbstractMatrix)
-    D.is_symmetric(D.EdgeWeb(d)) && return early_check_symmetric(d, mat)
+function early_check(d::D.EdgeField, mat::AbstractMatrix)
+    D.is_symmetric(D.Web(d)) && return early_check_symmetric(d, mat)
     T = eltype(mat)
     raw = T[]
     sizehint!(raw, n_edges(mat))
@@ -416,7 +417,7 @@ function early_check(d::EdgeField, mat::AbstractMatrix)
 end
 
 # Enforce that matrices be symmetric for symmetric topologies in blueprints.
-function early_check_symmetric(d::EdgeField, mat::AbstractMatrix)
+function early_check_symmetric(d::D.EdgeField, mat::AbstractMatrix)
     T = eltype(mat)
     raw = T[]
     for (i, j, v) in edges_values(mat)
@@ -447,19 +448,19 @@ end
 # The raw vector cannot be directly extracted from the adjacency list
 # because input edges ordering cannot be checked.
 # Collect {edges ↦ values} mapping instead.
-function early_check(d::EdgeField, adj::Adjacency)
+function early_check(d::D.EdgeField, adj::Adjacency)
     T = valtype(adj)
     adj = NF.parse(Adjacency{T}, adj) # Re-parse in case the list was mutated.
     D.is_sparse(d) ? early_check_sparse(d, adj) : early_check_dense(d, adj)
 end
 
 # In the sparse case, prepare an edge to value mapping.
-early_check_sparse(d::EdgeField, adj::Adjacency) =
+early_check_sparse(d::D.EdgeField, adj::Adjacency) =
     Dict((src, tgt) => check_with_ref(d, v, (src, tgt)) for (src, tgt, v) in NF.iter(adj))
 
 # In the dense case, check that the list is actually dense
 # and arange checked values in a matrix.
-function early_check_dense(d::EdgeField, adj::Adjacency{<:Any,Int})
+function early_check_dense(d::D.EdgeField, adj::Adjacency{<:Any,Int})
     T = D.type(d)
     n_src = length(NF.source_refs(adj))
     n_tgt = length(NF.target_refs(adj))
@@ -484,7 +485,7 @@ function early_check_dense(d::EdgeField, adj::Adjacency{<:Any,Int})
 end
 
 # With labels as references, also collect a mapping to local/input indices.
-function early_check_dense(d::EdgeField, adj::Adjacency{<:Any,Symbol})
+function early_check_dense(d::D.EdgeField, adj::Adjacency{<:Any,Symbol})
     T = D.type(d)
     sources = Dict{Symbol,I}() # Filled during main iteration.
     targets = Dict(tgt => j for (j, tgt) in enumerate(NF.target_refs(adj)))
@@ -509,10 +510,10 @@ end
 # Late check (dispatched from the generic method in `node_field.jl`).
 
 # Raw.
-function late_check(d::EdgeField, model::Model, vec::Vector)
+function late_check(d::D.EdgeField, model::Model, vec::Vector)
     network = NF.network(model)
     web = D.web(d)
-    src, tgt = D.sidenames(D.EdgeWeb(d))
+    src, tgt = D.sidenames(D.Web(d))
     # Check number of values first.
     n = N.n_edges(network, web)
     l = length(vec)
@@ -528,10 +529,10 @@ function late_check(d::EdgeField, model::Model, vec::Vector)
 end
 
 # Matrix (receive the raw vector produced during early_check).
-function late_check(d::EdgeField, model::Model, (raw, mat)::Tuple{Vector,AbstractMatrix})
+function late_check(d::D.EdgeField, model::Model, (raw, mat)::Tuple{Vector,AbstractMatrix})
     network = NF.network(model)
     web = N.web(network, D.web(d))
-    w = D.EdgeWeb(d)
+    w = D.Web(d)
     src, tgt = D.sidenames(w)
     src_labels = collect(N.node_labels(network, src))
     tgt_labels = collect(N.node_labels(network, tgt))
@@ -542,9 +543,9 @@ function late_check(d::EdgeField, model::Model, (raw, mat)::Tuple{Vector,Abstrac
 end
 
 # Comparing dense matrices topology is straightforward: only size matters.
-compare_topologies(d::EdgeWeb, top::FullTopology, mat::AbstractMatrix) =
+compare_topologies(d::D.Web, top::FullTopology, mat::AbstractMatrix) =
     compare_size(d, top, mat)
-function compare_size(d::EdgeWeb, top::Topology, mat::AbstractMatrix)
+function compare_size(d::D.Web, top::Topology, mat::AbstractMatrix)
     web = D.web(d)
     expected = N.n_sources(top), N.n_targets(top)
     actual = size(mat)
@@ -557,7 +558,7 @@ function compare_size(d::EdgeWeb, top::Topology, mat::AbstractMatrix)
 end
 
 # Comparing sparse matrices requires checking every expected/provided edge.
-function compare_topologies(d::EdgeWeb, top::SparseTopology, mat::AbstractSparseMatrix)
+function compare_topologies(d::D.Web, top::SparseTopology, mat::AbstractSparseMatrix)
     web = D.web(d)
     sym = D.is_symmetric(d)
     compare_size(d, top, mat)
@@ -567,7 +568,7 @@ function compare_topologies(d::EdgeWeb, top::SparseTopology, mat::AbstractSparse
 end
 
 # Comparing two set of edges for identity.
-function compare_edges(d::EdgeWeb, expected::Set, actual::Set, value::Function, input)
+function compare_edges(d::D.Web, expected::Set, actual::Set, value::Function, input)
     web = D.web(d)
     sym = D.is_symmetric(d)
     miss = setdiff(expected, actual)
@@ -588,14 +589,14 @@ function compare_edges(d::EdgeWeb, expected::Set, actual::Set, value::Function, 
 end
 
 # Adjacency, sparse.
-function late_check(d::EdgeField, model::Model, edges::Dict{Tuple{R,R}}) where {R}
+function late_check(d::D.EdgeField, model::Model, edges::Dict{Tuple{R,R}}) where {R}
     network = NF.network(model)
     w = D.web(d)
     web_edges() = expected_edges(R, network, w)
     expected = Set(web_edges())
     actual = Set(keys(edges))
     val(s, t) = edges[(s, t)]
-    compare_edges(D.EdgeWeb(d), expected, actual, val, "adjacency list")
+    compare_edges(D.Web(d), expected, actual, val, "adjacency list")
     # Construct raw vectors values in correct order.
     [val(s, t) for (s, t) in web_edges()]
 end
@@ -611,9 +612,9 @@ function expected_edges(::Type{Symbol}, network::Network, web::Symbol)
 end
 
 # Adjacency, dense.
-late_check(d::EdgeField, model::Model, mat::Matrix) = throw("TODO")
+late_check(d::D.EdgeField, model::Model, mat::Matrix) = throw("TODO")
 function late_check(
-    d::EdgeField,
+    d::D.EdgeField,
     model::Model,
     (mat, sources, targets)::Tuple{Matrix,Dict,Dict},
 )
@@ -621,12 +622,12 @@ function late_check(
 end
 
 # Flat, default.
-late_check(d::EdgeField, model::Model, value) = check(d, model, value)
+late_check(d::D.EdgeField, model::Model, value) = check(d, model, value)
 
 #-------------------------------------------------------------------------------------------
 # Implied web blueprint.
 
-function implied_web(::EdgeField, Web, bp::EdgeFieldMatrixBlueprint)
+function implied_web(::D.EdgeField, Web, bp::EdgeFieldMatrixBlueprint)
     mat = data(bp)
     m, n = size(mat)
     mask = spzeros(Bool, (m, n))
@@ -637,7 +638,7 @@ function implied_web(::EdgeField, Web, bp::EdgeFieldMatrixBlueprint)
     Web.Matrix(mask)
 end
 
-function implied_web(::EdgeField, Web, bp::EdgeFieldAdjacencyBlueprint)
+function implied_web(::D.EdgeField, Web, bp::EdgeFieldAdjacencyBlueprint)
     adj = data(bp)
     mask = NF.parse(BinAdjacency, adj)
     Web.Adjacency(mask)
@@ -648,21 +649,21 @@ end
 
 # These provide the same `late_data` after late checking (= the raw vector).
 expand!(
-    d::EdgeField,
+    d::D.EdgeField,
     model::Model,
     ::Union{EdgeFieldRawBlueprint,EdgeFieldMatrixBlueprint,EdgeFieldAdjacencyBlueprint},
     late_data::Vector,
 ) = expand!(d, model, late_data)
 
 # Flat: expand the raw vector.
-function expand!(d::EdgeField, model::Model, ::EdgeFieldFlatBlueprint, value)
+function expand!(d::D.EdgeField, model::Model, ::EdgeFieldFlatBlueprint, value)
     network = NF.network(model)
     top = N.web(network, D.web(d)).topology
     raw = fill(value, N.n_edges(top))
     expand!(d, model, raw)
 end
 
-function expand!(d::EdgeField, model::Model, data::Vector)
+function expand!(d::D.EdgeField, model::Model, data::Vector)
     network = NF.network(model)
     (webname, fieldname) = D.content(d)
     web = N.web(network, webname)
@@ -677,7 +678,7 @@ end
 # HERE: this is very much like the node field one except for two indices instead of one.
 # Maybe it is a good opportunity to harmonize all indices handling/checking
 # from the views up to here?
-mutate_check(d::EdgeField, model::Model, value, ref) =
+mutate_check(d::D.EdgeField, model::Model, value, ref) =
     try
         check_with_ref(d, WholeCheck(model), value, ref)
     catch e
@@ -685,10 +686,10 @@ mutate_check(d::EdgeField, model::Model, value, ref) =
         with_context!(e, "When attempting to mutate $d node field")
     end
 
-#-------------------------------------------------------------------------------------------
+# ==========================================================================================
 # Display.
 
-function edges_shortline(io::IO, model::Model, d::EdgeField)
+function edges_shortline(io::IO, model::Model, d::D.EdgeField)
     Field = D.CamelCaseSingular(d)
     w, f = D.content(d)
     network = NF.network(model)

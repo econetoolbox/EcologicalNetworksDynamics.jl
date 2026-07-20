@@ -8,14 +8,12 @@ by specializing implementations for their particular component.
 module Dispatchers
 
 using EcologicalNetworksDynamics: N, Networks
-using .Networks
 const D = Dispatchers
 
 const Option{T} = Union{Nothing,T}
 const Ref = Union{Int,Symbol}
 
 abstract type Dispatcher end
-export Dispatcher
 
 # ==========================================================================================
 # Class.
@@ -23,10 +21,9 @@ export Dispatcher
 """
 Dispatch to a particular class.
 """
-struct NodeClass{class} <: Dispatcher end
-export NodeClass
-NodeClass(class::Symbol) = NodeClass{class}()
-S = NodeClass # 'Self'
+struct Class{class} <: Dispatcher end
+Class(class::Symbol) = Class{class}()
+S = Class # 'Self'
 class(::S{cl}) where {cl} = cl
 
 """
@@ -62,10 +59,9 @@ end
 """
 Dispatch to a particular class from the perspective of a parent class.
 """
-struct NodeMask{class,parent} <: Dispatcher end
-export NodeMask
-NodeMask(class::Symbol, parent::Option{Symbol}) = NodeMask{class,parent}()
-S = NodeMask
+struct Subclass{class,parent} <: Dispatcher end
+Subclass(class::Symbol, parent::Option{Symbol}) = Subclass{class,parent}()
+S = Subclass
 content(::S{class,parent}) where {class,parent} = (class, parent)
 class(s::S) = first(content(s))
 parent(s::S) = last(content(s))
@@ -73,7 +69,7 @@ parent(s::S) = last(content(s))
 """
 Obtain dispatcher to underlying class.
 """
-NodeClass(s::S) = NodeClass(class(s))
+Class(s::S) = Class(class(s))
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -87,11 +83,18 @@ end
 """
 Dispatch to a particular web.
 """
-struct EdgeWeb{web} <: Dispatcher end
-export EdgeWeb
-EdgeWeb(web::Symbol) = EdgeWeb{web}()
-S = EdgeWeb # 'Self'
+struct Web{web} <: Dispatcher end
+Web(web::Symbol) = Web{web}()
+S = Web # 'Self'
 web(::S{w}) where {w} = w
+
+# Categorize webs.
+is_reflexive(s::S) = source(s) == target(s)
+is_symmetric(s::S) =
+    is_reflexive(s) ? throw("Unspecified whether $s reflexive web topology is symmetric.") :
+    false # No need to implement for non-reflexive webs.
+is_sparse(::S) = throw("unimplemented") # Always need to specify.
+
 
 """
 Obtain name variants for the web, in order:
@@ -123,18 +126,9 @@ targetname(s::S) = last(sidenames(s))
 """
 Obtain dispatchers to the source/target classes.
 """
-sides(s::S) = NodeClass.(sidenames(s))
-source(s::S) = NodeClass(sourcename(s))
-target(s::S) = NodeClass(targetname(s))
-
-"""
-Categorize webs.
-"""
-is_reflexive(s::S) = source(s) == target(s)
-is_symmetric(s::S) =
-    is_reflexive(s) ? throw("Unspecified whether $s reflexive web topology is symmetric.") :
-    false
-is_sparse(s::S) = throw("unimplemented")
+sides(s::S) = Class.(sidenames(s))
+source(s::S) = Class(sourcename(s))
+target(s::S) = Class(targetname(s))
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -142,13 +136,14 @@ function Base.show(io::IO, s::S)
     print(io, "<$web>")
 end
 
+# TODO: do we need a "Subweb"? Maybe refactor components first to figure this.
+
 # ==========================================================================================
 # Graph-level data field.
 """
 Dispatch to a particular global network field.
 """
 struct GraphField{field} <: Dispatcher end
-export GraphField
 GraphField(field::Symbol) = GraphField{field}()
 S = GraphField # 'Self'
 field(::S{fd}) where {fd} = fd
@@ -178,7 +173,6 @@ end
 Dispatch extension point to particular class field data.
 """
 struct NodeField{class,field} <: Dispatcher end
-export NodeField
 NodeField(class::Symbol, field::Symbol) = NodeField{class,field}()
 S = NodeField # 'Self'
 content(::S{class,field}) where {class,field} = (class, field)
@@ -189,7 +183,7 @@ type(s::S) = throw("Data type unspecified for $s.") # Underlying data type.
 """
 Obtain dispatcher to underlying class.
 """
-NodeClass(s::S) = NodeClass(class(s))
+Class(s::S) = Class(class(s))
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -205,7 +199,6 @@ Dispatch extension point to particular class field data
 from the perspective of a parent class.
 """
 struct SubnodeField{class,field,parent} <: Dispatcher end
-export SubnodeField
 SubnodeField(class::Symbol, field::Symbol, parent::Option{Symbol}) =
     SubnodeField{class,field,parent}()
 S = SubnodeField # 'Self'
@@ -218,8 +211,8 @@ type(s::S) = throw("Data type unspecified for $s.")
 """
 Obtain dispatchers to underlying class, mask, field.
 """
-NodeClass(s::S) = NodeClass(class(s))
-NodeMask(s::S) = NodeMask(class(s), parent(s))
+Class(s::S) = Class(class(s))
+Subclass(s::S) = Subclass(class(s), parent(s))
 NodeField(s::S) = NodeField(class(s), field(s))
 
 # Display.
@@ -232,9 +225,6 @@ end
 # Abstract over either node field category.
 const AbstractNodeField{class,field} =
     Union{NodeField{class,field},SubnodeField{class,field}}
-export AbstractNodeField
-S = AbstractNodeField
-
 
 # ==========================================================================================
 # Web field.
@@ -243,7 +233,6 @@ S = AbstractNodeField
 Dispatch extension point to particular web field data.
 """
 struct EdgeField{web,field} <: Dispatcher end
-export EdgeField
 EdgeField(web::Symbol, field::Symbol) = EdgeField{web,field}()
 S = EdgeField # 'Self'
 content(::S{web,field}) where {web,field} = (web, field)
@@ -253,7 +242,7 @@ field(s::S) = last(content(s))
 """
 Obtain dispatcher to underlying web.
 """
-EdgeWeb(s::S) = EdgeWeb(web(s))
+Web(s::S) = Web(web(s))
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -265,9 +254,9 @@ end
 # Abstract over either field category.
 const AbstractField{field} =
     Union{GraphField{field},<:AbstractNodeField{<:Any,field},<:EdgeField{<:Any,field}}
-export AbstractField
 S = AbstractField
 readonly(::S) = false # By default, or specialize.
+viewtype(::S) = throw("unimplemented") # The data view for this field.
 
 """
 Obtain name variants for the data points, in order:
@@ -284,5 +273,17 @@ snake_case_plural(s::S) = name_variants(s)[2]
 CamelCaseSingular(s::S) = name_variants(s)[3]
 CamelCasePlural(s::S) = name_variants(s)[4]
 short_field_name(s::S) = name_variants(s)[5]
+
+# ==========================================================================================
+# Abstract over levels.
+const GraphLevel = GraphField
+const NodeLevel = Union{Class,Subclass,NodeField,SubnodeField}
+const EdgeLevel = Union{Web,EdgeField}
+dim(::GraphField) = 0
+dim(::NodeLevel) = 1
+dim(::EdgeLevel) = 2
+level(::GraphField) = "graph"
+level(::NodeLevel) = "node"
+level(::EdgeLevel) = "edge"
 
 end

@@ -9,7 +9,7 @@ module SpeciesDef
 using EcologicalNetworksDynamics: EN, D, NF, @alias
 
 # Define associated dispatcher.
-const d = D.NodeClass(:species)
+const d = D.Class(:species)
 const DT = typeof(d)
 
 # Specify additional information with extension points.

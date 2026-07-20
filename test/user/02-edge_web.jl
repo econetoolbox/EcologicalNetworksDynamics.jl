@@ -1,9 +1,9 @@
 """
-Test all aspects of typical EdgeWeb component,
+Test all aspects of typical Web component,
 using Foodweb as an example, but without testing anything specific to the foodweb.
 Anything specific to foodweb will be tested in a dedicated file.
 """
-module EdgeWebTest
+module WebTest
 
 # What the end user should have to import.
 using EcologicalNetworksDynamics
@@ -11,11 +11,11 @@ using SparseArrays
 
 # Additional imports only used here for testing purpose.
 using Test
-import EcologicalNetworksDynamics: EN, Network, Views, EdgeWeb, SparseMatrix
+import EcologicalNetworksDynamics: EN, Network, Views, Web, SparseMatrix
 import Main: is_repr, is_disp, @viewfails, @inputfails, @sysfails, Value
-const View = Views.EdgesMaskView{EdgeWeb(:trophic)} # Tested view type.
+const View = Views.EdgesMaskView{Web(:trophic)} # Tested view type.
 
-@testset "Typical EdgeWeb component" begin
+@testset "Typical Web component" begin
 
     # Blueprints available from component.
     @test Foodweb isa EN.Component

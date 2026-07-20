@@ -20,7 +20,7 @@ using SparseArrays
 using Graphs
 
 # Dispatcher.
-const d = D.EdgeWeb(:trophic)
+const d = D.Web(:trophic)
 const DT = typeof(d)
 
 # Extensions.
@@ -84,10 +84,10 @@ function NF.post_expand!(d::DT, model)
 end
 
 depends = [Foodweb]
-p = D.NodeClass(:producers)
-c = D.NodeClass(:consumers)
-t = D.NodeClass(:tops)
-r = D.NodeClass(:preys)
+p = D.Class(:producers)
+c = D.Class(:consumers)
+t = D.Class(:tops)
+r = D.Class(:preys)
 # TODO: fix that there is no need for a short prefix for them: subclasses.
 D.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
 D.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
@@ -102,9 +102,9 @@ NF.define_class_properties(EN, c; depends)
 NF.define_class_properties(EN, t; depends)
 NF.define_class_properties(EN, r; depends)
 
-p = D.EdgeWeb(:producers_web)
-h = D.EdgeWeb(:herbivory)
-c = D.EdgeWeb(:carnivory)
+p = D.Web(:producers_web)
+h = D.Web(:herbivory)
+c = D.Web(:carnivory)
 D.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
 D.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
 D.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
@@ -141,7 +141,7 @@ const l = D.NodeField(:species, :trophic_level)
 const LT = typeof(l)
 D.type(::LT) = Float64
 D.readonly(::LT) = true
-level(::Network, m::Model) = V.data_view(m, l)
+level(::Network, m::Model) = V.data_view(l, m)
 level_entry(n::Network) = N.class(n, :species).data[:trophic_level]
 NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
 NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])

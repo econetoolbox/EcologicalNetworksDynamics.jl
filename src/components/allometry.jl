@@ -47,11 +47,11 @@ Return that module.
 """
 function define_allometry_blueprints(
     mod::Module,
-    d::AbstractNodeField,
+    d::D.AbstractNodeField,
     allometric_template::Allometry,
     temperature_template::@NamedTuple{E_a::Float64, allometry::Allometry},
 )
-    nc = NodeClass(d)
+    nc = D.Class(d)
     Class = D.CamelCaseSingular(nc)
     class, field = D.content(d)
     value, values, Value, Values, short = D.name_variants(d)
@@ -125,9 +125,9 @@ end
 # Typically constructed from a value in the literature, named by a symbol.
 # But leave this decision to the caller.
 
-construct(::AbstractNodeField, ::Type{<:AllometricBlueprint}, ::Symbol) =
+construct(::D.AbstractNodeField, ::Type{<:AllometricBlueprint}, ::Symbol) =
     throw("unimplemented")
-construct(::AbstractNodeField, ::Type{<:TemperatureAllometricBlueprint}, ::Symbol) =
+construct(::D.AbstractNodeField, ::Type{<:TemperatureAllometricBlueprint}, ::Symbol) =
     throw("unimplemented")
 
 #-------------------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ construct(::AbstractNodeField, ::Type{<:TemperatureAllometricBlueprint}, ::Symbo
 # Check the given parameters against a template (typically a default value)
 # so as to reject missing or unexpected values.
 function early_check(
-    d::AbstractNodeField,
+    d::D.AbstractNodeField,
     bp::Union{AllometricBlueprint,TemperatureAllometricBlueprint},
     template::Allometry,
 )
@@ -190,17 +190,17 @@ end
 
 #-------------------------------------------------------------------------------------------
 
-expand!(d::AbstractNodeField, model::Model, bp::AllometricBlueprint) =
+expand!(d::D.AbstractNodeField, model::Model, bp::AllometricBlueprint) =
     expand!(d, model, bp.allometry)
 
-function expand!(d::AbstractNodeField, model::Model, bp::TemperatureAllometricBlueprint)
+function expand!(d::D.AbstractNodeField, model::Model, bp::TemperatureAllometricBlueprint)
     (; E_a, allometry) = bp
     T = model.T
     expand!(d, model, allometry; E_a, T)
 end
 
 # Expand for dense nodes.
-function expand!(d::NodeField, model::Model, al::Allometry; kwargs...)
+function expand!(d::D.NodeField, model::Model, al::Allometry; kwargs...)
     n = N.network(model)
     c = D.class(d)
     class = N.class(n, c)
@@ -210,7 +210,7 @@ function expand!(d::NodeField, model::Model, al::Allometry; kwargs...)
 end
 
 # Expand for sparse nodes.
-function expand!(d::SubnodeField, model::Model, al::Allometry; kwargs...)
+function expand!(d::D.SubnodeField, model::Model, al::Allometry; kwargs...)
     n = N.network(model)
     c = D.class(d)
     class = N.class(n, c)

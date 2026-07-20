@@ -105,7 +105,6 @@ const NF = NetworkFramework
 
 # Define extension points to customize components behaviours.
 include("dispatchers.jl")
-using .Dispatchers
 const D = Dispatchers
 
 # Dedicate framework to the specific `Network` value.

@@ -14,7 +14,7 @@ import EcologicalNetworksDynamics: EN, N, F, Views, SubnodeField, Map
 import Main:
     is_disp, is_repr, @argfails, @writefails, @inputfails, @viewfails, @sysfails, Value
 const View = # Tested viewtype.
-    Views.SubnodesDataView{SubnodeField(:producers, :growth, :species),Float64}
+    Views.SubnodesFieldView{SubnodeField(:producers, :growth, :species),Float64}
 
 @testset "Typical SubnodeField component" begin
 
@@ -66,7 +66,7 @@ const View = # Tested viewtype.
     @test is_disp(
         v,
         """
-        SubnodesDataView<species:producers:growth>{Float64} (2/4 values)
+        SubnodesFieldView<species:producers:growth>{Float64} (2/4 values)
          ·
          5.0
          ·

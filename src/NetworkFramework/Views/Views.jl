@@ -19,16 +19,16 @@ with the following intent:
 Under the hood, not all views work the same,
 although they should implement the same interface (mutability aside):
 
-    - Views into internal network mutable *data* associated with nodes and edges
+    - Views into internal network mutable associated with nodes and edges *fields*
       directly wrap a `Networks.View` along with a reference to its model.
-      Refer to them as `DataView`s.
+      Refer to them as `FieldView`s.
 
     - Views into network *topology* (node names, edges and restriction binary masks)
       also conceptually wrap data associated with nodes and edges,
       but these are not reified as underlying vectors and are immutable.
       Refer to them as `TopologyView`s and `MaskView`s.
 
-View types are parametrized with a dispatcher
+View types are parametrized with a matching dispatcher
 so their behaviour can be fine-tuned by downstream component authors.
 """
 module Views
@@ -42,26 +42,31 @@ module Views
 #
 #    # Anything specific to (1).
 #    struct ViewType1 ... end
-#    S = ViewType1 # "Self"
-#    method1(s::S) = ...
+#    let S = ViewType1 # "Self"
+#      method1(s::S) = ...
+#    end
 #
 #    # Anything specific to (2).
 #    struct ViewType2 ... end
-#    S = ViewType2 # "Self"
-#    method2(s::S) = ...
+#    let S = ViewType2 # "Self"
+#      method2(s::S) = ...
+#    end
 #
 #    # Anything common to both.
-#    S = Union{ViewType1,ViewType2}
-#    method3(s::S) = ...
+#    let S = Union{ViewType1,ViewType2} # "Self"
+#      method3(s::S) = ...
+#    end
+#
 #    ...
 #
 # This makes the code easier to navigate and maintain,
 # /!\ at the cost of confusing `Revise` very much.
 # Don't expect Revise to correctly track changes within this module because of this.
-# But I still think it's worth the cost.
+# But I still think the readability/mantainability gain it's worth that cost.
 
-import EcologicalNetworksDynamics: EN, N, F, I, NetworkFramework, Display, Option
-import .NetworkFramework: NF, D, Model, Ref
+import EcologicalNetworksDynamics:
+    EN, N, F, I, Networks, NetworkFramework, Display, Option, join_elided
+import .NetworkFramework: NF, D, Model
 const V = Views
 
 using SparseArrays
@@ -71,96 +76,49 @@ using Crayons
 Extract an owned copy of the viewed data under a regular dense/sparse vector/matrix form.
 """
 function extract end
-export extract
 
-# TODO: feature indexing into views with `::Colon` e.g. `views[:a, :]`.
+# TODO: watch https://github.com/JuliaEditorSupport/JuliaFormatter.jl/issues/1203
+"""
+Obtain underlying view dispatcher.
+"""
+function dispatcher end
 
+include("errors.jl")
 include("nodes.jl")
 include("edges.jl")
 include("nodes_display.jl")
 include("edges_display.jl")
 
 # ==========================================================================================
-# Common nodes or edge data views.
+# Common to nodes or edge field views.
 
-DataView{d,T} = Union{AbstractNodesDataView{d,T},EdgesDataView{d,T}}
-S = DataView
-N.view(v::S) = getfield(v, :view)
-D.field(s::S) = D.field(dispatcher(s))
-N.entry(v::S) = v |> N.view |> N.entry
+FieldView{d,T} = Union{AbstractNodesFieldView{d,T},EdgesFieldView{d,T}}
+let S = FieldView
+    D.field(s::S) = s |> dispatcher |> D.field # Associated fieldname.
+    N.view(s::S) = getfield(s, :view) # Underlying network data view.
+    N.entry(s::S) = s |> N.view |> N.entry # Corresponding entry.
+end
 
 # ==========================================================================================
-#  Common to all views.
+#  Common to all views, including 'virtual' ones into topology.
 
 AbstractView{d} = Union{NodesView{d},EdgesView{d}}
-S = AbstractView
-dispatcher(::Type{<:S{d}}) where {d} = d
-dispatcher(s::S) = s |> typeof |> dispatcher
-D.readonly(s::S) = s |> dispatcher |> D.readonly
-D.type(s::S) = s |> dispatcher |> D.type
-NF.model(s::S) = getfield(s, :model)
-N.network(s::S) = s |> NF.model |> N.network
-Base.getproperty(s::S, ::Symbol) = err(s, "no property to access.")
-Base.setproperty!(s::S, ::Symbol) = err(s, "no property to access.")
+let S = AbstractView
+    # Extract dispatcher and delegate some basic dispatcher interface.
+    V.dispatcher(::Type{<:S{d}}) where {d} = d
+    V.dispatcher(s::S) = s |> typeof |> dispatcher
+    D.readonly(s::S) = s |> dispatcher |> D.readonly
+    D.type(s::S) = s |> dispatcher |> D.type
 
-# Delegate indexing to native abstract arrays unless we get really unexpected types.
-check_ref(::S, r::Ref) = r
-check_ref(::S, u::UnitRange) = u
-check_ref(::S, c::CartesianIndex) = c
-check_ref(s::S, x::Any) = err(
-    s,
-    "Views are indexed with indices (::Int) or labels (::Symbol). \
-     Cannot index with: $(repr(x)) ::$(typeof(x)).",
-)
+    # Underlying model and network.
+    NF.model(s::S) = getfield(s, :model)
+    N.network(s::S) = s |> NF.model |> N.network
 
-"""
-Generic checking logic, assuming checked ref(s),
-delegating to the `mutate_check` function later defined with typical node data components.
-"""
-check_write(s::S, x, ref...) =
-    if D.readonly(s)
-        err(s, "Values of $(repr(D.field(s))) are readonly.")
-    else
-        x = try
-            d = dispatcher(s)
-            m = NF.model(s)
-            NF.mutate_check(d, m, x, ref...)
-        catch e
-            e isa F.InputError || rethrow(e)
-            rethrow(V.WriteError(F.message(e), D.field(s), ref, x))
-        end
-        x
-    end
-
-# ==========================================================================================
-# Dedicated view exception.
-
-struct Error <: Exception
-    type::Type # (View type)
-    mess::String
+    # Forbid any property access.
+    Base.getproperty(s::S, ::Symbol) = err(s, "no property to access.")
+    Base.setproperty!(s::S, ::Symbol) = err(s, "no property to access.")
 end
-err(T::Type, m) = throw(Error(T, m))
-err(t, m, throw = throw) = throw(Error(typeof(t), m))
-Base.showerror(io::IO, e::Error) =
-    print(io, "View error ($(type_info(e.type))):\n$(e.mess)")
 
-struct WriteError <: Exception
-    message::String
-    fieldname::Symbol
-    index::Any
-    value::Any
-end
-function Base.showerror(io::IO, e::WriteError)
-    (; fieldname, index, value, message) = e
-    it, reset = crayon"italics", crayon"reset"
-    print(
-        io,
-        "Cannot set node data $fieldname$(display_index(index)):\n\
-         $it$message$reset\n\
-         Received value: $(repr(value)) ::$(typeof(value))",
-    )
-end
-display_index(i...) = display_index(i)
-display_index(i::Tuple) = "[$(join(repr.(i), ", "))]"
+include("indexing.jl")
 
 end
