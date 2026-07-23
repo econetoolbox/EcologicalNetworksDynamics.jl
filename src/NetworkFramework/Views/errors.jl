@@ -16,6 +16,7 @@ fwd_err(upgrade, totry, a...) =
         rethrow(e)
     end
 
+# ONHOLD: can we not get the same with a clever use of the error type above?
 struct WriteError <: Exception
     message::String
     fieldname::Symbol

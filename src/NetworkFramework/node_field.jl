@@ -185,7 +185,7 @@ function define_node_field_component(
 end
 
 # ==========================================================================================
-# Extract implementation detail to ease Revise work + specify extension points.
+# Implementation detail and extension points.
 
 data(::Blueprint) = throw("unimplemented") # Extract main codegen named field.
 

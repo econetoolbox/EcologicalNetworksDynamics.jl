@@ -15,7 +15,7 @@ import EcologicalNetworksDynamics: EN, F, D, Network, Views
 import Main: is_repr, is_disp, @viewfails, @sysfails, Value
 const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
 
-@testset "Typical Class component" begin
+@testset "Class component: blueprints" begin
 
     # Blueprints available from component.
     @test Species isa EN.Component
@@ -32,14 +32,22 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
     @test Species.Names <: EN.Blueprint
     @test Species.Number <: EN.Blueprint
 
-    # Construct from names, converted from various input types.
+    # ======================================================================================
+    # From names.
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
+
+    # Various input types.
     bp = Species.Names([:a, :b, :c])
-    @test bp == Species.Names(['a', 'b', 'c'])
-    @test bp == Species.Names(["a", "b", "c"])
-    # Implbicit constructor.
+    @test bp == Species.Names(['a', 'b', 'c']) # ::Char
+    @test bp == Species.Names(["a", "b", "c"]) # ::String
+    @test bp == Species.Names(split("a b c")) # ::SubString etc.
+    # Implicit constructor.
     @test bp == Species([:a, :b, :c])
     @test bp == Species(['a', 'b', 'c'])
     @test bp == Species(["a", "b", "c"])
+    @test bp == Species(split("a b c"))
     @test is_repr(bp, "<Species>:Names(names: [:a, :b, :c])")
     @test is_disp(
         bp,
@@ -50,7 +58,29 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
         """,
     )
 
-    # Expand into a class component.
+    # Alias to the value inside the blueprint if input type matches exactly.
+    input = Symbol[:a, :b, :c]
+    bp = Species(input)
+    @test input === bp.names
+    input[2] = :x
+    @test bp.names == [:a, :x, :c]
+
+    #---------------------------------------------------------------------------------------
+    # Value check.
+    Species([:a, :b, :b])
+
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
+    # It is (still) ok to break values checking afterwards..
+    input[3] = :x
+    # .. but then expansion fails.
+    @sysfails(
+        Model(bp),
+        Check(early, [Species.Names], "Species 3 and 2 are both named :x.")
+    )
+
+    # Expand.
     m = Model(bp)
     @test is_disp(
         m,
@@ -59,6 +89,35 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
           - Species: 3 (:a, :b, :c)\
         """,
     )
+
+    # ======================================================================================
+    # Construct from a number, generating short distinct names.
+
+    bp = Species.Number(5)
+    @test bp == Species(5) # Directly dispatched from component.
+    @test is_repr(bp, "<Species>:Number(n: 5)")
+    @test is_disp(
+        bp,
+        """
+        blueprint for <Species>: Number {
+          n: 5,
+        }\
+        """,
+    )
+end
+
+@testset "Class component: views" begin
+
+    # No view if the component is missing.
+    @sysfails(
+        Model().species.names,
+        Property(
+            species.names,
+            "Component $(EN._Species) is required to read this property.",
+        ),
+    )
+
+    m = Model(Species(collect("abc")))
 
     # The names property becomes available as a view.
     v = m.species.names
@@ -73,13 +132,6 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
          :b
          :c\
         """,
-    )
-    @sysfails( # Unless the component is missing, as all properties.
-        Model().species.names,
-        Property(
-            species.names,
-            "Component $(EN._Species) is required to read this property.",
-        ),
     )
 
     # The view has some basic vector-like interface.
@@ -111,35 +163,6 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
         View,
         "Views are indexed with indices (::Int) or labels (::Symbol). \
          Cannot index with: $nothing ::$Nothing."
-    )
-
-    # Immutable.
-    mess = "Cannot change :species nodes names after they have been set."
-    @viewfails((v[1] = :u), View, mess)
-    @viewfails((v[:a] = :u), View, mess)
-    @viewfails((v[:a] = 2), View, mess)
-    # This takes priority over indexing semantics.
-    @viewfails((v[] = 2), View, mess)
-    @viewfails((v[1, 2] = 2), View, mess)
-    @viewfails((v[nothing] = 2), View, mess)
-
-    # But the *blueprint* can be mutated.
-    bp.names[2] = :x
-    @test Model(bp).species.names == [:a, :x, :c]
-
-    # Alias to the value inside the blueprint if exact type match.
-    input = Symbol[:a, :b, :c]
-    bp = Species(input)
-    @test input === bp.names
-    input[2] = :x
-    @test bp.names == [:a, :x, :c]
-
-    # It is (still) ok to break values checking afterwards..
-    input[3] = :x
-    # .. but then expansion fails.
-    @sysfails(
-        Model(bp),
-        Check(early, [Species.Names], "Species 3 and 2 are both named :x.")
     )
 
     # Construct from a number, generating short distinct names.
@@ -229,6 +252,28 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
     k = m.producers.mask
     @test k == [0, 1, 1, 0, 1]
     @test k[2:4] == [1, 1, 0]
+
+end
+
+@testset "Class component: immutability" begin
+
+    bp = Species(collect("abc"))
+    m = Model(bp)
+    v = m.species.names
+
+    # Immutable.
+    mess = "Cannot change :species nodes names after they have been set."
+    @viewfails((v[1] = :u), View, mess)
+    @viewfails((v[:a] = :u), View, mess)
+    @viewfails((v[:a] = 2), View, mess)
+    # This takes priority over indexing semantics.
+    @viewfails((v[] = 2), View, mess)
+    @viewfails((v[1, 2] = 2), View, mess)
+    @viewfails((v[nothing] = 2), View, mess)
+
+    # But the *blueprint* can be mutated.
+    bp.names[2] = :x
+    @test Model(bp).species.names == [:a, :x, :c]
 
 end
 

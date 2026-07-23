@@ -25,7 +25,7 @@ function define_class_component(mod::Module, d::D.Class)
     bpmod = mod.eval((
         quote
             module $Plural_
-            import EcologicalNetworksDynamics: F, NF
+            import EcologicalNetworksDynamics: F, NF, Model
             const d = $d
             end
         end
@@ -33,38 +33,47 @@ function define_class_component(mod::Module, d::D.Class)
 
     #---------------------------------------------------------------------------------------
     # Construct from a given set of names.
-    bpmod.eval(quote
-        mutable struct Names <: NF.ClassNamesBlueprint
-            names::Vector{Symbol}
-            Names(names) = new(NF.inputconvert(Vector{Symbol}, names))
-            Names(names...) = new([NF.inputconvert(Symbol, n) for n in names])
-            Names(names::Vector{Symbol}) = new(names) # Alias if type-exact.
-        end
+    bpmod.eval(
+        quote
+            mutable struct Names <: NF.ClassNamesBlueprint
+                names::Vector{Symbol}
+                Names(names...) = new(NF.construct(d, Names, names...))
+            end
 
-        # Declare as a blueprint.
-        NF.define_blueprint(Names, "raw $($s) names")
-        # Export so it gets picked by `NF.define_component` when passing `bpmod` later.
-        export Names
+            # Declare as a blueprint.
+            NF.define_blueprint(Names, "raw $($s) names")
 
-        # Verify blueprint values.
-        F.early_check(bp::Names) = NF.early_check(d, bp)
+            # Export so it gets picked by `NF.define_component` when passing `bpmod` later.
+            export Names
 
-        # Expand into a new compartment.
-        F.expand!(model, bp::Names) = NF.expand!(d, model, bp)
+            # Verify intrinsic blueprint values.
+            F.early_check(bp::Names) = NF.early_check(d, bp)
 
-    end)
+            # Verify against model, using the data passed by early_check.
+            F.late_check(m::Model, bp::Names, early_data) =
+                NF.late_check(d, m, bp, early_data)
+
+            # Expand into a new compartment, using the data passed by late_check.
+            F.expand!(m::Model, bp::Names, late_data) = NF.expand!(d, m, bp, late_data)
+
+        end,
+    )
 
     #---------------------------------------------------------------------------------------
     # Construct from a plain number and generate dummy names.
-    bpmod.eval(quote
-        mutable struct Number <: NF.ClassNumberBlueprint
-            n::Int
-        end
-        NF.define_blueprint(Number, "number of $($s)")
-        export Number
-        F.early_check(bp::Number) = NF.early_check(d, bp)
-        F.expand!(model, bp::Number) = NF.expand!(d, model, bp)
-    end)
+    bpmod.eval(
+        quote
+            mutable struct Number <: NF.ClassNumberBlueprint
+                n::Int
+                Number(input) = new(NF.construct(d, Number, input))
+            end
+            export Number
+            NF.define_blueprint(Number, "number of $($s)")
+            F.early_check(bp::Number) = NF.early_check(d, bp)
+            F.late_check(bp::Number, m::Model, data) = NF.early_check(d, m, bp, data)
+            F.expand!(m::Model, bp::Number, data) = NF.expand!(d, m, bp, data)
+        end,
+    )
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
@@ -146,44 +155,89 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
 end
 
 # ==========================================================================================
-# Extract implementation detail to ease Revise work.
+# Implementation detail and extension points,
+# along the whole blueprint sequence from construction to expansion.
 
-# Forbid duplicates (triangular check).
-function early_check(d::D.Class, bp::ClassNamesBlueprint)
-    (; names) = bp
+#-------------------------------------------------------------------------------------------
+# Construct.
+
+# Names.
+function construct(d::D.Class, ::Type{<:ClassNamesBlueprint}, input)
+    names = NF.inputconvert(Vector{Symbol}, input)
+    early_check(d, names) # Ignore the data possibly produced data for late checking.
+    names
+end
+
+# Allow passing names as separate arguments.
+construct(d::D.Class, BP::Type{<:ClassNamesBlueprint}, input...) = construct(d, BP, input)
+
+# Number.
+function construct(d::D.Class, ::Type{<:ClassNumberBlueprint}, input)
+    n = NF.inputconvert(Int, input)
+    early_check(d, n)
+    n
+end
+
+#-------------------------------------------------------------------------------------------
+# Early check (without model context).
+# This is done once during construction and once prior to expansion.
+
+# Names.
+function early_check(d::D.Class, names::Vector{Symbol})
+    # Forbid duplicates (triangular check).
     Class = D.CamelCaseSingular(d)
     already = OrderedDict{Symbol,Int}() # {name: index}
     for (i, name) in enumerate(names)
         if haskey(already, name)
             j = already[name]
-            conserr("$Class $i and $j are both named $(repr(name)).")
+            # HERE: the whole framework would benefit from a unified error story:
+            # component authors would just have 1 error type to raise in case of trouble,
+            # and the generic code should upgrade it accordingly.
+            conserr("$Class $i and $j would be both named $(repr(name)).")
         end
         already[name] = i
     end
     names
 end
+early_check(d::D.Class, bp::ClassNamesBlueprint) = early_check(d, bp.names)
 
-# Forbid negative number of nodes.
-function early_check(d::D.Class, bp::ClassNumberBlueprint)
-    (; n) = bp
+# Number.
+function early_check(d::D.Class, n::Int)
+    # Forbid negative number of nodes.
+    n >= 0 && return n
     class = D.snake_case_plural(d)
-    n >= 0 || checkerr(n, "Cannot construct a negative number of $class.")
+    checkerr(n, "Cannot construct a negative number of $class.")
 end
+early_check(d::D.Class, bp::ClassNumberBlueprint) = early_check(d, bp.n)
 
-expand!(d::D.Class, model::Model, bp::ClassNamesBlueprint) = expand!(d, model, bp.names)
-expand!(d::D.Class, model::Model, bp::ClassNumberBlueprint) =
-    expand!(d, model, (Symbol(D.short_prefix(d), i) for i in 1:bp.n))
-function expand!(d::D.Class, model::Model, names)
+#-------------------------------------------------------------------------------------------
+# Late check (with model context).
+
+# (not much to check in the general situation.)
+late_check(::D.Class, ::Model, ::Blueprint, data) = data
+
+#-------------------------------------------------------------------------------------------
+# Expand.
+
+# Names.
+function expand!(d::D.Class, m::Model, names)
     class = D.class(d)
-    network = NF.network(model)
+    network = NF.network(m)
     N.add_class!(network, class, names)
 end
+expand!(d::D.Class, m::Model, ::ClassNamesBlueprint, names) = expand!(d, m, names)
 
+# Number (generate names).
+expand!(d::D.Class, m::Model, ::ClassNumberBlueprint, n) =
+    expand!(d, m, (Symbol(D.short_prefix(d), i) for i in 1:n))
+
+# ==========================================================================================
 # Display.
-function class_shortline(d::D.Class, io::IO, model::Model)
+
+function class_shortline(d::D.Class, io::IO, m::Model)
     class = D.snake_case_plural(d)
     Class = D.CamelCaseSingular(d)
-    names = getproperty(model, class)._names
+    names = getproperty(m, class)._names
     n = length(names)
     print(io, "$Class: $n ($(EN.join_elided(names, ", ")))")
 end

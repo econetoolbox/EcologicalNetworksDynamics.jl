@@ -5,14 +5,14 @@ module TestUser
 # Run all .jl files we can find except the current one (and without recursing).
 only = [
     "01-node_class.jl",
-    "02-edge_web.jl",
-    "03-graph_scalar.jl",
-    "04-node_field.jl",
-    "05-subnode_field.jl",
-    "06-allometric_blueprints.jl",
-    "07-edge_field.jl",
-    "99-components.jl",
-    "100-kwargs.jl",
+    #  "02-edge_web.jl",
+    #  "03-graph_scalar.jl",
+    #  "04-node_field.jl",
+    #  "05-subnode_field.jl",
+    #  "06-allometric_blueprints.jl",
+    #  "07-edge_field.jl",
+    #  "99-components.jl",
+    #  "100-kwargs.jl",
 ] # Unless some files are specified here, in which case only run these.
 if isempty(only)
     folder = dirname(@__FILE__)

@@ -675,7 +675,7 @@ end
 # Input may be anything,
 # but the underlying model value and the reference can be assumed to be correct.
 
-# HERE: this is very much like the node field one except for two indices instead of one.
+# XXX: this is very much like the node field one except for two indices instead of one.
 # Maybe it is a good opportunity to harmonize all indices handling/checking
 # from the views up to here?
 mutate_check(d::D.EdgeField, model::Model, value, ref) =
