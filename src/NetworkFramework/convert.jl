@@ -107,8 +107,8 @@ function ac_all(Target, Input)
 end
 
 ac_all(Float64, Real)
-ac_all(Int64, Integer)
-ac_all(Bool, Integer)
+ac_all(Int, Union{Integer,Unsigned})
+ac_all(Bool, Union{Integer,Unsigned})
 
 # ==========================================================================================
 """

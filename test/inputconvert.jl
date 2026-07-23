@@ -70,6 +70,8 @@ Alias = _Alias() # Use as an unambiguous keyword.
     #---------------------------------------------------------------------------------------
     # To integers, any collection.
 
+    @test conv(Int, 0x5 => 5)
+    @test conv(Int, 0xffffffff => 4294967295)
     @test conv(SparseVector{Int}, [5, 8] => sparse([5, 8]))
     @test conv(SparseMatrix{Int}, [5 8; 8 5] => sparse([5 8; 8 5]))
 
@@ -84,6 +86,7 @@ Alias = _Alias() # Use as an unambiguous keyword.
     # To booleans, any collection.
 
     @test conv(Bool, 1 => true)
+    @test conv(Bool, 0x1 => true)
     @test conv(Vector{Bool}, [1, 0] => [true, false])
     @test conv(Vector{Bool}, [false, true] => Alias)
     # etc.
