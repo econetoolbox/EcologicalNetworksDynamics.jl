@@ -50,7 +50,7 @@ function Base.showerror(io::IO, e::FailedAttempts)
 end
 
 """
-Carefully render arbitrary user input it within error messages,
+Carefully render arbitrary user input within error messages,
 so that it only takes short space if possible,
 or else it is mime-displayed at the bottom,
 the 'bottom' being defined by anything we would like to render in-'between'.

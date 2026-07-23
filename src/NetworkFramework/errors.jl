@@ -1,21 +1,71 @@
-# Refine framework errors into several error types
-# to describe the typical path of an input value from user to the model internals.
-# Every step has its own error failure case.
-# These are not only meant to be caught by the Framework during component expansion,
-# as they may also bubble up to the toplevel if encountered
-# in other context than component expansion eg.: blueprint construction, field assignment.
-#
-#   - raw input (::Any) -> candidate value (::T) : ConvertError
-#   - intrinsic check of candidate value : CheckError
-#   - check against the whole model : ModelError
 
-# Assuming input errors in the next are mutable and all have a `.mess` field.
-function with_context!(e::F.InputError, ctx, rethrow = Base.rethrow)
-    e.mess = "$ctx:\n$(e.mess)"
-    rethrow(e)
+abstract type LibError <: F.InputError end
+
+"""
+A simple error type to be raised by component authors regardless of the context.
+It'll either be caught/upgraded by the Framework (during expansion)
+or by the rest of the generic component code (construction, mutation).
+Should [rb]arely reach toplevel on its own once raised although it is ok if this happens.
+"""
+struct ComponentError <: LibError
+    mess::String
+end
+comperr(m, throw = Base.throw) = throw(ComponentError(m))
+Base.showerror(io::IO, e::ComponentError) = print(io, e.mess)
+
+"""
+Upgrading from a ComponentError while checking an individual value.
+Useful to report standard rendering of the problematic value below the message.
+"""
+mutable struct ValueError <: LibError
+    value::Any
+    mess::String
+end
+valerr(value, mess, throw = Base.throw) = throw(ValueError(value, mess))
+function Base.showerror(io::IO, e::ValueError)
+    (; value, mess) = e
+    print(io, mess)
+    render_input(io, value)
 end
 
-# ==========================================================================================
+# Forward error up after upgrading message with additional context.
+ComponentError(e::ComponentError, up::Function) = ComponentError(up(e.mess))
+ValueError(e::ValueError, up::Function) = ValueError(e.value, up(e.mess))
+ValueError(value, e::LibError, up::Function) = ValueError(value, up(e.mess))
+fwd_err(up::Function, totry::Function, a...) =
+    try
+        totry(a...)
+    catch e
+        e isa LibError && rethrow(typeof(e)(e, up))
+        rethrow(e)
+    end
+# Upgrade to ValueError on the way up.
+fwd_err(up::Function, value, totry::Function, a...) =
+    try
+        totry(a...)
+    catch e
+        e isa LibError && rethrow(ValueError(value, e, up))
+        rethrow(e)
+    end
+
+# Same with alternate ergonomics.
+try_with(totry::Function, up::Function) =
+    try
+        totry()
+    catch e
+        e isa LibError && rethrow(typeof(e)(e, up))
+    end
+try_with(totry::Function, value, up::Function) =
+    try
+        totry()
+    catch e
+        e isa LibError && rethrow(ValueError(value, e, up))
+    end
+
+#-------------------------------------------------------------------------------------------
+# Special error types for input parsing / conversion error types.
+# TODO: only used in convert.jl and lists.jl. Refresh? Move
+
 """
 When analyzing raw user input to produce a value of the desired internal type.
 Typically raised during blueprint construction or model field assignment.
@@ -46,17 +96,9 @@ converr(
     context::Option{String} = nothing,
     throw = Base.throw,
 ) = throw(ConvertError(context, input, target, reason))
-function with_context!(e::ConvertError, ctx)
-    if isnothing(e.mess)
-        e.mess = ctx
-    else
-        e.mess = "$ctx:\n$(e.mess)"
-    end
-    rethrow(e)
-end
 
 """
-A generic kind of parse error.
+A generic kind of parse error, useful during maps / adjacency lists parsing.
 """
 mutable struct BaseParseError <: ParseError
     input::Any
@@ -72,37 +114,3 @@ function Base.showerror(io::IO, e::BaseParseError)
 end
 parserr(input, mess, throw = Base.throw; between = default_between) =
     throw(BaseParseError(input, mess, between))
-
-# ==========================================================================================
-"""
-Typically raised during blueprint expansion (early check),
-blueprint construction or model field assignment.
-"""
-mutable struct CheckError <: F.InputError
-    value::Any
-    mess::String
-end
-function Base.showerror(io::IO, e::CheckError)
-    (; value, mess) = e
-    val = repr(
-        MIME("text/plain"),
-        value;
-        context = IOContext(io, :compact => true, :limit => true),
-    )
-    print(io, "$mess\nReceived: $val")
-end
-checkerr(value, mess::String, throw = Base.throw) = throw(CheckError(value, mess))
-
-message(e::ParseError) = sprint(showerror, e)
-message(e::BaseParseError) = e.mess
-message(e::CheckError) = e.mess
-
-# ==========================================================================================
-"""
-Typically raised during blueprint expansion (late check) or model field assignment.
-"""
-mutable struct ConsistencyError <: F.InputError
-    mess::String
-end
-Base.showerror(io::IO, e::ConsistencyError) = print(io, e.mess)
-conserr(mess::String, throw = Base.throw) = throw(ConsistencyError(mess))

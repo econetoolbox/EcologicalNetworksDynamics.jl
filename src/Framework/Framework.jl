@@ -119,7 +119,7 @@ const CompRef{V} = Union{Component{V},CompType{V}}
 
 # Exception to be thrown by framework user from various extension points.
 # They can use it as they like but, once caught by the framework,
-# it should not bubble up to toplevel scope
+# it will not bubble up to toplevel scope
 # but be upgraded differently depending on the context.
 abstract type InputError <: Exception end
 message(e::InputError) = sprint(showerror, e)

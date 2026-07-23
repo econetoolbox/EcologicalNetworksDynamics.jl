@@ -187,8 +187,6 @@ end
 # ==========================================================================================
 # Implementation detail and extension points.
 
-data(::Blueprint) = throw("unimplemented") # Extract main codegen named field.
-
 #-------------------------------------------------------------------------------------------
 # Check data values without model information, against the target type.
 
