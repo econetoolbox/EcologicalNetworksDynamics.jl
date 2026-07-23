@@ -103,12 +103,15 @@ using SparseArrays
 
 const NF = NetworkFramework
 
-# Define extension points to customize components behaviours.
+# Dedicate framework to the specific `Network` value.
+include("framework.jl")
+
+# Define extension points to customize the data flow behaviour with fine grain.
 include("dispatchers.jl")
 const D = Dispatchers
 
-# Dedicate framework to the specific `Network` value.
-include("framework.jl")
+# Typical default data flow.
+include("./dataflow.jl")
 
 include("errors.jl")
 
@@ -134,20 +137,20 @@ include("./display.jl")
 
 function non_negative(T, input)
     v = inputconvert(T, input)
-    v < 0 && checkerr(v, "Value cannot be negative.")
+    v < 0 && liberr(v, "Value cannot be negative.")
     v
 end
 
 function fraction(T, input)
     v = inputconvert(T, input)
-    0.0 <= v <= 1.0 || checkerr(v, "Value must belong to [0, 1].")
+    0.0 <= v <= 1.0 || liberr(v, "Value must belong to [0, 1].")
     v
 end
 
 function name_among(expected, input)
     name = inputconvert(Symbol, input)
     name in expected ||
-        checkerr(name, "Expected one of $(EN.join_elided(expected, ", ", " or ")).")
+        liberr(name, "Expected one of $(EN.join_elided(expected, ", ", " or ")).")
     name
 end
 

@@ -36,6 +36,11 @@ methname(U::UnionAll) = methname(U.body)
 methname(fn::Function) = :(::$(typeof(fn)))
 
 #-------------------------------------------------------------------------------------------
+# XXX: whenever ready, big rename:
+#   (Networks, N) -> (Networks, N)
+#   (Framework, F) -> (Systems, S)
+#   (NetworkFramework, NF) -> (Framework, F) 💥
+#   (Dispatcher, D) -> (DataKind, D)
 
 # Data: parsimonious model memory representation.
 include("Networks/Networks.jl")

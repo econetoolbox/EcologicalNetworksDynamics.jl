@@ -30,7 +30,7 @@
 """
 Without any context, call with a target type to convert input.
 """
-inputconvert(T, input) = converr(input, T, "Conversion not implemented.")
+inputconvert(T, input) = liberr(input, T, "Conversion not implemented.")
 inputconvert(::Type{T}, input::T) where {T} = input
 
 # ==========================================================================================
@@ -43,7 +43,7 @@ function allow_convert(Target, Input, f)
                     $f(v)
                 catch e
                     e isa F.InputError && rethrow(e)
-                    converr(v, $Target, "(detail down the stacktrace)")
+                    liberr(v, $Target, "(detail down the stacktrace)")
                 end
         end,
     )
@@ -74,7 +74,7 @@ ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 # From iterators.
 function inputconvert(::Type{Vector{T}}, input) where {T}
     hasmethod(iterate, Tuple{typeof(input)}) ||
-        converr(input, Vector{T}, "Input is not iterable.")
+        liberr(input, Vector{T}, "Input is not iterable.")
     T[inputconvert(T, v) for v in input]
 end
 
@@ -137,7 +137,7 @@ function try_convert(input, tries...)
         x = try
             inputconvert(T, input)
         catch e
-            e isa ParseError || rethrow(e)
+            e isa AbstractParseError || rethrow(e)
             push!(err, "convert input to $T")
             continue
         end
@@ -154,7 +154,7 @@ function try_convert(input, tries...)
         end
         print(mess, "\n  - $T")
     end
-    parserr(input, String(Base.take!(mess)); between = (io) -> begin
+    parserr(input, String(Base.take!(mess)); between = io -> begin
         println(io)
         showerror(io, err)
     end)

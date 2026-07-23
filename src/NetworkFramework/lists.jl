@@ -162,7 +162,7 @@ pick(plain::Forgiveness, group::Forgiveness, priorities::Dict{Symbol,Int64}) =
 priorities(v::Vector{Symbol}) = Dict(s => i for (i, s) in enumerate(v))
 
 # Upgrade underlying parse error if bubbling up to user call.
-mutable struct ListParseError <: ParseError
+mutable struct ListParseError <: AbstractParseError
     mess::String
 end
 Base.showerror(io::IO, e::ListParseError) = print(io, e.mess)
