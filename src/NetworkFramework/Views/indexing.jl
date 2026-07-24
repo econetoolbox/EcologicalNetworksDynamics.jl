@@ -1,5 +1,6 @@
 # Factorize here checked indexing logic among all views.
 # XXX: test indexing into views with `::Colon` e.g. `views[:a, :]`.
+# HERE: keep importing all logic from the old indexing file on hold.
 
 const Ref = Union{Int,Symbol} # Reference a node eitheir by index or label.
 const Query = Union{Ref,UnitRange,CartesianIndex,Colon} # Anything accepted as view[q...].
@@ -16,41 +17,44 @@ function check_dim(v::AbstractView, q...)
     exp = D.dim(d)
     act = length(q)
     s = exp == 1 ? "" : "s"
-    err(v, "$l-level data has $exp dimension$s, received $act:")
+    qerr(v, q, false, "$l-level data has $exp dimension$s, received $act")
 end
 
 check_dim(::NodesView, i) = (i,)
 check_dim(::EdgesView, i, j) = (i, j)
 
 #-------------------------------------------------------------------------------------------
-# Check query type, per dimension.
+# Check query type.
 
+# Then dispatch to per-dimension checking.
 check_type(v::AbstractView, q::Tuple) = check_type.((v,), q)
 check_type(::AbstractView, q::Query) = q
-check_type(v::AbstractView, q) =
-    err(v, "Views are queried with indices [::Int] or labels [::Symbol], not $(typeof(q)):")
+check_type(::AbstractView, q) =
+    referr("Views are queried with indices [::Int] or labels [::Symbol]")
 
 # Allow for a few implicit conversions.
 check_type(::AbstractView, q::Union{Char,AbstractString}) = Symbol(q)
-check_type(v::AbstractView, q::Unsigned) =
+check_type(::AbstractView, q::Unsigned) =
     try
         Int(q)
     catch e
-        e isa InexactError && err(v, "Index too large: $q.", rethrow)
+        e isa InexactError &&
+            referr("Index too large to be used with julia arrays ($q)", rethrow)
         rethrow(e)
     end
 
 #-------------------------------------------------------------------------------------------
-# Check intrinsic query value.
+# Check intrinsic query value, per dimension.
 
-function check_value(v::AbstractView, i::Int, c)
-    i > 0 && return i
-    err(v, "Nodes can only be indexed with positive integers.")
-end
-
-check_value(::AbstractView, q, _) = q # Nothing to check otherwise.
+# Then dispatch to per-dimension checking.
+check_value(::AbstractView, q, _) = q
 check_value(v::NodesView, (i,)) = (check_value(v, i, Val(N.class)),)
 check_value(v::EdgesView, (i, j)) = check_value.(v, (i, j), Val.((N.source, N.target)))
+
+function check_value(::AbstractView, i::Int, c)
+    i > 0 && return i
+    referr("Integer node references can only be positive")
+end
 
 #-------------------------------------------------------------------------------------------
 # Check query against the model.
@@ -68,11 +72,11 @@ function check_query(v::AbstractView, r::Ref, c::Val{class}) where {class}
     referr(v, r)
 end
 
-referr(v::AbstractView, l::Symbol) = err(v, "No node in this class is labeled $(repr(l)).")
+referr(::AbstractView, l::Symbol) = referr("No node in this class is labeled $(repr(l))")
 function referr(v::AbstractView, ::Int)
     n = length(N.class(v))
     s = n == 1 ? "" : "s"
-    err(v, "This class only contains $n node$s.")
+    referr("This class only contains $n node$s")
 end
 
 # ==========================================================================================
@@ -89,20 +93,20 @@ obtain(v::NodesNamesView, (r,)::Tuple{Ref}) = N.to_label(N.class(v).index, r)
 
 # ==========================================================================================
 
-# The exposed interface.
+# The exposed interface: whole checking sequence.
 function Base.getindex(v::AbstractView, q...)
-    this() = "$(dispatcher(v)) $(type_info(typeof(v)))"
-    that() = display_query(q)
-    # Report input context at the end of the message before it's dim/size checked
-    # because there are stronger chances that it be very long.
-    ctx_after(err) = "$err\nCannot index into $(this()) with $(that())."
-    # Once checked, readability is likely better with the received query on top.
-    ctx_before(err) = "Cannot index with $(that()) into $(this()):\n$err"
-    # Checking sequence.
-    q = fwd_err(ctx_after, check_dim, v, q...)
-    q = fwd_err(ctx_after, check_type, v, q)
-    q = fwd_err(ctx_before, check_value, v, q)
-    q = fwd_err(ctx_before, check_query, v, q)
+    q = check_dim(v, q...)
+    q = guard(false, check_type, v, q)
+    q = guard(true, check_value, v, q)
+    q = guard(true, check_query, v, q)
     obtain(v, q)
 end
-display_query(q) = "[" * join_elided(q, ", ") * "]"
+
+# Guard with error upgrade.
+guard(typechecked, fn, v, q) =
+    try
+        fn(v, q)
+    catch e
+        e isa RefErr && qerr(v, q, typechecked, e.mess, rethrow)
+        rethrow(e)
+    end

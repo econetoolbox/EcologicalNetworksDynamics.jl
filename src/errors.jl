@@ -48,24 +48,3 @@ function Base.showerror(io::IO, e::FailedAttempts)
         println(io)
     end
 end
-
-"""
-Carefully render arbitrary user input within error messages,
-so that it only takes short space if possible,
-or else it is mime-displayed at the bottom,
-the 'bottom' being defined by anything we would like to render in-'between'.
-"""
-function render_input(io, input, between::Function = () -> nothing)
-    T = typeof(input)
-    type = sprint(show, T)
-    short = repr(input)
-    if length(short) + length(type) < 80 && !('\n' in short)
-        print(io, "\nReceived: $short ::$type")
-        between()
-    else
-        between()
-        print(io, "\nReceived: ")
-        show(IOContext(io, :compact => true, :limit => true), MIME("text/plain"), input)
-        print(io, "\nType: $type")
-    end
-end

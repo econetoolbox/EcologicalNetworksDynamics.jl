@@ -22,25 +22,25 @@ include("./allometry.jl")
 include("./species.jl")
 
 # First example of an edges web.
-include("./foodweb.jl")
+#  include("./foodweb.jl")
 
 # First example of nodes data.
-include("./body_mass.jl")
+#  include("./body_mass.jl")
 
 # Non-numeric nodes data, that require checking against model values.
-include("./metabolic_class.jl")
+#  include("./metabolic_class.jl")
 
 # First example graph-level data.
-include("./temperature.jl")
+#  include("./temperature.jl")
 
 # Nodes data only relevant to a sub-class.
-include("./growth_rate.jl")
+#  include("./growth_rate.jl")
 
 # Graph-level data.
-include("./hill_exponent.jl")
+#  include("./hill_exponent.jl")
 
 # Edge-level data.
-include("./efficiency.jl")
+#  include("./efficiency.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================

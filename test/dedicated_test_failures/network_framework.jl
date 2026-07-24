@@ -1,10 +1,11 @@
-import EcologicalNetworksDynamics: F, Views, Network
+import EcologicalNetworksDynamics: F, V, Views, Network
 
 # Assume every derived InputError has a .mess message field to be tested.
 # Additional arguments are just tried against other fields in order.
 function TestFailures.check_exception(err::F.InputError, message_pattern, fields...)
     E = typeof(err)
-    names = filter(!in((:mess, :between)), fieldnames(E))
+    exclude = (:mess, :query)
+    names = filter(!in(exclude), fieldnames(E))
     e = length(fields)
     a = length(names)
     e == a || error("$a extra field(s) on error type $E $names but $e tested.")
@@ -16,6 +17,7 @@ function TestFailures.check_exception(err::F.InputError, message_pattern, fields
     end
     TestFailures.check_message(message_pattern, err.mess)
 end
+
 macro inputfails(xp, mess, fields...)
     fields = map(__module__.eval, fields)
     TestFailures.failswith(
@@ -28,21 +30,16 @@ macro inputfails(xp, mess, fields...)
 end
 export @inputfails
 
-function TestFailures.check_exception(e::Views.Error, type, message_pattern)
-    e.type == type ||
-        error("Error type mismatch for view type (expected/actual):\n  $type\n  $(e.type)")
-    TestFailures.check_message(message_pattern, e.mess)
-end
-macro viewfails(xp, type, mess)
+macro indexfails(xp, type, typechecked, mess)
     TestFailures.failswith(
         __source__,
         __module__,
         xp,
-        :($(Views.Error) => ($type, $mess)),
+        :($(Views.QueryError) => ($mess, $type, $typechecked)),
         false,
     )
 end
-export @viewfails
+export @indexfails
 
 function TestFailures.check_exception(
     e::Views.WriteError,

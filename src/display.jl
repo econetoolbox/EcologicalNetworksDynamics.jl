@@ -24,4 +24,41 @@ function dot_display(vec::AbstractSparseVector, use_repr = true)
     res
 end
 
+"""
+Carefully render arbitrary user input within error messages,
+so that it only takes short space if possible,
+or else it is mime-displayed at the bottom,
+the 'bottom' being defined by anything we would like to render in-'between'.
+"""
+function render_input(
+    io,
+    input,
+    if_short::Function = (short, type) -> "\nReceived: $short ::$type",
+    if_long::Function = (long, type) -> begin
+        print(io, "\nReceived: ")
+        long()
+        print(io, "\nType: $type")
+    end,
+    between::Function = () -> nothing,
+)
+    T = typeof(input)
+    type = sprint(show, T)
+    short = repr(input)
+    if length(short) + length(type) < 80 && !('\n' in short)
+        print(io, if_short(short, type))
+        between()
+    else
+        between()
+        if_long(
+            () -> show(
+                IOContext(io, :compact => true, :limit => true),
+                MIME("text/plain"),
+                input,
+            ),
+            type,
+        )
+    end
+end
+export render_input
+
 end

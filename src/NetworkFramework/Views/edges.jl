@@ -69,7 +69,7 @@ let S = EdgesMaskView
     N.web(s::S) = getfield(s, :web)
     D.web(s::S) = D.web(dispatcher(s))
     Base.getindex(s::S, i::Ref, j::Ref) = N.is_edge(s, i, j)
-    Base.setindex!(s::S, _...) = err(s, "Cannot mutate edges topology.")
+    Base.setindex!(s::S, _...) = qerr(s, "Cannot mutate edges topology.")
     V.extract(s::S) = s |> N.topology |> N.to_mask
 end
 

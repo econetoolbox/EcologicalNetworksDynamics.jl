@@ -65,7 +65,7 @@ module Views
 # But I still think the readability/mantainability gain it's worth that cost.
 
 import EcologicalNetworksDynamics:
-    EN, N, F, I, Networks, NetworkFramework, Display, Option, join_elided
+    EN, N, F, I, Networks, NetworkFramework, Display, Option, join_elided, render_input
 import .NetworkFramework: NF, D, Model
 const V = Views
 
@@ -115,8 +115,8 @@ let S = AbstractView
     N.network(s::S) = s |> NF.model |> N.network
 
     # Forbid any property access.
-    Base.getproperty(s::S, ::Symbol) = err(s, "no property to access.")
-    Base.setproperty!(s::S, ::Symbol) = err(s, "no property to access.")
+    Base.getproperty(s::S, ::Symbol) = qerr(s, "no property to access.")
+    Base.setproperty!(s::S, ::Symbol) = qerr(s, "no property to access.")
 end
 
 include("indexing.jl")
