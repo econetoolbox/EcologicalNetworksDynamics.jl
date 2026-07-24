@@ -42,6 +42,7 @@ end
 
 SimpleError(e::SimpleError, up::Function) = SimpleError(up(e.mess))
 ValueError(e::ValueError, up::Function) = ValueError(e.value, up(e.mess))
+ConvertError(e::ConvertError, up::Function) = ConvertError(e.target, e.input, up(e.mess))
 ValueError(value, e::LibError, up::Function) = ValueError(value, up(e.mess))
 
 # Upgrade and forward error up, same type.

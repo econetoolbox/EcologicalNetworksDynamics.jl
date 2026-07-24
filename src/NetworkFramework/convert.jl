@@ -1,44 +1,29 @@
-# Flexibility is allowed on the input type,
-# with the following conversions implicitly performed:
-
+# Typical default converters from input data:
+#
 # - (*) `Real -> Float64` (in particular: `Integer -> Float64`)
 # - (*) `Integer` -> Bool` (let julia guard against values other than `0` or `1`)
 # - (*) `Integer` -> Int64`
 # - `(Symbol, Char) -> String`
 # - `(AbstractString, Char) -> Symbol`
-
+#
 # Conversions marked with (*) are also implicitly performed on collections types.
 # For `Coll` in `{Vector, Matrix, SparseVector, SparseMatrix}`:
-
+#
 # - `Coll{<:Real} -> Coll{Float64}`
 # - `Coll{<:Integer} -> Coll{Bool}`
 # - `Coll{<:Integer} -> Coll{Int64}`
-
+#
 # Additionally:
-
+#
 # - `Vector{*} -> SparseVector{*}`
 # - `Matrix{*} -> SparseMatrix{*}`
-
-# No other conversion is implicitly performed yet.
-
-# Matching julia's `convert` behaviour,
-# if there is no need to construct or convert to a new value,
-# then the original value is used, and so the user keeps an *aliased reference* to it.
-# This makes it possible for user to avoid unnecessary copies
-# at the cost of providing the exact correct type.
-
-"""
-Without any context, call with a target type to convert input.
-"""
-inputconvert(T, input) = liberr(input, T, "Conversion not implemented.")
-inputconvert(::Type{T}, input::T) where {T} = input
 
 # ==========================================================================================
 # Scalar conversions.
 function allow_convert(Target, Input, f)
     eval(
         quote
-            inputconvert(::Type{$Target}, v::$Input) =
+            convert(::Type{$Target}, v::$Input) =
                 try
                     $f(v)
                 catch e
@@ -72,10 +57,10 @@ ac_dense(String, (Symbol, String), (Char, c -> "$c"))
 ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 
 # From iterators.
-function inputconvert(::Type{Vector{T}}, input) where {T}
+function convert(::Type{Vector{T}}, input) where {T}
     hasmethod(iterate, Tuple{typeof(input)}) ||
         liberr(input, Vector{T}, "Input is not iterable.")
-    T[inputconvert(T, v) for v in input]
+    T[convert(T, v) for v in input]
 end
 
 # No custom conversion function for sparse arrays
@@ -135,9 +120,9 @@ function try_convert(input, tries...)
             (t, identity)
         end
         x = try
-            inputconvert(T, input)
+            convert(T, input)
         catch e
-            e isa AbstractParseError || rethrow(e)
+            e isa LibError || rethrow(e)
             push!(err, "convert input to $T")
             continue
         end
@@ -154,7 +139,7 @@ function try_convert(input, tries...)
         end
         print(mess, "\n  - $T")
     end
-    parserr(input, String(Base.take!(mess)); between = io -> begin
+    liberr(input, String(Base.take!(mess)); between = io -> begin
         println(io)
         showerror(io, err)
     end)
@@ -171,11 +156,11 @@ Execute one or the other block named by end user.
 ```
 """
 function from_name(input, tries...)
-    name = inputconvert(Symbol, input)
+    name = convert(Symbol, input)
     expected = Symbol[]
     for (attempt, fn) in tries
         name == attempt && return fn()
         push!(expected, attempt)
     end
-    parserr(input, "Expected one of [$(EN.join_elided(expected, ", ", " or "))].")
+    liberr(input, "Expected one of [$(EN.join_elided(expected, ", ", " or "))].")
 end

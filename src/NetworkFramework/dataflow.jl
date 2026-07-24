@@ -1,34 +1,9 @@
-# Describe here the typical, default data flow, starting from arbitrary user input:
-#
-#   - Parse:
-#       - Convert (to the right type).
-#       - Intrinsic check.
-#   - (Data)Blueprint:
-#     - Construct: parse.
-#     - Early check: intrinsic check (again) + data preprocess.
-#     - Late check (against model).
-#     - Expand.
-#   - (Data)Component (via *views*):
-#     - Index:
-#         - Check dimension.
-#         - Parse (index).
-#         - Check query (against model).
-#         - Obtain.
-#     - Mutate:
-#         - Select: index (before 'obtain').
-#         - Parse (rhs).
-#         - Early check.
-#         - Late check.
-#         - Commit.
-#
-# Throughout the process, raise and upgrade the typical error types
-# to explain failure reason and upgrade context depending on position within the flow.
-# Authors should be able to focus on the core failur reason,
-# and assume that additional context *will* be introduced above to improve the error report.
-
 #-------------------------------------------------------------------------------------------
 # Open up specialisation opportunities.
 
+"""
+If relevant, obtain the data kind provided by the blueprint.
+"""
 dispatcher(::Type{<:Blueprint}) = throw("unimplemented")
 dispatcher(b::Blueprint) = b |> typeof |> dispatcher
 
@@ -38,7 +13,8 @@ dispatcher(b::Blueprint) = b |> typeof |> dispatcher
 """
 Specify allowed input conversion to the desired types in the context of the library.
 /!\\ Differs from julia's `Base.convert`.
-No conversion happens but *aliasing* instead if the input type is already the one desired.
+Following julia's behaviour:
+*alias* instead of converting if the input type is already the one desired.
 """
 convert(T::Type, input) = liberr(T, input, "Conversion not implemented.")
 convert(::Type{T}, input::T) where {T} = input # Alias exact type.
@@ -53,7 +29,7 @@ convert(T::Type, b::Blueprint, input) = convert(T, dispatcher(b), input)
 """
 Assuming input already has the right type,
 check that the value is consistent with expectations.
-Return the aliased passed data unchanged.
+Return the passed data aliased and unchanged.
 """
 intrinsic_check(::D.Dispatcher, data) = data # Nothing to check *a priori*.
 intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
@@ -84,8 +60,9 @@ datatype(bp::Blueprint) = typeof(data(bp))
 
 """
 Constructing blueprint data from raw input.
+Returns a *tuple* to be passed to new(...).
 """
-construct(B::Type{<:Blueprint}, input) = parse(B, datatype(B), input) # Default.
+construct(B::Type{<:Blueprint}, input) = (parse(datatype(B), B, input),) # Default.
 
 # Actual framework entrypoint to inject error handling.
 _construct(B::Type{<:Blueprint}, args...; kwargs...) =
@@ -108,7 +85,7 @@ Necessary because the blueprint may have mutated since last intrinsic check (con
 Can take this opportunity to collect / construct extra data for later expansion stages.
 Return data for late_check.
 """
-early_check(b::Blueprint) = intrinsic_check(b, data(b)) # Default.
+early_check(b::Blueprint) = intrinsic_check(b) # Default.
 
 # Framework entrypoint.
 _early_check(b::Blueprint) =
@@ -139,18 +116,33 @@ _late_check(m::Model, b::Blueprint, data) =
 Use late_check data to finally expand into the desired component.
 Cannot fail.
 """
-expand!(::Model, ::Blueprint, data) = throw("unimplemented")
+expand!(::Model, ::D.Dispatcher, data) = throw("unimplemented")
+expand!(m::Model, b::Blueprint, data) = expand!(m, dispatcher(b), data)
+expand!(m::Model, b::Blueprint) = expand!(m, dispatcher(b), data(b))
 
 # ==========================================================================================
 """
 Register a given exotic blueprint into the above.
 """
-function register_blueprint(B::Type{<:Blueprint}, shortline::String)
+function register_blueprint(B::Type{<:Blueprint}, shortline::String; dispatcher = nothing)
     NF.define_blueprint(B, shortline)
     eval(quote
-        $B(args...; kwargs...) = $NF._construct($B, args...; kwargs...)
         $F.early_check(b::$B) = $NF._early_check(b)
         $F.late_check(m::Model, b::$B, data) = $NF._late_check(m, b, data)
         $F.expand!(m::Model, b::$B, data) = $NF.expand!(m, b, data)
+    end)
+    if dispatcher isa D.Dispatcher
+        eval(quote
+            $NF.dispatcher(::Type{$B}) = $dispatcher
+        end)
+    end
+end
+
+"""
+Inject default constructor into a blueprint struct.
+"""
+macro bp_construct(B)
+    esc(quote
+        $B(args...; kwargs...) = new($NF._construct($B, args...; kwargs...)...)
     end)
 end

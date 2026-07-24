@@ -1,4 +1,4 @@
-"""
+raw"""
 The library dedicated to component authors.
 
 It exposes functionalities of the system/blueprint/components framework,
@@ -21,61 +21,79 @@ but it essentially reflects the underlying graph structure
 so it mostly falls into three categories:
 
   - Network (graph-level) data:
-
-      + Scalar: *eg.* `5`.
+    - Scalar: *eg.* `5`.
 
   - Class (node-level) data:
+    - Vector: *eg.* `[4, 5, 6]`
+    - Sparse vector for 'masked' classes, considered from the perspective of a parent class:
+      *eg.* `[·, 4, ·, ·, 5, ·, 6]`
+    - Map (key-value pairs) of the form:
+      - `[:a => u, :c => v]`   (using nodes labels)
+      - `[1 => u, 3 => v]`     (using node indices, in the context of one particular class)
+    - For convenience, nodes may be grouped:
+      - `[(:a, :b) => u, (:c, :d) => v]`
+      - `[(1, 2) => u, (3, 4) => v]`
+    - For convenience, binary data are elided:
+      - `[:a, :c]`
+      - `[1, 3]`
 
-      + Vector: *eg.* `[4, 5, 6]`
-
-      + Sparse vector for 'masked' classes, considered from the perspective of a parent class:
-        *eg.* `[·, 4, ·, ·, 5, ·, 6]`
-      + Map (key-value pairs) of the form:
-
-          * `[:a => u, :c => v]`   (using nodes labels)
-          * `[1 => u, 3 => v]`     (using node indices, in the context of one particular class)
-      + For convenience, nodes may be grouped:
-
-          * `[(:a, :b) => u, (:c, :d) => v]`
-          * `[(1, 2) => u, (3, 4) => v]`
-      + For convenience, binary data are elided:
-
-          * `[:a, :c]`
-          * `[1, 3]`
   - Web (edge-level) data:
+    - Matrix for dense webs.
+    - Sparse matrix for sparse webs.
+    - Matrix for dense webs, but then a default value must be identified
+      and found in every non-entry.
+    - Adjacency lists of the form:
+      - Using node labels:
+        - `[:a => (:b => u, :c => v), :b => (:d => w)]`  (group targets)
+        - `[(:a => u, :b => v) => :c, (:b => w) => :d]`  (group sources)
+        - `[(:a, :b) => (:c => u, :d => v)]`             (group both, target-wise)
+        - `[(:a => u, :b => v) => (:c, :d)]`             (group both, source-wise)
+        - `[(:a => u, :b => v) => :c, :b => (:d => w)]`  (mixing allowed)
+        - `[(:a => u, :b => v) => :c, :b => (:d => w)]`  (mixing allowed)
+      - Using node indices, in the context of one particular (source, target) class pair.
+        - `[1 => (2 => u, 3 => v), 2 => (4 => w)]`       (using nodes indices)
+        - *etc.*                                            ⋮
+      - For convenience, binary data are elided:
+        - `[:a => (:b, :c), :b => (:d,)]`  (group targets)
+        - `[(:a, :b) => :c, (:b,) => :d]`  (group sources)
+        - `[(:a, :b) => (:c, :d)]`         (group both)
+        - `[(:a, :b) => :c, :b => (:d,)]`  (mixing)
+        - `[1 => [2, 3], 2 => [4]]`
+        - *etc.*
+      - For convenience, allow singletons, unambiguous in this context:
+        - `[:a => :b, :b => :d]`# Define extension points to customize components behaviours.
+        - `[1 => 2, 2 => 4]`
 
-      + Matrix for dense webs.
+Here is the typical, default data flow, starting from arbitrary user input:
+  - Parse:
+    - Convert (to the right type).
+    - Intrinsic check.
 
-      + Sparse matrix for sparse webs.
-      + Matrix for dense webs, but then a default value must be identified
-        and found in every non-entry.
-      + Adjacency lists of the form:
+  - (Data)Blueprint:
+    - Construct: parse.
+    - Early check: intrinsic check (again) + data preprocess.
+    - Late check (against model).
+    - Expand.
 
-          * Using node labels:
+  - (Data)Component (via *views*):
 
-              - `[:a => (:b => u, :c => v), :b => (:d => w)]`  (group targets)
-              - `[(:a => u, :b => v) => :c, (:b => w) => :d]`  (group sources)
-              - `[(:a, :b) => (:c => u, :d => v)]`             (group both, target-wise)
-              - `[(:a => u, :b => v) => (:c, :d)]`             (group both, source-wise)
-              - `[(:a => u, :b => v) => :c, :b => (:d => w)]`  (mixing allowed)
-              - `[(:a => u, :b => v) => :c, :b => (:d => w)]`  (mixing allowed)
+    - Index:
+      - Check dimension.
+      - Parse (index).
+      - Check query (against model).
+      - Obtain.
 
-          * Using node indices, in the context of one particular (source, target) class pair.
+    - Mutate:
+      - Select: index (before 'obtain').
+      - Parse (rhs).
+      - Early check.
+      - Late check.
+      - Commit.
 
-              - `[1 => (2 => u, 3 => v), 2 => (4 => w)]`       (using nodes indices)
-              - *etc.*                                            ⋮
-          * For convenience, binary data are elided:
-
-              - `[:a => (:b, :c), :b => (:d,)]`  (group targets)
-              - `[(:a, :b) => :c, (:b,) => :d]`  (group sources)
-              - `[(:a, :b) => (:c, :d)]`         (group both)
-              - `[(:a, :b) => :c, :b => (:d,)]`  (mixing)
-              - `[1 => [2, 3], 2 => [4]]`
-              - *etc.*
-          * For convenience, allow singletons, unambiguous in this context:
-
-              - `[:a => :b, :b => :d]`# Define extension points to customize components behaviours.
-              - `[1 => 2, 2 => 4]`
+Throughout the process, raise and upgrade the typical error types
+to explain failure reason and upgrade context depending on position within the flow.
+Authors should be able to focus on the core failur reason,
+and assume that additional context *will* be introduced above to improve the error report.
 """
 module NetworkFramework
 
@@ -110,19 +128,20 @@ include("framework.jl")
 include("dispatchers.jl")
 const D = Dispatchers
 
-# Typical default data flow.
-include("./dataflow.jl")
-
 include("errors.jl")
 
+# Typical `blueprint` and `mutate` utils.
+include("./dataflow.jl")
+
+# Typical `parse` utils.
 include("./convert.jl")
 include("./lists.jl")
 
-# Typical views into network data.
+# Views and the `index` logic.
 include("./Views/Views.jl")
 const V = Views
 
-# Templates for typical network components.
+# Templates for typical network blueprint/components.
 include("./graph_scalar.jl")
 include("./class.jl")
 include("./web.jl")

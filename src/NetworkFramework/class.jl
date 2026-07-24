@@ -32,6 +32,7 @@ function define_class_component(mod::Module, d::D.Class)
         quote
             module $Plural_
             import EcologicalNetworksDynamics: F, NF, Model
+            import .NF: @bp_construct
             const d = $d
             end
         end
@@ -42,9 +43,10 @@ function define_class_component(mod::Module, d::D.Class)
     bpmod.eval(quote
         mutable struct Names <: NF.ClassNames
             names::Vector{Symbol}
+            @bp_construct(Names)
         end
         export Names # So it gets picked by `NF.define_component` later.
-        $NF.register_blueprint(Names, "raw $($s) names")
+        $NF.register_blueprint(Names, "raw $($s) names"; dispatcher = d)
     end)
 
     #---------------------------------------------------------------------------------------
@@ -52,9 +54,10 @@ function define_class_component(mod::Module, d::D.Class)
     bpmod.eval(quote
         mutable struct Number <: NF.ClassNumber
             n::Int
+            @bp_construct(Number)
         end
         export Number
-        $NF.register_blueprint(Number, "number of $($s)")
+        $NF.register_blueprint(Number, "number of $($s)"; dispatcher = d)
     end)
 
     # ======================================================================================
@@ -71,7 +74,7 @@ function define_class_component(mod::Module, d::D.Class)
     mod.eval(quote
         D.component(::$DT) = $comp
         (::$C)(n::Integer) = $comp.Number(n)
-        (::$C)(names) = $comp.Names(names)
+        (::$C)(names...) = $comp.Names(names...)
     end)
 
     # Display.
@@ -144,14 +147,21 @@ datatype(::Type{<:ClassNumber}) = Int
 data(bp::ClassNames) = bp.names
 data(bp::ClassNumber) = bp.n
 
+# Construct: allow passing names as separate arguments.
+construct(BP::Type{<:ClassNames}, first, second, rest...) =
+    @invoke construct(BP::Type{<:Blueprint}, (first, second, rest...))
+
+#-------------------------------------------------------------------------------------------
+# Intrinsic check.
+
 # Names: forbid duplicates (triangular check).
 function intrinsic_check(B::Type{<:ClassNames}, names::Vector{Symbol})
-    Class = B |> dispatcher | D.CamelCaseSingular
+    Class = B |> dispatcher |> D.CamelCaseSingular
     already = OrderedDict{Symbol,Int}() # {name: index}
     for (i, name) in enumerate(names)
         if haskey(already, name)
             j = already[name]
-            liberr("$Class $i and $j would be both named $(repr(name)).")
+            liberr("$Class $j and $i would both be named $(repr(name)).")
         end
         already[name] = i
     end
@@ -165,22 +175,27 @@ function intrinsic_check(B::Type{<:ClassNumber}, n::Int)
     liberr(n, "Cannot construct a negative number of $class.")
 end
 
-# Construct: allow passing names as separate arguments.
-construct(d::D.Class, BP::Type{<:ClassNames}, input...) = construct(d, BP, input)
+#-------------------------------------------------------------------------------------------
+# Expand.
 
 # From names.
-function expand!(d::D.Class, m::Model, names)
-    class = D.class(d)
+function expand!(m::Model, d::D.Class, names) # Generic for this data kind: raw names.
+    class = d |> D.class
     network = NF.network(m)
     N.add_class!(network, class, names)
 end
-expand!(d::D.Class, m::Model, ::ClassNames, names) = expand!(d, m, names)
 
 # From number (generate names).
-expand!(d::D.Class, m::Model, ::ClassNumber, n) =
-    expand!(d, m, (Symbol(D.short_prefix(d), i) for i in 1:n))
+function expand!(m::Model, b::ClassNumber, n)
+    d = dispatcher(b)
+    prefix = D.short_prefix(d)
+    names = (Symbol(prefix, i) for i in 1:n)
+    expand!(m, d, names) # Resort to generic procedure once raw names are available.
+end
 
+#-------------------------------------------------------------------------------------------
 # Display.
+
 function class_shortline(d::D.Class, io::IO, m::Model)
     class = D.snake_case_plural(d)
     Class = D.CamelCaseSingular(d)
@@ -188,6 +203,3 @@ function class_shortline(d::D.Class, io::IO, m::Model)
     n = length(names)
     print(io, "$Class: $n ($(EN.join_elided(names, ", ")))")
 end
-
-# HERE: Much of redundant logic here have just been factorized to `data_flow.jl`.
-# Test it then propagate :)

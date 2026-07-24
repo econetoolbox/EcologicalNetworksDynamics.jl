@@ -56,7 +56,7 @@ function compare_strings(expected, actual, what = "strings")
             end
             if isnothing(e_next)
                 act, _ = a_next
-                println("$bold   Unexpected line:$reset\n$blue$exp$reset")
+                println("$bold   Unexpected line:$reset\n$blue$act$reset")
                 break
             end
             exp, e_state = e_next

@@ -137,6 +137,15 @@ struct Forgiveness <: Exception
     mess::String
 end
 forgerr(tag, mess, throw = Base.throw) = throw(Forgiveness(tag, mess))
+# Upgrade if bubbling up to user call.
+forgive(f, parser) =
+    try
+        f()
+    catch e
+        isnothing(parser) && e isa Forgiveness && rethrow(SimpleError(e.mess))
+        rethrow(e)
+    end
+
 
 # Pick the report with highest priority,
 # with subtle special-cased tweaks in case of ex-aequo.
@@ -160,19 +169,6 @@ pick(plain::Forgiveness, group::Forgiveness, priorities::Dict{Symbol,Int64}) =
 
 # Construct report priorities from a sorted vector, highest priority first.
 priorities(v::Vector{Symbol}) = Dict(s => i for (i, s) in enumerate(v))
-
-# Upgrade underlying parse error if bubbling up to user call.
-mutable struct ListParseError <: AbstractParseError
-    mess::String
-end
-Base.showerror(io::IO, e::ListParseError) = print(io, e.mess)
-forgive(f, parser) =
-    try
-        f()
-    catch e
-        isnothing(parser) && e isa Forgiveness && rethrow(ListParseError(e.mess))
-        rethrow(e)
-    end
 
 # ==========================================================================================
 # Parse.

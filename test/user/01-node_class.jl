@@ -12,7 +12,7 @@ using EcologicalNetworksDynamics
 using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, F, D, Network, Views
-import Main: is_repr, is_disp, @viewfails, @sysfails, Value
+import Main: is_repr, is_disp, @inputfails, @sysfails, @viewfails, Value
 const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
 
 @testset "Class component: blueprints" begin
@@ -43,11 +43,13 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
     @test bp == Species.Names(['a', 'b', 'c']) # ::Char
     @test bp == Species.Names(["a", "b", "c"]) # ::String
     @test bp == Species.Names(split("a b c")) # ::SubString etc.
+    @test bp == Species.Names(:a, 'b', "c") # Allow input as separate arguments.
     # Implicit constructor.
     @test bp == Species([:a, :b, :c])
     @test bp == Species(['a', 'b', 'c'])
     @test bp == Species(["a", "b", "c"])
     @test bp == Species(split("a b c"))
+    @test bp == Species(:a, 'b', "c")
     @test is_repr(bp, "<Species>:Names(names: [:a, :b, :c])")
     @test is_disp(
         bp,
@@ -66,8 +68,12 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
     @test bp.names == [:a, :x, :c]
 
     #---------------------------------------------------------------------------------------
-    # Value check.
-    Species([:a, :b, :b])
+    # Intrinsic check.
+    @inputfails(
+        Species([:a, :b, :b]),
+        "When constructing blueprint for <species>:\n\
+         Species 2 and 3 would both be named :b."
+    )
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -77,11 +83,16 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
     # .. but then expansion fails.
     @sysfails(
         Model(bp),
-        Check(early, [Species.Names], "Species 3 and 2 are both named :x.")
+        Check(
+            early,
+            [Species.Names],
+            "When checking <species> blueprint data:\n\
+             Species 2 and 3 would both be named :x.",
+        )
     )
 
     # Expand.
-    m = Model(bp)
+    m = Model(Species(collect("abc")))
     @test is_disp(
         m,
         """
@@ -91,7 +102,7 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
     )
 
     # ======================================================================================
-    # Construct from a number, generating short distinct names.
+    # From a number, generating short distinct names.
 
     bp = Species.Number(5)
     @test bp == Species(5) # Directly dispatched from component.
@@ -104,6 +115,38 @@ const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
         }\
         """,
     )
+
+    # Intrinsic check.
+    @inputfails(
+        Species(-1),
+        "When constructing blueprint for <species>:\n\
+         Cannot construct a negative number of species.",
+        -1,
+    )
+
+    # Early check.
+    bp.n = -3
+    @sysfails(
+        Model(bp),
+        Check(
+            early,
+            [Species.Number],
+            "When checking <species> blueprint data:\n\
+             Cannot construct a negative number of species.\n\
+             Received: -3 ::Int64",
+        ),
+    )
+
+    # Expand.
+    m = Model(Species(3))
+    @test is_disp(
+        m,
+        """
+        Model (alias for $(F.System){$(EN.Network)}) with 1 component:
+          - Species: 3 (:s1, :s2, :s3)\
+        """,
+    )
+
 end
 
 @testset "Class component: views" begin
@@ -185,17 +228,6 @@ end
     # Mutating blueprint is always possible.
     bp.n = 3
     @test Model(bp).species.names == [:s1, :s2, :s3]
-
-    # Fail construct from numbers.
-    bp.n = -3
-    @sysfails(
-        Model(bp),
-        Check(
-            early,
-            [Species.Number],
-            "Cannot construct a negative number of species.\nReceived: -3",
-        ),
-    )
 
     # The component enables various other properties.
     m = Model(Species(collect("abc")))
