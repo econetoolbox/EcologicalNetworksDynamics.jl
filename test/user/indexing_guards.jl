@@ -9,7 +9,7 @@ using SparseArrays
 using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, F, D, Network, Views
-import Main: is_repr, is_disp, @inputfails, @sysfails, @indexfails, Value
+import Main: is_repr, is_disp, @inputfails, @sysfails, @queryfails, Value
 
 setprefix = "Indexing guards: "
 
@@ -19,9 +19,9 @@ function check_node_guards(v, View::Type)
     #---------------------------------------------------------------------------------------
     # Off-level dimension.
 
-    @indexfails(v[], View, false, "Node-level data has 1 dimension, received 0")
-    @indexfails(v[1, :a], View, false, "Node-level data has 1 dimension, received 2")
-    @indexfails(
+    @queryfails(v[], View, false, "Node-level data has 1 dimension, received 0")
+    @queryfails(v[1, :a], View, false, "Node-level data has 1 dimension, received 2")
+    @queryfails(
         v[0x1, 'a', nothing],
         View,
         false,
@@ -30,27 +30,27 @@ function check_node_guards(v, View::Type)
 
     #---------------------------------------------------------------------------------------
     # Off-type.
-    @indexfails(
+    @queryfails(
         v[nothing],
         View,
         false,
         "Views are queried with indices [::Int] or labels [::Symbol]"
     )
-    @indexfails(v[0], View, true, "Integer node references can only be positive")
-    @indexfails(v[0:2], View, true, "Integer node references can only be positive")
-    @indexfails(
+    @queryfails(v[0], View, true, "Integer node references can only be positive")
+    @queryfails(v[0:2], View, true, "Integer node references can only be positive")
+    @queryfails(
         v['a':'c'],
         View,
         false,
         "Views are queried with indices [::Int] or labels [::Symbol]"
     )
-    @indexfails(
+    @queryfails(
         v[[1, 0, 2]],
         View,
         false,
         "Could not interpret as a boolean mask (not only 1's and 0's?)"
     )
-    @indexfails(
+    @queryfails(
         v[[nothing, "wrongtypes"]],
         View,
         false,
@@ -60,10 +60,10 @@ function check_node_guards(v, View::Type)
     #---------------------------------------------------------------------------------------
     # Off-class.
 
-    @indexfails(v[4], View, true, "This class only contains 3 nodes")
-    @indexfails(v[:x], View, true, "No node in this class is labeled :x")
-    @indexfails(v[end:(end+1)], View, true, "This class only contains 3 nodes")
-    @indexfails(
+    @queryfails(v[4], View, true, "This class only contains 3 nodes")
+    @queryfails(v[:x], View, true, "No node in this class is labeled :x")
+    @queryfails(v[end:(end+1)], View, true, "This class only contains 3 nodes")
+    @queryfails(
         v[[true, false]],
         View,
         true,

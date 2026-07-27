@@ -43,12 +43,23 @@ function Base.showerror(io::IO, e::QueryError)
     end
 end
 
-# Raised when checking only on dimension of the query.
-# To be upgraded into a QueryError.
+# Raised to be later upgraded into a QueryError.
 struct RefErr <: Exception
     mess::String
 end
 referr(m, throw = Base.throw) = throw(RefErr(m))
+
+# Raised when attempting to mutate through a view into immutable data.
+struct ImmutableErr <: NF.LibError
+    View::Type
+    ImmutableErr(v::Type) = new(v)
+end
+ImmutableErr(v) = ImmutableErr(typeof(v))
+function Base.showerror(io::IO, e::ImmutableErr)
+    (; View) = e
+    d = dispatcher(View)
+    print(io, "Cannot change $d $(type_info(View)) once they have been set.")
+end
 
 # ONHOLD: can we not get the same with a clever use of the error type above?
 struct WriteError <: Exception

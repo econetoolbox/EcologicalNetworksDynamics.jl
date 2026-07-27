@@ -1,6 +1,6 @@
 """
 Test all aspects of typical Class component,
-using Species as an example, but without testing anything specific to species.
+using species as an example, but without testing anything specific to species.
 Anything specific to species will be tested in a dedicated file.
 """
 module ClassTest
@@ -12,7 +12,7 @@ using EcologicalNetworksDynamics
 using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, F, D, Network, Views
-import Main: is_repr, is_disp, @inputfails, @sysfails, @indexfails, Value
+import Main: is_repr, is_disp, is_err, @inputfails, @sysfails, Value
 const View = Views.NodeNameView{D.Class(:species)} # Tested view type.
 
 @testset "Class component: blueprints" begin
@@ -119,9 +119,9 @@ const View = Views.NodeNameView{D.Class(:species)} # Tested view type.
     # Intrinsic check.
     @inputfails(
         Species(-1),
+        -1,
         "When constructing blueprint for <species>:\n\
          Cannot construct a negative number of species.",
-        -1,
     )
 
     # Early check.
@@ -222,33 +222,28 @@ end
         """,
     )
 
-    # The above makes more sense with a non-root class, like producers here.
-    m = Model(Foodweb([:a => (:b, :c), :d => :e]))
-    @test m.producers.names == [:b, :c, :e]
-    @test m.producers.number == 3
-    @test m.producers.index == OrderedDict(:b => 1, :c => 2, :e => 3)
-    @test m.producers.parent_index == OrderedDict(:b => 2, :c => 3, :e => 5)
-    k = m.producers.mask
-    @test k == [0, 1, 1, 0, 1]
-    @test k[2:4] == [1, 1, 0]
-
 end
 
 @testset "Class component: immutable" begin
 
-    bp = Species(collect("abc"))
+    bp = Species(:a, :b, :c)
     m = Model(bp)
     v = m.species.names
 
     # Immutable.
-    mess = "Cannot change :species nodes names after they have been set."
-    @indexfails((v[1] = :u), View, mess)
-    @indexfails((v[:a] = :u), View, mess)
-    @indexfails((v[:a] = 2), View, mess)
-    # This takes priority over indexing semantics.
-    @indexfails((v[] = 2), View, mess)
-    @indexfails((v[1, 2] = 2), View, mess)
-    @indexfails((v[nothing] = 2), View, mess)
+    @inputfails((v[1] = :u), View)
+    @inputfails((v[:a] = :u), View)
+    @inputfails((v[:a] = 2), View)
+    # This takes priority over other indexing guards.
+    @inputfails((v[] = 2), View)
+    @inputfails((v[1, 2] = 2), View)
+    @inputfails((v[nothing] = 2), View)
+
+    # What the user gets.
+    @test is_err(
+        () -> v[1] = :u,
+        "Cannot change <species> nodes names once they have been set.",
+    )
 
     # But the *blueprint* can be mutated.
     bp.names[2] = :x

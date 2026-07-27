@@ -21,6 +21,24 @@ export eprint, eprintln
 is_repr(x, expected) = compare_strings(expected, repr(x), "console representations")
 export is_repr
 
+# Test full error message.
+function is_err(fn, expected)
+    try
+        fn()
+    catch e
+        actual = sprint(showerror, e)
+        return compare_strings(expected, actual, "error messages")
+    end
+    eprintln("$(red)Unexpected success.$reset \
+              Was expecting the following error message:\n\
+              ----------------------\n\
+              $expected\n\
+              ----------------------\n\
+              But obtained no actual error to compare against.")
+    false
+end
+export is_err
+
 function is_disp(x, expected)
     io = IOBuffer()
     actual = show(IOContext(io, :limit => true, :displaysize => (20, 40)), "text/plain", x)

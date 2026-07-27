@@ -109,7 +109,7 @@ function check_query(v::NodeView, m::NodeMask, ::Val{class}) where {class}
 end
 
 # ==========================================================================================
-# Assuming all checks passed, finally obtain the indexed value.
+# Assuming all checks passed, finally obtain the indexed value(s).
 
 obtain(v::NodeView, (q,)::Tuple{Query}) = obtain(v, q)
 
@@ -129,24 +129,19 @@ obtain(v::NodeTopologyView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
 obtain(v::NodeTopologyView, m::NodeMask) = [obtain(v, i) for i in 1:length(v) if m[i]]
 
 # ==========================================================================================
+# Assuming all checks passed, finally edit the indexed value(s).
 
-# The exposed interface: whole checking sequence.
-function Base.getindex(v::AbstractView, q...)
-    println("raw: $(repr(q)) ::$(typeof(q))")
+set!(::FieldView, q::Query, rhs) = throw("TODO")
 
+# ==========================================================================================
+# Exposed interface: whole checking sequence.
+
+function check_all(v::AbstractView, q)
     q = check_dim(v, q...)
-    println("dim: $(repr(q)) ::$(typeof(q))")
-
     q = guard(false, check_type, v, q)
-    println("type: $(repr(q)) ::$(typeof(q))")
-
     q = guard(true, check_value, v, q)
-    println("value: $(repr(q)) ::$(typeof(q))")
-
     q = guard(true, check_query, v, q)
-    println("query: $(repr(q)) ::$(typeof(q))")
-
-    obtain(v, q)
+    q
 end
 
 # Guard with error upgrade.
@@ -157,3 +152,15 @@ guard(typechecked, fn, v, q) =
         e isa RefErr && qerr(v, q, typechecked, e.mess, rethrow)
         rethrow(e)
     end
+
+function Base.getindex(v::AbstractView, q...)
+    q = check_all(v, q)
+    obtain(v, q)
+end
+
+Base.setindex!(v::TopologyView, _...) = throw(ImmutableErr(v))
+function Base.setindex!(v::FieldView, rhs, q...)
+    q = check_all(v, q)
+    set!(v, q, rhs)
+end
+

@@ -2,8 +2,15 @@ import EcologicalNetworksDynamics: F, V, Views, Network
 
 # Assume every derived InputError has a .mess message field to be tested.
 # Additional arguments are just tried against other fields in order.
-function TestFailures.check_exception(err::F.InputError, message_pattern, fields...)
+function TestFailures.check_exception(err::F.InputError, fields...)
     E = typeof(err)
+    # If any, the message is expected to be last and doesn't count for the other fields.
+    message_pattern = if last(fields) isa String
+        fields..., m = fields
+        m
+    else
+        nothing
+    end
     exclude = (:mess, :query)
     names = filter(!in(exclude), fieldnames(E))
     e = length(fields)
@@ -15,31 +22,31 @@ function TestFailures.check_exception(err::F.InputError, message_pattern, fields
                              Expected err.$name = $(repr(exp))\n\
                              Actual   err.$name = $(repr(act))")
     end
-    TestFailures.check_message(message_pattern, err.mess)
+    isnothing(message_pattern) || TestFailures.check_message(message_pattern, err.mess)
 end
 
-macro inputfails(xp, mess, fields...)
+macro inputfails(xp, fields...)
     fields = map(__module__.eval, fields)
     TestFailures.failswith(
         __source__,
         __module__,
         xp,
-        :($(F.InputError) => ($mess, $fields...)),
+        :($(F.InputError) => ($fields...,)),
         false,
     )
 end
 export @inputfails
 
-macro indexfails(xp, type, typechecked, mess)
+macro queryfails(xp, type, typechecked, mess)
     TestFailures.failswith(
         __source__,
         __module__,
         xp,
-        :($(Views.QueryError) => ($mess, $type, $typechecked)),
+        :($(Views.QueryError) => ($type, $typechecked, $mess)),
         false,
     )
 end
-export @indexfails
+export @queryfails
 
 function TestFailures.check_exception(
     e::Views.WriteError,

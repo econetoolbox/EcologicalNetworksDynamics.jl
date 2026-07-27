@@ -76,7 +76,7 @@ end
 # ==========================================================================================
 # Common to all edge views.
 
-EdgeView{d} = Union{EdgeFieldView{d},EdgeMaskView{d}}
+const EdgeView{d} = Union{EdgeFieldView{d},EdgeMaskView{d}}
 let S = EdgeView
     N.topology(s::S) = N.web(s).topology
     D.source(s) = N.web(s).source

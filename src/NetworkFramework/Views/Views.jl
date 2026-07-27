@@ -89,20 +89,19 @@ include("edges.jl")
 include("nodes_display.jl")
 include("edges_display.jl")
 
-# ==========================================================================================
-# Common to nodes or edge field views.
+# Common to all topology-related = immutable views.
+const TopologyView{d} = Union{NodeTopologyView{d},EdgeMaskView{d}}
 
-FieldView{d,T} = Union{AbstractNodeFieldView{d,T},EdgeFieldView{d,T}}
+# Common to nodes or edge field views.
+const FieldView{d,T} = Union{AbstractNodeFieldView{d,T},EdgeFieldView{d,T}}
 let S = FieldView
     D.field(s::S) = s |> dispatcher |> D.field # Associated fieldname.
     N.view(s::S) = getfield(s, :view) # Underlying network data view.
     N.entry(s::S) = s |> N.view |> N.entry # Corresponding entry.
 end
 
-# ==========================================================================================
-#  Common to all views, including 'virtual' ones into topology.
-
-AbstractView{d} = Union{NodeView{d},EdgeView{d}}
+#  Common to all views.
+const AbstractView{d} = Union{NodeView{d},EdgeView{d}}
 let S = AbstractView
     # Extract dispatcher and delegate some basic dispatcher interface.
     V.dispatcher(::Type{<:S{d}}) where {d} = d
