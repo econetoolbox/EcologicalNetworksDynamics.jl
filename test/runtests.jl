@@ -10,17 +10,22 @@ else
 end
 
 import CompatHelperLocal
-import EcologicalNetworksDynamics
+import EcologicalNetworksDynamics: Display
+import .Display: blue, bold, reset
 
-# Testing utils, each within their dedicated module,
-# but also re-exported at toplevel
-# for convenience within futher tests modules.
-include("./utils.jl")
-using .TestUtils
-include("./test_failures.jl")
-using .TestFailures
-include("./dedicated_test_failures.jl")
-using .DedicatedTestFailures
+
+# Draw separator.
+sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$reset")
+
+# ONHOLD: being much simplified maybe
+# because there is no (much) need to test failing expanded macros anymore.
+#  # Testing utils, each within their dedicated module,
+#  # but also re-exported at toplevel
+#  # for convenience within futher tests modules.
+#  include("./test_failures.jl")
+#  using .TestFailures
+#  include("./dedicated_test_failures.jl")
+#  using .DedicatedTestFailures
 
 sep("Test internal model representation.")
 include("./networks/runtests.jl")

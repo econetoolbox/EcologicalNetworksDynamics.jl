@@ -1,54 +1,17 @@
-module TestUtils
+module Tests
+
+using EcologicalNetworksDynamics: Display
+using .Display: blue, red, bold, reset, eprint, eprintln
 
 using Test
-using Crayons
-using StringManipulation
-blue = crayon"blue"
-red = crayon"red"
-bold = crayon"bold"
-reset = crayon"reset"
+using StringManipulation: remove_decorations
 
-# Draw separator.
-sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$reset")
-export sep
-
-eprint(args...; kwargs...) = print(stderr, args...; kwargs...)
-eprintln(args...; kwargs...) = println(stderr, args...; kwargs...)
-export eprint, eprintln
-
-# Compare actual vs expected raw console display, "snapshot-testing" style,
-# with helful summary in case of mismatch.
-is_repr(x, expected) = compare_strings(expected, repr(x), "console representations")
-export is_repr
-
-# Test full error message.
-function is_err(fn, expected)
-    try
-        fn()
-    catch e
-        actual = sprint(showerror, e)
-        return compare_strings(expected, actual, "error messages")
-    end
-    eprintln("$(red)Unexpected success.$reset \
-              Was expecting the following error message:\n\
-              ----------------------\n\
-              $expected\n\
-              ----------------------\n\
-              But obtained no actual error to compare against.")
-    false
-end
-export is_err
-
-function is_disp(x, expected)
-    io = IOBuffer()
-    actual = show(IOContext(io, :limit => true, :displaysize => (20, 40)), "text/plain", x)
-    actual = String(take!(io))
-    compare_strings(expected, actual, "console displays")
-end
-export is_disp
-
-function compare_strings(expected, actual, what = "strings")
-    actual_decorated = actual
+"""
+Compare actual vs expected console displays, "snapshot-testing" style,
+with a helful summary displayed in case of mismatch.
+"""
+function compare_strings(expected, actual, what="strings")
+        actual_decorated = actual
     actual = remove_decorations(actual)
     actual == expected && return true
     eprintln("$(bold)CHECK FAILED:$reset The two $what differ:")
@@ -91,6 +54,37 @@ function compare_strings(expected, actual, what = "strings")
     end
     false
 end
-export compare_strings
+
+"Test short string display."
+is_repr(x, expected) = compare_strings(expected, repr(x), "console representations")
+
+# Test long string display.
+function is_disp(x, expected)
+    io = IOBuffer()
+    actual = show(IOContext(io, :limit => true, :displaysize => (20, 40)), "text/plain", x)
+    actual = String(take!(io))
+    compare_strings(expected, actual, "console displays")
+end
+
+# Test error message.
+function is_err(fn, expected)
+    try
+        fn()
+    catch e
+        actual = sprint(showerror, e)
+        return compare_strings(expected, actual, "error messages")
+    end
+    eprintln("$(red)$(bold)Unexpected success.$(reset) \
+              Was expecting the following error message:\n\
+              ----------------------\n\
+              $expected\n\
+              ----------------------\n\
+              But obtained no actual error to compare against.")
+    false
+end
+
+macro fails(expr)
+    # HERE: construct a simple generic macro to catch and test expected errors.
+end
 
 end

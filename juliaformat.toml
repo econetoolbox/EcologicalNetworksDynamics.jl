@@ -10,3 +10,5 @@ separate_kwargs_with_semicolon = true
 trailing_comma = true
 whitespace_in_kwargs = true
 format_docstrings = true
+enforce_triplequoted_docstrings = false
+indent_submodule = true

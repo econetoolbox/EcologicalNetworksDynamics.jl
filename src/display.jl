@@ -2,6 +2,18 @@ module Display
 
 using SparseArrays
 
+using Crayons
+for col in [:red, :green, :blue, :yellow, :black, :bold, :reset]
+    eval(quote
+        const $col = Crayons.@crayon_str $(String(col))
+    end)
+end
+(false) && (local blue, green, red, yellow, black, bold, reset) # (reassure JuliaLS)
+
+# Write on stderr.
+eprint(args...; kwargs...) = print(stderr, args...; kwargs...)
+eprintln(args...; kwargs...) = println(stderr, args...; kwargs...)
+
 # Elide elements from vector if too numerous.
 function join_elided(vec, args...; max = 5, repr = true, kwargs...)
     vec = if length(vec) > max
@@ -13,7 +25,6 @@ function join_elided(vec, args...; max = 5, repr = true, kwargs...)
     end
     join(vec, args...; kwargs...)
 end
-export join_elided
 
 # Special-case sparse vectors so it special-displays missing values.
 dot_display(vec, use_repr = true) = use_repr ? repr.(vec) : ["$e" for e in vec]
@@ -59,6 +70,5 @@ function render_input(
         )
     end
 end
-export render_input
 
 end

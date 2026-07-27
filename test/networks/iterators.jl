@@ -1,7 +1,8 @@
 module TestIterators
+
+using EcologicalNetworksDynamics: N
+
 using Test
-using EcologicalNetworksDynamics.Networks
-const N = Networks
 
 @testset "Iteration utils" begin
 
