@@ -201,7 +201,7 @@ end
 
     # View into base web node data.
     c = edges_view(n, :compete, :intensity)
-    @test is_repr(c, "EdgesView'2([5, 4, 6, 2, 1, 8, 3])")
+    @test is_repr(c, "EdgeView'2([5, 4, 6, 2, 1, 8, 3])")
 
     # Index view.
     @test c[1] == c[(2, 2)] == c[(:b, :b)] == 5
@@ -222,7 +222,7 @@ end
     c[(4, 3)] += 2
     c[(:e, :d)] -= 2
 
-    @test is_repr(c, "EdgesView([10, 4, 6, 4, 1, 8, 1])")
+    @test is_repr(c, "EdgeView([10, 4, 6, 4, 1, 8, 1])")
 
     # Check COW aliasing/mutation.
     @test is_disp(n, strip("""

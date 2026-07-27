@@ -276,7 +276,7 @@ end
 
 parse_value(p::Parser, input) =
     try
-        inputconvert(p.T, input)
+        convert(p.T, input)
     catch
         forgerr(
             :not_a_value,
@@ -327,10 +327,10 @@ struct TripleWorks end
 
 function parse_plain_ref!(p::Parser, input, what)
     (ref, ok) = try
-        (inputconvert(Symbol, input), true)
+        (convert(Symbol, input), true)
     catch
         try
-            (inputconvert(Int, input), true)
+            (convert(Int, input), true)
         catch
             (nothing, false)
         end
@@ -872,23 +872,23 @@ adjacency_map_priorities = priorities([
 
 #-------------------------------------------------------------------------------------------
 # Parse to convert input.
-inputconvert(L::Type{Map{T}}, i; k...) where {T} = parse(L, i; k...)
-inputconvert(L::Type{Adjacency{T}}, i; k...) where {T} = parse(L, i; k...)
-inputconvert(L::Type{BinMap{<:Any}}, i; k...) = parse(L, i; k...)
-inputconvert(L::Type{BinAdjacency{<:Any}}, i; k...) = parse(L, i; k...)
+convert(L::Type{Map{T}}, i; k...) where {T} = parse(L, i; k...)
+convert(L::Type{Adjacency{T}}, i; k...) where {T} = parse(L, i; k...)
+convert(L::Type{BinMap{<:Any}}, i; k...) = parse(L, i; k...)
+convert(L::Type{BinAdjacency{<:Any}}, i; k...) = parse(L, i; k...)
 
 # Alias if types matches exactly.
 # Resolves the ambiguity introduced by *not* typing `input` in the methods above.
-inputconvert(::Type{BinMap{R}}, i::BinMap{R}) where {R} = i
-inputconvert(::Type{BinAdjacency{R}}, i::BinAdjacency{R}) where {R} = i
-inputconvert(::Type{Map{T,R}}, i::Map{T,R}) where {T,R} = i
-inputconvert(::Type{Adjacency{T,R}}, i::Adjacency{T,R}) where {T,R} = i
+convert(::Type{BinMap{R}}, i::BinMap{R}) where {R} = i
+convert(::Type{BinAdjacency{R}}, i::BinAdjacency{R}) where {R} = i
+convert(::Type{Map{T,R}}, i::Map{T,R}) where {T,R} = i
+convert(::Type{Adjacency{T,R}}, i::Adjacency{T,R}) where {T,R} = i
 
 # Also alias if the expected ref type is not explicit.
-inputconvert(::Type{BinMap}, i::BinMap{<:Ref}) = i
-inputconvert(::Type{BinAdjacency}, i::BinAdjacency{<:Ref}) = i
-inputconvert(::Type{Map{T}}, i::Map{T,<:Ref}) where {T} = i
-inputconvert(::Type{Adjacency{T}}, i::Adjacency{T,<:Ref}) where {T} = i
+convert(::Type{BinMap}, i::BinMap{<:Ref}) = i
+convert(::Type{BinAdjacency}, i::BinAdjacency{<:Ref}) = i
+convert(::Type{Map{T}}, i::Map{T,<:Ref}) where {T} = i
+convert(::Type{Adjacency{T}}, i::Adjacency{T,<:Ref}) where {T} = i
 
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.

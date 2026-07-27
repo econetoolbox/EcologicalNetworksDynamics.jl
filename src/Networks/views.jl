@@ -109,8 +109,7 @@ function to_linear(v::EdgeView, i::Int, j::Int; a = i, b = j)
     edge(top, i, j)
 end
 Base.getindex(v::EdgeView, (i, j)::Tuple{Int,Int}) = getindex(v, to_linear(v, i, j))
-Base.setindex!(v::EdgeView, x, (i, j)::Tuple{Int,Int}) =
-    setindex!(v, x, to_linear(v, i, j))
+Base.setindex!(v::EdgeView, x, (i, j)::Tuple{Int,Int}) = setindex!(v, x, to_linear(v, i, j))
 
 function Base.getindex(v::EdgeView, (a, b)::Tuple{Symbol,Symbol})
     w, e = web(v), entry(v)

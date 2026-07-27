@@ -1,7 +1,7 @@
-module InputConvertTest
+module Convert
 
 using EcologicalNetworksDynamics: NF, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency
-using .NF: inputconvert, try_convert
+using .NF: convert, try_convert # /!\ Not Base.convert.
 
 using Main: @inputfails
 
@@ -12,38 +12,36 @@ using OrderedCollections
 struct _Alias end
 Alias = _Alias() # Use as an unambiguous keyword.
 
+same_type_value(a, b) = a isa typeof(b) && a == b
+aliased(a, b) = a === b
+function conv(T, pairs...) # Either.
+    for (input, expected) in pairs
+        actual = convert(T, input)
+        match = if expected isa _Alias
+            aliased(input, actual)
+        else
+            same_type_value(expected, actual)
+        end
+        if !match
+            println("expected: $expected ::$(typeof(expected))")
+            println("actual  : $actual ::$(typeof(actual))")
+        end
+        @test match
+    end
+    true
+end
+
 @testset "Graph data conversion." begin
 
     # ======================================================================================
     # Check convenience macro type conversion.
 
-    same_type_value(a, b) = a isa typeof(b) && a == b
-    aliased(a, b) = a === b
-
     #---------------------------------------------------------------------------------------
     # To scalar names.
 
     input = 'a'
-    res = inputconvert(Symbol, input) # Test this form once..
+    res = convert(Symbol, input) # Test this form once..
     @test same_type_value(res, :a)
-
-    # .. then shorten subsequent tests.
-    function conv(T, pairs...)
-        for (input, expected) in pairs
-            actual = inputconvert(T, input)
-            match = if expected isa _Alias
-                aliased(input, actual)
-            else
-                same_type_value(expected, actual)
-            end
-            if !match
-                println("expected: $expected ::$(typeof(expected))")
-                println("actual  : $actual ::$(typeof(actual))")
-            end
-            @test match
-        end
-        true
-    end
 
     # To scalar symbol.
     @test conv(Symbol, "a" => :a, 'a' => :a, :a => Alias)
@@ -360,18 +358,17 @@ Alias = _Alias() # Use as an unambiguous keyword.
     input = 5
     @inputfails(
         (try_convert(input, Symbol => id, Vector{String} => id)),
+        5,
         "Cannot convert input to either:\n  \
          - $Symbol\n  \
          - $(Vector{String})",
-        5,
     )
 
     input = [0, 1, 2]
     @inputfails(
-        (inputconvert(Vector{Bool}, input)),
-        nothing,
-        [0, 1, 2],
+        (convert(Vector{Bool}, input)),
         Vector{Bool},
+        [0, 1, 2],
         "(detail down the stacktrace)",
     )
 
@@ -379,8 +376,8 @@ Alias = _Alias() # Use as an unambiguous keyword.
     # More specific failures.
 
     # (don't check first error in stacktrace)
-    cv(type, input) = inputconvert(type, input)
-    cv(type, input, ExpectedRefType) = inputconvert(type, input; ExpectedRefType)
+    cv(type, input) = convert(type, input)
+    cv(type, input, ExpectedRefType) = convert(type, input; ExpectedRefType)
 
     # Binary maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     @inputfails( #  :not_iterable

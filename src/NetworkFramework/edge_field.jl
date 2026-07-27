@@ -371,7 +371,8 @@ end
 construct_from_parsed(::D.EdgeField, Field::Component, raw::Vector) = Field.Raw(raw)
 construct_from_parsed(::D.EdgeField, Field::Component, raw::AbstractMatrix) =
     Field.Matrix(raw)
-construct_from_parsed(::D.EdgeField, Field::Component, raw::Adjacency) = Field.Adjacency(raw)
+construct_from_parsed(::D.EdgeField, Field::Component, raw::Adjacency) =
+    Field.Adjacency(raw)
 construct_from_parsed(::D.EdgeField, Field::Component, scalar) = Field.Flat(scalar)
 
 function parse(d::D.EdgeField, input)

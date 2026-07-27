@@ -85,8 +85,7 @@ end
 List implied blueprints by yielding the corresponding component types.
 Yielding components instances instead is supported.
 Expected signature for a component `C` of type `_C`:
-`function(::Blueprint)::"Iterable"{Union{C, _C}}`
-(singleton instances are supported).
+`function(::Blueprint)::"Iterable"{Union{C, _C}}`.
 """
 implied(::Blueprint) = () # Default to nothing implied.
 

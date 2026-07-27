@@ -163,4 +163,3 @@ function Base.setindex!(v::FieldView, rhs, q...)
     q = check_all(v, q)
     set!(v, q, rhs)
 end
-

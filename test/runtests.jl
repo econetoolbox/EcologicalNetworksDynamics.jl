@@ -23,15 +23,15 @@ include("./dedicated_test_failures.jl")
 using .DedicatedTestFailures
 
 sep("Test internal model representation.")
-#  include("./networks/runtests.jl")
+include("./networks/runtests.jl")
 
 sep("Test System/Blueprints/Components framework.")
-#  include("./framework/runtests.jl")
+include("./framework/runtests.jl")
 
 sep("Test API utils.")
-#  include("./inputconvert.jl")
-#  include("./aliasing_dicts.jl")
-#  include("./multiplex_api.jl")
+include("./convert.jl")
+include("./aliasing_dicts.jl")
+include("./multiplex_api.jl")
 
 sep("Test user-facing behaviour.")
 include("./user/runtests.jl")

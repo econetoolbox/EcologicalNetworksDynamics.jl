@@ -154,11 +154,14 @@ define_component(name, V = Value; kwargs...) =
     F.implied(::X_b) = impl[]
 
     # .. implies another component.
-    impl[] = (_B,) # Concrete component.
+    # Concrete component.
     F.implied_blueprint_for(::X_b, ::Type{_B}) = B.b()
-    s = S(x)
-    @test has_component(s, X)
-    @test has_component(s, B)
+    for comp in (_B, B) # (Works with either component type or component instance.)
+        impl[] = (_B,)
+        s = S(x)
+        @test has_component(s, X)
+        @test has_component(s, B)
+    end
 
     impl[] = (A,) # Abstract component.
     F.implied_blueprint_for(::X_b, ::Type{A}) = C.b() # Can have any type.
@@ -177,11 +180,6 @@ define_component(name, V = Value; kwargs...) =
     )
     impl[] = (5,)
     @sysfails(S(x), Add(ComponentError, "Not a component type: 5 ::$Int."))
-    impl[] = (B,)
-    @sysfails(
-        S(x),
-        Add(ComponentError, "Not a component type but a component instance: $B.")
-    )
 
     # Forgot to specify implicit constructor.
     impl[] = (_D,)

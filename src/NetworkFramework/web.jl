@@ -171,8 +171,8 @@ function late_check(d::D.Web, m::Model, bp::ReflexiveWebMatrixBlueprint)
     end
 end
 
-late_check(d::D.Web, m::Model, bp::ReflexiveWebAdjacencyBlueprint) =
-    late_check(d, m, bp.A) # Dispatch over either label or indices refs.
+# Dispatch over either label or indices refs.
+late_check(d::D.Web, m::Model, bp::ReflexiveWebAdjacencyBlueprint) = late_check(d, m, bp.A)
 
 function late_check(d::D.Web, m::Model, adj::BinAdjacency{Symbol})
     class = D.sourcename(d)
