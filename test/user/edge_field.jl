@@ -1,7 +1,5 @@
 """
-Test all aspects of typical EdgeField component,
-using Efficiency as an example but without testing anything specific to efficiency.
-Anything specific to efficiency will be tested in a dedicated file.
+Test all aspects of typical EdgeField component, using efficiency as an example.
 """
 module EdgeFieldTest
 

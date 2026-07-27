@@ -1,9 +1,7 @@
 """
-Test all aspects of typical allometric blueprints,
-using producer Growth as an example but without testing anything specific to Growth.
-Anything specific to Growth will be tested in a dedicated file.
+Test all aspects of typical allometric blueprints, producer growth as an example.
 Anything generic to how aliasing dicts work has already been tested.
-However, take this opportunity
+However, take this opportunity to test intrinsic value checking.
 """
 module AllometricBlueprintTest
 

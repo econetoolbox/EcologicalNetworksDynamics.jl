@@ -1,7 +1,5 @@
 """
-Test all aspects of typical SubnodeField component,
-using producer Growth as an example but without testing anything specific to Growth.
-Anything specific to Growth will be tested in a dedicated file.
+Test all aspects of typical SubnodeField component, using producer growth as an example.
 """
 module SubnodeFieldTest
 

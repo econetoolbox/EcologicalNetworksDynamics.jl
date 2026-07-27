@@ -1,34 +1,21 @@
-# Test every component behaviour/views specificities,
-# not already tested as 'typical components' before.
-
+"""
+Test every *specific* component behaviour,
+not already tested as 'typical components' before.
+"""
 module TestComponents
 
 # Many small similar components tests files, although they easily diverge.
-only = [
-    "./data_components/species.jl",
-    "./data_components/foodweb.jl",
-    "./data_components/body_mass.jl",
-    "./data_components/metabolic_class.jl",
-    "./data_components/temperature.jl",
-    "./data_components/growth_rate.jl",
-    "./data_components/hill_exponent.jl",
-] # Only run these if specified.
-if isempty(only)
-    for subfolder in ["./data_components", "./code_components"]
-        for (folder, _, files) in walkdir(joinpath(dirname(@__FILE__), subfolder))
-            for file in files
-                path = joinpath(folder, file)
-                if !endswith(path, ".jl")
-                    continue
-                end
-                include(path)
-            end
-        end
-    end
-else
-    for file in only
-        include(file)
-    end
-end
+dir = "./data_components/"
+include(dir * "species.jl")
+include(dir * "foodweb.jl")
+include(dir * "body_mass.jl")
+include(dir * "metabolic_class.jl")
+include(dir * "temperature.jl")
+include(dir * "growth_rate.jl")
+include(dir * "hill_exponent.jl")
+
+dir = "./code_components/"
+
+# XXX: check that no test file is left unrun.
 
 end

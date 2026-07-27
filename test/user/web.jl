@@ -1,7 +1,5 @@
 """
-Test all aspects of typical Web component,
-using Foodweb as an example, but without testing anything specific to the foodweb.
-Anything specific to foodweb will be tested in a dedicated file.
+Test all aspects of typical Web component, using foodweb as an example.
 """
 module WebTest
 
