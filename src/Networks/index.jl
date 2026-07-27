@@ -2,8 +2,8 @@
 Two-ways conversions between nodes references as integer indices or label symbols.
 """
 struct Index
-    forward::OrderedDict{Symbol,Int}
-    reverse::Vector{Symbol}
+    forward::OrderedDict{Symbol,Int} # {label ↦ index}
+    reverse::Vector{Symbol} # {index ↦ label}
     Index() = new(OrderedDict(), [])
     Index(f, r) = new(f, r)
 end

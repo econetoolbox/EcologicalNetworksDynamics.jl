@@ -151,7 +151,6 @@ end
 
 @testset "Class component: views" begin
 
-
     # No view if the component is missing.
     @sysfails(
         Model().species.names,
@@ -161,9 +160,11 @@ end
         ),
     )
 
+    # ======================================================================================
+    # The names property becomes available as a view.
+
     m = Model(Species(:a, :b, :c))
 
-    # The names property becomes available as a view.
     v = m.species.names
     @test v isa View
     @test v isa AbstractVector{Symbol}
@@ -185,7 +186,10 @@ end
     @test e isa Vector{Symbol}
     @test e == v
 
-    # Index with either integers or labels, also converted like data input.
+    #---------------------------------------------------------------------------------------
+    # Indexing.
+
+    # Either with integers or labels, also converted like data input.
     @test v[1] == :a
     @test v[0x1] == :a
     @test v[:a] == :a  # (not super-useful but consistent with other views)
@@ -213,34 +217,44 @@ end
         "Views are queried with indices [::Int] or labels [::Symbol]"
     )
 
-    # HERE: propagate to special indexing now.
-
+    # Index with ranges.
     @test v[1:2] == [:a, :b]
-    @test v[2:end] == [:b, :c]
-
-    # Construct from a number, generating short distinct names.
-    bp = Species.Number(5)
-    @test bp == Species(5) # Directly dispatched from component.
-    @test is_repr(bp, "<Species>:Number(n: 5)")
-    @test is_disp(
-        bp,
-        """
-        blueprint for <Species>: Number {
-          n: 5,
-        }\
-        """,
+    @test v[(end-1):end] == [:b, :c]
+    @test v[:] == [:a, :b, :c]
+    @indexfails(v[0:2], View, true, "Integer node references can only be positive")
+    @indexfails(v[end:(end+1)], View, true, "This class only contains 3 nodes")
+    @indexfails(
+        v['a':'c'],
+        View,
+        false,
+        "Views are queried with indices [::Int] or labels [::Symbol]"
     )
 
-    # Expand into the same component.
-    m = Model(bp)
-    @test m.species.names == [:s1, :s2, :s3, :s4, :s5]
+    # Index with boolean masks.
+    @test v[[true, false, true]] == v[sparse(Bool[1, 0, 1])] == [:a, :c]
+    @test v[[1, 0, 1]] == v[sparse([1, 0, 1])] == [:a, :c] # Accept trivial conversion.
+    @indexfails(
+        v[[true, false]],
+        View,
+        true,
+        "The given mask is of size 2 but there are 3 nodes in the class"
+    )
+    @indexfails(
+        v[[1, 0, 2]],
+        View,
+        false,
+        "Could not interpret as a boolean mask (not only 1's and 0's?)"
+    )
+    @indexfails(
+        v[[nothing, "wrongtypes"]],
+        View,
+        false,
+        "Views are queried with indices [::Int] or labels [::Symbol]"
+    )
 
-    # Mutating blueprint is always possible.
-    bp.n = 3
-    @test Model(bp).species.names == [:s1, :s2, :s3]
-
+    # ======================================================================================
     # The component enables various other properties.
-    m = Model(Species(collect("abc")))
+
     # Number of nodes in the class.
     @test m.species.number == 3
     # Index to map labels to canonical order.
@@ -249,8 +263,8 @@ end
     @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
 
     # Mask within the parent class (no parent class with this root example).
-    K = Views.NodesMaskView{D.NodeMask(:species, nothing)}
-    k = m.species.mask
+    K = Views.NodesMaskView{D.Subclass(:species, nothing)}
+    k = m.species.mask # HERE keep propagating.
     @test k isa K
     @test k isa AbstractVector{Bool}
     @test k[1] && k[2] && k[3]
@@ -297,7 +311,7 @@ end
 
 end
 
-@testset "Class component: immutability" begin
+@testset "Class component: immutable" begin
 
     bp = Species(collect("abc"))
     m = Model(bp)

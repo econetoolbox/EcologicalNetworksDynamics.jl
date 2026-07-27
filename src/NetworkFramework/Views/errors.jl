@@ -6,11 +6,19 @@ struct QueryError <: NF.LibError
 end
 qerr(V::Type, q, t, m, throw = Base.throw) = throw(QueryError(V, q, t, m))
 qerr(v, x...) = qerr(typeof(v), x...)
+# Decide whether the error can assume that the query is short to display.
+function short(e::QueryError)
+    (; query, typechecked) = e
+    length(query) == 0 && return true # Sure if it's empty.
+    typechecked || return false # Not if input type is uncontrolled.
+    query isa Tuple{AbstractArray} && return false # Uncertain if size is unbound.
+    true # Otherwise okay.
+end
 function Base.showerror(io::IO, e::QueryError)
-    (; View, query, typechecked, mess) = e
+    (; View, query, mess) = e
     d = dispatcher(View)
     println(io, "View error ($(type_info(View))):")
-    if typechecked || length(query) == 0
+    if short(e)
         # Can assume the query is short: insert anywhere.
         q = "[" * join_elided(query, ", ") * "]"
         println(io, "Cannot index with $q into $d:")
@@ -40,7 +48,7 @@ end
 struct RefErr <: Exception
     mess::String
 end
-referr(m) = throw(RefErr(m))
+referr(m, throw = Base.throw) = throw(RefErr(m))
 
 # ONHOLD: can we not get the same with a clever use of the error type above?
 struct WriteError <: Exception
