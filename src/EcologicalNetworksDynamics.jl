@@ -37,10 +37,11 @@ methname(fn::Function) = :(::$(typeof(fn)))
 
 #-------------------------------------------------------------------------------------------
 # XXX: whenever ready, big rename:
-#   (Networks, N) -> (Networks, N)
+#   (Networks, N) -> (Data, D) 💥
 #   (Framework, F) -> (Systems, S)
-#   (NetworkFramework, NF) -> (Framework, F) 💥
-#   (Dispatcher, D) -> (DataKind, D)
+#   (NetworkFramework, NF) -> (FrontEnd, F) 💥
+#   (Dispatcher, D) -> (DataKind, K)
+# ->(Simulation/Code) -> (BackEnd, B)
 
 # Data: parsimonious model memory representation.
 include("Networks/Networks.jl")

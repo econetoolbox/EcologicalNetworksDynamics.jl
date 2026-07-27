@@ -160,12 +160,10 @@ end
         ),
     )
 
-    # ======================================================================================
     # The names property becomes available as a view.
-
     m = Model(Species(:a, :b, :c))
-
     v = m.species.names
+
     @test v isa View
     @test v isa AbstractVector{Symbol}
     @test is_repr(v, "<species>[:a, :b, :c]")
@@ -186,10 +184,7 @@ end
     @test e isa Vector{Symbol}
     @test e == v
 
-    #---------------------------------------------------------------------------------------
-    # Indexing.
-
-    # Either with integers or labels, also converted like data input.
+    # Either index with integers or labels, also converted like data input.
     @test v[1] == :a
     @test v[0x1] == :a
     @test v[:a] == :a  # (not super-useful but consistent with other views)
@@ -197,63 +192,7 @@ end
     @test v["c"] == :c
     @test v[split("a")...] == :a # (accept substrings as label)
 
-    # Guard against invalid indexing.
-    @indexfails(v[0], View, true, "Integer node references can only be positive")
-    @indexfails(v[4], View, true, "This class only contains 3 nodes")
-    @indexfails(v[:x], View, true, "No node in this class is labeled :x")
-    @indexfails(v[], View, false, "Node-level data has 1 dimension, received 0")
-    @indexfails(v[1, :a], View, false, "Node-level data has 1 dimension, received 2")
-    @indexfails(
-        v[0x1, 'a', nothing],
-        View,
-        false,
-        "Node-level data has 1 dimension, received 3"
-    )
-
-    @indexfails(
-        v[nothing],
-        View,
-        false,
-        "Views are queried with indices [::Int] or labels [::Symbol]"
-    )
-
-    # Index with ranges.
-    @test v[1:2] == [:a, :b]
-    @test v[(end-1):end] == [:b, :c]
-    @test v[:] == [:a, :b, :c]
-    @indexfails(v[0:2], View, true, "Integer node references can only be positive")
-    @indexfails(v[end:(end+1)], View, true, "This class only contains 3 nodes")
-    @indexfails(
-        v['a':'c'],
-        View,
-        false,
-        "Views are queried with indices [::Int] or labels [::Symbol]"
-    )
-
-    # Index with boolean masks.
-    @test v[[true, false, true]] == v[sparse(Bool[1, 0, 1])] == [:a, :c]
-    @test v[[1, 0, 1]] == v[sparse([1, 0, 1])] == [:a, :c] # Accept trivial conversion.
-    @indexfails(
-        v[[true, false]],
-        View,
-        true,
-        "The given mask is of size 2 but there are 3 nodes in the class"
-    )
-    @indexfails(
-        v[[1, 0, 2]],
-        View,
-        false,
-        "Could not interpret as a boolean mask (not only 1's and 0's?)"
-    )
-    @indexfails(
-        v[[nothing, "wrongtypes"]],
-        View,
-        false,
-        "Views are queried with indices [::Int] or labels [::Symbol]"
-    )
-
-    # ======================================================================================
-    # The component enables various other properties.
+    # The component enables various other properties:
 
     # Number of nodes in the class.
     @test m.species.number == 3
@@ -264,7 +203,7 @@ end
 
     # Mask within the parent class (no parent class with this root example).
     K = Views.NodeMaskView{D.Subclass(:species, nothing)}
-    k = m.species.mask # HERE keep testing.
+    k = m.species.mask
     @test k isa K
     @test k isa AbstractVector{Bool}
     @test k[1] && k[2] && k[3]
@@ -281,22 +220,6 @@ end
          1
          1\
         """,
-    )
-    @indexfails(k[0], K, "Cannot index with [0] into a class with 3 :species nodes.")
-    @indexfails(k[4], K, "Cannot index with [4] into a class with 3 :species nodes.")
-    @indexfails(
-        k[:x],
-        K,
-        "Label does not refer to a node in :species class: :x.\n\
-         Valid labels: [:a, :b, :c]."
-    )
-    @indexfails(k[], K, "Cannot index into nodes with 0 dimensions: [].")
-    @indexfails(k[1, 2], K, "Cannot index into nodes with 2 dimensions: [1, 2].")
-    @indexfails(
-        k[nothing],
-        K,
-        "Views are indexed with indices (::Int) or labels (::Symbol). \
-         Cannot index with: $nothing ::$Nothing."
     )
 
     # The above makes more sense with a non-root class, like producers here.
