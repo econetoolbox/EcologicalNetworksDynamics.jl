@@ -162,7 +162,7 @@ function define_node_field_component(
                 const d = $d
                 const prop = $prop
                 const C = $C
-                D.viewtype(::typeof(d)) = V.NodesFieldView
+                D.viewtype(::typeof(d)) = V.NodeFieldView
                 get_value(::Network, m::Model) = V.field_view(d, m)
                 NF.define_method(get_value; read_as = prop, depends = [C])
                 if !D.readonly(d)

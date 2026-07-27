@@ -160,7 +160,7 @@ function nodes_view(n::Network, class::Symbol, data::Symbol)
 
     V = eltype(entry)
     T = eltype(V)
-    NodesView{T}(n, c, entry)
+    NodeView{T}(n, c, entry)
 end
 export nodes_view
 
@@ -177,7 +177,7 @@ function edges_view(n::Network, web::Symbol, data::Symbol)
 
     V = eltype(entry)
     T = eltype(V)
-    EdgesView{T}(n, w, entry)
+    EdgeView{T}(n, w, entry)
 end
 export edges_view
 

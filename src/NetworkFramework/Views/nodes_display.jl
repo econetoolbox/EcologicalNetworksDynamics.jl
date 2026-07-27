@@ -1,10 +1,10 @@
-function inline_info(v::NodesFieldView)
+function inline_info(v::NodeFieldView)
     class = D.class(v)
     field = D.field(v)
     "<$class:$field>"
 end
 
-function inline_info(v::SubnodesFieldView)
+function inline_info(v::SubnodeFieldView)
     class = D.class(v)
     parent = D.parent(v)
     parent = isnothing(parent) ? ":" : parent
@@ -12,48 +12,48 @@ function inline_info(v::SubnodesFieldView)
     "<$parent:$class:$field>"
 end
 
-function inline_info(v::NodesNamesView)
+function inline_info(v::NodeNameView)
     class = D.class(v)
     "<$class>"
 end
 
-function inline_info(v::NodesMaskView)
+function inline_info(v::NodeMaskView)
     class = D.class(v)
     parent = D.parent(v)
     parent = isnothing(parent) ? ":" : parent
     "<$parent:$class>"
 end
 
-function display_info(v::NodesFieldView)
+function display_info(v::NodeFieldView)
     T = eltype(v)
     info = inline_info(v)
-    "NodesFieldView$info{$T}"
+    "NodeFieldView$info{$T}"
 end
 
-function display_info(v::SubnodesFieldView)
+function display_info(v::SubnodeFieldView)
     T = eltype(v)
     info = inline_info(v)
     "SubnodesFieldView$info{$T}"
 end
 
-function display_info(v::NodesNamesView)
+function display_info(v::NodeNameView)
     T = eltype(v)
     info = inline_info(v)
-    "NodesNamesView$info{$T}"
+    "NodeNameView$info{$T}"
 end
 
-function display_info(v::NodesMaskView)
+function display_info(v::NodeMaskView)
     T = eltype(v)
     info = inline_info(v)
-    "NodesMaskView$info{$T}"
+    "NodeMaskView$info{$T}"
 end
 
-type_info(::Type{<:NodesFieldView}) = "nodes"
-type_info(::Type{<:SubnodesFieldView}) = "sub-nodes"
-type_info(::Type{<:NodesNamesView}) = "nodes names"
-type_info(::Type{<:NodesMaskView}) = "nodes mask"
+type_info(::Type{<:NodeFieldView}) = "nodes"
+type_info(::Type{<:SubnodeFieldView}) = "sub-nodes"
+type_info(::Type{<:NodeNameView}) = "nodes names"
+type_info(::Type{<:NodeMaskView}) = "nodes mask"
 
-function Base.show(io::IO, v::NodesFieldView)
+function Base.show(io::IO, v::NodeFieldView)
     print(io, inline_info(v))
     print(io, '[')
     read(N.entry(v)) do raw
@@ -67,7 +67,7 @@ function Base.show(io::IO, v::NodesFieldView)
     print(io, ']')
 end
 
-function Base.show(io::IO, v::SubnodesFieldView)
+function Base.show(io::IO, v::SubnodeFieldView)
     print(io, inline_info(v))
     print(io, '[')
     n = length(v)
@@ -90,7 +90,7 @@ function Base.show(io::IO, v::SubnodesFieldView)
     print(io, ']')
 end
 
-function Base.show(io::IO, v::NodesNamesView)
+function Base.show(io::IO, v::NodeNameView)
     print(io, inline_info(v))
     print(io, '[')
     for (i, name) in enumerate(N.index(v).reverse)
@@ -102,7 +102,7 @@ function Base.show(io::IO, v::NodesNamesView)
     print(io, ']')
 end
 
-function Base.show(io::IO, v::NodesMaskView)
+function Base.show(io::IO, v::NodeMaskView)
     print(io, inline_info(v))
     print(io, '[')
     n = length(v)
@@ -120,7 +120,7 @@ function Base.show(io::IO, v::NodesMaskView)
     print(io, ']')
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::NodesFieldView)
+function Base.show(io::IO, ::MIME"text/plain", v::NodeFieldView)
     print(io, display_info(v))
     n, s = ns(length(v))
     w = D.readonly(v) ? " readonly" : ""
@@ -133,7 +133,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodesFieldView)
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::SubnodesFieldView)
+function Base.show(io::IO, ::MIME"text/plain", v::SubnodeFieldView)
     print(io, display_info(v))
     mask = N.mask(N.network(v), D.class(v), D.parent(v))
     n, _ = ns(length(v))
@@ -155,7 +155,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::SubnodesFieldView)
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::NodesNamesView)
+function Base.show(io::IO, ::MIME"text/plain", v::NodeNameView)
     print(io, display_info(v))
     n, s = ns(length(v))
     print(io, " ($n value$s)")
@@ -165,7 +165,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodesNamesView)
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::NodesMaskView)
+function Base.show(io::IO, ::MIME"text/plain", v::NodeMaskView)
     print(io, display_info(v))
     r = N.restriction(v)
     n, _ = ns(length(v))

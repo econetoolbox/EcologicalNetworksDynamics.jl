@@ -9,7 +9,7 @@ end
 """
 A view into node-level data.
 """
-struct NodesView{T} <: AbstractVector{T}
+struct NodeView{T} <: AbstractVector{T}
     # Protect from garbage collection as long as the view is live.
     # Useful to retrieve parents/grandparent classes when exporting nodes.
     network::Network
@@ -17,18 +17,18 @@ struct NodesView{T} <: AbstractVector{T}
     class::Class
     entry::Entry{Vector{T}}
 end
-class(v::NodesView) = getfield(v, :class)
+class(v::NodeView) = getfield(v, :class)
 
-struct EdgesView{T} <: AbstractVector{T}
+struct EdgeView{T} <: AbstractVector{T}
     network::Network
     web::Web
     entry::Entry{Vector{T}}
 end
-web(v::EdgesView) = getfield(v, :web)
+web(v::EdgeView) = getfield(v, :web)
 
 # Abstract over levels.
 # (cannot use abstract type View{T} because of AbstractVector{T} subtyping already)
-const View{T} = Union{GraphView{T},NodesView{T},EdgesView{T}}
+const View{T} = Union{GraphView{T},NodeView{T},EdgeView{T}}
 entry(v::View) = getfield(v, :entry)
 network(v::View) = getfield(v, :network)
 Base.eltype(::View{T}) where {T} = T
@@ -71,12 +71,12 @@ n_networks(v::View) = n_networks(entry(v))
 #-------------------------------------------------------------------------------------------
 # Indexing with integers or labels.
 
-const ArrayView{T} = Union{GraphView{<:AbstractVector{T}},NodesView{T},EdgesView{T}}
+const ArrayView{T} = Union{GraphView{<:AbstractVector{T}},NodeView{T},EdgeView{T}}
 Base.size(v::ArrayView) = read(v, size)
 Base.getindex(v::ArrayView, i) = read(v, getindex, i)
 Base.setindex!(v::ArrayView, x, i) = mutate!(v, setindex!, x, i)
 
-function Base.getindex(v::NodesView, label::Symbol)
+function Base.getindex(v::NodeView, label::Symbol)
     c, e = class(v), entry(v)
     check_label(label, c.index, c.name)
     i = c.index.forward[label]
@@ -85,7 +85,7 @@ function Base.getindex(v::NodesView, label::Symbol)
     end
 end
 
-function Base.setindex!(v::NodesView, new, label::Symbol)
+function Base.setindex!(v::NodeView, new, label::Symbol)
     c, e = class(v), entry(v)
     check_label(label, c.index, c.name)
     i = c.index.forward[label]
@@ -98,7 +98,7 @@ end
 # Index edge views with two dimensions with tuples.
 # Don't splat the tuples for julia not to mistake these views for matrices.
 
-function to_linear(v::EdgesView, i::Int, j::Int; a = i, b = j)
+function to_linear(v::EdgeView, i::Int, j::Int; a = i, b = j)
     web = N.web(v)
     top = web.topology
     for (i, count, what) in ((i, n_sources, "source"), (j, n_targets, "target"))
@@ -108,11 +108,11 @@ function to_linear(v::EdgesView, i::Int, j::Int; a = i, b = j)
     is_edge(top, i, j) || err("Not an edge in $(repr(web.name)) web: $(repr((a, b))).")
     edge(top, i, j)
 end
-Base.getindex(v::EdgesView, (i, j)::Tuple{Int,Int}) = getindex(v, to_linear(v, i, j))
-Base.setindex!(v::EdgesView, x, (i, j)::Tuple{Int,Int}) =
+Base.getindex(v::EdgeView, (i, j)::Tuple{Int,Int}) = getindex(v, to_linear(v, i, j))
+Base.setindex!(v::EdgeView, x, (i, j)::Tuple{Int,Int}) =
     setindex!(v, x, to_linear(v, i, j))
 
-function Base.getindex(v::EdgesView, (a, b)::Tuple{Symbol,Symbol})
+function Base.getindex(v::EdgeView, (a, b)::Tuple{Symbol,Symbol})
     w, e = web(v), entry(v)
     c = network(v).classes
     src, tgt = c[w.source], c[w.target]
@@ -123,7 +123,7 @@ function Base.getindex(v::EdgesView, (a, b)::Tuple{Symbol,Symbol})
     end
 end
 
-function Base.setindex!(v::EdgesView, new, (s, t)::Tuple{Symbol,Symbol})
+function Base.setindex!(v::EdgeView, new, (s, t)::Tuple{Symbol,Symbol})
     w, e = web(v), entry(v)
     c = network(v).classes
     src, tgt = c[w.source], c[w.target]

@@ -71,7 +71,7 @@ using Main: @viewfails, is_disp
     @test m.trophic.level ≈ [1, 2, 1, 2 + 1 / 3]
     @viewfails(
         m.trophic.level[:d] = 1,
-        V.NodesDataView{D.NodeField(:species, :trophic_level),Float64},
+        V.NodeDataView{D.NodeField(:species, :trophic_level),Float64},
         "Values of :trophic_level are readonly."
     )
 

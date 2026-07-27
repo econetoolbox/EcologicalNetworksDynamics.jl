@@ -13,7 +13,7 @@ using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, N, F, Views, NodeField, Map
 import Main: is_repr, is_disp, @inputfails, @viewfails, @writefails, @sysfails, Value
-const View = Views.NodesFieldView{NodeField(:species, :body_mass),Float64} # Tested viewtype.
+const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Tested viewtype.
 
 @testset "Typical NodeField component" begin
 
@@ -80,7 +80,7 @@ const View = Views.NodesFieldView{NodeField(:species, :body_mass),Float64} # Tes
     @test is_disp(
         v,
         """
-        NodesFieldView<species:body_mass>{Float64} (3 values)
+        NodeFieldView<species:body_mass>{Float64} (3 values)
          4.0
          5.0
          6.0\

@@ -13,7 +13,7 @@ using SparseArrays
 using Test
 using EcologicalNetworksDynamics: EN, N, F, NF, V, EdgeField, SparseMatrix, Adjacency
 import Main: is_repr, is_disp, Value, @inputfails, @sysfails, @viewfails
-const View = V.SparseEdgesFieldView{EdgeField(:trophic, :efficiency),Float64}
+const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
 
 # TODO: test for dense constructs when such a component shows up.
 
@@ -503,7 +503,7 @@ const View = V.SparseEdgesFieldView{EdgeField(:trophic, :efficiency),Float64}
     @test is_disp(
         v,
         """
-        EdgesDataView<trophic:efficiency>{Float64} (4×4: 4 values)
+        EdgeDataView<trophic:efficiency>{Float64} (4×4: 4 values)
            · 0.2   · ·
            ·   · 0.3 ·
            ·   ·   · ·

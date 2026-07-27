@@ -1,23 +1,23 @@
 """
 Direct view into *dense* web data.
 """
-struct DenseEdgesFieldView{d,T} <: AbstractMatrix{T} # d::D.Web (sparse)
+struct DenseEdgeFieldView{d,T} <: AbstractMatrix{T} # d::D.Web (sparse)
     model::Model
-    view::N.EdgesView{T}
+    view::N.EdgeView{T}
 end
-let S = DenseEdgesFieldView
+let S = DenseEdgeFieldView
     V.extract(s::S; kw...) = N.to_dense(N.view(s); kw...)
 end
 
 """
 Direct view into *sparse* web data.
 """
-struct SparseEdgesFieldView{d,T} <: AbstractSparseMatrix{T,Int} # d::Web (dense)
+struct SparseEdgeFieldView{d,T} <: AbstractSparseMatrix{T,Int} # d::Web (dense)
     model::Model
-    view::N.EdgesView{T}
+    view::N.EdgeView{T}
 end
 
-let S = SparseEdgesFieldView
+let S = SparseEdgeFieldView
     # Duty to AbstractSparseMatrix..?
     SparseArrays.nonzeros(s::S) = read(collect, N.entry(s))
     SparseArrays.nnz(s::S) = s |> N.n_edges
@@ -35,16 +35,16 @@ end
 #-------------------------------------------------------------------------------------------
 # Common to dense and sparse.
 
-const EdgesFieldView{d,T} = Union{DenseEdgesFieldView{d,T},SparseEdgesFieldView{d,T}}
+const EdgeFieldView{d,T} = Union{DenseEdgeFieldView{d,T},SparseEdgeFieldView{d,T}}
 
 function field_view(d::D.EdgeField, m::Model)
     view = N.edges_view(N.network(m), D.web(d), D.field(d))
     T = eltype(view)
-    View = D.is_sparse(d) ? SparseEdgesFieldView : DenseEdgesFieldView
+    View = D.is_sparse(d) ? SparseEdgeFieldView : DenseEdgeFieldView
     View{d,T}(m, view)
 end
 
-let S = EdgesFieldView
+let S = EdgeFieldView
     D.web(s::S) = s |> dispatcher |> D.web
     N.web(s::S) = s |> N.view |> N.web
 end
@@ -55,17 +55,17 @@ end
 """
 View into edges topology (a binary masks), read-only.
 """
-struct EdgesMaskView{d} <: AbstractMatrix{Bool} # d::D.Web
+struct EdgeMaskView{d} <: AbstractMatrix{Bool} # d::D.Web
     model::Model
     web::N.Web # Cache an alias to underlying web.
 end
 
 function mask_view(d::D.Web, m::Model)
     web = N.web(N.network(m), D.web(d))
-    EdgesMaskView{d}(m, web)
+    EdgeMaskView{d}(m, web)
 end
 
-let S = EdgesMaskView
+let S = EdgeMaskView
     N.web(s::S) = getfield(s, :web)
     D.web(s::S) = D.web(dispatcher(s))
     Base.getindex(s::S, i::Ref, j::Ref) = N.is_edge(s, i, j)
@@ -76,8 +76,8 @@ end
 # ==========================================================================================
 # Common to all edge views.
 
-EdgesView{d} = Union{EdgesFieldView{d},EdgesMaskView{d}}
-let S = EdgesView
+EdgeView{d} = Union{EdgeFieldView{d},EdgeMaskView{d}}
+let S = EdgeView
     N.topology(s::S) = N.web(s).topology
     D.source(s) = N.web(s).source
     D.target(s) = N.web(s).target

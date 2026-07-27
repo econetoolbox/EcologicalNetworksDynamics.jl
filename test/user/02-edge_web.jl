@@ -13,7 +13,7 @@ using SparseArrays
 using Test
 import EcologicalNetworksDynamics: EN, Network, Views, Web, SparseMatrix
 import Main: is_repr, is_disp, @viewfails, @inputfails, @sysfails, Value
-const View = Views.EdgesMaskView{Web(:trophic)} # Tested view type.
+const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
 
 @testset "Typical Web component" begin
 
@@ -66,7 +66,7 @@ const View = Views.EdgesMaskView{Web(:trophic)} # Tested view type.
     @test is_disp(
         v,
         """
-        EdgesMaskView<trophic>{Bool} (3×3: 5 edges)
+        EdgeMaskView<trophic>{Bool} (3×3: 5 edges)
          · 1 1
          1 · ·
          1 1 ·\

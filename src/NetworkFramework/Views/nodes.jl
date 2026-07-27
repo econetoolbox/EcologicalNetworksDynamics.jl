@@ -1,11 +1,11 @@
 """
 Direct dense view into nodes field data.
 """
-struct NodesFieldView{d,T} <: AbstractVector{T} # d::D.Class
+struct NodeFieldView{d,T} <: AbstractVector{T} # d::D.Class
     model::Model
-    view::N.NodesView{T}
+    view::N.NodeView{T}
 end
-let S = NodesFieldView
+let S = NodeFieldView
     N.restriction(s::S) = N.class(s).restriction
     Base.size(s::S) = (s |> N.view |> length,)
     V.extract(s::S) = read(collect, N.entry(s))
@@ -17,11 +17,11 @@ View into nodes data of a subclass
 from the perspective of a superclass,
 resulting in incomplete / sparse data view.
 """
-struct SubnodesFieldView{d,T} <: AbstractSparseVector{T,Int} # d::D.Subclass
+struct SubnodeFieldView{d,T} <: AbstractSparseVector{T,Int} # d::D.Subclass
     model::Model
-    view::N.NodesView{T}
+    view::N.NodeView{T}
 end
-let S = SubnodesFieldView
+let S = SubnodeFieldView
 
     D.parent(s::S) = s |> dispatcher |> D.parent
 
@@ -52,14 +52,14 @@ end
 #-------------------------------------------------------------------------------------------
 # Common to all nodes field views.
 
-const AbstractNodesFieldView{d,T} = Union{NodesFieldView{d,T},SubnodesFieldView{d,T}}
+const AbstractNodeFieldView{d,T} = Union{NodeFieldView{d,T},SubnodeFieldView{d,T}}
 function field_view(d::D.AbstractNodeField, m::Model)
     view = N.nodes_view(N.network(m), D.class(d), D.field(d))
     View = D.viewtype(d)
     T = eltype(view)
     View{d,T}(m, view)
 end
-let S = AbstractNodesFieldView
+let S = AbstractNodeFieldView
     N.class(s::S) = s |> N.view |> N.class
 end
 
@@ -69,15 +69,15 @@ end
 """
 View into network class label names, read-only.
 """
-struct NodesNamesView{d} <: AbstractVector{Symbol} # d::D.Class
+struct NodeNameView{d} <: AbstractVector{Symbol} # d::D.Class
     model::Model
     index::N.Index # Cache an alias to underlying class index.
 end
 function names_view(d::D.Class, m::Model)
     index = N.class(N.network(m), D.class(d)).index
-    NodesNamesView{d}(m, index)
+    NodeNameView{d}(m, index)
 end
-let S = NodesNamesView
+let S = NodeNameView
     N.index(s::S) = getfield(s, :index)
     Base.size(s::S) = (s |> N.index |> length,)
     V.extract(s::S) = copy(N.index(s).reverse)
@@ -87,15 +87,15 @@ end
 """
 View into network class restriction mask, read-only.
 """
-struct NodesMaskView{d} <: AbstractVector{Bool} # d::D.Subclass
+struct NodeMaskView{d} <: AbstractVector{Bool} # d::D.Subclass
     model::Model
     restriction::N.Restriction # Cache an alias to underlying restriction.
 end
 function mask_view(d::D.Subclass, m::Model)
     r = N.restriction(N.network(m), D.class(d), D.parent(d))
-    NodesMaskView{d}(m, r)
+    NodeMaskView{d}(m, r)
 end
-let S = NodesMaskView
+let S = NodeMaskView
     D.parent(s::S) = s |> dispatcher |> D.parent
     N.parent(s::S) = N.class(N.network(s), D.parent(s))
     N.restriction(s::S) = getfield(s, :restriction)
@@ -117,11 +117,11 @@ end
 # ==========================================================================================
 # Abstract into categories.
 
-const NodeTopologyView{d} = Union{NodesNamesView{d},NodesMaskView{d}}
-const DenseNodeView{d} = Union{NodesFieldView{d},NodesNamesView{d},NodesMaskView{d}}
-const NodesView{d} = Union{AbstractNodesFieldView{d},NodesNamesView{d},NodesMaskView{d}}
+const NodeTopologyView{d} = Union{NodeNameView{d},NodeMaskView{d}}
+const DenseNodeView{d} = Union{NodeFieldView{d},NodeNameView{d},NodeMaskView{d}}
+const NodeView{d} = Union{AbstractNodeFieldView{d},NodeNameView{d},NodeMaskView{d}}
 
-let S = NodesView
+let S = NodeView
     D.class(s::S) = D.class(dispatcher(s))
     N.class(s::S) = N.class(N.network(s), D.class(s))
     N.index(s::S) = N.class(s).index

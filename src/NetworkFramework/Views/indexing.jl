@@ -22,8 +22,8 @@ function check_dim(v::AbstractView, q...)
     qerr(v, q, false, "$l-level data has $exp dimension$s, received $act")
 end
 
-check_dim(::NodesView, i) = (i,)
-check_dim(::EdgesView, i, j) = (i, j)
+check_dim(::NodeView, i) = (i,)
+check_dim(::EdgeView, i, j) = (i, j)
 
 #-------------------------------------------------------------------------------------------
 # Check query type.
@@ -59,8 +59,8 @@ check_type(::AbstractView, q::AbstractArray{<:Integer}) =
 
 # Then dispatch to per-dimension checking.
 check_value(::AbstractView, q, _) = q
-check_value(v::NodesView, (i,)) = (check_value(v, i, Val(N.class)),)
-check_value(v::EdgesView, (i, j)) = check_value.(v, (i, j), Val.((N.source, N.target)))
+check_value(v::NodeView, (i,)) = (check_value(v, i, Val(N.class)),)
+check_value(v::EdgeView, (i, j)) = check_value.(v, (i, j), Val.((N.source, N.target)))
 
 function check_value(::AbstractView, i::Int, c)
     i > 0 && return i
@@ -70,9 +70,9 @@ end
 #-------------------------------------------------------------------------------------------
 # Check query against the model.
 
-check_query(v::NodesView, (i,)) = (check_query(v, i, Val(N.class)),) # TODO: subnodes differ.
+check_query(v::NodeView, (i,)) = (check_query(v, i, Val(N.class)),) # TODO: subnodes differ.
 
-function check_query(v::EdgesView, (i, j))
+function check_query(v::EdgeView, (i, j))
     check_query((v,), (i, j), Val.((N.source, N.target)))
     check_edge(v, (i, j)) # TODO
 end
@@ -100,7 +100,7 @@ end
 check_query(::AbstractView, ::Colon, _) = (:)
 
 # Indexing with masks.
-function check_query(v::NodesView, m::NodeMask, ::Val{class}) where {class}
+function check_query(v::NodeView, m::NodeMask, ::Val{class}) where {class}
     exp = v |> class |> length
     act = length(m)
     exp == act && return m
@@ -111,20 +111,22 @@ end
 # ==========================================================================================
 # Assuming all checks passed, finally obtain the indexed value.
 
-obtain(v::NodesView, (q,)::Tuple{Query}) = obtain(v, q)
+obtain(v::NodeView, (q,)::Tuple{Query}) = obtain(v, q)
 
-function obtain(v::NodesFieldView, q::Query)
+function obtain(v::NodeFieldView, q::Query)
     i = N.to_index(N.class(v).index, q)
     read(N.entry(v)) do data
         data[i]
     end
 end
 
-# Node names.
-obtain(v::NodesNamesView, r::Ref) = N.to_label(N.class(v).index, r)
-obtain(v::NodesNamesView, u::UnitRange) = [obtain(v, i) for i in u]
-obtain(v::NodesNamesView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
-obtain(v::NodesNamesView, m::NodeMask) = [obtain(v, i) for i in 1:length(v) if m[i]]
+# Node names and mask.
+obtain(v::NodeNameView, r::Ref) = N.to_label(N.class(v).index, r)
+obtain(v::NodeMaskView, r::Ref) = N.is_ref(N.class(v).index, r)
+
+obtain(v::NodeTopologyView, u::UnitRange) = [obtain(v, i) for i in u]
+obtain(v::NodeTopologyView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
+obtain(v::NodeTopologyView, m::NodeMask) = [obtain(v, i) for i in 1:length(v) if m[i]]
 
 # ==========================================================================================
 

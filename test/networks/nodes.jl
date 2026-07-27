@@ -155,7 +155,7 @@ end
 
     # View into base class node data.
     m = nodes_view(n, :species, :mortality)
-    @test is_repr(m, "NodesView'2([0.1, 0.2, 0.3, 0.4, 0.5])")
+    @test is_repr(m, "NodeView'2([0.1, 0.2, 0.3, 0.4, 0.5])")
 
     # Index view.
     @test m[:a] == m[1] == 0.1
@@ -166,20 +166,20 @@ end
     m[:a] *= 10
     m[2] *= 5
     m[:e] *= -1
-    @test is_repr(m, "NodesView([1.0, 1.0, 0.3, 0.4, -0.5])")
+    @test is_repr(m, "NodeView([1.0, 1.0, 0.3, 0.4, -0.5])")
 
     # View into subclass node data.
     c = nodes_view(n, :mineral_bound, :consumption_rate)
-    @test is_repr(c, "NodesView'2([10, 50])")
+    @test is_repr(c, "NodeView'2([10, 50])")
 
     c[1:2] ./= 10
     c[:e] *= 2
 
-    @test is_repr(c, "NodesView([1, 10])")
+    @test is_repr(c, "NodeView([1, 10])")
 
     # Also works with broacasting.
     c[1:2] .*= 2
-    @test is_repr(c, "NodesView([2, 20])")
+    @test is_repr(c, "NodeView([2, 20])")
 
     # Check COW aliasing/mutation.
     @test is_disp(n, strip("""

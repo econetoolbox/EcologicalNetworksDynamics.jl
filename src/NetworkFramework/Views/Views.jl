@@ -92,7 +92,7 @@ include("edges_display.jl")
 # ==========================================================================================
 # Common to nodes or edge field views.
 
-FieldView{d,T} = Union{AbstractNodesFieldView{d,T},EdgesFieldView{d,T}}
+FieldView{d,T} = Union{AbstractNodeFieldView{d,T},EdgeFieldView{d,T}}
 let S = FieldView
     D.field(s::S) = s |> dispatcher |> D.field # Associated fieldname.
     N.view(s::S) = getfield(s, :view) # Underlying network data view.
@@ -102,7 +102,7 @@ end
 # ==========================================================================================
 #  Common to all views, including 'virtual' ones into topology.
 
-AbstractView{d} = Union{NodesView{d},EdgesView{d}}
+AbstractView{d} = Union{NodeView{d},EdgeView{d}}
 let S = AbstractView
     # Extract dispatcher and delegate some basic dispatcher interface.
     V.dispatcher(::Type{<:S{d}}) where {d} = d

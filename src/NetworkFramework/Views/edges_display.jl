@@ -2,33 +2,33 @@
     using EcologicalNetworksDynamics.Networks
 end
 
-function inline_info(v::EdgesFieldView)
+function inline_info(v::EdgeFieldView)
     web = D.web(v)
     field = D.field(v)
     "<$web:$field>"
 end
 
-function inline_info(v::EdgesMaskView)
+function inline_info(v::EdgeMaskView)
     web = D.web(v)
     "<$web>"
 end
 
-function display_info(v::EdgesFieldView)
+function display_info(v::EdgeFieldView)
     T = eltype(v)
     info = inline_info(v)
     "EdgesFieldView$info{$T}"
 end
 
-function display_info(v::EdgesMaskView)
+function display_info(v::EdgeMaskView)
     T = eltype(v)
     info = inline_info(v)
     "EdgesMaskView$info{$T}"
 end
 
-type_info(::Type{<:EdgesFieldView}) = "edges"
-type_info(::Type{<:EdgesMaskView}) = "edges mask"
+type_info(::Type{<:EdgeFieldView}) = "edges"
+type_info(::Type{<:EdgeMaskView}) = "edges mask"
 
-function Base.show(io::IO, v::EdgesFieldView)
+function Base.show(io::IO, v::EdgeFieldView)
     print(io, inline_info(v))
     raw = N.entry(v)
     l, (m, n) = N.n_edges(v), size(v)
@@ -44,7 +44,7 @@ function Base.show(io::IO, v::EdgesFieldView)
     end
 end
 
-function Base.show(io::IO, v::EdgesMaskView)
+function Base.show(io::IO, v::EdgeMaskView)
     print(io, inline_info(v))
     l, (m, n) = N.n_edges(N.web(v)), size(v)
     print(io, "($m×$n: ")
@@ -58,7 +58,7 @@ function Base.show(io::IO, v::EdgesMaskView)
     print(io, ")")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::EdgesFieldView)
+function Base.show(io::IO, ::MIME"text/plain", v::EdgeFieldView)
     print(io, display_info(v))
     l, (m, n) = N.n_edges(v), size(v)
     l, s = ns(l)
@@ -90,7 +90,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::EdgesFieldView)
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", v::EdgesMaskView)
+function Base.show(io::IO, ::MIME"text/plain", v::EdgeMaskView)
     print(io, display_info(v))
     l, (m, n) = N.n_edges(N.web(v)), size(v)
     l, s = ns(l)

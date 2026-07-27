@@ -4,7 +4,7 @@
 Obtain a copy of the underlying vector.
 The obtained size and order correspond to the standard edges ordering.
 """
-to_vec(v::EdgesView) = read(collect, v)
+to_vec(v::EdgeView) = read(collect, v)
 export to_vec
 
 """
@@ -21,7 +21,7 @@ function to_dense(t::Topology, v::Vector; empty = Unspecified)
     ]
 end
 struct Unspecified end
-to_dense(v::EdgesView; kw...) = read(r -> to_dense(web(v).topology, r, kw...), v)
+to_dense(v::EdgeView; kw...) = read(r -> to_dense(web(v).topology, r, kw...), v)
 export to_dense
 
 """
@@ -39,7 +39,7 @@ function push_edges!(res, t::SymmetricTopology, i, j, val)
     @invoke push_edges!(res, t::Topology, i, j, val)
     @invoke push_edges!(res, t::Topology, j, i, val) # Also fill upper triangle.
 end
-to_sparse(v::EdgesView; kwargs...) = read(r -> to_sparse(web(v).topology, r), v)
+to_sparse(v::EdgeView; kwargs...) = read(r -> to_sparse(web(v).topology, r), v)
 export to_sparse
 
 """

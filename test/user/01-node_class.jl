@@ -13,7 +13,7 @@ using Test
 using OrderedCollections
 import EcologicalNetworksDynamics: EN, F, D, Network, Views
 import Main: is_repr, is_disp, @inputfails, @sysfails, @indexfails, Value
-const View = Views.NodesNamesView{D.Class(:species)} # Tested view type.
+const View = Views.NodeNameView{D.Class(:species)} # Tested view type.
 
 @testset "Class component: blueprints" begin
 
@@ -172,7 +172,7 @@ end
     @test is_disp(
         v,
         """
-        NodesNamesView<species>{Symbol} (3 values)
+        NodeNameView<species>{Symbol} (3 values)
          :a
          :b
          :c\
@@ -263,8 +263,8 @@ end
     @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
 
     # Mask within the parent class (no parent class with this root example).
-    K = Views.NodesMaskView{D.Subclass(:species, nothing)}
-    k = m.species.mask # HERE keep propagating.
+    K = Views.NodeMaskView{D.Subclass(:species, nothing)}
+    k = m.species.mask # HERE keep testing.
     @test k isa K
     @test k isa AbstractVector{Bool}
     @test k[1] && k[2] && k[3]
@@ -276,7 +276,7 @@ end
     @test is_disp(
         k,
         """
-        NodesMaskView<::species>{Bool} (3/3 values)
+        NodeMaskView<::species>{Bool} (3/3 values)
          1
          1
          1\

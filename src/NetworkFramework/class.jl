@@ -123,7 +123,7 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
                 get_parent_index(n::Network) =
                     OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
                 mask(n::Network, m::Model) =
-                    V.mask_view(D.NodeSubclass(c, N.class(n, c).parent), m)
+                    V.mask_view(D.Subclass(c, N.class(n, c).parent), m)
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)
