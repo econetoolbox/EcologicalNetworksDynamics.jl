@@ -16,24 +16,9 @@ const SparseMatrix{T} = SparseMatrixCSC{T,Int}
 #-------------------------------------------------------------------------------------------
 # Common utils.
 
-include("errors.jl")
+include("./errors.jl")
+include("./codegen.jl")
 include("./display.jl")
-using .Display
-
-"""
-Construct the name expression required to add a method to the given item.
-
-```
-Module.A => :(\$Module.\$(:A))
-fn       => :(::\$(typeof(fn)))
-```
-"""
-function methname(T::Type)
-    n = T.name
-    :($(n.module).$(n.name))
-end
-methname(U::UnionAll) = methname(U.body)
-methname(fn::Function) = :(::$(typeof(fn)))
 
 #-------------------------------------------------------------------------------------------
 # XXX: whenever ready, big rename:
@@ -100,7 +85,7 @@ include("./diversity.jl")
 =#
 
 # Avoid Revise interruptions when redefining methods and properties.
-Framework.REVISING = true
+Framework.REVISING = true # XXX: still required?
 
 # Testing utils. Not useful for end users,
 # but used during package automated testing

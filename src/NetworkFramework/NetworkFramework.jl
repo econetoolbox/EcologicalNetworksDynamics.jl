@@ -110,7 +110,8 @@ import EcologicalNetworksDynamics:
     KwargsHelpers,
     AD,
     FailedAttempts,
-    render_input
+    Display
+import .Display: render_input
 using .Networks
 using .Framework
 using .KwargsHelpers

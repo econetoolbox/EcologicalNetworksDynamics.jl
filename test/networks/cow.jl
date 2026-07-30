@@ -4,15 +4,15 @@ import EcologicalNetworksDynamics: Networks, N
 using .Networks
 
 import EcologicalNetworksDynamics: Tests
-import Test: @netfails
+using .Tests: is_disp, @netfails
+
+using Test
 
 @testset "Basic network COW." begin
 
     n = Network()
 
-    @test is_disp(n, strip("""
-        Empty network.
-        """))
+    @test is_disp(n, strip("Empty network."))
 
     add_field!(n, :a, 5)
     add_field!(n, :b, 8)

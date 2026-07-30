@@ -33,6 +33,15 @@ so their behaviour can be fine-tuned by downstream component authors.
 """
 module Views
 
+import EcologicalNetworksDynamics:
+    EN, N, F, I, Networks, NetworkFramework, Option, Display
+import .Display: join_elided, render_input
+import .NetworkFramework: NF, D, Model
+const V = Views
+
+using SparseArrays
+using Crayons
+
 # A lot of small accessors are defined and used within this module.
 # Namespace them with the module of their expected *result*.
 # For instance: `D.class(view)` will result in a symbol
@@ -63,14 +72,6 @@ module Views
 # /!\ at the cost of confusing `Revise` very much.
 # Don't expect Revise to correctly track changes within this module because of this.
 # But I still think the readability/mantainability gain it's worth that cost.
-
-import EcologicalNetworksDynamics:
-    EN, N, F, I, Networks, NetworkFramework, Display, Option, join_elided, render_input
-import .NetworkFramework: NF, D, Model
-const V = Views
-
-using SparseArrays
-using Crayons
 
 """
 Extract an owned copy of the viewed data under a regular dense/sparse vector/matrix form.

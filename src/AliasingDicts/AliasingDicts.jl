@@ -12,7 +12,7 @@ Terminology:
 """
 module AliasingDicts
 
-import EcologicalNetworksDynamics: Option, methname, argerr
+import EcologicalNetworksDynamics: Option, methlhs, argerr
 
 using OrderedCollections
 using StringCases
@@ -196,7 +196,7 @@ function define_aliasing_dict(
     revs = NamedTuple(revmap)
 
     DT = DictType
-    MD = methname(DictType)
+    MD = methlhs(DictType)
     AliasingDicts.eval(
         quote
 

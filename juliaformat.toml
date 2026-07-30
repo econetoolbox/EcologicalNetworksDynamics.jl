@@ -5,6 +5,7 @@
 # but this way they are explicit.
 always_for_in = true
 indent = 4
+margin = 92
 long_to_short_function_def = true
 separate_kwargs_with_semicolon = true
 trailing_comma = true

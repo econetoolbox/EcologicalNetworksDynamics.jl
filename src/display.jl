@@ -3,21 +3,20 @@ module Display
 using SparseArrays
 
 using Crayons
-for col in [:red, :green, :blue, :yellow, :black, :bold, :reset]
+for col in [:red, :green, :blue, :yellow, :black, :bold, :italics, :reset]
     eval(quote
         const $col = Crayons.@crayon_str $(String(col))
     end)
 end
-(false) && (local blue, green, red, yellow, black, bold, reset) # (reassure JuliaLS)
 
-# Write on stderr.
+"Write on stderr."
 eprint(args...; kwargs...) = print(stderr, args...; kwargs...)
 eprintln(args...; kwargs...) = println(stderr, args...; kwargs...)
 
-# Elide elements from vector if too numerous.
+"Elide elements from vector if too numerous."
 function join_elided(vec, args...; max = 5, repr = true, kwargs...)
     vec = if length(vec) > max
-        a, b = vec[1:max-1], vec[end:end]
+        a, b = vec[1:(max-1)], vec[end:end]
         a, b = dot_display.((a, b), repr)
         vcat(a, "...", b)
     else
@@ -26,13 +25,21 @@ function join_elided(vec, args...; max = 5, repr = true, kwargs...)
     join(vec, args...; kwargs...)
 end
 
-# Special-case sparse vectors so it special-displays missing values.
+"Special-case sparse vectors so it special-displays missing values."
 dot_display(vec, use_repr = true) = use_repr ? repr.(vec) : ["$e" for e in vec]
 function dot_display(vec::AbstractSparseVector, use_repr = true)
     res = repeat(["·"], length(vec))
     nzi, nzv = findnz(vec)
     res[nzi] = use_repr ? repr.(nzv) : map(e -> "$e", nzv)
     res
+end
+
+"Extract (almost-)faithful console display representation."
+wide_repr(io, x) = show(IOContext(io, :limit => true, :compact => true), "text/plain", x)
+function wide_repr(x)
+    io = IOBuffer()
+    wide_repr(io, x)
+    String(take!(io))
 end
 
 """
@@ -60,14 +67,7 @@ function render_input(
         between()
     else
         between()
-        if_long(
-            () -> show(
-                IOContext(io, :compact => true, :limit => true),
-                MIME("text/plain"),
-                input,
-            ),
-            type,
-        )
+        if_long(() -> wide_repr(io, input), type)
     end
 end
 

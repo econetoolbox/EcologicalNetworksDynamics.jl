@@ -437,8 +437,8 @@ function define_2D_api(mod::Module, name::Symbol, O::Type{<:AD}, I::Type{<:AD})
 
     # Types, aliases and new exposed methods definition within the caller chosen module.
     sname = Meta.quot(name)
-    MI = methname(I)
-    MO = methname(O)
+    MI = methlhs(I)
+    MO = methlhs(O)
     mod.eval(
         quote
             # Alias the basic nested (untracked) dict
@@ -530,14 +530,14 @@ function define_2D_api(mod::Module, name::Symbol, O::Type{<:AD}, I::Type{<:AD})
                 )
 
             # Display for the nested dict (no need to name the two levels).
-            function $(methname(display_short))(d::$NestedDict)
+            function $(methlhs(display_short))(d::$NestedDict)
                 (; display_short, shortest) = $AliasingDicts
                 D = typeof(d)
                 "($(join(("$(shortest(o, D)): $(display_short(sub))"
                           for (o, sub) in d), ", ")))"
             end
 
-            function $(methname(display_long))(d::$NestedDict; level = 0)
+            function $(methlhs(display_long))(d::$NestedDict; level = 0)
                 isempty(d) && return "()"
                 (; aliases) = $AliasingDicts
                 ind(n) = "\n" * repeat("  ", level + n)
@@ -568,11 +568,11 @@ function define_2D_api(mod::Module, name::Symbol, O::Type{<:AD}, I::Type{<:AD})
                 res * ind(0) * ")"
             end
 
-            function $(methname(show))(io::IO, d::$NestedDict{T}) where {T}
+            function $(methlhs(show))(io::IO, d::$NestedDict{T}) where {T}
                 print(io, "$(typeof(d))$($display_short(d))")
             end
 
-            function $(methname(show))(
+            function $(methlhs(show))(
                 io::IO,
                 ::MIME"text/plain",
                 d::$NestedDict{T},
