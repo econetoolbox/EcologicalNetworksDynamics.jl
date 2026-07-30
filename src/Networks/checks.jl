@@ -16,10 +16,23 @@ function check_web_name(n::Network, name::Symbol)
     name in keys(webs) || err("Not a web in the network: $(repr(name)).")
 end
 
-# All network data must be meaningfully copyable for COW to make sense.
-function check_value(value)
-    T = typeof(value)
-    hasmethod(deepcopy, (T,)) || err("Cannot add non-deepcopy field:\n$value ::$T")
+"""
+All network data must be meaningfully copyable for COW to make sense.
+This function verifies that with only a rough, conservative heuristic
+that should be good enough for now.
+No false positive. Expect false negatives to be fixed later.
+"""
+is_deepcopy_type(T) = is_deep_immutable(T)
+is_deepcopy(::T) where T = is_deepcopy_type(T)
+is_deepcopy(::Vector{T}) where T = is_deepcopy_type(T)
+is_deepcopy(::Array{T}) where T = is_deepcopy_type(T)
+is_deepcopy(::SparseVector{T}) where T = is_deepcopy_type(T)
+is_deepcopy(::SparseMatrix{T}) where T = is_deepcopy_type(T)
+function check_value(v)
+    is_deepcopy(v) && return v
+    T = typeof(v)
+    err("Cannot verify that this field can be deepcopied: $(repr(v)) ::$(typeof(T))")
+    v
 end
 
 is_label(label::Symbol, n::Network) =
