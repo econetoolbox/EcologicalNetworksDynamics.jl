@@ -1,212 +1,314 @@
 module Tests
 
-using EcologicalNetworksDynamics: Display, I, EN
-using .Display: blue, black, red, bold, yellow, italics, reset, wide_repr, eprint, eprintln
+using EcologicalNetworksDynamics: Display, I, EN, errwith, errwrap, ErrWrap, Option
+using .Display:
+    blue, black, red, bold, yellow, italics, reset, wide_repr, eprint, eprintln, rept
 
 using Test
 using StringManipulation: remove_decorations
+
+const T = Tests # /!\ Not to be confused with `Base.Test` also in this namespace.
 
 # ==========================================================================================
 """
 Compare actual vs expected console displays, "snapshot-testing" style,
 with a helful summary displayed in case of mismatch.
+Report by raising.
 """
-function compare_strings(expected, actual, what = "strings"; preamble = () -> ())
-    actual_decorated = actual
+function test_string(
+    expected,
+    actual,
+    what = "strings",
+    throw = Base.throw,
+)
     actual = remove_decorations(actual)
-    actual == expected && return true
-    preamble() # Use to display information prior to error report.
-    eprintln("$(bold)CHECK FAILED:$reset The two $what differ:")
+    actual == expected && return @test true # Just to +1 on the surrounding @testest.
+    throw(UnmatchedStrings(what, expected, actual))
+end
+struct UnmatchedStrings <: Exception
+    what::String
+    expected::String
+    actual::String
+end
+function Base.showerror(io::IO, e::UnmatchedStrings)
+    (; what, expected, actual) = e
+    println(io, "$(yellow)The two $what differ:$reset")
     if !('\n' in actual || '\n' in expected)
         # Single-line display.
-        eprintln("$(blue)expected:$reset $expected\n\
-                  $(red)  actual:$reset $actual_decorated")
+        println(io, "$(blue)expected:$reset $expected")
+        println(io, "$(red)  actual:$reset $actual")
     else
-        # Multiline display.
-        spread_compare_display(expected, actual_decorated)
+        spread_compare(io, expected, actual)
         a_it, e_it = eachsplit.((actual, expected), '\n')
         a_next = iterate(a_it)
         e_next = iterate(e_it)
         while true
-            isnothing(a_next) && isnothing(e_next) && throw("Should be different, right?")
+            isnothing(a_next) && isnothing(e_next) &&
+                throw("Should be different, right?")
             if isnothing(a_next)
                 exp, _ = e_next
-                println("$bold   Missing line:$reset\n$red$exp$reset")
+                println(io, "$bold---> Missing line:$reset\n$red$exp$reset")
                 break
             end
             if isnothing(e_next)
                 act, _ = a_next
-                println("$bold   Unexpected line:$reset\n$blue$act$reset")
+                println(io, "$bold---> Unexpected line:$reset\n$blue$act$reset")
                 break
             end
             exp, e_state = e_next
             act, a_state = a_next
             if exp != act
-                println("$bold   First differing lines:$reset\n\
-                        $blue$exp$reset\n\
-                        $red$act$reset")
+                println(io, "$bold---> First differing lines:$reset")
+                println(io, "$blue$exp$reset")
+                println(io, "$red$act$reset")
                 break
             end
             a_next = iterate(a_it, a_state)
             e_next = iterate(e_it, e_state)
         end
     end
-    false
 end
-spread_compare_display(exp, act) =
-    eprintln("$bold   -------------------expected----------------$reset\n\
-              $exp\n\
-              $bold   --------------------actual-----------------$reset\n\
-              $act")
+function spread_compare(io, exp, act)
+    println(io, "$bold   -------------------expected----------------$reset")
+    println(io, exp)
+    println(io, "$bold   --------------------actual-----------------$reset")
+    isnothing(act) || println(io, act)
+end
 
 #-------------------------------------------------------------------------------------------
 
 "Test short string display."
-is_repr(x, expected) = compare_strings(expected, repr(x), "console representations")
+test_repr(x, expected) = test_string(expected, repr(x), "console representations")
 
 "Test long string display."
-function is_disp(x, expected)
+function test_disp(x, expected)
     actual = wide_repr(x)
-    compare_strings(expected, actual, "console displays")
-end
-
-"Test error message."
-function is_err(fn, expected)
-    try
-        fn()
-    catch e
-        actual = sprint(showerror, e)
-        return compare_strings(expected, actual, "error messages")
-    end
-    eprintln("$(red)$(bold)Unexpected success.$(reset) \
-              Was expecting the following error message:\n\
-              ----------------------\n\
-              $expected\n\
-              ----------------------\n\
-              But obtained $(red)$(bold)no actual error$(reset) to compare against.")
-    false
+    test_string(expected, actual, "console displays")
 end
 
 # ==========================================================================================
 """
-Check whether the given expression fails
-with the expectetd error type,
-and whether that error type has the expected fields values,
-provided in field order.
+Capture expression error to test the displayed error message
+If provided, also test location of the first stack frame, assuming `ErrWrap` is thrown.
+(this function version is better-suited for use outside `@testset`)
+"""
+function test_err(fn, expected, frame::Option{String})
+    try
+        fn()
+    catch e
+        actual = sprint(showerror, e)
+        test_string(expected, actual, "error messages", rethrow)
+        isnothing(frame) || test_first_frame(e, frame)
+        return @test true # +1 on the surrounding @testset.
+    end
+    errwith("Unexpected success:") do io
+        println(io, "Was expecting the following error message:")
+        println(io, "----------------------")
+        println(io, expected)
+        println(io, "----------------------")
+        println(io, "But obtained $(red)$(bold)no actual error$(reset) to compare against.")
+    end
+end
+
+"""
+Macro version of the above for direct use within @testset.
+in case of failure:
+will not break the set with a bubling exception,
+will point to the right test failure location.
+"""
+macro test_err(f, e, r = nothing)
+    f, e, r = esc.((f, e, r))
+    # Fake failed @test location at invocation site, not literally here.
+    mcall = :($Test.@test false)
+    mcall.args[2] = __source__
+    quote
+        try
+            $T.test_err($f, $e, $r)
+        catch e
+            showerror(stderr, e)
+            $mcall
+        end
+    end
+end
+
+"""
+Check the location pointed by the first frame on the given stack,
+with the format "<file>:<line>".
+"""
+function test_first_frame(exc_stack::Base.ExceptionStack, exp::String)
+    for (exc, backtrace) in exc_stack
+        for bt in backtrace
+            frames = StackTraces.lookup(bt)
+            for frame in frames
+                (; file, line) = frame
+                line == -1 && continue # Skip special frames that we can't control.
+                act = "$file:$line"
+                return test_string(exp, act,
+                    "$(yellow)first stack frames$(reset)",
+                    rethrow,
+                )
+            end
+        end
+    end
+    throw("unreachable (right? Only special frames on the stack?)")
+end
+test_first_frame(_, exp::String) = test_first_frame(current_exceptions(), exp)
+# Assume this is what is expected when checking a plain wrapped/forwarded unknown error.
+test_first_frame(e::ErrWrap, exp) = test_first_frame(e.stack, exp) # ONHOLD?
+
+# ==========================================================================================
+"""
+Test whether the given expression yields the correct exception value,
+without checking the exact detail of the exception display.
+It is checked that an error is obtained,
+that it has the expected error type,
+and it has has the expected fields values, provided in field order.
 Among these fields,
 it is default-expected that one called `mess` is `::String` (common within the package),
-and this one is tested using the sophisticated string comparison utils above by default.
-Others and are tested using basic equality by default.
+and this one is tested using the string checking utils above.
+Others are tested using basic equality.
 TODO: this only checks the expression *evaluation* process,
-generalize again if required to checking its macro *expansion* process.
+generalize again if required to also check macro *expansion* process.
 """
-function does_fail(mod, src, xp::Expr, E::Type{<:Exception}, fields...)
-    # First check that the correct number of field names is being tested.
+macro fails(xp, E, fields...)
+    src, mod = __source__, __module__
+    # Reduce generated code size by capturing most of the desired behaviour here.
+    # The only irreducible part being that arguments to the following
+    # *must* have been evaluated at execution time after expansion.
+    # Not exactly sure how to make this part less verbose, but.. (vvv)
+    eval_E(ev) = T.eval_macro_input(src, ev, E, "expected error type")
+    eval_fields(ev) = T.eval_macro_input(src, ev, fields, "expected error fields")
+    check_exception_type(E) = T.check_exception_type(src, E)
+    check_fields(E::Type) = T.check_fields(src, E, fields)
+    unexpected_success(E, fields) = T.unexpected_success(src, E, fields)
+    unexpected_error_type(err, E, fields) = T.unexpected_error_type(src, err, E, fields)
+    test_error_expected(err, E, fields) = T.test_error_expected(src, err, E, fields)
+    # (^^^) ..the intent is to clarify what's happening in the codegen below.
+    # Control flow can therefore wind between execution(vvv)scope and expansion(^^^)scope.
+    quote
+        E = $eval_E(() -> $(esc(E)))
+        $check_exception_type(E)
+        $check_fields(E)
+        fields = $eval_fields(() -> $(escall(fields)))
+        success = try
+            $(esc(xp)) # Evaluate the expression expected to fail.
+            true
+        catch err
+            if err isa E
+                $test_error_expected(err, E, fields)
+            else
+                $unexpected_error_type(err, E, fields)
+            end
+            false
+        end
+        success && $unexpected_success(E, fields)
+    end
+end
+"`:((esc(a), esc(b))) != (:(esc(a)), :(esc(b)))` so esc.((a, b)) won't do."
+escall(xp::Tuple) = Expr(:tuple, esc.(xp)...)
+
+#-------------------------------------------------------------------------------------------
+# Utils checking correct invocation of the above.
+
+const Ln = LineNumberNode
+function lnline(src::Ln)
+    (; file, line) = src
+    "$blue$bold@@@ $file:$line @@@$reset"
+end
+
+"""
+Evaluate macro input and decorate any error when forwarding it up.
+Useful if the given function body needs to be `esc`aped.
+"""
+function eval_macro_input(src::Ln, eval::Function, xp, what)
+    try
+        eval()
+    catch e
+        errwrap(e, "When evaluating $what:") do io
+            println(io, lnline(src))
+            println(io, "  $xp")
+        end
+    end
+end
+
+"Test (evaluated) input provided as an expected exception type."
+check_exception_type(src::Ln, E) = errwith("Not an exception type:") do io
+    println(io, lnline(src))
+    print(io, "  ", rept(E))
+end
+check_exception_type(::Ln, ::Type{<:Exception}) = @test true # +1 on surrounding @testset.
+
+"Check (unevaluated) fields signature vs. (evaluated) expected error type."
+function check_fields(
+    src::Ln,
+    E::Type{<:Exception},
+    fields::Tuple,
+)
     enames = fieldnames(E)
     e, a = length.((enames, fields))
-    if e != a
-        display(src)
+    e == a && return # (no +1 on @testset: this is just about invocation correctness)
+    errwith("Wrong number of error fields:") do io
+        println(io, lnline(src))
         se, sa = I.map(n -> n == 1 ? "" : "s", (e, a))
-        eprintln("This error type requires checking $blue$e$reset field$se:\n  \
-                    $yellow$E$black$bold$enames$reset\n\
-                  but input contains $red$a$reset value$sa to be checked against:")
+        println(io, "This error type requires checking $blue$e$reset field$se:")
+        println(io, "  $yellow$E$black$bold$enames$reset")
+        print(io, "but input contains $red$a$reset value$sa to be checked against:")
         for f in fields
-            eprintln("  - $black$bold$(repr(f))$reset")
+            print(io, "\n  - $black$bold$(repr(f))$reset")
         end
-        return false
     end
-    try
-        mod.eval(xp)
-    catch err
-        if err isa E
-            for (i, (name, exp)) in enumerate(zip(fieldnames(E), fields))
-                act = getfield(err, name)
-                if name == :mess
-                    compare_strings(
-                        exp,
-                        act,
-                        "error message fields\n$(italics)in $yellow$E$reset$italics$reset";
-                        preamble = () -> display(src),
-                    ) &&
-                        continue
-                    return false
-                end
-                if act != exp
-                    display(src)
-                    eprint(
-                        "$red$(bold)Unexpected field $black$bold$(repr(name))$reset value\n\
-                         $(italics)in $yellow$E$reset$italics$reset:\n",
-                    )
-                    spread_compare_display(
-                        "$(repr(exp)) ::$(typeof(exp))",
-                        "$(repr(act)) ::$(typeof(act))",
-                    )
-                    return false
-                end
-            end
-            return true
-        end
-        display(src)
-        eprintln("$(red)$(bold)Unexpected error type:$(reset)")
-        spread_compare_display(
-            "$yellow$E$blue$fields$reset",
-            "$red$(wide_repr(err))$reset, saying:",
-        )
-        # Checking the stack trace is useful then to figure
-        # where that unexpected error comes from.
-        for (exc, bt) in current_exceptions()
-            showerror(stderr, exc, bt)
-            eprintln()
-        end
-        return false
-    end
-    display(src)
-    eprintln("$(red)$(bold)Unexpected success:$(reset)")
-    spread_compare_display(
-        "$yellow$E$blue$fields$reset",
-        "$red<no actual error obtained>$reset",
-    )
-    false
-end
-function display(src::LineNumberNode)
-    (; file, line) = src
-    eprintln("$blue$bold@@@ $file:$line @@@$reset")
 end
 
 #-------------------------------------------------------------------------------------------
-# Convenience macros for the above.
+# Utils checking the actual exception received against expectations,
+# once the macro invocation is proved correct.
 
-macro does_fail(xp, E, fields...)
-    mod, src = __module__, __source__
-    E = mod.eval(E)
-    fields = map(mod.eval, fields)
-    (xp, src) = Meta.quot.((xp, src))
-    quote
-        $Test.@test does_fail($mod, $src, $xp, $E, $fields...)
+unexpected_success(src::Ln, E::Type{<:Exception}, fields) =
+    errwith("Unexpected success:") do io
+        println(io, lnline(src))
+        spread_compare(io,
+            "$yellow$E$blue$fields$reset",
+            "$red<no actual error obtained>$reset",
+        )
     end
-end
 
-# Generate convenience macros whose name make it unnecessary to also input error type.
-macro typefails(name, E)
-    E = __module__.eval(E)
-    quote
-        macro $name(xp, fields...)
-            #  https://github.com/JuliaLang/julia/issues/62572
-            src, mod = $(esc(:__source__)), $(esc(:__module__))
-            fields = map(mod.eval, fields)
-            xp = quote
-                $Tests.@does_fail($xp, $($E), $(fields...))
+unexpected_error_type(src::Ln, err, E::Type{<:Exception}, fields) =
+    errwrap(err, "Unexpected error type:") do io
+        println(io, lnline(src))
+        spread_compare(io, "$yellow$E$blue$fields$reset", nothing)
+    end
+
+"""
+Verify actual error value against (evaluated) expected fields.
+"""
+function test_error_expected(src::Ln, err, E::Type{<:Exception}, fields)
+    for (name, exp) in zip(fieldnames(E), fields)
+        act = getfield(err, name)
+        if name == :mess # Special-cased.
+            exp isa String ||
+                errwith("Not a message string to compare against:", rethrow) do io
+                    println(io, lnline(src))
+                    println("  ", rept(exp))
+                end
+            try
+                test_string(exp, act, "error message fields", rethrow)
+                continue
+            catch e
+                e isa UnmatchedStrings || rethrow(e)
+                errwrap(e, "Unexpected error message:") do io # Prepend context.
+                    println(io, lnline(src))
+                    println(io, "$(italics)in $yellow$E$reset$italics$reset:")
+                end
             end
-            # Inject our source as the first macro call argument.
-            # /!\ This means that any error in the above quote ^^^
-            # will be hard to track down here from the stacktrace
-            # because user will be pointed towards invokation site instead.
-            xp.args[2].args[2] = src
-            xp
         end
+        act == exp ||
+            errwith("Unexpected field $black$bold$(repr(name))$reset value:", rethrow) do io
+                println(io, lnline(src))
+                println(io, "$(italics)in $yellow$E$reset$italics$reset:")
+                spread_compare(io, "  " * rept(exp), "  " * rept(act))
+            end
+        @test true # +1 test count in @testset per checked error field.
     end
 end
-
-@typefails netfails EN.Networks.NetworkError
 
 end

@@ -1,7 +1,39 @@
+import .Display: yellow, reset
+
 """
 Use to throw or rethrow when the error is identified within user arguments.
 """
 argerr(message, throw = Base.throw) = throw(ArgumentError(message))
+
+"""
+Use to create apparent one-shot error type,
+passing just a closure capturing the environment required for display.
+"""
+struct ErrWith <: Exception
+    headline::String
+    display::Function
+end
+errwith(fn, head, throw = Base.throw) = throw(ErrWith(head, fn))
+function Base.showerror(io::IO, e::ErrWith)
+    (; headline, display) = e
+    println(io, "$yellow$headline$reset")
+    display(io)
+end
+
+"Same as above, but prefixing an underlying exception."
+struct ErrWrap <: Exception
+    with::ErrWith
+    source
+    stack::Base.ExceptionStack # Useful for testing stack frames at least.
+end
+"Rethrow by default, since this is expected to be called within `catch` blocks."
+errwrap(fn, src, head, throw = Base.rethrow) =
+    throw(ErrWrap(ErrWith(head, fn), src, current_exceptions()))
+function Base.showerror(io::IO, e::ErrWrap)
+    (; with, source) = e
+    showerror(io, with)
+    showerror(io, source)
+end
 
 """
 Construct this error type when 'asking forgiveness rather than permission' in a row,

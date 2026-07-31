@@ -9,6 +9,9 @@ for col in [:red, :green, :blue, :yellow, :black, :bold, :italics, :reset]
     end)
 end
 
+"Report value along with its type."
+rept(x) = "$(repr(x))  ::$(typeof(x))"
+
 "Write on stderr."
 eprint(args...; kwargs...) = print(stderr, args...; kwargs...)
 eprintln(args...; kwargs...) = println(stderr, args...; kwargs...)

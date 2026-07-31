@@ -16,9 +16,9 @@ const SparseMatrix{T} = SparseMatrixCSC{T,Int}
 #-------------------------------------------------------------------------------------------
 # Common utils.
 
+include("./display.jl")
 include("./errors.jl")
 include("./codegen.jl")
-include("./display.jl")
 
 #-------------------------------------------------------------------------------------------
 # XXX: whenever ready, big rename:
@@ -33,34 +33,34 @@ include("Networks/Networks.jl")
 const N = Networks
 using .N: Network
 
-# Code: efficient model simulation.
-include("Differentials/Differentials.jl")
-using .Differentials # XXX: move after components definitions so they may rely on dispatchers?
+#  # Code: efficient model simulation.
+#  include("Differentials/Differentials.jl")
+#  using .Differentials # XXX: move after components definitions so they may rely on dispatchers?
 
-# Interface: ergonomic model manipulation.
-include("./Framework/Framework.jl")
-const F = Framework
+#  # Interface: ergonomic model manipulation.
+#  include("./Framework/Framework.jl")
+#  const F = Framework
 
-# Additional utils to construct components interface.
-include("./kwargs_helpers.jl")
+#  # Additional utils to construct components interface.
+#  include("./kwargs_helpers.jl")
 
-include("./AliasingDicts/AliasingDicts.jl")
-const AD = AliasingDicts
+#  include("./AliasingDicts/AliasingDicts.jl")
+#  const AD = AliasingDicts
 
-include("./multiplex_api.jl")
-using .MultiplexApi
+#  include("./multiplex_api.jl")
+#  using .MultiplexApi
 
-# Bring this all together into a library for component authors.
-include("./NetworkFramework/NetworkFramework.jl")
-const NF = NetworkFramework
-using .NF:
-    D, V, Views, Model, Blueprint, Component, @alias, Map, Adjacency, BinMap, BinAdjacency
-using .V: extract
-export Model, extract
+#  # Bring this all together into a library for component authors.
+#  include("./NetworkFramework/NetworkFramework.jl")
+#  const NF = NetworkFramework
+#  using .NF:
+    #  D, V, Views, Model, Blueprint, Component, @alias, Map, Adjacency, BinMap, BinAdjacency
+#  using .V: extract
+#  export Model, extract
 
-# The actual user-facing components of the package are defined there,
-# connecting them to the internals via the framework.
-include("./components/main.jl")
+#  # The actual user-facing components of the package are defined there,
+#  # connecting them to the internals via the framework.
+#  include("./components/main.jl")
 
 #=
 #-------------------------------------------------------------------------------------------
@@ -85,7 +85,7 @@ include("./diversity.jl")
 =#
 
 # Avoid Revise interruptions when redefining methods and properties.
-Framework.REVISING = true # XXX: still required?
+#  Framework.REVISING = true # XXX: still required?
 
 # Testing utils. Not useful for end users,
 # but used during package automated testing
