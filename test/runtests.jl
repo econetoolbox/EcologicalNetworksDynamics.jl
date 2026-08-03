@@ -19,6 +19,10 @@ sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$re
 
 sep("Test testing utils procedures.")
 include("./tests.jl")
+
+sep("Test internal model representation.")
+include("./networks/runtests.jl")
+
 # ONHOLD: being much simplified maybe
 # because there is no (much) need to test failing expanded macros anymore.
 #  # Testing utils, each within their dedicated module,
@@ -28,9 +32,6 @@ include("./tests.jl")
 #  using .TestFailures
 #  include("./dedicated_test_failures.jl")
 #  using .DedicatedTestFailures
-
-#  sep("Test internal model representation.")
-#  include("./networks/runtests.jl")
 
 #  sep("Test System/Blueprints/Components framework.")
 #  include("./framework/runtests.jl")

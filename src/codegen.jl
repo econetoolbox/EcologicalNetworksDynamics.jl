@@ -12,3 +12,6 @@ function methlhs(T::Type)
 end
 methlhs(U::UnionAll) = methlhs(U.body)
 methlhs(fn::Function) = :(::$(typeof(fn)))
+
+"`:((esc(a), esc(b))) != (:(esc(a)), :(esc(b)))` so esc.((a, b)) won't do."
+escall(xp::Tuple) = Expr(:tuple, esc.(xp)...)

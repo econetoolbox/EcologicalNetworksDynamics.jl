@@ -1,6 +1,6 @@
 module Tests
 
-using EcologicalNetworksDynamics: Display, I, EN, errwith, errwrap, ErrWrap, Option
+using EcologicalNetworksDynamics: Display, I, EN, errwith, errwrap, ErrWrap, Option, escall
 using .Display:
     blue, black, red, bold, yellow, italics, reset, wide_repr, eprint, eprintln, rept
 
@@ -99,7 +99,7 @@ function test_err(fn, expected, frame::Option{String})
         actual = sprint(showerror, e)
         test_string(expected, actual, "error messages", rethrow)
         isnothing(frame) || test_first_frame(e, frame)
-        return @test true # +1 on the surrounding @testset.
+        return @test true # +1 on the surrounding @testset when using the macro version.
     end
     errwith("Unexpected success:") do io
         println(io, "Was expecting the following error message:")
@@ -154,7 +154,7 @@ function test_first_frame(exc_stack::Base.ExceptionStack, exp::String)
 end
 test_first_frame(_, exp::String) = test_first_frame(current_exceptions(), exp)
 # Assume this is what is expected when checking a plain wrapped/forwarded unknown error.
-test_first_frame(e::ErrWrap, exp) = test_first_frame(e.stack, exp) # ONHOLD?
+# test_first_frame(e::ErrWrap, exp) = test_first_frame(e.stack, exp) # ONHOLD?
 
 # ==========================================================================================
 """
@@ -170,13 +170,12 @@ Others are tested using basic equality.
 TODO: this only checks the expression *evaluation* process,
 generalize again if required to also check macro *expansion* process.
 """
-macro fails(xp, E, fields...)
-    src, mod = __source__, __module__
+macro fails end
+function fails(src, xp, E, fields)
     # Reduce generated code size by capturing most of the desired behaviour here.
     # The only irreducible part being that arguments to the following
     # *must* have been evaluated at execution time after expansion.
     # Not exactly sure how to make this part less verbose, but.. (vvv)
-    eval_E(ev) = T.eval_macro_input(src, ev, E, "expected error type")
     eval_fields(ev) = T.eval_macro_input(src, ev, fields, "expected error fields")
     check_exception_type(E) = T.check_exception_type(src, E)
     check_fields(E::Type) = T.check_fields(src, E, fields)
@@ -186,7 +185,7 @@ macro fails(xp, E, fields...)
     # (^^^) ..the intent is to clarify what's happening in the codegen below.
     # Control flow can therefore wind between execution(vvv)scope and expansion(^^^)scope.
     quote
-        E = $eval_E(() -> $(esc(E)))
+        E = $E # Either evaluated here or prior to invocation (see below).
         $check_exception_type(E)
         $check_fields(E)
         fields = $eval_fields(() -> $(escall(fields)))
@@ -204,8 +203,27 @@ macro fails(xp, E, fields...)
         success && $unexpected_success(E, fields)
     end
 end
-"`:((esc(a), esc(b))) != (:(esc(a)), :(esc(b)))` so esc.((a, b)) won't do."
-escall(xp::Tuple) = Expr(:tuple, esc.(xp)...)
+
+# Either evaluate E from macro input at invocation time.
+macro fails(xp, E, fields...)
+    src = __source__
+    eval_E(ev) = T.eval_macro_input(src, ev, E, "expected error type")
+    fails(src, xp, :($eval_E(() -> $(esc(E)))), fields)
+end
+
+# Or build macros that already know E so it is implicit.
+# (see collection below)
+macro generrortest(name::Symbol, E)
+    src = __source__
+    eval_E(ev) = T.eval_macro_input(src, ev, E, "expected error type") # <-- this happens..
+    quote                                                              #   |
+        E = $eval_E(() -> $(esc(E)))                                   #   |
+        macro $name(xp, fields...)                                     # <-- ..outside this.
+            src = $(esc(:__source__)) # (https://github.com/JuliaLang/julia/issues/62572)
+            fails(src, xp, E, fields)
+        end
+    end
+end
 
 #-------------------------------------------------------------------------------------------
 # Utils checking correct invocation of the above.
@@ -310,5 +328,10 @@ function test_error_expected(src::Ln, err, E::Type{<:Exception}, fields)
         @test true # +1 test count in @testset per checked error field.
     end
 end
+
+# ==========================================================================================
+# The collection of macros directly useful in tests.
+
+@generrortest netfails EN.Networks.NetworkError
 
 end
