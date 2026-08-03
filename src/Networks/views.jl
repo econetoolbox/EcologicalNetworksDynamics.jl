@@ -58,7 +58,12 @@ function is_deep_immutable(T::Type)
         is_deep_immutable(a) && is_deep_immutable(b)
     elseif T isa DataType
         ismutabletype(T) && return false
-        all(I.map(is_deep_immutable, fieldtypes(T)))
+        types = try
+            fieldtypes(T)
+        catch e
+            errwrap(e, "Cannot determine field types for immutability analysis of `$T`.")
+        end
+        all(I.map(is_deep_immutable, types))
     else
         throw("Deep mutability analysis unimplemented for $T.")
     end

@@ -101,7 +101,7 @@ Capture the exception raised by the given expression to compare its console repo
 Fails if the expression does not raise any exception.
 If provided, also test location of the first stack frame.
 """
-function test_err(fn, expected, frame::Option{String})
+function test_err(fn, expected, frame::Option{String} = nothing)
     try
         fn()
     catch e
@@ -142,26 +142,31 @@ function test_first_frame(exc_stack::Base.ExceptionStack, exp::String)
     throw("unreachable (right? Only special frames on the stack?)")
 end
 
-"""
-Macro version of the above for direct use within @testset.
-in case of failure:
-will not break the set with a bubling exception,
-will point to the right test failure location.
-"""
-# HERE: do that for all of the above.
-macro test_err(f, e, r = nothing)
-    f, e, r = esc.((f, e, r))
-    # Fake failed @test location at invocation site, not literally here.
-    mcall = :($Test.@test false)
-    mcall.args[2] = __source__
+"Generate a macro version of the above for direct use within @testset."
+macro genmacro(fn)
+    name = Symbol(fn)
     quote
-        try
-            $S.test_err($f, $e, $r)
-        catch e
-            showerror(stderr, e)
-            $mcall
+        macro $name(args...)
+            src = $(esc(:__source__)) # (https://github.com/JuliaLang/julia/issues/62572)
+            args = esc.(args)
+            # Fake a failed @test call for surrounding @testset..
+            ftest = :($($Test).@test false) #                                         <---
+            ftest.args[2] = src # ..whose location is invocation site, not literally *here*.
+            quote
+                try
+                    $($fn)($(args...))
+                catch e
+                    showerror(stderr, e) # Display the obtained failure report but..
+                    $ftest # ..downgrade to only a failed @test to keep the testsuite going.
+                end
+            end
         end
     end
 end
+@genmacro test_string
+@genmacro test_repr
+@genmacro test_disp
+@genmacro test_err
+@genmacro test_first_frame
 
 end

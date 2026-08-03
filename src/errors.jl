@@ -27,8 +27,9 @@ struct ErrWrap <: Exception
     stack::Base.ExceptionStack # Useful for testing stack frames at least.
 end
 "Rethrow by default, since this is expected to be called within `catch` blocks."
-errwrap(fn, src, head, throw = Base.rethrow) =
+errwrap(fn::Function, src, head, throw = Base.rethrow) =
     throw(ErrWrap(ErrWith(head, fn), src, current_exceptions()))
+errwrap(s, h, t = Base.rethrow) = errwrap(identity, s, h, t) # If header is enough context.
 function Base.showerror(io::IO, e::ErrWrap)
     (; with, source) = e
     showerror(io, with)

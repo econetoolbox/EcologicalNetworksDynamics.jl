@@ -92,7 +92,7 @@ Don't produce views into mutable data that could otherwise break the COW-pattern
 
 module Networks
 
-import EcologicalNetworksDynamics: EN
+import EcologicalNetworksDynamics: EN, errwrap
 import .EN: Option, SparseMatrix
 const N = Networks
 

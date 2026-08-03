@@ -4,7 +4,7 @@ import EcologicalNetworksDynamics: Networks, N
 using .Networks
 
 import EcologicalNetworksDynamics: Tests
-using .Tests: is_disp, @netfails
+using .Tests: @test_repr, @test_disp, @netfails
 
 using Test
 
@@ -12,14 +12,14 @@ using Test
 
     n = Network()
 
-    @test is_disp(n, strip("Empty network."))
+    @test_disp(n, strip("Empty network."))
 
     add_field!(n, :a, 5)
     add_field!(n, :b, 8)
     add_field!(n, :v, Int[1, 2, 3])
     @netfails add_field!(n, :v, nothing) "Network already contains a field :v."
 
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
         Network with 3 fields:
           Graph:
             a: 5
@@ -43,7 +43,7 @@ using Test
     # Mutate.
     v[2] *= 10
 
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
         Network with 3 fields:
           Graph:
             a: 8
@@ -62,7 +62,7 @@ using Test
           b'2: 13
           v'2: [1, 20, 3]
       """)
-    @test is_disp(n, either) && is_disp(m, either)
+    @test is_disp(n, either) && is_disp(m, either) # HERE also need is_* variants.
 
     # .. and is underlying aliasing..
     field(v) = N.field(N.entry(v)) # /!\ Private. Only used here for testing.
@@ -77,7 +77,7 @@ using Test
     reassign!(ma, ma * 10) # TODO: have this work as `ma .*= 10` ? Or is it a bad idea?
     mutate!(nv, push!, 100)
 
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
         Network with 3 fields:
           Graph:
             a: 8
@@ -85,7 +85,7 @@ using Test
             v: [1, 20, 3, 100]
         """))
 
-    @test is_disp(m, strip("""
+    @test_disp(m, strip("""
         Network with 3 fields:
           Graph:
             a: 80
@@ -111,18 +111,18 @@ end
     u = graph_view(n, :a)
     v = graph_view(n, :a)
     View = nameof(N.GraphView)
-    @test is_repr(u, "$View($Int[])")
-    @test is_repr(v, "$View($Int[])")
+    @test_repr(u, "$View($Int[])")
+    @test_repr(v, "$View($Int[])")
 
     # Mutate through one, see through the other.
     mutate!(u, push!, 5)
-    @test is_repr(u, "$View([5])")
-    @test is_repr(v, "$View([5])")
+    @test_repr(u, "$View([5])")
+    @test_repr(v, "$View([5])")
 
     # Reassign, see through either.
     reassign!(u, [8])
-    @test is_repr(u, "$View([8])")
-    @test is_repr(v, "$View([8])")
+    @test_repr(u, "$View([8])")
+    @test_repr(v, "$View([8])")
 
     # Edit field from numerous views.
     add_field!(n, :b, Char[])
@@ -134,7 +134,7 @@ end
     @test nb == collect('a':'z')
 
     # Edit field in multiple copies.
-    add_field!(n, :c, [])
+    add_field!(n, :c, Int[])
     for _ in 1:10
         m = copy(n)
         mc = graph_view(m, :c)

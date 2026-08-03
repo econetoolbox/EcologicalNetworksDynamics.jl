@@ -87,9 +87,6 @@ include("./diversity.jl")
 # Avoid Revise interruptions when redefining methods and properties.
 #  Framework.REVISING = true # XXX: still required?
 
-# Testing utils. Not useful for end users,
-# but used during package automated testing
-# and useful to setup developping environment with Revise.
 include("Tests/Tests.jl")
 
 end
