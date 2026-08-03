@@ -13,7 +13,9 @@ include("./errors.jl")
 
 using EcologicalNetworksDynamics: EN
 
-using .Strings: @test_string, @test_repr, @test_disp, @test_err, @test_first_frame
+using .Strings:
+    is_string, is_repr, is_disp,
+    @test_string, @test_repr, @test_disp, @test_err
 using .Errors: @fails, @generrortest
 
 @generrortest netfails EN.Networks.NetworkError

@@ -20,7 +20,7 @@ module Errors
 
 using EcologicalNetworksDynamics: Display, errwith, errwrap, I, Tests, escall
 using .Display: blue, red, yellow, black, bold, italics, reset, rept
-using .Tests.Strings: spread_compare, test_string, UnmatchedStrings
+using .Tests.Strings: spread_compare, check_string, UnmatchedStrings
 
 using Test
 
@@ -172,7 +172,7 @@ function test_error_expected(src::Ln, err, E::Type{<:Exception}, fields)
                     println("  ", rept(exp))
                 end
             try
-                test_string(exp, act, "error message fields", rethrow)
+                check_string(act, exp, "error message fields", rethrow)
                 continue
             catch e
                 e isa UnmatchedStrings || rethrow(e)

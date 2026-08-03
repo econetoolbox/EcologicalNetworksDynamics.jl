@@ -62,7 +62,8 @@ using Test
           b'2: 13
           v'2: [1, 20, 3]
       """)
-    @test is_disp(n, either) && is_disp(m, either) # HERE also need is_* variants.
+    @test_disp(n, either)
+    @test_disp(m, either)
 
     # .. and is underlying aliasing..
     field(v) = N.field(N.entry(v)) # /!\ Private. Only used here for testing.
