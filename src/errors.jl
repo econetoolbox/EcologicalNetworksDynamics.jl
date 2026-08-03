@@ -8,33 +8,49 @@ argerr(message, throw = Base.throw) = throw(ArgumentError(message))
 """
 Use to create apparent one-shot error type,
 passing just a closure capturing the environment required for display.
+May be 'wrapping' up an underlying source.
 """
 struct ErrWith <: Exception
-    headline::String
+    head::String
     display::Function
+    source::Option{Exception}
 end
-errwith(fn, head, throw = Base.throw) = throw(ErrWith(head, fn))
 function Base.showerror(io::IO, e::ErrWith)
-    (; headline, display) = e
-    println(io, "$yellow$headline$reset")
+    (; head, display, source) = e
+    println(io, "$yellow$head$reset")
     display(io)
+    isnothing(source) || showerror(io, source)
 end
+errwith(fn::Function, head::String, throw = Base.throw) = throw(ErrWith(head, fn, nothing))
+errwrap(fn::Function, src, head::String, rethrow = Base.rethrow) =
+    rethrow(ErrWith(head, fn, src)) # Assumed to be usefully rethrow by default.
+# If the header is enough context.
+errwith(head::String, throw = Base.throw) = throw(ErrWith(head, identity, nothing))
+errwrap(src, head::String, rethrow = Base.rethrow) =
+    rethrow(ErrWith(head, identity, src))
 
-"Same as above, but prefixing an underlying exception."
-struct ErrWrap <: Exception
-    with::ErrWith
-    source
-    stack::Base.ExceptionStack # Useful for testing stack frames at least.
+"""
+Newtype `ErrWith` to brand failures.
+Supposed to be caught, identified by its brand
+then upgraded into something else, not bubble up to toplevel.
+"""
+macro ErrBrand(Brand)
+    Brand = esc(Brand)
+    quote
+        struct $Brand <: BrandedErrWith
+            source::ErrWith
+        end
+    end
 end
-"Rethrow by default, since this is expected to be called within `catch` blocks."
-errwrap(fn::Function, src, head, throw = Base.rethrow) =
-    throw(ErrWrap(ErrWith(head, fn), src, current_exceptions()))
-errwrap(s, h, t = Base.rethrow) = errwrap(identity, s, h, t) # If header is enough context.
-function Base.showerror(io::IO, e::ErrWrap)
-    (; with, source) = e
-    showerror(io, with)
-    showerror(io, source)
-end
+abstract type BrandedErrWith <: Exception end
+errwith(f::Function, E::Type{<:BrandedErrWith}, h::String, throw = Base.throw) =
+    throw(E(ErrWith(h, f, nothing)))
+errwrap(f::Function, s, E::Type{<:BrandedErrWith}, h::String, rethrow = Base.rethrow) =
+    rethrow(E(ErrWith(h, f, s)))
+errwith(E::Type{<:BrandedErrWith}, h::String, throw = Base.throw) =
+    throw(E(ErrWith(h, identity, nothing)))
+errwrap(s, E::Type{<:BrandedErrWith}, h::String, rethrow = Base.rethrow) =
+    rethrow(E(ErrWith(h, identity, s)))
 
 """
 Construct this error type when 'asking forgiveness rather than permission' in a row,

@@ -12,8 +12,8 @@ and correctly point to the right failed test location.
 """
 module Strings
 
-using EcologicalNetworksDynamics: Display, Option, errwith
-using .Display: yellow, blue, red, bold, reset, wide_repr
+using EcologicalNetworksDynamics: Display, Option, @ErrBrand, errwith
+using .Display: yellow, blue, green, red, bold, italics, reset, wide_repr, eprintln
 
 using Test
 using StringManipulation: remove_decorations
@@ -58,47 +58,63 @@ end
 function Base.showerror(io::IO, e::UnmatchedStrings)
     (; what, expected, actual) = e
     println(io, "$(yellow)The two $what differ:$reset")
-    if !('\n' in actual || '\n' in expected)
-        # Single-line display.
-        println(io, "$(blue)expected:$reset $expected")
-        println(io, "$(red)  actual:$reset $actual")
-    else
-        spread_compare(io, expected, actual)
-        a_it, e_it = eachsplit.((actual, expected), '\n')
-        a_next = iterate(a_it)
-        e_next = iterate(e_it)
-        while true
-            isnothing(a_next) && isnothing(e_next) &&
-                throw("Should be different, right?")
-            if isnothing(a_next)
-                exp, _ = e_next
-                println(io, "$bold---> Missing line:$reset\n$red$exp$reset")
-                break
-            end
-            if isnothing(e_next)
-                act, _ = a_next
-                println(io, "$bold---> Unexpected line:$reset\n$blue$act$reset")
-                break
-            end
-            exp, e_state = e_next
-            act, a_state = a_next
-            if exp != act
-                println(io, "$bold---> First differing lines:$reset")
-                println(io, "$blue$exp$reset")
-                println(io, "$red$act$reset")
-                break
-            end
-            a_next = iterate(a_it, a_state)
-            e_next = iterate(e_it, e_state)
+    showdiff(io, expected, actual)
+end
+
+function showdiff(io, expected::String, actual::String)
+    showcompare(io, expected, actual)
+    ('\n' in actual || '\n' in expected) || return
+    # If multiline, display first differing line.
+    a_it, e_it = eachsplit.((actual, expected), '\n')
+    a_next = iterate(a_it)
+    e_next = iterate(e_it)
+    while true
+        isnothing(a_next) && isnothing(e_next) &&
+            throw("Should be different, right?")
+        if isnothing(a_next)
+            exp, _ = e_next
+            println(io, "$bold---> Missing line:$reset\n$green$exp$reset")
+            break
         end
+        if isnothing(e_next)
+            act, _ = a_next
+            println(io, "$bold---> Unexpected line:$reset\n$red$act$reset")
+            break
+        end
+        exp, e_state = e_next
+        act, a_state = a_next
+        if exp != act
+            println(io, "$bold---> First differing lines:$reset")
+            println(io, "$green$exp$reset")
+            println(io, "$red$act$reset")
+            break
+        end
+        a_next = iterate(a_it, a_state)
+        e_next = iterate(e_it, e_state)
     end
 end
 
-function spread_compare(io, exp, act)
-    println(io, "$bold   -------------------expected----------------$reset")
-    println(io, exp)
-    println(io, "$bold   --------------------actual-----------------$reset")
-    isnothing(act) || println(io, act)
+"""
+Decide whether to display side-by-side on two lines
+or within separated blocks depending on the input size and content.
+`act` may be `nothing` to leave the second block blank and write something else instead.
+"""
+function showcompare(io, exp, act)
+    large(i) = !isnothing(i) && (length(i) > 80 || '\n' in i)
+    if any(large.((exp, act)))
+        ind = "  "
+        (e_, a_) = '-' .^ (19, 20)
+        el = "$(ind)$(green)$(bold)$(e_)$(reset)$(green)expected$(bold)$(green)$(e_)$(reset)"
+        al = "$(ind)$(red)$(bold)$(a_)$(reset)$(red)actual$(bold)$(red)$(a_)$(reset)"
+        println(io, el)
+        println(io, exp)
+        println(io, al)
+        isnothing(act) || println(io, act)
+    else
+        println(io, "$(bold)$(green)Expected:$(reset) ", exp)
+        print(io, "$(bold)$(red)  Actual:$(reset) ")
+        isnothing(act) || println(io, act)
+    end
 end
 
 #-------------------------------------------------------------------------------------------
@@ -118,14 +134,19 @@ function check_err(fn, expected, frame::Option{String} = nothing)
         isnothing(frame) || check_first_frame(frame)
         return @test true # +1 on the surrounding @testset when using the macro version.
     end
-    errwith("Unexpected success:") do io
+    errwith(UnexpectedSuccess, "Unexpected success:") do io
+        line = "$green$bold$('-' ^ 50)$reset"
         println(io, "Was expecting the following error message:")
-        println(io, "----------------------")
-        println(io, expected)
-        println(io, "----------------------")
-        println(io, "But obtained $(red)$(bold)no actual error$(reset) to compare against.")
+        println(io, line)
+        print(io, expected)
+        println(io, line)
+        println(
+            io,
+            "But obtained $(red)$(italics)no actual error$(reset) to compare against.",
+        )
     end
 end
+@ErrBrand UnexpectedSuccess
 
 """
 Check the location pointed by the first frame on the exception stack,
@@ -156,24 +177,42 @@ end
 macro gentest(variant)
     test = Symbol(:test_, variant)
     fn = getfield(S, Symbol(:check_, variant))
+    unexp = QuoteNode(Symbol(:unexpected_, variant)) # For faking `@test` display.
+    Expected = Union{UnmatchedStrings,UnexpectedSuccess}
     quote
+        S = $S
         macro $test(args...)
             src = $(esc(:__source__)) # (https://github.com/JuliaLang/julia/issues/62572)
             args = esc.(args)
             # Fake a failed @test call for surrounding @testset..
-            ftest = :($($Test).@test false) #                                         <---
-            ftest.args[2] = src # ..whose location is invocation site, not literally *here*.
+            ftest = quote
+                $($unexp) = false
+                $($Test).@test $($unexp)#                                <---.
+            end                         #                                     \
+            ftest.args[4].args[2] = src # ..whose location is not literally *here*.
             quote
                 try
                     $($fn)($(args...))
                 catch e
-                    showerror(stderr, e) # Display the obtained failure report but..
-                    $ftest # ..downgrade to only a failed @test to keep the testsuite going.
+                    $S.eprintln($S.lnline($(QuoteNode(src))))
+                    e isa $($Expected) || rethrow(e)
+                    # Display the obtained failure report but..
+                    showerror(stderr, e)
+                    # ..downgrade to only a failed @test to keep the testsuite going.
+                    $ftest
                 end
             end
         end
     end
 end
+
+# Useful to correctly point at failed test site.
+const Ln = LineNumberNode
+function lnline(src::Ln)
+    (; file, line) = src
+    "$blue$bold@@@ $file:$line @@@$reset"
+end
+
 @gentest string
 @gentest repr
 @gentest disp

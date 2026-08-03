@@ -1,7 +1,7 @@
 module TestNetworkTopologies
 
-using SparseArrays
 using EcologicalNetworksDynamics.Networks
+using SparseArrays
 
 using Test
 

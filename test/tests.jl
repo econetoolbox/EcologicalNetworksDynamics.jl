@@ -5,7 +5,7 @@ They should generate useful, contextualized reports.
 module TestTests
 
 using EcologicalNetworksDynamics: Tests, ErrWith
-using .Tests: @fails, @test_err
+using .Tests: @fails, @fails_with, @test_err
 using Test
 
 const TT = TestTests
@@ -137,12 +137,10 @@ end
         @test_err(
             () -> (@fails (5 + 8) Expected -1 -1),
             """
+            @@@ $(@HERE -2) @@@
             Unexpected success:
-            @@@ $(@HERE -3) @@@
-               -------------------expected----------------
-            $Expected(-1, -1)
-               --------------------actual-----------------
-            <no actual error obtained>
+            Expected: $Expected(-1, -1)
+              Actual: <no actual error obtained>
             """,
             nothing,
         )
@@ -153,12 +151,10 @@ end
         @test_err(
             () -> (@fails (5 + :a) Expected -1 -1),
             """
+            @@@ $(@HERE -2) @@@
             Unexpected error type:
-            @@@ $(@HERE -3) @@@
-               -------------------expected----------------
-            $Expected(-1, -1)
-               --------------------actual-----------------
-            MethodError: no method matching +(::Int64, ::Symbol)
+            Expected: $Expected(-1, -1)
+              Actual: MethodError: no method matching +(::Int64, ::Symbol)
             The function `+` exists, but no method is defined \
              for this combination of argument types.
 
@@ -180,13 +176,11 @@ end
         @test_err(
             () -> (@fails f() Expected -1 "err"),
             """
-            Unexpected field :field value:
-            @@@ $(@HERE -3) @@@
-            in $Expected:
-               -------------------expected----------------
-              -1  ::$Int
-               --------------------actual-----------------
-              5  ::$Int
+            @@@ $(@HERE -2) @@@
+            Unexpected field value: wrong value:
+              in $Expected.field:
+            Expected: -1
+              Actual: 5
             """,
             f_line,
         )
@@ -195,14 +189,16 @@ end
         # Unexpected error message field.
 
         @test_err(
-            () -> (@fails f() Expected 5 "invalid"),
+            () -> @fails_with(f(), Expected,
+                (; mess = Tests.FieldsCompare.message),
+                5, "invalid"
+            ),
             """
-            Unexpected error message:
-            @@@ $(@HERE -3) @@@
-            in $Expected:
-            The two error message fields differ:
-            expected: invalid
-              actual: err
+            @@@ $(@HERE -5) @@@
+            Unexpected field value: wrong error message:
+              in $Expected.mess:
+            Expected: invalid
+              Actual: err
             """,
             f_line,
         )

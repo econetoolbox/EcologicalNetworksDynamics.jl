@@ -15,9 +15,11 @@ using EcologicalNetworksDynamics: EN
 
 using .Strings:
     is_string, is_repr, is_disp,
+    check_string, check_repr, check_disp, check_err,
     @test_string, @test_repr, @test_disp, @test_err
-using .Errors: @fails, @generrortest
+using .Errors: @fails, @fails_with, @generrortest, FieldsCompare
 
 @generrortest netfails EN.Networks.NetworkError
+@generrortest labelfails EN.Networks.LabelError (; index = nothing)
 
 end

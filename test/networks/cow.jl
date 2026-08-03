@@ -5,7 +5,6 @@ using .Networks
 
 import EcologicalNetworksDynamics: Tests
 using .Tests: @test_repr, @test_disp, @netfails
-
 using Test
 
 @testset "Basic network COW." begin

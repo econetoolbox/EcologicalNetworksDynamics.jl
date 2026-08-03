@@ -18,20 +18,13 @@ generalize again if required to also check macro *expansion* process.
 """
 module Errors
 
-using EcologicalNetworksDynamics: Display, errwith, errwrap, I, Tests, escall
-using .Display: blue, red, yellow, black, bold, italics, reset, rept
-using .Tests.Strings: spread_compare, check_string, UnmatchedStrings
+using EcologicalNetworksDynamics: I, Display, @ErrBrand, errwith, errwrap, escall, Tests
+using .Display: blue, red, yellow, black, bold, italics, reset, rept, eprintln
+using .Tests.Strings: showcompare, showdiff, check_string, UnmatchedStrings, Ln, lnline
 
 using Test
 
 const R = Errors
-
-# Useful to correctly point at failed test site.
-const Ln = LineNumberNode
-function lnline(src::Ln)
-    (; file, line) = src
-    "$blue$bold@@@ $file:$line @@@$reset"
-end
 
 """
 Generate code testing whether the given expression fails as expected.
@@ -42,56 +35,113 @@ Generate code testing whether the given expression fails as expected.
   - `xp` (unevaluated): The expression to be tested for failure.
   - `E` (unevaluated): The expected exception type to be collected.
   - `fields` (unevaluated): The exception exception field values.
+  - `checks`: map field names (symbols) to custom check functions
+    with signature `check(expected, actual)` (values)
+    that throw on mismatch (see collection in module `FieldsCompare`).
+    Defaults to checking type and value equality.
+    Replace the function by `nothing` to ignore testing this field.
 """
-function fails(src::Ln, xp, E, fields)
+function fails(src::Ln, xp, E, fields, checks;
+    # Lower if already evaluated/checked.
+    check_exception_type = true,
+    # Provide list of non-ignored expected field names if already evaluated/checked.
+    checked_enames = nothing,
+)
+    # Try to reduce the amount of generated quote.
     # The only irreducible part being that arguments to the following
     # *must* have been evaluated at execution time after expansion.
     # Not exactly sure how to make this part less verbose, but.. (vvv)
+    _check_exception_type =
+        check_exception_type ?
+        E -> R.check_exception_type(src, E) :
+        E -> nothing
+    _checked_enames =
+        isnothing(checked_enames) ?
+        (E::Type, checks) -> R.check_checksmap(src, E, checks) :
+        (::Type, _) -> checked_enames
+    check_fields_expression(E, en) = R.check_fields_expression(src, E, en, fields)
     eval_fields(ev) = R.eval_macro_input(src, ev, fields, "expected error fields")
-    check_exception_type(E) = R.check_exception_type(src, E)
-    check_fields(E::Type) = R.check_fields(src, E, fields)
-    unexpected_success(E, fields) = R.unexpected_success(src, E, fields)
-    unexpected_error_type(err, E, fields) = R.unexpected_error_type(src, err, E, fields)
-    test_error_expected(err, E, fields) = R.test_error_expected(src, err, E, fields)
-    # (^^^) ..the intent is to clarify what's happening in the codegen below.
+    wrap(e) = Base.rethrow(FailedFailureTest(src, e))
+    # (^^^) ..the intent is to clarify what's happening in the generated code below.
     # Control flow can therefore wind between execution(vvv)scope and expansion(^^^)scope.
     quote
-        E = $E # Either evaluated here or prior to invocation (see below).
-        $check_exception_type(E)
-        $check_fields(E)
+        # Most of the work from here to..
+        E = $E
+        $_check_exception_type(E)
+        checks = $checks
+        enames = $_checked_enames(E, checks)
+        # ..here is either evaluated now or prior to invocation (see below).
+        $check_fields_expression(E, enames)
         fields = $eval_fields(() -> $(escall(fields)))
-        success = try
-            $(esc(xp)) # Evaluate the expression expected to fail.
-            true
-        catch err
-            if err isa E
-                $test_error_expected(err, E, fields)
-            else
-                $unexpected_error_type(err, E, fields)
+        try
+            try
+                $(esc(xp)) # Evaluate the expression expected to fail.
+                $throw($R.UnexpectedSuccess())
+            catch e
+                e isa $R.UnexpectedSuccess && R.unexpected_success(E, fields)
+                e isa E || $R.unexpected_error_type(e, E, fields)
+                $R.test_error_expected(e, E, fields, checks)
             end
-            false
+        catch e
+            $wrap(e)
         end
-        success && $unexpected_success(E, fields)
     end
+end
+
+"Brand specific failure case."
+struct UnexpectedSuccess end
+
+"Wrap just before toplevel to indicate macro invocation site."
+struct FailedFailureTest
+    src::Ln
+    err
+end
+function Base.showerror(io::IO, e::FailedFailureTest)
+    (; src, err) = e
+    println(io, lnline(src))
+    showerror(io, err)
 end
 
 "The regular way to call into `fails` with pre-evaluated `src` argument."
 macro fails(xp, E, fields...)
-    src = __source__
-    eval_E(ev) = R.eval_macro_input(src, ev, E, "expected error type")
-    fails(src, xp, :($eval_E(() -> $(esc(E)))), fields)
+    macrofails(__source__, xp, E, fields, :(;))
 end
 
-"Generate a macro that calls into `fails` with pre-evaluated `E` argument."
-macro generrortest(name::Symbol, E)
+"Call by also specifying custom check functions."
+macro fails_with(xp, E, checks, fields...)
+    macrofails(__source__, xp, E, fields, checks)
+end
+
+function macrofails(src, xp, E, fields, checks)
+    eval_E(ev) = R.eval_macro_input(src, ev, E, "expected error type")
+    eval_checks(ev) = R.eval_macro_input(src, ev, checks, "fields checking functions")
+    fails(src, xp,
+        :($eval_E(() -> $(esc(E)))),
+        fields,
+        :($eval_checks(() -> $(esc(checks)))),
+    )
+end
+
+"""
+Generate a macro that calls into `fails` \
+with pre-evaluated/checked `E` and `checks` argument.
+"""
+macro generrortest(name::Symbol, E, checks = :(;))
     src = __source__
     name = esc(name)
-    eval_E(ev) = R.eval_macro_input(src, ev, E, "expected error type") # <-- this happens..
+    check_checksmap(E::Type, checks) = R.check_checksmap(src, E, checks)
+    eval_checks(ev) = R.eval_macro_input(src, ev, checks, "fields checking functions")
+    eval_E(ev) = R.eval_macro_input(src, ev, E, "expected error type") # <^^ these happen..
     quote                                                              #   |
         E = $eval_E(() -> $(esc(E)))                                   #   |
+        checks = $eval_checks(() -> $(esc(checks)))                    #   |
+        enames = $check_checksmap(E, checks)                           #   |
         macro $name(xp, fields...)                                     # <-- ..outside this.
             src = $(esc(:__source__)) # (https://github.com/JuliaLang/julia/issues/62572)
-            fails(src, xp, E, fields)
+            fails(src, xp, E, fields, checks;
+                check_exception_type = false,
+                checked_enames = enames,
+            )
         end
     end
 end
@@ -103,38 +153,59 @@ end
 Evaluate macro input and decorate any error when forwarding it up.
 Useful if the given function body needs to be `esc`aped.
 """
-function eval_macro_input(src::Ln, eval::Function, xp, what)
+eval_macro_input(src::Ln, eval::Function, origin, what) =
     try
         eval()
     catch e
         errwrap(e, "When evaluating $what:") do io
             println(io, lnline(src))
-            println(io, "  $xp")
+            println(io, "  $origin")
         end
     end
-end
 
 "Test (evaluated) input provided as an expected exception type."
 check_exception_type(src::Ln, E) = errwith("Not an exception type:") do io
     println(io, lnline(src))
     print(io, "  ", rept(E))
 end
-check_exception_type(::Ln, ::Type{<:Exception}) = @test true # +1 on surrounding @testset.
+check_exception_type(::Ln, ::Type{<:Exception}) = @test true # +1 for @testset.
 
-"Check (unevaluated) fields signature vs. (evaluated) expected error type."
-function check_fields(
+"""
+Check (evaluated) custom fields checks map against (evaluated) expected type expression.
+Filter out ignored fields and return included ones.
+"""
+function check_checksmap(src::Ln, E::Type{<:Exception}, checks)
+    enames = fieldnames(E)
+    for cname in keys(checks)
+        cname in enames || errwith("Invalid field name:.") do io
+            println(io, lnline(src))
+            println(
+                io,
+                "Exception type $italics$yellow$E$reset \
+                 has no field named $bold$blue$(repr(cname))$reset.",
+            )
+        end
+    end
+    filter(n -> !(haskey(checks, n) && isnothing(checks[n])), enames)
+end
+
+"""
+Assuming the above passed,
+check (unevaluated) fields signature against the non-ignored fields list.
+"""
+function check_fields_expression(
     src::Ln,
     E::Type{<:Exception},
+    expected_names::Tuple{Vararg{Symbol}},
     fields::Tuple,
 )
-    enames = fieldnames(E)
-    e, a = length.((enames, fields))
-    e == a && return # (no +1 on @testset: this is just about invocation correctness)
+    e, a = length.((expected_names, fields))
+    e == a && return # (no +1 for @testset: this is just about invocation correctness)
     errwith("Wrong number of error fields:") do io
         println(io, lnline(src))
         se, sa = I.map(n -> n == 1 ? "" : "s", (e, a))
         println(io, "This error type requires checking $blue$e$reset field$se:")
-        println(io, "  $yellow$E$black$bold$enames$reset")
+        println(io, "  $yellow$E$black$bold$expected_names$reset")
         print(io, "but input contains $red$a$reset value$sa to be checked against:")
         for f in fields
             print(io, "\n  - $black$bold$(repr(f))$reset")
@@ -146,49 +217,92 @@ end
 # Utils checking the actual exception received against expectations,
 # once the macro invocation is proved correct.
 
-unexpected_success(src::Ln, E::Type{<:Exception}, fields) =
+unexpected_success(E::Type{<:Exception}, fields) =
     errwith("Unexpected success:") do io
-        println(io, lnline(src))
-        spread_compare(io,
-            "$yellow$E$blue$fields$reset",
-            "$red<no actual error obtained>$reset",
+        showcompare(io,
+            "$yellow$E$black$fields$reset",
+            "$black<no actual error obtained>$reset",
         )
     end
 
-unexpected_error_type(src::Ln, err, E::Type{<:Exception}, fields) =
+unexpected_error_type(err, E::Type{<:Exception}, fields) =
     errwrap(err, "Unexpected error type:") do io
-        println(io, lnline(src))
-        spread_compare(io, "$yellow$E$blue$fields$reset", nothing)
+        showcompare(io, "$yellow$E$blue$fields$reset", nothing)
     end
 
+"""
+Raise on mismatched exception fields.
+Header is a short string to include during upgrade.
+"""
+@ErrBrand WrongField
+
 "Test actual error value against (evaluated) expected fields."
-function test_error_expected(src::Ln, err, E::Type{<:Exception}, fields)
+function test_error_expected(err, E::Type{<:Exception}, fields, checks)
     for (name, exp) in zip(fieldnames(E), fields)
         act = getfield(err, name)
-        if name == :mess # Special-cased.
-            exp isa String ||
-                errwith("Not a message string to compare against:", rethrow) do io
-                    println(io, lnline(src))
-                    println("  ", rept(exp))
-                end
-            try
-                check_string(act, exp, "error message fields", rethrow)
-                continue
-            catch e
-                e isa UnmatchedStrings || rethrow(e)
-                errwrap(e, "Unexpected error message:") do io # Prepend context.
-                    println(io, lnline(src))
-                    println(io, "$(italics)in $yellow$E$reset$italics$reset:")
-                end
+        try
+            if haskey(checks, name)
+                checks[name](exp, act)
+            else
+                FieldsCompare.default(exp, act)
+            end
+        catch e
+            e isa WrongField || rethrow(e)
+            # Unwrap to build into a fresh error.
+            e = e.source
+            errwith(
+                "Unexpected field value:$reset $italics$(e.head):$reset",
+                rethrow,
+            ) do io
+                field = "$blue$bold$name$reset"
+                println(io, "$italics  in $yellow$E$reset.$field:")
+                e.display(io)
             end
         end
-        act == exp ||
-            errwith("Unexpected field $black$bold$(repr(name))$reset value:", rethrow) do io
-                println(io, lnline(src))
-                println(io, "$(italics)in $yellow$E$reset$italics$reset:")
-                spread_compare(io, "  " * rept(exp), "  " * rept(act))
-            end
         @test true # +1 test count in @testset per checked error field.
+    end
+end
+
+#-------------------------------------------------------------------------------------------
+
+"Elementary functions testing exception fields."
+module FieldsCompare
+    using ..R:
+        errwith, errwrap, showcompare, showdiff, WrongField, rept, check_string,
+        UnmatchedStrings
+
+    "Default-compare exception fields for type and equality."
+    function default(exp, act)
+        type(exp, act)
+        value(exp, act)
+    end
+
+    function type(exp, act)
+        E, A = typeof.((exp, act))
+        E === A || errwith(WrongField, "wrong type", rethrow) do io
+            showcompare(io, E, A)
+        end
+    end
+
+    value(exp, act) =
+        exp == act || errwith(WrongField, "wrong value", rethrow) do io
+            showcompare(io, repr(exp), repr(act))
+        end
+
+    "Compare string fields for equality, assuming they are error messages."
+    function message(exp, act)
+        exp isa String ||
+            errwith(WrongField, "Not a message string to compare against:", rethrow) do io
+                println(io, "  ", rept(exp))
+            end
+        try
+            check_string(act, exp, "error messages", rethrow)
+        catch e
+            e isa UnmatchedStrings || rethrow(e)
+            errwrap(e, WrongField, "wrong error message") do io
+                showdiff(io, e.expected, e.actual)
+            end
+        end
     end
 end
 

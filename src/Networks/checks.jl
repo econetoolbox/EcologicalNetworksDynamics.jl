@@ -48,7 +48,7 @@ export is_label
 struct LabelError <: Exception
     name::Symbol
     class::Option{Symbol} # None for root.
-    valids::Index
+    index::Index
 end
 laberr(l, c, n) = throw(LabelError(l, c, n))
 
@@ -64,12 +64,12 @@ end
 check_label(label::Symbol, class::Class) = check_label(label, class.index, class.name)
 
 function Base.showerror(io::IO, e::LabelError)
-    (; name, class, valids) = e
-    # TODO: display elided valid names or closest match.
+    (; name, class, index) = e
+    # TODO: display closest match.
     if isnothing(class)
         print(io, "Label does not refer to a node in the network: $(repr(name)).")
     else
         print(io, "Label does not refer to a node in $(repr(class)) class: $(repr(name)).")
     end
-    print(io, "\nValid labels: $(collect(keys(valids))).")
+    print(io, "\nValid labels: [$(join_elided(keys(index), ", "))].")
 end
