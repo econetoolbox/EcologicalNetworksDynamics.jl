@@ -90,6 +90,6 @@ include("./diversity.jl")
 # Testing utils. Not useful for end users,
 # but used during package automated testing
 # and useful to setup developping environment with Revise.
-include("tests.jl")
+include("Tests/Tests.jl")
 
 end
