@@ -154,7 +154,7 @@ struct ItemError <: Exception
 end
 
 function Base.showerror(io::IO, e::ItemError)
-    print(io, "In $(e.category) definition for `$(e.item)`: ")
+    print(io, "In $(e.category) definition for `$(e.item)`:\n")
     println(io, e.message)
 end
 
@@ -162,6 +162,6 @@ struct ConflictError <: Exception
     message::String
 end
 function Base.showerror(io::IO, e::ConflictError)
-    print(io, "In conflicts definition: ")
+    print(io, "In conflicts definition:\n")
     println(io, e.message)
 end

@@ -78,7 +78,7 @@ function fails(src::Ln, xp, E, fields, checks;
                 $(esc(xp)) # Evaluate the expression expected to fail.
                 $throw($R.UnexpectedSuccess())
             catch e
-                e isa $R.UnexpectedSuccess && R.unexpected_success(E, fields)
+                e isa $R.UnexpectedSuccess && $R.unexpected_success(E, fields)
                 e isa E || $R.unexpected_error_type(e, E, fields)
                 $R.test_error_expected(e, E, enames, fields, checks)
             end

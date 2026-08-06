@@ -25,11 +25,13 @@ using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare
 @genfailsmacro deffails UndefVarError (; world = nothing)
 @genfailsmacro netfails EN.Networks.NetworkError
 @genfailsmacro labelfails EN.Networks.LabelError (; index = nothing)
-
 # (reassure JuliaLS)
 macro deffails end
 macro netfails end
 macro labelfails end
+
+"Typical error message string field-checking."
+const mess = FieldsCompare.message
 
 "Generate macros for framework exception, given a parameter `Value` type."
 macro gen_framework_fails(Value)
@@ -38,10 +40,11 @@ macro gen_framework_fails(Value)
         @genfailsmacro methfails $F.MethodError{$Value}
     end |> esc
 end
+@genfailsmacro itemfails F.ItemError
 
 "Test various possible failures during `Framework.add!()`."
 module addfails
-    using ..T: T, I, F, @genfailsmacro
+    using ..T: T, I, F, @genfailsmacro, mess
     "The `node` fields on `AddError` is easily tested as a *path* of blueprint types."
     function node(exp::Vector, node::F.Node)
         act = []
@@ -58,9 +61,10 @@ module addfails
         end
     end
     @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
+    @genfailsmacro component F.ComponentError (; mess)
+    @genfailsmacro conflict F.ConflictWithSystemComponent (; node)
     @genfailsmacro hookcheck F.HookCheckFailure (; node)
     @genfailsmacro missingrequired F.MissingRequiredComponent (; node)
-    @genfailsmacro conflict F.ConflictWithSystemComponent (; node)
     # (reassure JuliaLS)
     macro broughtalready end
     macro hookcheck end
