@@ -96,8 +96,6 @@ using OrderedCollections
 
 const F = Framework
 
-struct PhantomData{T} end
-
 # ==========================================================================================
 # Early small types declarations to avoid circular dependencies among code files.
 

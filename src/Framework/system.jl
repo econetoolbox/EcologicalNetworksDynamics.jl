@@ -111,8 +111,7 @@ Base.:(==)(a::Blueprint{U}, b::Blueprint{V}) where {U,V} =
 
 struct SystemError{V} <: SystemException
     message::String
-    _::PhantomData{V}
-    SystemError(::Type{V}, m) where {V} = new{V}(m, PhantomData{V}())
+    SystemError(::Type{V}, m) where {V} = new{V}(m)
 end
 
 function Base.showerror(io::IO, e::SystemError{V}) where {V}

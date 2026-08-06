@@ -48,10 +48,9 @@ global REVISING = false # TODO: Is this still needed after refactoring?
 struct MethodError{V} <: SystemException
     name::Union{Symbol,Expr} # Name or Path.To.Name.
     message::String
-    _::PhantomData{V}
-    MethodError(::Type{V}, n, m) where {V} = new{V}(n, m, PhantomData{V}())
+    MethodError(::Type{V}, n, m) where {V} = new{V}(n, m)
 end
 function Base.showerror(io::IO, e::MethodError{V}) where {V}
-    println(io, "In method '$(e.name)' for '$V': $(e.message)")
+    println(io, "In method `$(e.name)` for `$V`: $(e.message)")
 end
 metherr(V, n, m) = throw(MethodError(V, n, m))

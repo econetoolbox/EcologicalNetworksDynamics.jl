@@ -46,7 +46,7 @@ end
         #-----------------------------------------------------------------------------------
         # Cannot evaluate error type, rest of input still unevaluated.
         @test_err(
-            () -> (@fails x INVALID x),
+            (@fails x INVALID x),
             """
             When evaluating expected error type:
             @@@ $(@HERE -3) @@@
@@ -64,7 +64,7 @@ end
         # Cannot evaluate error type. Pointing to the right user-code error.
 
         @test_err(
-            () -> (@fails x invalid() x),
+            (@fails x invalid() x),
             """
             When evaluating expected error type:
             @@@ $(@HERE -3) @@@
@@ -79,7 +79,7 @@ end
         # Not an error type.
 
         @test_err(
-            () -> (@fails x :INVALID x),
+            (@fails x :INVALID x),
             """
             Not a(n exception) type:
             @@@ $(@HERE -3) @@@
@@ -92,7 +92,7 @@ end
         # Wrong number of fields tested. Expression still unevaluated.
 
         @test_err(
-            () -> (@fails x Expected x), # Evaluation successful within the `let` block.
+            (@fails x Expected x), # Evaluation successful within the `let` block.
             """
             Wrong number of error fields:
             @@@ $(@HERE -3) @@@
@@ -108,7 +108,7 @@ end
         # Fields evaluation error.
 
         @test_err(
-            () -> (@fails x Expected 5 INVALID),
+            (@fails x Expected 5 INVALID),
             """
             When evaluating expected error fields:
             @@@ $(@HERE -3) @@@
@@ -120,7 +120,7 @@ end
         )
 
         @test_err(
-            () -> (@fails x Expected 5 invalid()),
+            (@fails x Expected 5 invalid()),
             """
             When evaluating expected error fields:
             @@@ $(@HERE -3) @@@
@@ -135,7 +135,7 @@ end
         # No actual error collected (fields values unchecked).
 
         @test_err(
-            () -> (@fails (5 + 8) Expected -1 -1),
+            (@fails (5 + 8) Expected -1 -1),
             """
             @@@ $(@HERE -2) @@@
             Unexpected success:
@@ -149,7 +149,7 @@ end
         # Unexpected error obtained (fields values unchecked).
 
         @test_err(
-            () -> (@fails (5 + :a) Expected -1 -1),
+            (@fails (5 + :a) Expected -1 -1),
             """
             @@@ $(@HERE -2) @@@
             Unexpected error type:
@@ -175,7 +175,7 @@ end
         # Unexpected (generic) error field value.
 
         @test_err(
-            () -> (@fails f() Expected -1 "err"),
+            (@fails f() Expected -1 "err"),
             """
             @@@ $(@HERE -2) @@@
             Unexpected field value: wrong value:
@@ -190,7 +190,7 @@ end
         # Unexpected error message field.
 
         @test_err(
-            () -> @fails_with(f(), Expected,
+            @fails_with(f(), Expected,
                 (; mess = Tests.FieldsCompare.message),
                 5, "invalid"
             ),

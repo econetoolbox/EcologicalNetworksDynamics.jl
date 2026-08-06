@@ -288,8 +288,7 @@ end
 struct PropertyError{P} <: SystemException
     name::Symbol
     message::String
-    _::PhantomData{P}
-    PropertyError(::Type{P}, s, m) where {P} = new{P}(s, m, PhantomData{P}())
+    PropertyError(::Type{P}, s, m) where {P} = new{P}(s, m)
 end
 super(::PropertyError{P}) where {P} = P
 
@@ -322,7 +321,7 @@ end
 Base.show(io::IO, p::PropertySpace) = display_long(io, p, properties)
 function display_long(io::IO, p::PropertySpace, properties::Function)
     V = system_value_type(p)
-    print(io, "Property space for '$(V)': ", crayon"black bold")
+    print(io, "Property space for `$(V)`: ", crayon"black bold")
     for name in reverse(names_sequence(p))
         print(io, ".$name")
     end

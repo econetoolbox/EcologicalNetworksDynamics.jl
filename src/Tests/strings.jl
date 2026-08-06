@@ -150,6 +150,7 @@ function check_err(fn, expected, frame::Option{String} = nothing)
     end
 end
 @ErrBrand UnexpectedSuccess
+local UnexpectedSuccess # (reassure JuliaLS)
 
 """
 Check the location pointed by the first frame on the exception stack,
@@ -182,11 +183,18 @@ macro gentest(variant)
     fn = getfield(S, Symbol(:check_, variant))
     unexp = QuoteNode(Symbol(:unexpected_, variant)) # For faking `@test` display.
     Expected = Union{UnmatchedStrings,UnexpectedSuccess}
+    # Special-case: this one doesn't have to pass a closure
+    # since the expression is unevaluated anyway.
+    is_err = variant == :err
     quote
         S = $S
         macro $test(args...)
             src = $(esc(:__source__)) # (https://github.com/JuliaLang/julia/issues/62572)
             args = esc.(args)
+            if $is_err
+                first, rest... = args
+                args = (:(() -> $first), rest...)
+            end
             # Fake a failed @test call for surrounding @testset..
             ftest = quote
                 $($unexp) = false

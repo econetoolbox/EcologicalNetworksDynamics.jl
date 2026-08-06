@@ -210,14 +210,23 @@ module Basics # Use submodules to not clash blueprints/components names.
     import EcologicalNetworksDynamics.Framework: System, add!
 
     # (what's also required for testing here)
-    import EcologicalNetworksDynamics.Tests: @fails, @genfailsmacro, @deffails
+    import EcologicalNetworksDynamics.Tests:
+        EN, T, @test_err, @fails, @genfailsmacro, @deffails
     using Test
 
-    @genfailsmacro propfails F.PropertyError{System{Value}} (; _ = nothing)
-    @genfailsmacro methfails F.MethodError{Value} (; _ = nothing)
+    # Testing the `node` field of `AddError` exceptions:
+    # just compare against blueprint type.
+    node(exp::Type{<:Blueprint}, act::F.Node) =
+        T.FieldsCompare.value(exp, typeof(act.blueprint))
+
+    @genfailsmacro propfails F.PropertyError{System{Value}}
+    @genfailsmacro methfails F.MethodError{Value}
+    @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
     # (reassure JuliaLS)
     macro propfails end
     macro methfails end
+    macro broughtalready end
+    macro broughtalready end
 
     @testset "Basic components/methods/properties." begin
 
@@ -235,18 +244,25 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # Forbid unexistent properties.
         @propfails(s.x, :x, "Unknown property.")
+        @test_err(s.x, "In property `.x` of `$System{$Value}`: Unknown property.\n")
         # Forbid existent properties without appropriate component.
         @propfails(s.b, :b, "Component $_B is required to read this property.")
         # Same with methods.
         @deffails(get_x(s), :get_x, Basics)
         @methfails(get_b(s), :get_b, "Requires component $_B.")
+        @test_err(get_b(s), "In method `get_b` for `$Value`: Requires component $_B.\n")
 
         # Forbid write.
         @propfails((s.n = 4), :n, "This property is read-only.")
 
         # Cannot add component twice.
-        # HERE: upgrade that testing macro.
-        @fails(add!(s, NLines(5)), Add(BroughtAlreadyInValue, Size, [NLines]))
+        @broughtalready(add!(s, NLines(5)), _Size, NLines)
+        @test_err(add!(s, NLines(5)),
+            """
+            Blueprint would expand into component $_Size, \
+            which is already in the system.
+            in $NLines
+            """)
 
         # Add component requiring previous one from a blueprint.
         t = s + A.Uniform(5)
