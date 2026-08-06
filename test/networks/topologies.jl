@@ -1,4 +1,4 @@
-module TestNetworkTopologies
+module Topologies
 
 using EcologicalNetworksDynamics.Networks
 using SparseArrays

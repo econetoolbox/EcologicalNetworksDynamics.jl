@@ -1,10 +1,10 @@
-module TestNodes
+module Nodes
 
 using EcologicalNetworksDynamics.Networks
 using OrderedCollections
 using SparseArrays
 
-import EcologicalNetworksDynamics.Tests: @test_disp, @test_repr, @netfails, @labelfails
+using EcologicalNetworksDynamics.Tests: @test_disp, @test_repr, @netfails, @labelfails
 using Test
 
 @testset "Nodes classes hierarchy." begin

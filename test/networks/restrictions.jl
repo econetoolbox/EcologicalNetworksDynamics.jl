@@ -1,4 +1,4 @@
-module TestRestrictions
+module Restrictions
 
 using EcologicalNetworksDynamics.Networks
 using .Networks:

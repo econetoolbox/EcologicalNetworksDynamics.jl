@@ -80,7 +80,7 @@ function fails(src::Ln, xp, E, fields, checks;
             catch e
                 e isa $R.UnexpectedSuccess && R.unexpected_success(E, fields)
                 e isa E || $R.unexpected_error_type(e, E, fields)
-                $R.test_error_expected(e, E, fields, checks)
+                $R.test_error_expected(e, E, enames, fields, checks)
             end
         catch e
             $wrap(e)
@@ -126,7 +126,7 @@ end
 Generate a macro that calls into `fails` \
 with pre-evaluated/checked `E` and `checks` argument.
 """
-macro generrortest(name::Symbol, E, checks = :(;))
+macro genfailsmacro(name::Symbol, E, checks = :(;))
     src = __source__
     name = esc(name)
     check_checksmap(E::Type, checks) = R.check_checksmap(src, E, checks)
@@ -164,17 +164,17 @@ eval_macro_input(src::Ln, eval::Function, origin, what) =
     end
 
 "Test (evaluated) input provided as an expected exception type."
-check_exception_type(src::Ln, E) = errwith("Not an exception type:") do io
+check_exception_type(src::Ln, E) = errwith("Not a(n exception) type:") do io
     println(io, lnline(src))
     print(io, "  ", rept(E))
 end
-check_exception_type(::Ln, ::Type{<:Exception}) = @test true # +1 for @testset.
+check_exception_type(::Ln, ::Type) = @test true # +1 for @testset.
 
 """
 Check (evaluated) custom fields checks map against (evaluated) expected type expression.
 Filter out ignored fields and return included ones.
 """
-function check_checksmap(src::Ln, E::Type{<:Exception}, checks)
+function check_checksmap(src::Ln, E::Type, checks)
     enames = fieldnames(E)
     for cname in keys(checks)
         cname in enames || errwith("Invalid field name:.") do io
@@ -195,7 +195,7 @@ check (unevaluated) fields signature against the non-ignored fields list.
 """
 function check_fields_expression(
     src::Ln,
-    E::Type{<:Exception},
+    E::Type,
     expected_names::Tuple{Vararg{Symbol}},
     fields::Tuple,
 )
@@ -217,7 +217,7 @@ end
 # Utils checking the actual exception received against expectations,
 # once the macro invocation is proved correct.
 
-unexpected_success(E::Type{<:Exception}, fields) =
+unexpected_success(E::Type, fields) =
     errwith("Unexpected success:") do io
         showcompare(io,
             "$yellow$E$black$fields$reset",
@@ -225,9 +225,9 @@ unexpected_success(E::Type{<:Exception}, fields) =
         )
     end
 
-unexpected_error_type(err, E::Type{<:Exception}, fields) =
+unexpected_error_type(err, E::Type, fields) =
     errwrap(err, "Unexpected error type:") do io
-        showcompare(io, "$yellow$E$blue$fields$reset", nothing)
+        showcompare(io, "$yellow$E$blue$fields$reset", "$(typeof(err)), saying:")
     end
 
 """
@@ -237,8 +237,10 @@ Header is a short string to include during upgrade.
 @ErrBrand WrongField
 
 "Test actual error value against (evaluated) expected fields."
-function test_error_expected(err, E::Type{<:Exception}, fields, checks)
-    for (name, exp) in zip(fieldnames(E), fields)
+function test_error_expected(err, E::Type, enames::Tuple{Vararg{Symbol}}, fields, checks)
+    length(enames) == length(fields) ||
+        error("inconsistent call: bug in the testing system")
+    for (i, (name, exp)) in enumerate(zip(enames, fields))
         act = getfield(err, name)
         try
             if haskey(checks, name)
@@ -255,7 +257,7 @@ function test_error_expected(err, E::Type{<:Exception}, fields, checks)
                 rethrow,
             ) do io
                 field = "$blue$bold$name$reset"
-                println(io, "$italics  in $yellow$E$reset.$field:")
+                println(io, "$italics  in $yellow$E$reset.$field (field $i):")
                 e.display(io)
             end
         end
@@ -286,7 +288,7 @@ module FieldsCompare
 
     value(exp, act) =
         exp == act || errwith(WrongField, "wrong value", rethrow) do io
-            showcompare(io, repr(exp), repr(act))
+            showcompare(io, exp, act)
         end
 
     "Compare string fields for equality, assuming they are error messages."

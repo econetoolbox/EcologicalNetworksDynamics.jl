@@ -38,8 +38,8 @@ using .N: Network
 #  using .Differentials # XXX: move after components definitions so they may rely on dispatchers?
 
 #  # Interface: ergonomic model manipulation.
-#  include("./Framework/Framework.jl")
-#  const F = Framework
+include("./Framework/Framework.jl")
+const F = Framework
 
 #  # Additional utils to construct components interface.
 #  include("./kwargs_helpers.jl")

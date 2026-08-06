@@ -99,7 +99,10 @@ Decide whether to display side-by-side on two lines
 or within separated blocks depending on the input size and content.
 `act` may be `nothing` to leave the second block blank and write something else instead.
 """
-function showcompare(io, exp, act)
+showcompare(io::IO, exp, act) = showcompare(io, repr(exp), repr(act))
+showcompare(io::IO, exp::String, act) = showcompare(io, exp, repr(act))
+showcompare(io::IO, exp, act::String) = showcompare(io, repr(exp), act)
+function showcompare(io::IO, exp::String, act::String)
     large(i) = !isnothing(i) && (length(i) > 80 || '\n' in i)
     if any(large.((exp, act)))
         ind = "  "
@@ -218,5 +221,12 @@ end
 @gentest disp
 @gentest err
 @gentest first_frame
+
+# (reassure JuliaLS)
+macro test_string end
+macro test_repr end
+macro test_disp end
+macro test_err end
+macro test_first_frame end
 
 end

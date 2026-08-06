@@ -1,10 +1,9 @@
-module NetworkCOW
+module Cow
 
-import EcologicalNetworksDynamics: Networks, N
+using EcologicalNetworksDynamics: Networks, N
 using .Networks
 
-import EcologicalNetworksDynamics: Tests
-using .Tests: @test_repr, @test_disp, @netfails
+using EcologicalNetworksDynamics.Tests: T, @test_repr, @test_disp, @netfails
 using Test
 
 @testset "Basic network COW." begin

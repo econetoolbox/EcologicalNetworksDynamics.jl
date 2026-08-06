@@ -1,14 +1,11 @@
-module TestEdges
+module Edges
 
+using EcologicalNetworksDynamics.Networks
 using SparseArrays
 using OrderedCollections
 
-using EcologicalNetworksDynamics.Networks
-const N = Networks
-
+using EcologicalNetworksDynamics.Tests: T, SparseMatrix, @test_repr, @test_disp, @netfails
 using Test
-using Main.TestUtils
-import Main: @netfails
 
 @testset "Setting webs and data." begin
 
@@ -26,7 +23,7 @@ import Main: @netfails
     ])
     flow = SparseForeign(m)
     add_web!(n, :flow, (:nutrients, :species), flow)
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes and 8 edges:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -37,7 +34,7 @@ import Main: @netfails
 
     v = edges_vec(flow, m)
     add_field!(n, :flow, :intensity, v)
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes, 8 edges and 1 field:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -66,7 +63,7 @@ import Main: @netfails
     conv = SparseReflexive(m)
     add_web!(n, :convert, (:nutrients, :nutrients), conv)
     add_field!(n, :convert, :intensity, edges_vec(conv, m))
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes, 12 edges and 2 fields:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -90,7 +87,7 @@ import Main: @netfails
     comp = SparseSymmetric(m)
     add_web!(n, :compete, (:species, :species), comp)
     add_field!(n, :compete, :intensity, edges_vec(comp, m))
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes, 19 edges and 3 fields:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -117,7 +114,7 @@ import Main: @netfails
     aff = FullForeign(m)
     add_web!(n, :affinity, (:species, :nutrients), aff)
     add_field!(n, :affinity, :value, edges_vec(aff, m))
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes, 15 edges and 1 field:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -138,7 +135,7 @@ import Main: @netfails
     paths = FullReflexive(m)
     add_web!(n, :trade, (:nutrients, :nutrients), paths)
     add_field!(n, :trade, :rate, edges_vec(paths, m))
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes, 9 edges and 1 field:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -159,7 +156,7 @@ import Main: @netfails
     paths = FullSymmetric(m)
     add_web!(n, :paths, (:nutrients, :nutrients), paths)
     add_field!(n, :paths, :distance, edges_vec(paths, m))
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes, 6 edges and 1 field:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -188,7 +185,7 @@ end
     add_web!(n, :compete, (:species, :species), comp)
     add_field!(n, :compete, :intensity, edges_vec(comp, m))
 
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes, 7 edges and 1 field:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -201,7 +198,7 @@ end
 
     # View into base web node data.
     c = edges_view(n, :compete, :intensity)
-    @test is_repr(c, "EdgeView'2([5, 4, 6, 2, 1, 8, 3])")
+    @test_repr(c, "EdgeView'2([5, 4, 6, 2, 1, 8, 3])")
 
     # Index view.
     @test c[1] == c[(2, 2)] == c[(:b, :b)] == 5
@@ -222,10 +219,10 @@ end
     c[(4, 3)] += 2
     c[(:e, :d)] -= 2
 
-    @test is_repr(c, "EdgeView([10, 4, 6, 4, 1, 8, 1])")
+    @test_repr(c, "EdgeView([10, 4, 6, 4, 1, 8, 1])")
 
     # Check COW aliasing/mutation.
-    @test is_disp(n, strip("""
+    @test_disp(n, strip("""
     Network with 8 nodes, 7 edges and 1 field:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -234,7 +231,7 @@ end
         compete: species => species (7, symmetric, sparse)
           intensity: [10, 4, 6, 4, 1, 8, 1]
     """))
-    @test is_disp(f, strip("""
+    @test_disp(f, strip("""
     Network with 8 nodes, 7 edges and 1 field:
       Nodes:
         nutrients (3): [:u, :v, :w]
@@ -278,7 +275,7 @@ end
     ]
 
     m = to_sparse(c)
-    @test typeof(m) === N.SparseMatrix{Int}
+    @test typeof(m) === T.SparseMatrix{Int}
     @test m == sparse([
         0 0 4 0 0
         0 5 0 0 8

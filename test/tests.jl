@@ -81,7 +81,7 @@ end
         @test_err(
             () -> (@fails x :INVALID x),
             """
-            Not an exception type:
+            Not a(n exception) type:
             @@@ $(@HERE -3) @@@
               :INVALID  ::Symbol\
             """,
@@ -154,7 +154,8 @@ end
             @@@ $(@HERE -2) @@@
             Unexpected error type:
             Expected: $Expected(-1, -1)
-              Actual: MethodError: no method matching +(::Int64, ::Symbol)
+              Actual: MethodError, saying:
+            MethodError: no method matching +(::Int64, ::Symbol)
             The function `+` exists, but no method is defined \
              for this combination of argument types.
 
@@ -178,7 +179,7 @@ end
             """
             @@@ $(@HERE -2) @@@
             Unexpected field value: wrong value:
-              in $Expected.field:
+              in $Expected.field (field 1):
             Expected: -1
               Actual: 5
             """,
@@ -196,7 +197,7 @@ end
             """
             @@@ $(@HERE -5) @@@
             Unexpected field value: wrong error message:
-              in $Expected.mess:
+              in $Expected.mess (field 2):
             Expected: invalid
               Actual: err
             """,

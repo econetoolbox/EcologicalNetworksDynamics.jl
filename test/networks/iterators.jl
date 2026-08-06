@@ -1,4 +1,4 @@
-module TestIterators
+module Iterators
 
 using EcologicalNetworksDynamics: N
 
