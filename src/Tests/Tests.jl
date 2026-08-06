@@ -13,7 +13,7 @@ include("./errors.jl")
 
 const T = Tests
 
-using EcologicalNetworksDynamics: EN, SparseMatrix
+using EcologicalNetworksDynamics: EN, F, I, SparseMatrix
 
 using .Strings:
     is_string, is_repr, is_disp,
@@ -30,5 +30,42 @@ using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare
 macro deffails end
 macro netfails end
 macro labelfails end
+
+"Generate macros for framework exception, given a parameter `Value` type."
+macro gen_framework_fails(Value)
+    quote
+        @genfailsmacro propfails $F.PropertyError{$F.System{$Value}}
+        @genfailsmacro methfails $F.MethodError{$Value}
+    end |> esc
+end
+
+"Test various possible failures during `Framework.add!()`."
+module addfails
+    using ..T: T, I, F, @genfailsmacro
+    "The `node` fields on `AddError` is easily tested as a *path* of blueprint types."
+    function node(exp::Vector, node::F.Node)
+        act = []
+        while !isnothing(node)
+            push!(act, typeof(node.blueprint))
+            node = node.parent
+        end
+        err() = T.errwith(T.WrongField, "wrong nodes path", rethrow) do io
+            T.showcompare(io, repr.(exp), repr.(act))
+        end
+        length(act) == length(exp) || err()
+        for (e, a) in zip(exp, act)
+            e === a || err()
+        end
+    end
+    @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
+    @genfailsmacro hookcheck F.HookCheckFailure (; node)
+    @genfailsmacro missingrequired F.MissingRequiredComponent (; node)
+    @genfailsmacro conflict F.ConflictWithSystemComponent (; node)
+    # (reassure JuliaLS)
+    macro broughtalready end
+    macro hookcheck end
+    macro missingrequired end
+    macro conflict end
+end
 
 end

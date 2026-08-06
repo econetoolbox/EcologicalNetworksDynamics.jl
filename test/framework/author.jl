@@ -211,22 +211,15 @@ module Basics # Use submodules to not clash blueprints/components names.
 
     # (what's also required for testing here)
     import EcologicalNetworksDynamics.Tests:
-        EN, T, @test_err, @fails, @genfailsmacro, @deffails
+        EN, F, T, @test_err, @fails, @genfailsmacro, @deffails,
+        @gen_framework_fails, addfails
+    import .F: Component
     using Test
 
-    # Testing the `node` field of `AddError` exceptions:
-    # just compare against blueprint type.
-    node(exp::Type{<:Blueprint}, act::F.Node) =
-        T.FieldsCompare.value(exp, typeof(act.blueprint))
-
-    @genfailsmacro propfails F.PropertyError{System{Value}}
-    @genfailsmacro methfails F.MethodError{Value}
-    @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
+    @gen_framework_fails Value
     # (reassure JuliaLS)
     macro propfails end
     macro methfails end
-    macro broughtalready end
-    macro broughtalready end
 
     @testset "Basic components/methods/properties." begin
 
@@ -256,7 +249,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         @propfails((s.n = 4), :n, "This property is read-only.")
 
         # Cannot add component twice.
-        @broughtalready(add!(s, NLines(5)), _Size, NLines)
+        addfails.@broughtalready(add!(s, NLines(5)), _Size, [NLines])
         @test_err(add!(s, NLines(5)),
             """
             Blueprint would expand into component $_Size, \
@@ -269,21 +262,37 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test t.a == [5, 5, 5]
 
         # Fail if custom blueprint constraints are not enforced.
-        @fails(
+        addfails.@hookcheck(
             s + A.Raw([5, 5]),
-            Add(
-                HookCheckFailure,
-                [A.Raw],
-                "Cannot expand 2 'a' values into 3 lines.",
-                true,
-            ),
+            [A.Raw],
+            "Cannot expand 2 'a' values into 3 lines.",
+            true,
+        )
+        @test_err(
+            s + A.Raw([5, 5]),
+            """
+            Blueprint cannot expand against current system value:
+            Cannot expand 2 'a' values into 3 lines.
+            Not all blueprints have been expanded.
+            This means that the system consistency is still guaranteed, \
+            but some components have not been added.
+            in $(A.Raw)
+            """
         )
 
         # Cannot add component if requirement is missing.
         e = System{Value}() # Empty.
-        @fails(
+        addfails.@missingrequired(
             e + B.Raw([8, 8, 8]), # Size is brought, but not A.
-            Missing(A, B, [B.Raw], nothing),
+            _A, _B, [B.Raw], nothing,
+        )
+        @test_err(
+            e + B.Raw([8, 8, 8]),
+            """
+            Component $_B requires $_A, \
+            neither found in the system nor brought by the blueprints.
+            in $(B.Raw)
+            """
         )
 
         # Chain summations.
@@ -293,26 +302,22 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test s.sum == [13, 13, 13]
 
         # Cannot add incompatible component.
-        @fails(
+        addfails.@conflict(
             s + SparseMark(),
-            Add(
-                ConflictWithSystemComponent,
-                Sparse,
-                nothing,
-                [SparseMark],
-                Size,
-                nothing,
-                nothing,
-            ),
+            _Sparse, nothing, [SparseMark], _Size, nothing, nothing,
+        )
+        @test_err(s + SparseMark(),
+            """
+            Blueprint would expand into $_Sparse, \
+            which conflicts with $_Size already in the system.
+            in $SparseMark
+            """
         )
 
         # Blueprint checking may depend on other components.
         r = ReflectionMark()
         s = e + NLines(5)
-        @fails(
-            s + r,
-            Add(HookCheckFailure, [ReflectionMark], "Cannot reflect from no data.", true),
-        )
+        addfails.@hookcheck(s + r, [ReflectionMark], "Cannot reflect from no data.", true)
 
         # Blueprint expansion may depend on other components.
         sa = s + A.Uniform(5)
@@ -331,9 +336,9 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # Blueprint expansion may require other components
         # without its component itself requiring them.
-        @fails(
+        addfails.@missingrequired(
             s + ReflectFromB(), # .. although reflection does not require B in general.
-            Missing(A, nothing, [ReflectFromB], nothing),
+            _A, nothing, [ReflectFromB], nothing,
         )
         sa = s + A.Raw([1, 2, 3, 2, 1])
         sr = sa + ReflectFromB()
@@ -381,14 +386,19 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test s.n == 2
 
         # Display path to failing brought sub-blueprint in case of failure.
-        @fails(
+        addfails.@hookcheck(
             e + A.Raw([]),
-            Add(
-                HookCheckFailure,
-                [NLines, A.Raw],
-                "Not a positive number of lines: 0.",
-                false,
-            )
+            [NLines, A.Raw],
+            "Not a positive number of lines: 0.",
+            false,
+        )
+        @test_err(e + A.Raw([]),
+            """
+            Blueprint value cannot be expanded:
+            Not a positive number of lines: 0.
+            in $NLines
+             implied by: $(A.Raw)
+            """
         )
 
         # Implied blueprint are not expanded if their component is already there.
@@ -398,14 +408,11 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # But a failure to match is still a failure.
         s = e + NLines(3)
-        @fails(
+        addfails.@hookcheck(
             s += a,
-            Add(
-                HookCheckFailure,
-                [A.Raw],
-                "Cannot expand 2 'a' values into 3 lines.",
-                true,
-            )
+            [A.Raw],
+            "Cannot expand 2 'a' values into 3 lines.",
+            true,
         )
 
     end
@@ -421,8 +428,8 @@ module Basics # Use submodules to not clash blueprints/components names.
         # Check that the original system is always empty.
         function test_empty(i)
             @test isempty(collect(F.components(i)))
-            @fails(get_a(i), Method(get_a, "Requires component $_A."))
-            @fails(i.a, Property(a, "Component $_A is required to read this property."))
+            @methfails(get_a(i), :get_a, "Requires component $_A.")
+            @propfails(i.a, :a, "Component $_A is required to read this property.")
         end
         test_empty(init)
 

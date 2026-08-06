@@ -644,7 +644,7 @@ end
 
 struct ConflictWithSystemComponent <: AddError
     Comp::CompType
-    comp_abstract::Option{CompType} # Fill if 'comp' conflicts as this abstract type.
+    CompAbstract::Option{CompType} # Fill if 'comp' conflicts as this abstract type.
     node::Node
     Other::CompType
     OtherAbstract::Option{CompType} # Fill if 'other' conflicts as this abstract type.
