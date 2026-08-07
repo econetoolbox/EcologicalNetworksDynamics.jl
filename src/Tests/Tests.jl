@@ -22,15 +22,16 @@ using .Strings:
     @test_string, @test_repr, @test_disp, @test_err
 using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare
 
-# Native julia exceptions.
-@genfailsmacro jl_deffails Base.UndefVarError (; world = nothing)
-@genfailsmacro jl_callfails Base.MethodError (; world = nothing)
-
 """
 Numerous exception types in the package have a `mess` field
 to be tested as an error message.
 """
 const mess = FieldsCompare.message
+
+# Native julia exceptions.
+@genfailsmacro argfails Base.ArgumentError (; msg = mess)
+@genfailsmacro jl_deffails Base.UndefVarError (; world = nothing)
+@genfailsmacro jl_callfails Base.MethodError (; world = nothing)
 
 # Network errors.
 @genfailsmacro netfails EN.Networks.NetworkError
@@ -60,18 +61,6 @@ end
 @genitemfailsfor :component compfails
 @genitemfailsfor :method methfails
 
-# (reassure JuliaLS)
-macro bluefails end
-macro callfails end
-macro compfails end
-macro conflfails end
-macro jl_callfails end
-macro jl_deffails end
-macro labelfails end
-macro methfails end
-macro netfails end
-macro propfails end
-
 "Test various possible failures during `Framework.add!()`."
 module addfails
     using ..T: T, I, F, @genfailsmacro, mess
@@ -97,5 +86,18 @@ module addfails
     @genfailsmacro missingrequired F.MissingRequiredComponent (; node)
     @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)
 end
+
+# (reassure JuliaLS)
+macro argfails end
+macro bluefails end
+macro callfails end
+macro compfails end
+macro conflfails end
+macro jl_callfails end
+macro jl_deffails end
+macro labelfails end
+macro methfails end
+macro netfails end
+macro propfails end
 
 end

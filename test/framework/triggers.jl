@@ -1,13 +1,11 @@
-# Not exactly sure how to best integrate this (late) feature into the other test files.
-# Test it separately.
+# Not exactly sure how to best integrate this (late) feature into the other test files yet.
 module Triggers
 
-using EcologicalNetworksDynamics: Framework, F
-using .Framework
+using EcologicalNetworksDynamics.Framework:
+    F, value, Blueprint, Component, System, define_blueprint, add_trigger!
 
+using EcologicalNetworksDynamics.Tests: @argfails
 using Test
-using Main: @argfails
-using .F: value
 
 mutable struct Value
     _vec::Vector{Symbol}
