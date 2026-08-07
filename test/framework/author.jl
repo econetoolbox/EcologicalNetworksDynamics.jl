@@ -414,6 +414,44 @@ module Basics # Use submodules to not clash blueprints/components names.
 
     end
 
+    @testset "Guard end users agains components library bugs." begin
+        #-----------------------------------------------------------------------------------
+        # Guard end users against components library bugs.
+
+        struct Llz_b <: Blueprint{Value} end
+        define_blueprint(Llz_b)
+        F.lower(_, ::Llz_b, _) = throw("bug")
+        define_component(:Llz, Value, Basics; blueprints = [:Llz => Llz_b])
+
+        addfails.@lower(S(Llz_b()), [Llz_b])
+        @test_err(S(Llz_b()),
+            """
+            Unexpected failure during data lowering.
+            This is a bug in the component library. \
+            Please report to component authors if you can reproduce with a minimal example.
+            Not all blueprints have been expanded.
+            This means that the system consistency is still guaranteed, \
+            but some components have not been added.
+            in $Llz_b
+            """)
+
+        struct Sta_b <: Blueprint{Value} end
+        define_blueprint(Sta_b)
+        F.expand!(_, ::Sta_b, _) = throw("bug")
+        define_component(:Sta, Value, Basics; blueprints = [:Sta => Sta_b])
+        T.@errfails(S(Sta_b()),
+            """\n\
+            ⚠ ⚠ ⚠ Failure during blueprint expansion. ⚠ ⚠ ⚠
+            This is a bug in the components library.
+            This system state consistency is no longer guaranteed by the program.
+            Consider reporting to component authors \
+            if you can reproduce with a minimal example.
+            In any case, please drop the current system value and create a new one.
+            in $Sta_b
+            """)
+
+    end
+
     # ======================================================================================
     @testset "Clone/fork the system by copying it any time." begin
 

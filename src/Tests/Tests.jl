@@ -24,14 +24,15 @@ include("./errors.jl")
 
 const T = Tests
 
-using EcologicalNetworksDynamics: EN, F, I, SparseMatrix
+using EcologicalNetworksDynamics: EN, F, I, SparseMatrix, Display, errwith
+using .Display: rept
 
 using .Strings:
     showcompare,
     is_string, is_repr, is_disp,
     check_string, check_repr, check_disp, check_err,
     @test_string, @test_repr, @test_disp, @test_err
-using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare
+using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare, WrongField
 
 """
 Numerous exception types in the package have a `mess` field
@@ -40,6 +41,7 @@ to be tested as an error message.
 const mess = FieldsCompare.message
 
 # Native julia exceptions.
+@genfailsmacro errfails Base.ErrorException (; msg = mess)
 @genfailsmacro argfails Base.ArgumentError (; msg = mess)
 @genfailsmacro jl_deffails Base.UndefVarError (; world = nothing)
 @genfailsmacro jl_callfails Base.MethodError (; world = nothing)
@@ -75,9 +77,16 @@ end
 
 "Test various possible failures during `Framework.add!()`."
 module addfails
-    using ..T: T, I, F, @genfailsmacro, mess
+    using ..T: T, I, F, @genfailsmacro, mess, rept
     "The `node` fields on `AddError` is easily tested as a *path* of blueprint types."
-    function node(exp::Vector, node::F.Node)
+    function node(exp, node)
+        exp isa Vector ||
+            T.errwith("not a path vector to compare against a node", rethrow) do io
+                println(io, rept(exp))
+            end
+        node isa F.Node || T.errwith(T.WrongField, "not an `add!` node", rethrow) do io
+            println(io, rept(node))
+        end
         act = []
         while !isnothing(node)
             push!(act, typeof(node.blueprint))
@@ -95,6 +104,7 @@ module addfails
     @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
     @genfailsmacro component F.ComponentError (; mess)
     @genfailsmacro hookcheck F.HookCheckFailure (; node)
+    @genfailsmacro lower F.LoweringAborted (; node)
     @genfailsmacro missingrequired F.MissingRequiredComponent (; node)
     @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)
 end
@@ -116,6 +126,7 @@ macro callfails end
 macro compfails end
 macro conflfails end
 macro convertfails end
+macro errfails end
 macro inputfails end
 macro jl_callfails end
 macro jl_deffails end

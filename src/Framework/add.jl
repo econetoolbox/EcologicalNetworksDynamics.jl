@@ -396,6 +396,13 @@ function add!(
                 end
             end
 
+            # Last data conversion opportunity.
+            data = try
+                lower(system, blueprint, data)
+            catch _
+                throw(LoweringAborted(node))
+            end
+
             # Expand.
             try
                 expand!(system, blueprint, data)
@@ -446,6 +453,7 @@ function add!(
         # but the underlying system state consistency is safe.
         e isa HookCheckFailure && rethrow(e)
         e isa UnexpectedHookFailure && rethrow(e)
+        e isa LoweringAborted && rethrow(e)
         # This is unexpected and it may have occured during expansion.
         # The underlying system state consistency is no longuer guaranteed.
         raise = if e isa ExpansionAborted
@@ -474,8 +482,7 @@ function add!(
                $reset\n\
                $subtitle\n\
                This system state consistency \
-               is no longer guaranteed by the program. \
-               This should not have happened.\n\
+               is no longer guaranteed by the program.\n\
                Consider reporting to $who if you can reproduce \
                with a minimal example.\n\
                In any case, please drop the current system value \
@@ -639,6 +646,17 @@ function Base.showerror(io::IO, e::UnexpectedHookFailure)
         header = "Unexpected failure during early blueprint checking."
         footer = path
     end
+    print(io, "$header$compreport\n$footer")
+end
+
+struct LoweringAborted <: AddError
+    node::Node
+end
+function Base.showerror(io::IO, e::LoweringAborted)
+    (; node) = e
+    path = render_path(node)
+    header = "Unexpected failure during data lowering."
+    footer = late_fail_warn(path)
     print(io, "$header$compreport\n$footer")
 end
 
