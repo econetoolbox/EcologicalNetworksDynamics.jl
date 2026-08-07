@@ -34,16 +34,6 @@ include("./convert.jl")
 #  sep("Test user-facing behaviour.")
 #  include("./user/runtests.jl")
 
-# ONHOLD: being much simplified maybe
-# because there is no (much) need to test failing expanded macros anymore.
-#  # Testing utils, each within their dedicated module,
-#  # but also re-exported at toplevel
-#  # for convenience within futher tests modules.
-#  include("./test_failures.jl")
-#  using .TestFailures
-#  include("./dedicated_test_failures.jl")
-#  using .DedicatedTestFailures
-
 #= Silent all this during internals refactoring.
 
 # The whole testing suite has been moved to "internals"
