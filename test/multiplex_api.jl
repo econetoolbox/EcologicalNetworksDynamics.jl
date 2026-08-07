@@ -1,14 +1,14 @@
-module TestMultiplexApi
+module MultiplexApi
 
-using EcologicalNetworksDynamics.MultiplexApi
+using EcologicalNetworksDynamics.MultiplexApi: Mx
 
+using EcologicalNetworksDynamics.Tests: @argfails
 using Test
-import Main: @argfails
 
 # Shorten argument parser names.
-nocontext(; kwargs...) = parse_multiplex_arguments(kwargs)
-with_parm(p; kwargs...) = parse_interaction_for_multiplex_parameter(p, kwargs)
-with_int(i; kwargs...) = parse_multiplex_parameter_for_interaction(i, kwargs)
+nocontext(; kwargs...) = Mx.parse_multiplex_arguments(kwargs)
+with_parm(p; kwargs...) = Mx.parse_interaction_for_multiplex_parameter(p, kwargs)
+with_int(i; kwargs...) = Mx.parse_multiplex_parameter_for_interaction(i, kwargs)
 
 @testset "Multiplex API" begin
 

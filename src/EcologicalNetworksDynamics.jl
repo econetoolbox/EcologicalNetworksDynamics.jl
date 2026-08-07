@@ -47,6 +47,7 @@ include("./AliasingDicts/AliasingDicts.jl")
 const AD = AliasingDicts
 
 include("./multiplex_api.jl")
+using .MultiplexApi: interactions_names, multiplex_parameters_names
 
 #  # Bring this all together into a library for component authors.
 #  include("./NetworkFramework/NetworkFramework.jl")
@@ -82,5 +83,10 @@ include("./diversity.jl")
 #  Framework.REVISING = true # XXX: still required?
 
 include("Tests/Tests.jl")
+
+# ==========================================================================================
+# Default exposed interface.
+
+export interactions_names, multiplex_parameters_names
 
 end

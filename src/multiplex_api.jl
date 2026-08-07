@@ -18,7 +18,7 @@ AD.define_aliasing_dict(
         :refuge => [:r, :ref],
     ),
 )
-export InteractionDict
+local InteractionDict # (reassure JuliaLS)
 
 AD.define_aliasing_dict(
     Mx,
@@ -37,12 +37,11 @@ AD.define_aliasing_dict(
         :symmetry => [:s, :sym, :symmetric],
     ),
 )
-export MultiplexParametersDict
+local MultiplexParametersDict # (reassure JuliaLS)
 
-# Export aliases cheat-sheets to users:
+# Cheat-sheets to users:
 interactions_names() = AD.aliases(InteractionDict)
 multiplex_parameters_names() = AD.aliases(MultiplexParametersDict)
-export interactions_names, multiplex_parameters_names
 
 # Nest them both into a flexible kwargs API.
 multiplex_parameters_types = MultiplexParametersDict(;
@@ -58,12 +57,6 @@ multiplex_types = InteractionDict(
 )
 
 AD.define_2D_api(Mx, :Multiplex, InteractionDict, MultiplexParametersDict)
-export MultiplexDict
-export MultiplexArguments
-export TrackedMultiplexParameterDict
-export parse_multiplex_arguments
-export parse_multiplex_parameter_for_interaction
-export parse_interaction_for_multiplex_parameter
 
 # Perform further checking, adding multiplex semantics.
 pstandard(ref) = AD.standardize(ref, MultiplexParametersDict)
