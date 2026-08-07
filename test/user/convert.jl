@@ -1,10 +1,10 @@
 module Convert
 
 using EcologicalNetworksDynamics.NetworkFramework:
-    NF, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency
-using .NF: convert, try_convert # /!\ Not Base.convert.
+    NF, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency, convert, try_convert
+# /!\ `convert !== Base.convert` in this module.
 
-using Main: @inputfails
+using EcologicalNetworksDynamics.Tests: @inputfails, @valuefails, @convertfails
 
 using Test
 using SparseArrays
@@ -357,7 +357,7 @@ end
     # Exposed conversion failures.
 
     input = 5
-    @inputfails(
+    @valuefails(
         (try_convert(input, Symbol => id, Vector{String} => id)),
         5,
         "Cannot convert input to either:\n  \
@@ -366,7 +366,7 @@ end
     )
 
     input = [0, 1, 2]
-    @inputfails(
+    @convertfails(
         (convert(Vector{Bool}, input)),
         Vector{Bool},
         [0, 1, 2],

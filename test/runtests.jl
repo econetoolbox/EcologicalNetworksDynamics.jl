@@ -29,10 +29,9 @@ include("./framework/runtests.jl")
 sep("Test API utils.")
 include("./aliasing_dicts.jl")
 include("./multiplex_api.jl")
-include("./convert.jl")
 
-#  sep("Test user-facing behaviour.")
-#  include("./user/runtests.jl")
+sep("Test user-facing behaviour.")
+include("./user/runtests.jl")
 
 #= Silent all this during internals refactoring.
 

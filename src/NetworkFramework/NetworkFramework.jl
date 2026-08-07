@@ -98,19 +98,8 @@ and assume that additional context *will* be introduced above to improve the err
 module NetworkFramework
 
 import EcologicalNetworksDynamics:
-    EN,
-    Networks,
-    N,
-    Framework,
-    F,
-    I,
-    argerr,
-    SparseMatrix,
-    Option,
-    KwargsHelpers,
-    AD,
-    FailedAttempts,
-    Display
+    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD,
+    FailedAttempts, Display
 import .Display: render_input
 using .Networks
 using .Framework

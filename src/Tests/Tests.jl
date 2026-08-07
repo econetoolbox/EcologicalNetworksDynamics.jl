@@ -99,18 +99,30 @@ module addfails
     @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)
 end
 
+#-------------------------------------------------------------------------------------------
+# Validating user input.
+
+@genfailsmacro inputfails EN.NetworkFramework.SimpleError (; mess)
+@genfailsmacro valuefails EN.NetworkFramework.ValueError (; mess)
+@genfailsmacro convertfails EN.NetworkFramework.ConvertError (; mess)
+
+#-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)
+
 macro aliasfails end
 macro argfails end
 macro bluefails end
 macro callfails end
 macro compfails end
 macro conflfails end
+macro convertfails end
+macro inputfails end
 macro jl_callfails end
 macro jl_deffails end
 macro labelfails end
 macro methfails end
 macro netfails end
 macro propfails end
+macro valuefails end
 
 end
