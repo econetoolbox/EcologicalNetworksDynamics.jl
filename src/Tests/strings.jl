@@ -12,7 +12,7 @@ and correctly point to the right failed test location.
 """
 module Strings
 
-using EcologicalNetworksDynamics: Display, Option, @ErrBrand, errwith
+using EcologicalNetworksDynamics: Display, Option, @ErrBrand, errwith, Tests as T
 using .Display: yellow, blue, green, red, bold, italics, reset, wide_repr, eprintln
 
 using Test
@@ -198,9 +198,9 @@ macro gentest(variant)
             # Fake a failed @test call for surrounding @testset..
             ftest = quote
                 $($unexp) = false
-                $($Test).@test $($unexp)#                                <---.
-            end                         #                                     \
-            ftest.args[4].args[2] = src # ..whose location is not literally *here*.
+                $($Test).@test $($unexp)#                                <----.
+            end                         #                                      \
+            T.liftmcall(ftest.args[4], src) # ..whose location is not literally *here*.
             quote
                 try
                     $($fn)($(args...))

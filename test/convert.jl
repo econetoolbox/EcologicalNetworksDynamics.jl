@@ -1,6 +1,7 @@
 module Convert
 
-using EcologicalNetworksDynamics: NF, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency
+using EcologicalNetworksDynamics.NetworkFramework:
+    NF, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency
 using .NF: convert, try_convert # /!\ Not Base.convert.
 
 using Main: @inputfails

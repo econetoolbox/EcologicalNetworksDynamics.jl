@@ -41,6 +41,8 @@ for T in [
         end
     end)
 end
+# (reassure JuliaLS)
+local BasalArg, RevBasalArg, NestedArg, RevNestedArg, OuterContextArg, InnerContextArg
 
 # Canonicalize nesting order.
 reorder(::Type{BasalArg}) = (o, i) -> (o, i)
@@ -64,7 +66,6 @@ function expand(a::Nested2DArg)
         "'$a' argument"
     end
 end
-export expand
 
 # Error on user input ambiguity.
 function ambiguity(nest_name, a::Nested2DArg{O,I}, b::Nested2DArg{O,I}) where {O<:AD,I<:AD}
@@ -102,7 +103,7 @@ function arg_parses(arg, ::Type{O}, ::Type{I}) where {O<:AD,I<:AD}
     bits = split(arg, '_')
     for k in 1:(length(bits)-1)
         a = Symbol(join(bits[1:k], '_'))
-        b = Symbol(join(bits[k+1:end], '_'))
+        b = Symbol(join(bits[(k+1):end], '_'))
         if a in orefs && b in irefs
             push!(parses, (a, b, false))
         end
@@ -162,10 +163,10 @@ function ambiguity_guard(arg, nest_name::Symbol, ::Type{O}, ::Type{I}) where {O<
         if length(different) > 1
             # This is a true semantic ambiguity.
             (o1, i1), (o2, i2) = different
-            throw("Ambiguous aliasing for '$nest_name' 2D API: \
-                   argument '$arg' either means \
-                   $(parse_message(o1, i1, O, I)) or \
-                   $(parse_message(o2, i2, O, I)).")
+            def2derr(
+                "Ambiguous aliasing for '$nest_name' 2D API: argument '$arg' either means \
+                 $(parse_message(o1, i1, O, I)) or $(parse_message(o2, i2, O, I)).",
+            )
         end
     end
 end
@@ -181,8 +182,8 @@ function all_guards(nest_name, ::Type{O}, ::Type{I}) where {O<:AD,I<:AD}
             si = standardize(i, I)
             ho = shortname(O)
             hi = shortname(I)
-            throw("Ambiguous aliasing for '$nest_name' 2D API: \
-                   argument '$o' either means '$ho::$so' or '$hi::$si'.")
+            def2derr("Ambiguous aliasing for '$nest_name' 2D API: \
+                      argument '$o' either means '$ho::$so' or '$hi::$si'.")
         end
     end
 
@@ -288,7 +289,6 @@ function parse_2D_arguments(
                     for (nested_arg, val) in z
                         typeof(nested_arg) <: Integer && iterr("integer keys.")
                         outer, inner = ro(arg, nested_arg)
-                        T = typeof(val)
                         nested = ArgType{O,I}(outer, inner)
                         record(nested, outer, inner, val)
                     end
@@ -312,7 +312,6 @@ function parse_2D_arguments(
             # There may be several matches,
             # but development ambiguity guards guarantee only one meaning.
             ((outer, inner, reversed),) = splits
-            T = typeof(value)
             basal = (reversed ? RevBasalArg{O,I} : BasalArg{O,I})(outer, inner)
             record(basal, outer, inner, value)
 
@@ -322,7 +321,6 @@ function parse_2D_arguments(
     elseif isnothing(implicit_outer)
         standardize(implicit_inner, I) # Guard against invalid implicit ref.
         for (outer, value) in input
-            T = typeof(value)
             arg = InnerContextArg{O,I}(outer, implicit_inner)
             record(arg, outer, implicit_inner, value)
         end
@@ -330,7 +328,6 @@ function parse_2D_arguments(
     elseif isnothing(implicit_inner)
         standardize(implicit_outer, O) # Guard agains invalid implicit ref.
         for (inner, value) in input
-            T = typeof(value)
             arg = OuterContextArg{O,I}(implicit_outer, inner)
             record(arg, implicit_outer, inner, value)
         end
@@ -583,4 +580,9 @@ function define_2D_api(mod::Module, name::Symbol, O::Type{<:AD}, I::Type{<:AD})
         end,
     )
 end
-export define_2D_api
+
+struct Def2DAlias <: Exception
+    mess::String
+end
+def2derr(m, throw = Base.throw) = throw(Def2DAlias(m))
+Base.showerror(io::IO, e::Def2DAlias) = print(io, e.mess)

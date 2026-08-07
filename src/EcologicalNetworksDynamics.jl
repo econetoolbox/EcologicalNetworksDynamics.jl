@@ -31,7 +31,6 @@ include("./codegen.jl")
 # Data: parsimonious model memory representation.
 include("Networks/Networks.jl")
 const N = Networks
-using .N: Network
 
 #  # Code: efficient model simulation.
 #  include("Differentials/Differentials.jl")
@@ -41,22 +40,17 @@ using .N: Network
 include("./Framework/Framework.jl")
 const F = Framework
 
-#  # Additional utils to construct components interface.
-#  include("./kwargs_helpers.jl")
+# Additional utils to construct components interface.
+include("./kwargs_helpers.jl")
 
-#  include("./AliasingDicts/AliasingDicts.jl")
-#  const AD = AliasingDicts
+include("./AliasingDicts/AliasingDicts.jl")
+const AD = AliasingDicts
 
-#  include("./multiplex_api.jl")
-#  using .MultiplexApi
+include("./multiplex_api.jl")
 
 #  # Bring this all together into a library for component authors.
 #  include("./NetworkFramework/NetworkFramework.jl")
 #  const NF = NetworkFramework
-#  using .NF:
-    #  D, V, Views, Model, Blueprint, Component, @alias, Map, Adjacency, BinMap, BinAdjacency
-#  using .V: extract
-#  export Model, extract
 
 #  # The actual user-facing components of the package are defined there,
 #  # connecting them to the internals via the framework.

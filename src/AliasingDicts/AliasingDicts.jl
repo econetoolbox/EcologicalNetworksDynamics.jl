@@ -50,7 +50,7 @@ function standardize(ref, D::Type{<:AD})
     if key in keys(r)
         r[key]
     else
-        throw(AliasingError(name(D), "Invalid reference: '$ref'."))
+        aliaserr(name(D), "Invalid reference: '$ref'.")
     end
 end
 
@@ -146,7 +146,7 @@ function define_aliasing_dict(
     # Construct references and surjections.
     references = OrderedDict()
     revmap = OrderedDict()
-    err(mess) = throw(AliasingError(system_name, mess))
+    err(mess) = aliaserr(system_name, mess)
     for (i, pair) in enumerate(raw_refs)
         std, refs = try
             a, b = pair
@@ -231,7 +231,6 @@ function define_aliasing_dict(
     )
     DictType
 end
-export define_aliasing_dict
 
 # Marker dispatching to the underlying constructor.
 struct InnerConstruct end
@@ -245,14 +244,10 @@ function construct(pairs, DictType::Type{<:AliasingDict}, T::Type)
         standard = standardize(ref, DictType)
         if standard in keys(norm)
             aname = titlecase(name(DictType))
-            throw(
-                AliasingError(
-                    name(DictType),
-                    "$aname type '$standard' specified twice: " *
-                    "once with '$(norm[standard])' " *
-                    "and once with '$ref'.",
-                ),
-            )
+            aliaserr(name(DictType),
+                "$aname type '$standard' specified twice: " *
+                "once with '$(norm[standard])' " *
+                "and once with '$ref'.")
         end
         norm[standard] = ref
         d[standard] = value
@@ -267,14 +262,15 @@ function common_type_for(pairs_generator)
 end
 
 # Dedicated exception type.
-struct AliasingError <: Exception
+struct AliasError <: Exception
     name::String
-    message::String
+    mess::String
 end
-function Base.showerror(io::IO, e::AliasingError)
-    print(io, "In aliasing system for $(repr(e.name)): $(e.message)")
+aliaserr(n, m, throw = Base.throw) = throw(AliasError(n, m))
+function Base.showerror(io::IO, e::AliasError)
+    (; name, mess) = e
+    print(io, "In aliasing system for $(repr(name)): $mess")
 end
-export AliasingError
 
 # Useful APIs can be crafted out of nesting two aliased dicts together.
 include("./nested_2D_api.jl")

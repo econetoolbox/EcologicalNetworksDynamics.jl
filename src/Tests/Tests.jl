@@ -5,6 +5,17 @@ and useful to setup development environment with Revise for contributors.
 """
 module Tests
 
+"""
+Edit quoted macrocall with the given location.
+Useful when generating `@test` calls from within `@test_*` macro
+but we want failures to point to the latter, not the former.
+"""
+function liftmcall(xp, src)
+    xp.head == :macrocall || throw("Not a macrocall to be lifted: $xp.")
+    xp.args[2] = src
+    xp
+end
+
 include("./strings.jl")
 include("./errors.jl")
 
@@ -37,6 +48,9 @@ const mess = FieldsCompare.message
 @genfailsmacro netfails EN.Networks.NetworkError
 @genfailsmacro labelfails EN.Networks.LabelError (; index = nothing)
 
+# API utils errors.
+@genfailsmacro aliasfails EN.AliasingDicts.AliasError (; mess)
+
 #-------------------------------------------------------------------------------------------
 # Framework errors.
 
@@ -50,9 +64,7 @@ macro genitemfailsfor(itemtype, name)
     quote
         macro $name(xp, f...)
             src = $(esc(:__source__)) # (https://github.com/JuliaLang/julia/issues/62572)
-            mcall = :($($T).@itemfails($xp, $($itemtype), $(f...)))
-            mcall.args[2] = src
-            esc(mcall)
+            liftmcall(:($($T).@itemfails($xp, $($itemtype), $(f...))), src) |> esc
         end
     end
 end
@@ -88,6 +100,7 @@ module addfails
 end
 
 # (reassure JuliaLS)
+macro aliasfails end
 macro argfails end
 macro bluefails end
 macro callfails end
