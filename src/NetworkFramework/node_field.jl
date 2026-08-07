@@ -76,7 +76,7 @@ function define_node_field_component(
             F.implied(::Raw) = (Class,)
             F.implied_blueprint_for(bp::Raw, ::Type{_Class}) =
                 NF.implied_class(d, Class, bp)
-            F.early_check(bp::Raw) = NF.early_check(d, bp)
+            F.early_check(bp::Raw) = NF._early_check(d, bp)
             F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
             NF.define_blueprint(Raw, "raw values"; depends = [Class])
@@ -97,7 +97,7 @@ function define_node_field_component(
             F.implied(::Map) = (Class,)
             F.implied_blueprint_for(bp::Map, ::Type{_Class}) =
                 NF.implied_class(d, Class, bp)
-            F.early_check(bp::Map) = NF.early_check(d, bp)
+            F.early_check(bp::Map) = NF._early_check(d, bp)
             F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
             NF.define_blueprint(Map, $"[$class => $field] map"; depends = [Class])
@@ -115,7 +115,7 @@ function define_node_field_component(
                     Flat($short) = new(NF.construct(d, Flat, $short))
                 end
                 NF.data(bp::Flat) = bp.$short
-                F.early_check(bp::Flat) = NF.early_check(d, bp)
+                F.early_check(bp::Flat) = NF._early_check(d, bp)
                 F.late_check(model, bp::Flat, data) = NF.late_check(d, model, bp, data)
                 F.expand!(model, bp::Flat, data) = NF.expand!(d, model, bp, data)
                 NF.define_blueprint(Flat, "uniform value"; depends = [Class])

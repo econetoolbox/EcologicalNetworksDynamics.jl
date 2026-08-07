@@ -615,11 +615,11 @@ late_fail_warn(path) = "Not all blueprints have been expanded.\n\
 
 struct HookCheckFailure <: AddError
     node::Node
-    message::String
+    mess::String
     late::Bool
 end
 function Base.showerror(io::IO, e::HookCheckFailure)
-    (; node, message, late) = e
+    (; node, mess, late) = e
     path = render_path(node)
     if late
         header = "Blueprint cannot expand against current system value"
@@ -629,7 +629,7 @@ function Base.showerror(io::IO, e::HookCheckFailure)
         footer = path
     end
     it = crayon"italics"
-    print(io, "$header:\n$it$message$reset\n$footer")
+    print(io, "$header:\n$it$mess$reset\n$footer")
 end
 
 struct UnexpectedHookFailure <: AddError

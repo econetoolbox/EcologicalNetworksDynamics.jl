@@ -1,22 +1,22 @@
 """
-Test all aspects of typical GraphScalar component,
-using Temperature as an example, but without testing anything specific to temperature.
-Anything specific to temperature will be tested in a dedicated file.
+Test a typical GraphScalar component, using Temperature as an example,
+but without testing anything specific to temperature.
+(anything specific to temperature will be tested in a dedicated file)
 """
-module GraphScalarTest
+module GraphField
 
 using EcologicalNetworksDynamics
 
+using EcologicalNetworksDynamics.Tests:
+    N, F, @test_repr, @test_disp, @valuefails, addfails
 using Test
-using EcologicalNetworksDynamics: EN, N, F
-using Main: is_repr, is_disp, @inputfails, @sysfails, Value
 
 @testset "Typical GraphScalar component" begin
 
     # Only one blueprint yet.
-    @test Temperature isa EN.Component
-    @test is_repr(Temperature, "Temperature")
-    @test is_disp(
+    @test Temperature isa Component
+    @test_repr(Temperature, "Temperature")
+    @test_disp(
         Temperature,
         """
         Temperature (component for $(N.Network), expandable from:
@@ -24,7 +24,7 @@ using Main: is_repr, is_disp, @inputfails, @sysfails, Value
         )\
         """,
     )
-    @test Temperature.Raw <: EN.Blueprint
+    @test Temperature.Raw <: Blueprint
 
     # Construct from raw values, regardless of input type.
     bp = Temperature.Raw(215.0)
@@ -32,12 +32,18 @@ using Main: is_repr, is_disp, @inputfails, @sysfails, Value
     @test bp == Temperature(215) # Component as constructor.
 
     # Checked on construction.
-    nonneg = "Value cannot be negative."
-    @inputfails(Temperature(-1), nonneg, -1)
+    @valuefails(
+        Temperature(-1),
+        -1.0, # HERE how to avoid test error message context only once?
+        """
+        When constructing blueprint for <temperature>:
+        Value cannot be negative.\
+        """
+    )
 
     # Expand into a field component.
     m = Model(bp)
-    @test is_disp(
+    @test_disp(
         m,
         """
         Model (alias for $(F.System){$(N.Network)}) with 1 component:
@@ -61,15 +67,17 @@ using Main: is_repr, is_disp, @inputfails, @sysfails, Value
     @test m.T == 244 # Current model updated.
 
     # Value is still checked.
-    @inputfails(m.T = -1, nonneg, -1)
+    @valuefails(m.T = -1, -1.0, "Value cannot be negative.")
     bp.T = -1 # Even after blueprint corruption.
-    @sysfails(
+    addfails.@check(
         Model(bp),
-        Check(
-            early,
-            [Temperature.Raw],
-            "When checking raw value for <temperature>:\n$nonneg\nReceived: -1.0",
-        )
+        [Temperature.Raw],
+        """
+        When checking <temperature> blueprint data:
+        Value cannot be negative.
+        Received: -1.0 ::$Float64\
+        """,
+        false,
     )
 
 end

@@ -47,15 +47,14 @@ include("./AliasingDicts/AliasingDicts.jl")
 const AD = AliasingDicts
 
 include("./multiplex_api.jl")
-using .MultiplexApi: interactions_names, multiplex_parameters_names
 
 # Bring this all together into a library for component authors.
 include("./NetworkFramework/NetworkFramework.jl")
 const NF = NetworkFramework
 
-#  # The actual user-facing components of the package are defined there,
-#  # connecting them to the internals via the framework.
-#  include("./components/main.jl")
+# The actual user-facing components of the package are defined there,
+# connecting them to the internals via the framework.
+include("./components/main.jl")
 
 #=
 #-------------------------------------------------------------------------------------------
@@ -87,6 +86,12 @@ include("Tests/Tests.jl")
 # ==========================================================================================
 # Default exposed interface.
 
+using .MultiplexApi
 export interactions_names, multiplex_parameters_names
+
+using .NetworkFramework
+export Blueprint, Component, Model
+
+export Temperature
 
 end

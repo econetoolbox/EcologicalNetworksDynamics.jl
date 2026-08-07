@@ -54,7 +54,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
             F.implied(::Matrix) = (Class,)
             F.implied_blueprint_for(bp::Matrix, ::Type{_Class}) =
                 NF.implied_class(d, Class, bp)
-            F.early_check(bp::Matrix) = NF.early_check(d, bp)
+            F.early_check(bp::Matrix) = NF._early_check(d, bp)
             F.late_check(model, bp::Matrix) = NF.late_check(d, model, bp)
             F.expand!(model, bp::Matrix) = NF.expand!(d, model, bp)
             NF.define_blueprint(Matrix, "boolean matrix of $($w) links")

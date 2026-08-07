@@ -66,7 +66,7 @@ function define_reflexive_web_field_component(
             Raw($short) = new(NF.construct(d, Raw, $short))
         end
         NF.data(bp::Raw) = bp.$short
-        F.early_check(bp::Raw) = NF.early_check(d, bp)
+        F.early_check(bp::Raw) = NF._early_check(d, bp)
         F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
         F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
         NF.define_blueprint(Raw, "raw values"; depends = [Web])
@@ -87,7 +87,7 @@ function define_reflexive_web_field_component(
             NF.data(bp::Matrix) = bp.$short
             F.implied(bp::Matrix) = (Web,)
             F.implied_blueprint_for(bp::Matrix, ::Type{_Web}) = NF.implied_web(d, Web, bp)
-            F.early_check(bp::Matrix) = NF.early_check(d, bp)
+            F.early_check(bp::Matrix) = NF._early_check(d, bp)
             F.late_check(model, bp::Matrix, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Matrix, data) = NF.expand!(d, model, bp, data)
             NF.define_blueprint(
@@ -112,7 +112,7 @@ function define_reflexive_web_field_component(
             F.implied(bp::Adjacency) = (Web,)
             F.implied_blueprint_for(bp::Adjacency, ::Type{_Web}) =
                 NF.implied_web(d, Web, bp)
-            F.early_check(bp::Adjacency) = NF.early_check(d, bp)
+            F.early_check(bp::Adjacency) = NF._early_check(d, bp)
             F.late_check(model, bp::Adjacency, data) = NF.late_check(d, model, bp, data)
             F.expand!(model, bp::Adjacency, data) = NF.expand!(d, model, bp, data)
             NF.define_blueprint(
@@ -135,7 +135,7 @@ function define_reflexive_web_field_component(
                     Flat($short) = new(NF.construct(d, Flat, $short))
                 end
                 NF.data(bp::Flat) = bp.$short
-                F.early_check(bp::Flat) = NF.early_check(d, bp)
+                F.early_check(bp::Flat) = NF._early_check(d, bp)
                 F.late_check(model, bp::Flat, data) = NF.late_check(d, model, bp, data)
                 F.expand!(model, bp::Flat, data) = NF.expand!(d, model, bp, data)
                 NF.define_blueprint(Flat, "uniform value"; depends = [Web])

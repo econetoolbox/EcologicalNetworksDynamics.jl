@@ -1,25 +1,22 @@
 # Temperature is a single graph-level scalar
 # useful to calculate allometric values for various biorates.
 
-(false) && (local Temperature, _Temperature) # (reassure JuliaLS)
-export Temperature
-
 module TemperatureDef
-
 using EcologicalNetworksDynamics: EN, D, NF
 
+# Specify datakind.
 const d = D.GraphField(:temperature)
-const DT = typeof(d)
+const _D = typeof(d)
+D.name_variants(::_D) = (:T, :temperature, :Temperature)
+D.type(::_D) = Float64
+NF.intrinsic_check(::_D, input) = NF.non_negative(Float64, input)
 
-D.name_variants(::DT) = (:T, :temperature, :Temperature)
-D.type(::DT) = Float64
-NF.check(::DT, input) = NF.non_negative(Float64, input)
-
-# Codegen + exec.
-NF.define_graph_scalar(EN, d)
-using .EN: Temperature, _Temperature
-
-# Default value.
-(::_Temperature)() = Temperature.Raw(293.15)
+# Generate typical component and blueprints.
+NF.define_graph_scalar(EN, d) # (define in outer module)
 
 end
+local Temperature, _Temperature # (reassure JuliaLS)
+
+# Append constructor: default value.
+(::_Temperature)() = Temperature.Raw(293.15)
+export Temperature

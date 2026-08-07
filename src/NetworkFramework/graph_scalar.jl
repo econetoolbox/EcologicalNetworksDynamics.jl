@@ -25,19 +25,18 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
         (
             quote
                 module $Singular_
-                import EcologicalNetworksDynamics: F, NF
+                import EcologicalNetworksDynamics.NetworkFramework: NF, @bp_construct
                 const d = $d
                 const T = $T
 
                 mutable struct Raw <: NF.GraphScalarBlueprint
                     $field::T
-                    Raw(input) = new(NF.check(d, NF.inputconvert(T, input)))
+                    @bp_construct(Raw)
                 end
-                NF.data(bp::Raw) = bp.$field
-                F.early_check(bp::Raw) = NF.early_check(d, bp)
-                F.expand!(model, bp::Raw) = NF.expand!(d, model, bp)
-                F.define_blueprint(Raw, "raw $($(Meta.quot(singular))) value")
                 export Raw
+                NF.datatype(::Type{Raw}) = T
+                NF.data(b::Raw) = b.$field
+                $NF.register_blueprint(Raw, "raw $($("$singular")) value"; d)
 
                 end
             end
@@ -72,14 +71,14 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics: V, NF, D, Network, Model
+                using EcologicalNetworksDynamics.NetworkFramework: NF, D, Network, Model
                 const d = $d
                 const props = $props
                 const C = $C
-                get_value(n::Network) = NF.get_value(d, n)
+                get_value(::Network, m::Model) = NF.get_value(m, d)
                 NF.define_method(get_value; read_as = props, depends = [C])
                 if !D.readonly(d)
-                    set_value!(n::Network, input) = NF.reassign!(d, n, input)
+                    set_value!(::Network, m::Model, input) = NF.reassign!(m, d, input)
                     NF.define_method(set_value!; write_as = props, depends = [C])
                 end
                 end
@@ -91,37 +90,31 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
 
 end
 
-early_check(d::D.GraphField, bp::GraphScalarBlueprint) =
-    try
-        check(d, data(bp))
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When checking raw value for $d")
-    end
+# ==========================================================================================
+# Specialisation for this typical component type.
 
-function expand!(d::D.GraphField, m::Model, bp::GraphScalarBlueprint)
-    field = D.field(d)
-    data = NF.data(bp)
-    n = N.network(m)
+function expand!(m::Model, d::D.GraphField, data)
+    field, n = D.field(d), N.network(m)
     N.add_field!(n, field, data)
 end
 
-function get_value(d::D.GraphField, n::Network)
-    field = D.field(d)
+function get_value(m::Model, d::D.GraphField)
+    field, n = D.field(d), N.network(m)
     entry = n.data[field]
     N.read(entry) do value
         value # Just leak the value: it has been checked for immutability.
     end
 end
 
-function reassign!(d::D.GraphField, n::Network, input)
-    T = D.type(d)
-    conv = NF.inputconvert(T, input)
-    checked = check(d, conv)
-    field = D.field(d)
+function reassign!(m::Model, d::D.GraphField, input)
+    field, n = D.field(d), N.network(m)
+    data = reassign(m, d, input)
     entry = n.data[field]
-    N.reassign!(entry, checked) # Just feed it down: typechecked for immutability.
+    N.reassign!(entry, data) # Just feed it down: typechecked for immutability.
 end
+
+#-------------------------------------------------------------------------------------------
+# Display.
 
 function graph_scalar_shortline(d::D.GraphField, io, m::Model)
     field = D.field(d)

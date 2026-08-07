@@ -59,7 +59,7 @@ function define_subnode_field_component(
             Raw($field) = new(NF.construct(d, Raw, $field))
         end
         NF.data(bp::Raw) = bp.$field
-        F.early_check(bp::Raw) = NF.early_check(d, bp)
+        F.early_check(bp::Raw) = NF._early_check(d, bp)
         F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
         F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
         NF.define_blueprint(Raw, "raw values")
@@ -75,7 +75,7 @@ function define_subnode_field_component(
             Map($field) = new(NF.construct(d, Map, $field))
         end
         NF.data(bp::Map) = bp.$field
-        F.early_check(bp::Map) = NF.early_check(d, bp)
+        F.early_check(bp::Map) = NF._early_check(d, bp)
         F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
         F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
         NF.define_blueprint(Map, "[$class => $field] map")
@@ -92,7 +92,7 @@ function define_subnode_field_component(
                     Flat($field) = new(NF.construct(d, Flat, $field))
                 end
                 NF.data(bp::Flat) = bp.$field
-                F.early_check(bp::Flat) = NF.early_check(d, bp)
+                F.early_check(bp::Flat) = NF._early_check(d, bp)
                 F.late_check(model, bp::Flat, data) = NF.late_check(d, model, bp, data)
                 F.expand!(model, bp::Flat, data) = NF.expand!(d, model, bp, data)
                 NF.define_blueprint(Flat, "uniform value"; depends = [Class])

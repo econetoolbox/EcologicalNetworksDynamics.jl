@@ -65,30 +65,36 @@ so it mostly falls into three categories:
         - `[1 => 2, 2 => 4]`
 
 Here is the typical, default data flow, starting from arbitrary user input:
-  - Parse:
-    - Convert (to the right type).
-    - Intrinsic check.
+```
+- Parse:
+  - Convert: to the right type.
+  - Intrinsic check: plausible value wrt. to target data kind.
 
-  - (Data)Blueprint:
-    - Construct: parse.
-    - Early check: intrinsic check (again) + data preprocess.
-    - Late check (against model).
-    - Expand.
+- (Data)Blueprint:
+  - Construct: parse.
+  - Early check:
+   - intrinsic check: again, because the blueprint value may have been mutated by user.
+   - lowering: possible first preprocess step towards actual network data format.
+  - Late check:
+    - consistency against current model value.
+    - lowering: possible second preprocess step.
+  - Lower: final lowering stage. Must transform the data into the correct internal format.
+  - Expand: store into the network.
 
-  - (Data)Component (via *views*):
-
-    - Index:
-      - Check dimension.
-      - Parse (index).
-      - Check query (against model).
-      - Obtain.
-
-    - Mutate:
-      - Select: index (before 'obtain').
-      - Parse (rhs).
-      - Early check.
-      - Late check.
-      - Commit.
+- (Data)Component (via *views*):
+  - Index:
+    - Check dimension.
+    - Parse (the index).
+    - Check query (against model).
+    - Obtain.
+  - Mutate/Reassign:
+    - Select: index (before 'obtain').
+    - Parse (rhs).
+    - Early check.
+    - Late check.
+    - Lower.
+    - Commit.
+```
 
 Throughout the process, raise and upgrade the typical error types
 to explain failure reason and upgrade context depending on position within the flow.
@@ -101,9 +107,6 @@ import EcologicalNetworksDynamics:
     EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD,
     FailedAttempts, Display
 import .Display: render_input
-using .Networks
-using .Framework
-using .KwargsHelpers
 
 using Crayons
 using OrderedCollections
@@ -116,6 +119,7 @@ include("framework.jl")
 
 # Define extension points to customize the data flow behaviour with fine grain.
 include("dispatchers.jl")
+using .Dispatchers: Dispatcher
 const D = Dispatchers
 
 include("errors.jl")
@@ -132,8 +136,8 @@ include("./Views/Views.jl")
 const V = Views
 
 # Templates for typical network blueprint/components.
-#  include("./graph_scalar.jl")
-include("./class.jl")
+include("./graph_scalar.jl")
+#  include("./class.jl")
 #  include("./web.jl")
 #  include("./node_field.jl")
 #  include("./subnode_field.jl")
@@ -145,19 +149,19 @@ include("./display.jl")
 # Frequent specializations for checking values.
 
 function non_negative(T, input)
-    v = inputconvert(T, input)
+    v = convert(T, input)
     v < 0 && liberr(v, "Value cannot be negative.")
     v
 end
 
 function fraction(T, input)
-    v = inputconvert(T, input)
+    v = convert(T, input)
     0.0 <= v <= 1.0 || liberr(v, "Value must belong to [0, 1].")
     v
 end
 
 function name_among(expected, input)
-    name = inputconvert(Symbol, input)
+    name = convert(Symbol, input)
     name in expected ||
         liberr(name, "Expected one of $(EN.join_elided(expected, ", ", " or ")).")
     name

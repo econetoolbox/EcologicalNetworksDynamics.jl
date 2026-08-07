@@ -50,8 +50,8 @@ fwd_err(up::Function, totry::Function, args...; kwargs...) =
     try
         totry(args...; kwargs...)
     catch e
-        e isa LibError && rethrow(typeof(e)(e, up))
-        rethrow(e)
+        e isa LibError || rethrow(e)
+        rethrow(typeof(e)(e, up))
     end
 
 # Same with alternate ergonomics.
@@ -59,5 +59,6 @@ try_with(totry::Function, up::Function) =
     try
         totry()
     catch e
-        e isa LibError && rethrow(typeof(e)(e, up))
+        e isa LibError || rethrow(e)
+        rethrow(typeof(e)(e, up))
     end

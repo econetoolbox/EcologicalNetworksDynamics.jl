@@ -6,6 +6,7 @@ module TestUser
 include("./convert.jl")
 
 # Typical network compartments.
+include("graph_field.jl")
 #  include("class.jl")
 #  include("web.jl")
 #  include("subclass.jl")

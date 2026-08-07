@@ -24,7 +24,7 @@ include("./errors.jl")
 
 const T = Tests
 
-using EcologicalNetworksDynamics: EN, F, I, SparseMatrix, Display, errwith
+using EcologicalNetworksDynamics: EN, N, F, I, SparseMatrix, Display, errwith
 using .Display: rept
 
 using .Strings:
@@ -103,7 +103,7 @@ module addfails
     @genfailsmacro bpconflict F.ConflictWithBroughtComponent (; node, other_node = node)
     @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
     @genfailsmacro component F.ComponentError (; mess)
-    @genfailsmacro hookcheck F.HookCheckFailure (; node)
+    @genfailsmacro check F.HookCheckFailure (; node, mess)
     @genfailsmacro lower F.LoweringAborted (; node)
     @genfailsmacro missingrequired F.MissingRequiredComponent (; node)
     @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)

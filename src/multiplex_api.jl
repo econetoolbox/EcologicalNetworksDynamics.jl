@@ -42,6 +42,7 @@ local MultiplexParametersDict # (reassure JuliaLS)
 # Cheat-sheets to users:
 interactions_names() = AD.aliases(InteractionDict)
 multiplex_parameters_names() = AD.aliases(MultiplexParametersDict)
+export interactions_names, multiplex_parameters_names
 
 # Nest them both into a flexible kwargs API.
 multiplex_parameters_types = MultiplexParametersDict(;

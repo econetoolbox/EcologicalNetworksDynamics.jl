@@ -1,4 +1,5 @@
-import .N: Network
+using .Networks: Network
+using .Framework: define_blueprint, define_conflicts # Unchanged.
 
 # For component authors, this is what these should almost always mean.
 const Blueprint = F.Blueprint{Network}
@@ -16,7 +17,6 @@ N.network(m::Model) = F.value(m)
 model(m::Model) = m # (override for views, solutions etc.)
 
 # Define items, always for the 'Network' type.
-import .F: define_blueprint, define_conflicts # Unchanged.
 define_component(Name, mod; kwargs...) = F.define_component(Name, Network, mod; kwargs...)
 define_method(fn; kwargs...) = F.define_method(fn, Network; kwargs...)
 

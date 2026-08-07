@@ -45,7 +45,7 @@ function define_class_component(mod::Module, d::D.Class)
             names::Vector{Symbol}
             @bp_construct(Names)
         end
-        export Names # So it gets picked by `NF.define_component` later.
+        export Names
         $NF.register_blueprint(Names, "raw $($s) names"; dispatcher = d)
     end)
 
@@ -144,8 +144,8 @@ end
 
 datatype(::Type{<:ClassNames}) = Vector{Symbol}
 datatype(::Type{<:ClassNumber}) = Int
-data(bp::ClassNames) = bp.names
-data(bp::ClassNumber) = bp.n
+data(b::ClassNames) = b.names
+data(b::ClassNumber) = b.n
 
 # Construct: allow passing names as separate arguments.
 construct(BP::Type{<:ClassNames}, first, second, rest...) =

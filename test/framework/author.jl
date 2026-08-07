@@ -259,7 +259,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test t.a == [5, 5, 5]
 
         # Fail if custom blueprint constraints are not enforced.
-        addfails.@hookcheck(
+        addfails.@check(
             s + A.Raw([5, 5]),
             [A.Raw],
             "Cannot expand 2 'a' values into 3 lines.",
@@ -314,7 +314,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         # Blueprint checking may depend on other components.
         r = ReflectionMark()
         s = e + NLines(5)
-        addfails.@hookcheck(s + r, [ReflectionMark], "Cannot reflect from no data.", true)
+        addfails.@check(s + r, [ReflectionMark], "Cannot reflect from no data.", true)
 
         # Blueprint expansion may depend on other components.
         sa = s + A.Uniform(5)
@@ -383,7 +383,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test s.n == 2
 
         # Display path to failing brought sub-blueprint in case of failure.
-        addfails.@hookcheck(
+        addfails.@check(
             e + A.Raw([]),
             [NLines, A.Raw],
             "Not a positive number of lines: 0.",
@@ -405,7 +405,7 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # But a failure to match is still a failure.
         s = e + NLines(3)
-        addfails.@hookcheck(
+        addfails.@check(
             s += a,
             [A.Raw],
             "Cannot expand 2 'a' values into 3 lines.",
