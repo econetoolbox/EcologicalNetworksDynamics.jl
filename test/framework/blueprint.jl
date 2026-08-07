@@ -171,7 +171,7 @@ module Abstracts
         @test has_component(s, X)
         @test has_component(s, C)
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Guard component authors against invalid specs.
 
         # Wrong implied values.

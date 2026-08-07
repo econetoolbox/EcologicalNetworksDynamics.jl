@@ -16,6 +16,7 @@ const T = Tests
 using EcologicalNetworksDynamics: EN, F, I, SparseMatrix
 
 using .Strings:
+    showcompare,
     is_string, is_repr, is_disp,
     check_string, check_repr, check_disp, check_err,
     @test_string, @test_repr, @test_disp, @test_err
@@ -23,7 +24,7 @@ using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare
 
 # Native julia exceptions.
 @genfailsmacro jl_deffails Base.UndefVarError (; world = nothing)
-@genfailsmacro jl_methfails Base.MethodError (; world = nothing)
+@genfailsmacro jl_callfails Base.MethodError (; world = nothing)
 
 """
 Numerous exception types in the package have a `mess` field
@@ -38,13 +39,8 @@ const mess = FieldsCompare.message
 #-------------------------------------------------------------------------------------------
 # Framework errors.
 
-"Generate macros for framework exceptions parametrized with the given `Value` type."
-macro gen_framework_fails(Value)
-    quote
-        $T.@genfailsmacro propfails $F.PropertyError{$F.System{$Value}}
-        $T.@genfailsmacro methfails $F.MethodError{$Value}
-    end |> esc
-end
+@genfailsmacro propfails F.PropertyError (; mess)
+@genfailsmacro callfails F.MethodCallError (; mess)
 @genfailsmacro conflfails F.ConflictError (; mess)
 
 "Generate macros for failures in defining items."
@@ -62,15 +58,19 @@ end
 @genfailsmacro itemfails F.ItemError (; mess)
 @genitemfailsfor :blueprint bluefails
 @genitemfailsfor :component compfails
+@genitemfailsfor :method methfails
 
 # (reassure JuliaLS)
-macro jl_deffails end
-macro jl_methfails end
-macro netfails end
-macro labelfails end
 macro bluefails end
+macro callfails end
 macro compfails end
 macro conflfails end
+macro jl_callfails end
+macro jl_deffails end
+macro labelfails end
+macro methfails end
+macro netfails end
+macro propfails end
 
 "Test various possible failures during `Framework.add!()`."
 module addfails

@@ -303,7 +303,7 @@ function define_method(
                 $dep = first_missing_dependency_for($fn, $system($receiver))
                 if !isnothing($dep)
                     $a = isabstracttype($dep) ? " a" : ""
-                    throw(MethodError($V, nameof($fn), "Requires$($a) component $($dep)."))
+                    throw(MethodCallError($V, nameof($fn), "Requires$($a) component $($dep)."))
                 end
                 $fn(; kwargs...)
             end

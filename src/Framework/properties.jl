@@ -119,9 +119,9 @@ end
 
 # Map wrapped system value and property name to the corresponding function.
 read_property(P::PropertyTargetType, ::Val{name}) where {name} =
-    throw(PropertyError(P, name, "Unknown property."))
+    properr(P, name, "Unknown property.")
 write_property(P::PropertyTargetType, ::Val{name}) where {name} =
-    throw(PropertyError(P, name, "Unknown property."))
+    properr(P, name, "Unknown property.")
 
 has_read_property(P::PropertyTargetType, n::Val{name}) where {name} =
     try
@@ -149,7 +149,7 @@ function readwrite_property(P::PropertyTargetType, n::Val{name}) where {name}
         write_property(P, n)
     catch e
         e isa PropertyError || rethrow(e)
-        rethrow(PropertyError(P, name, "This property is read-only."))
+        properr(P, name, "This property is read-only.", rethrow)
     end
 end
 
@@ -285,22 +285,21 @@ end
 # ==========================================================================================
 # Dedicated exceptions.
 
-struct PropertyError{P} <: SystemException
+struct PropertyError <: SystemException
+    P::Type
     name::Symbol
-    message::String
-    PropertyError(::Type{P}, s, m) where {P} = new{P}(s, m)
+    mess::String
 end
-super(::PropertyError{P}) where {P} = P
 
-function Base.showerror(io::IO, e::PropertyError{P}) where {P}
-    (; name, message) = e
+properr(P, n, m, throw = Base.throw) = throw(PropertyError(P, n, m))
+
+function Base.showerror(io::IO, e::PropertyError)
+    (; P, name, mess) = e
     V = system_value_type(P)
     pth = path(P)
     isnothing(pth) && (pth = "")
-    println(io, "In property `$pth.$name` of `$(System{V})`: $message")
+    println(io, "In property `$pth.$name` of `$(System{V})`: $mess")
 end
-
-properr(P, n, m) = throw(PropertyError(P, n, m))
 
 # ==========================================================================================
 # Display property types.

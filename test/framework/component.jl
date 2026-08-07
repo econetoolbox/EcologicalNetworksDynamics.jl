@@ -1,7 +1,5 @@
 module Components
 
-using EcologicalNetworksDynamics.Tests: @gen_framework_fails
-
 # Testing these definitions requires generating numerous new types
 # which are bound to constant julia variables.
 # Make it easier to search for a failed test by picking random trigrams for names:
@@ -12,11 +10,6 @@ using EcologicalNetworksDynamics.Tests: @gen_framework_fails
 struct Value end
 Base.copy(v::Value) = deepcopy(v)
 
-@gen_framework_fails Value
-# (reassure JuliaLS)
-macro propfails end
-macro methfails end
-
 # ==========================================================================================
 module Calls
 
@@ -25,8 +18,7 @@ module Calls
     using EcologicalNetworksDynamics.Framework:
         F, System, Blueprint, Component, define_blueprint, has_component
 
-    using EcologicalNetworksDynamics.Tests: @test_err, @jl_methfails, addfails, @compfails
-    using ..Components: @propfails, @methfails
+    using EcologicalNetworksDynamics.Tests: @test_err, @jl_callfails, addfails, @compfails
     using Test
 
     comps(s) = collect(F.components(s))
@@ -57,7 +49,7 @@ module Calls
 
     @testset "Calls to `define_component()`." begin
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Basic, null component.
 
         define_component(:Eyb)
@@ -67,9 +59,9 @@ module Calls
         @test _Eyb <: Component{Value}
 
         # But there is no blueprint to expand into it.
-        @jl_methfails(Eyb(), Eyb, ())
+        @jl_callfails(Eyb(), Eyb, ())
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # With a basic blueprint.
 
         # `_b` for the blueprint associated with component `Sem`
@@ -84,7 +76,7 @@ module Calls
         s = System{Value}(Sem.b())
         @test has_component(s, Sem)
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Require other component.
 
         struct Cvh_b <: Blueprint{Value} end
@@ -105,7 +97,7 @@ module Calls
         s += Zjz.b() # Now it's okay.
         @test collect(F.components(s)) == [Cvh, Zjz]
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Alternate syntax in blocks.
 
         struct Dsy_b <: Blueprint{Value} end
@@ -125,7 +117,7 @@ module Calls
         s += Dsy.b() + Lev.b()
         @test collect(F.components(s)) == [Dsy, Lev]
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Explicit empty lists.
 
         define_component(:Nzo; blueprints = [], requires = [])
@@ -139,7 +131,7 @@ module Calls
         s = System{Value}(Lwk.b())
         @test has_component(s, Lwk)
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Basic misuses.
 
         @compfails(
@@ -160,7 +152,7 @@ module Calls
             "Cannot define component `Rrn`: name already defined."
         )
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Blueprints section.
 
         @compfails(
@@ -233,7 +225,7 @@ module Calls
         )
 
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Requires section.
 
         @compfails(

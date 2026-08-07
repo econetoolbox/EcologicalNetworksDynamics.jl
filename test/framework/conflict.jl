@@ -32,7 +32,7 @@ module Calls
 
     @testset "Declaring components conflicts." begin
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Provide enough data for the declaration to be meaningful.
         @conflfails(
             define_conflicts(A),
@@ -57,7 +57,7 @@ module Calls
             "Component $_A cannot conflict with itself."
         )
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # No conflicts *a priori*, they are declared by the macro invocation.
 
         confs(C) = sort(
@@ -102,7 +102,7 @@ module Calls
              Not a subtype of `$Component`: $Float64 ::DataType",
         )
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Provide a reason for the conflict.
 
         define_conflicts(C, D => [C => "D dislikes C."])
@@ -180,7 +180,7 @@ module Calls
              in the same `define_conflicts()` call: $_A => \"A dislikes F.\"."
         )
 
-        #---------------------------------------------------------------------------------------
+        #-----------------------------------------------------------------------------------
         # Even if not all reasons are provided, do declare all conflicts as a clique.
 
         define_conflicts(

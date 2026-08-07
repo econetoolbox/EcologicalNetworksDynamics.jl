@@ -207,24 +207,21 @@ module Basics # Use submodules to not clash blueprints/components names.
     # Test actual use of the system.
 
     # (what lib authors would need)
-    import EcologicalNetworksDynamics.Framework: System, add!
+    import EcologicalNetworksDynamics.Framework: Component, System, add!
 
     # (what's also required for testing here)
     import EcologicalNetworksDynamics.Tests:
-        EN, F, T, @test_err, @fails, @genfailsmacro, @jl_deffails,
-        @gen_framework_fails, addfails
-    import .F: Component
+        EN, F, T, @test_err, @fails, @genfailsmacro, @jl_deffails, @propfails, @callfails,
+        addfails
     using Test
 
-    @gen_framework_fails Value
-    # (reassure JuliaLS)
-    macro propfails end
-    macro methfails end
+    const V = Value
+    const S = System{Value}
 
     @testset "Basic components/methods/properties." begin
 
         # Build empty system.
-        s = System{Value}()
+        s = S()
 
         # Add component.
         add!(s, NLines(3))
@@ -236,17 +233,17 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test s.n == 3
 
         # Forbid unexistent properties.
-        @propfails(s.x, :x, "Unknown property.")
+        @propfails(s.x, S, :x, "Unknown property.")
         @test_err(s.x, "In property `.x` of `$System{$Value}`: Unknown property.\n")
         # Forbid existent properties without appropriate component.
-        @propfails(s.b, :b, "Component $_B is required to read this property.")
+        @propfails(s.b, S, :b, "Component $_B is required to read this property.")
         # Same with methods.
         @jl_deffails(get_x(s), :get_x, Basics)
-        @methfails(get_b(s), :get_b, "Requires component $_B.")
+        @callfails(get_b(s), V, :get_b, "Requires component $_B.")
         @test_err(get_b(s), "In method `get_b` for `$Value`: Requires component $_B.\n")
 
         # Forbid write.
-        @propfails((s.n = 4), :n, "This property is read-only.")
+        @propfails((s.n = 4), S, :n, "This property is read-only.")
 
         # Cannot add component twice.
         addfails.@broughtalready(add!(s, NLines(5)), _Size, [NLines])
@@ -428,8 +425,8 @@ module Basics # Use submodules to not clash blueprints/components names.
         # Check that the original system is always empty.
         function test_empty(i)
             @test isempty(collect(F.components(i)))
-            @methfails(get_a(i), :get_a, "Requires component $_A.")
-            @propfails(i.a, :a, "Component $_A is required to read this property.")
+            @callfails(get_a(i), V, :get_a, "Requires component $_A.")
+            @propfails(i.a, S, :a, "Component $_A is required to read this property.")
         end
         test_empty(init)
 

@@ -45,12 +45,13 @@ global REVISING = false # TODO: Is this still needed after refactoring?
 # Dedicated exceptions.
 
 # About method use.
-struct MethodError{V} <: SystemException
+struct MethodCallError <: SystemException
+    Value::Type
     name::Union{Symbol,Expr} # Name or Path.To.Name.
-    message::String
-    MethodError(::Type{V}, n, m) where {V} = new{V}(n, m)
+    mess::String
 end
-function Base.showerror(io::IO, e::MethodError{V}) where {V}
-    println(io, "In method `$(e.name)` for `$V`: $(e.message)")
+callerr(V, n, m, throw = Base.throw) = throw(MethodCallError(V, n, m))
+function Base.showerror(io::IO, e::MethodCallError)
+    (; Value, name, mess) = e
+    println(io, "In method `$name` for `$Value`: $mess")
 end
-metherr(V, n, m) = throw(MethodError(V, n, m))
