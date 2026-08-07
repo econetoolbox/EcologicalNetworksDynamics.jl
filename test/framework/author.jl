@@ -211,7 +211,7 @@ module Basics # Use submodules to not clash blueprints/components names.
 
     # (what's also required for testing here)
     import EcologicalNetworksDynamics.Tests:
-        EN, F, T, @test_err, @fails, @genfailsmacro, @deffails,
+        EN, F, T, @test_err, @fails, @genfailsmacro, @jl_deffails,
         @gen_framework_fails, addfails
     import .F: Component
     using Test
@@ -241,7 +241,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         # Forbid existent properties without appropriate component.
         @propfails(s.b, :b, "Component $_B is required to read this property.")
         # Same with methods.
-        @deffails(get_x(s), :get_x, Basics)
+        @jl_deffails(get_x(s), :get_x, Basics)
         @methfails(get_b(s), :get_b, "Requires component $_B.")
         @test_err(get_b(s), "In method `get_b` for `$Value`: Requires component $_B.\n")
 

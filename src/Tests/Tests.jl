@@ -22,25 +22,45 @@ using .Strings:
 using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare
 
 # The collection of macros directly used in tests.
-@genfailsmacro deffails UndefVarError (; world = nothing)
+@genfailsmacro jl_deffails Base.UndefVarError (; world = nothing)
+@genfailsmacro jl_methfails Base.MethodError (; world = nothing)
 @genfailsmacro netfails EN.Networks.NetworkError
 @genfailsmacro labelfails EN.Networks.LabelError (; index = nothing)
 # (reassure JuliaLS)
-macro deffails end
+macro jl_deffails end
+macro jl_methfails end
 macro netfails end
 macro labelfails end
 
 "Typical error message string field-checking."
 const mess = FieldsCompare.message
 
-"Generate macros for framework exception, given a parameter `Value` type."
+"Generate macros for framework exceptions parametrized with the given `Value` type."
 macro gen_framework_fails(Value)
     quote
-        @genfailsmacro propfails $F.PropertyError{$F.System{$Value}}
-        @genfailsmacro methfails $F.MethodError{$Value}
+        $T.@genfailsmacro propfails $F.PropertyError{$F.System{$Value}}
+        $T.@genfailsmacro methfails $F.MethodError{$Value}
     end |> esc
 end
+
+"Generate macros for failures in defining items."
+macro genitemfailsfor(itemtype, name)
+    itemtype = QuoteNode(itemtype)
+    quote
+        macro $name(xp, f...)
+            src = $(esc(:__source__)) # (https://github.com/JuliaLang/julia/issues/62572)
+            mcall = :($($T).@itemfails($xp, $($itemtype), $(f...)))
+            mcall.args[2] = src
+            esc(mcall)
+        end
+    end
+end
 @genfailsmacro itemfails F.ItemError
+@genitemfailsfor :blueprint bluefails
+@genitemfailsfor :component compfails
+# (reassure JuliaLS)
+macro bluefails end
+macro compfails end
 
 "Test various possible failures during `Framework.add!()`."
 module addfails

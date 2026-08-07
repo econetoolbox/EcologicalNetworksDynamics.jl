@@ -2,13 +2,9 @@ module Blueprints
 
 using EcologicalNetworksDynamics.Framework: F, System
 
-# Testing these macros requires generating numerous new types
+# Testing these definitions requires generating numerous new types
 # which are bound to constant julia variables.
-# In particular, testing macros for *failure* typically results
-# in generated code aborting halway through their expansion/execution
-# and make it likely that unexpected interactions occur between subsequent tests
-# if the names of generated blueprints/components collide.
-# Alleviate this by picking random trigrams for the tests:
+# Make it easier to search for a failed test by picking random trigrams for names:
 #   - `Xyz` as component names
 #   - `Xyz_b` as associated blueprint names.
 
@@ -29,20 +25,12 @@ module Calls
     using EcologicalNetworksDynamics.Framework:
         F, components, Blueprint, define_blueprint, System, has_component
 
-    using EcologicalNetworksDynamics.Tests: addfails, @test_err, @itemfails
+    using EcologicalNetworksDynamics.Tests: addfails, @test_err, @bluefails
     using Test
 
     comps(s) = collect(components(s))
     define_component(name, V = Value; kwargs...) =
         F.define_component(name, V, Calls; kwargs...)
-
-    # Pre-fill first argument.
-    macro bluefails(xp, f...)
-        src = __source__
-        mcall = :(@itemfails($xp, :blueprint, $(f...)))
-        mcall.args[2] = src
-        esc(mcall)
-    end
 
     @testset "Calls to define_blueprint()." begin
 
