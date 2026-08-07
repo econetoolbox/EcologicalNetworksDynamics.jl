@@ -25,7 +25,7 @@ module Calls
     using EcologicalNetworksDynamics.Framework:
         F, System, Blueprint, Component, define_blueprint, has_component
 
-    using EcologicalNetworksDynamics.Tests: @jl_methfails, addfails, @compfails
+    using EcologicalNetworksDynamics.Tests: @test_err, @jl_methfails, addfails, @compfails
     using ..Components: @propfails, @methfails
     using Test
 
@@ -147,6 +147,11 @@ module Calls
             :Vector,
             "Cannot define component `Vector`: name already defined."
         )
+        @test_err(define_component(:Vector),
+            """
+            In component definition for `$Vector`:
+            Cannot define component `Vector`: name already defined.
+            """)
 
         define_component(:Rrn)
         @compfails(

@@ -302,7 +302,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test s.sum == [13, 13, 13]
 
         # Cannot add incompatible component.
-        addfails.@conflict(
+        addfails.@sysconflict(
             s + SparseMark(),
             _Sparse, nothing, [SparseMark], _Size, nothing, nothing,
         )

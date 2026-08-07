@@ -8,8 +8,8 @@ module Tests
 include("./strings.jl")
 include("./errors.jl")
 
-#-------------------------------------------------------------------------------------------
-# Exposed testing interface.
+# ==========================================================================================
+# Exposed testing interface, with the collection of macros directly used in tests.
 
 const T = Tests
 
@@ -21,19 +21,22 @@ using .Strings:
     @test_string, @test_repr, @test_disp, @test_err
 using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare
 
-# The collection of macros directly used in tests.
+# Native julia exceptions.
 @genfailsmacro jl_deffails Base.UndefVarError (; world = nothing)
 @genfailsmacro jl_methfails Base.MethodError (; world = nothing)
+
+"""
+Numerous exception types in the package have a `mess` field
+to be tested as an error message.
+"""
+const mess = FieldsCompare.message
+
+# Network errors.
 @genfailsmacro netfails EN.Networks.NetworkError
 @genfailsmacro labelfails EN.Networks.LabelError (; index = nothing)
-# (reassure JuliaLS)
-macro jl_deffails end
-macro jl_methfails end
-macro netfails end
-macro labelfails end
 
-"Typical error message string field-checking."
-const mess = FieldsCompare.message
+#-------------------------------------------------------------------------------------------
+# Framework errors.
 
 "Generate macros for framework exceptions parametrized with the given `Value` type."
 macro gen_framework_fails(Value)
@@ -42,6 +45,7 @@ macro gen_framework_fails(Value)
         $T.@genfailsmacro methfails $F.MethodError{$Value}
     end |> esc
 end
+@genfailsmacro conflfails F.ConflictError (; mess)
 
 "Generate macros for failures in defining items."
 macro genitemfailsfor(itemtype, name)
@@ -55,12 +59,18 @@ macro genitemfailsfor(itemtype, name)
         end
     end
 end
-@genfailsmacro itemfails F.ItemError
+@genfailsmacro itemfails F.ItemError (; mess)
 @genitemfailsfor :blueprint bluefails
 @genitemfailsfor :component compfails
+
 # (reassure JuliaLS)
+macro jl_deffails end
+macro jl_methfails end
+macro netfails end
+macro labelfails end
 macro bluefails end
 macro compfails end
+macro conflfails end
 
 "Test various possible failures during `Framework.add!()`."
 module addfails
@@ -80,16 +90,12 @@ module addfails
             e === a || err()
         end
     end
+    @genfailsmacro bpconflict F.ConflictWithBroughtComponent (; node, other_node = node)
     @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
     @genfailsmacro component F.ComponentError (; mess)
-    @genfailsmacro conflict F.ConflictWithSystemComponent (; node)
     @genfailsmacro hookcheck F.HookCheckFailure (; node)
     @genfailsmacro missingrequired F.MissingRequiredComponent (; node)
-    # (reassure JuliaLS)
-    macro broughtalready end
-    macro hookcheck end
-    macro missingrequired end
-    macro conflict end
+    @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)
 end
 
 end

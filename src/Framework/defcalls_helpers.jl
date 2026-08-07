@@ -150,18 +150,18 @@ struct ItemError <: Exception
     # Nothing if not yet determined,
     # Symbol if not yet defined.
     item::Union{Type,Function,Symbol}
-    message::String
+    mess::String
 end
 
 function Base.showerror(io::IO, e::ItemError)
     print(io, "In $(e.category) definition for `$(e.item)`:\n")
-    println(io, e.message)
+    println(io, e.mess)
 end
 
 struct ConflictError <: Exception
-    message::String
+    mess::String
 end
 function Base.showerror(io::IO, e::ConflictError)
     print(io, "In conflicts definition:\n")
-    println(io, e.message)
+    println(io, e.mess)
 end
