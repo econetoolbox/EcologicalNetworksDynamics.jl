@@ -130,6 +130,11 @@ end |> I.flatten
 #-------------------------------------------------------------------------------------------
 # Exception handling .
 
+"Dedicated root cause when parsing lists."
+struct ListParseError <: RootCause
+    mess::String
+end
+
 # Tag thrown exceptions with a symbol
 # to decide which to report in case of multiple 'forgiveness'es.
 struct Forgiveness <: Exception
@@ -142,7 +147,9 @@ forgive(f, parser) =
     try
         f()
     catch e
-        isnothing(parser) && e isa Forgiveness && rethrow(SimpleError(e.mess))
+        isnothing(parser) && e isa Forgiveness &&
+            rethrow(RefErr(ListParseError(e.mess), WholeInput()))
+        # TODO: Upgrade `path` into an `InputRef` to fill it in? Not required?
         rethrow(e)
     end
 

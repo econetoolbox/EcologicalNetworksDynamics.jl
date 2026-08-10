@@ -6,7 +6,8 @@
 # - `(Symbol, Char) -> String`
 # - `(AbstractString, Char) -> Symbol`
 #
-# Conversions marked with (*) are also implicitly performed on collections types.
+# Conversions marked with (*) are also implicitly performed on collections types
+# for positive graph levels (nodes & edges):
 # For `Coll` in `{Vector, Matrix, SparseVector, SparseMatrix}`:
 #
 # - `Coll{<:Real} -> Coll{Float64}`
@@ -27,8 +28,8 @@ function allow_convert(Target, Input, f)
                 try
                     $f(v)
                 catch e
-                    e isa F.InputError && rethrow(e)
-                    liberr($Target, v, "(detail down the stacktrace)")
+                    e isa LibError && rethrow(e)
+                    converr($Target, v, "(detail down the stacktrace)")
                 end
         end,
     )
@@ -59,7 +60,7 @@ ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 # From iterators.
 function convert(::Type{Vector{T}}, input) where {T}
     hasmethod(iterate, Tuple{typeof(input)}) ||
-        liberr(input, Vector{T}, "Input is not iterable.")
+        converr(input, Vector{T}, "Input is not iterable.")
     T[convert(T, v) for v in input]
 end
 
@@ -139,7 +140,7 @@ function try_convert(input, tries...)
         end
         print(mess, "\n  - $T")
     end
-    liberr(input, String(Base.take!(mess)))
+    checkerr(input, String(Base.take!(mess)))
 end
 
 """
@@ -159,5 +160,5 @@ function from_name(input, tries...)
         name == attempt && return fn()
         push!(expected, attempt)
     end
-    liberr(input, "Expected one of [$(EN.join_elided(expected, ", ", " or "))].")
+    checkerr(input, "Expected one of [$(EN.join_elided(expected, ", ", " or "))].")
 end
