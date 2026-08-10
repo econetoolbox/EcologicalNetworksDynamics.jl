@@ -5,12 +5,11 @@ It exposes functionalities of the system/blueprint/components framework,
 yet in the specific context of writing components for values of type `Network`.
 
 In other words, typical components in the package are expected to be:
-
-  - Component bringing a class.
-  - Component bringing a web.
-  - Component bringing network-level data.
-  - Component bringing node-level data.
-  - Component bringing edge-level data.
+- Component bringing a class.
+- Component bringing a web.
+- Component bringing network-level data.
+- Component bringing node-level data.
+- Component bringing edge-level data.
 
 .. each with their own typical set of blueprints, properties,
 input checking/parsing, semantics.
@@ -25,7 +24,7 @@ so it mostly falls into three categories:
 
   - Class (node-level) data:
     - Vector: *eg.* `[4, 5, 6]`
-    - Sparse vector for 'masked' classes, considered from the perspective of a parent class:
+    - Sparse vector for subclasses considered from the perspective of a parent class:
       *eg.* `[·, 4, ·, ·, 5, ·, 6]`
     - Map (key-value pairs) of the form:
       - `[:a => u, :c => v]`   (using nodes labels)
@@ -61,45 +60,80 @@ so it mostly falls into three categories:
         - `[1 => [2, 3], 2 => [4]]`
         - *etc.*
       - For convenience, allow singletons, unambiguous in this context:
-        - `[:a => :b, :b => :d]`# Define extension points to customize components behaviours.
+        - `[:a => :b, :b => :d]`
         - `[1 => 2, 2 => 4]`
 
-Here is the typical, default data flow, starting from arbitrary user input:
-```
-- Parse:
-  - Convert: to the right type.
-  - Intrinsic check: plausible value wrt. to target data kind.
+There are several main "pipelines" that data may transit through
+when flowing from raw user input to internal storage.
+The various methods defined in this module are named after
+the different steps in these pipelines.
+With the name comes responsibility what to do with the data, specified below.
+The module attempts to provide sensible defaults
+but every method may be specialized depending on pipeline, data kind or blueprint.
 
-- (Data)Blueprint:
-  - Construct: parse.
-  - Early check:
-   - intrinsic check: again, because the blueprint value may have been mutated by user.
-   - lowering: possible first preprocess step towards actual network data format.
-  - Late check:
-    - consistency against current model value.
-    - lowering: possible second preprocess step.
-  - Lower: final lowering stage. Must transform the data into the correct internal format.
-  - Expand: store into the network.
+- Pipeline "blueprint expansion": a blueprint type or value is available:
 
-- (Data)Component (via *views*):
-  - Index:
-    - Check dimension.
-    - Parse (the index).
-    - Check query (against model).
-    - Obtain.
-  - Mutate/Reassign:
-    - Select: index (before 'obtain').
-    - Parse (rhs).
-    - Early check.
-    - Late check.
-    - Lower.
-    - Commit.
-```
+  - `construct`: transform input into checked blueprint fields. Consists in:
 
-Throughout the process, raise and upgrade the typical error types
-to explain failure reason and upgrade context depending on position within the flow.
-Authors should be able to focus on the core failur reason,
-and assume that additional context *will* be introduced above to improve the error report.
+    - `convert` responsibilities:
+      - Convert input to expected field type.
+      - *Alias* input if already expected type. If possible no-op, static, O(1) process.
+      - Raise exception in case conversion is impossible.
+
+    - `intrinsic_check`: Responsibilities:
+      - Verify converted value consistency against expected data kind. Out-of-context.
+      - Raise exception in case the value does not make sense.
+
+    - OR `parse`: a single procedure responsible for the above two.
+
+  - `early_check` responsibilities:
+    - Verify blueprint value prior to expansion.
+      This involves checking blueprint fields again
+      because blueprint may have been mutated since construction.
+    - Raise exception in case the value does not make sense.
+    - If useful, take this opportunity to start the lowering process
+      by collecting/transforming data to be passed to `late_check`.
+    - Default to running `intrinsic_check` again with no lowering.
+
+  - `late_check` responsibilities:
+    - Verify blueprint value against model value,
+      now available with all components required for expansion guaranteed inside.
+    - Raise exception in case the value doesn't fit within the model.
+    - If useful, continue the lowering process, producing data to be passed to `lower`.
+    - Default to checking nothing and passing data as-is.
+
+  - `lower` responsibilities:
+    - Transform data passed by `late_check` into the eventual storage format.
+    - Not fail.
+
+  - `expand!` responsibilities:
+    - Record lowered data into the the model.
+    - Not fail.
+
+- Pipeline "index": query model data for extraction. Only the data kind is available.
+  This is not open for extension by component authors within the lib like the above
+  so the implementation is separate, although principles are the same.
+  - Check the index (same responsibility although different specialized steps):
+    - `check_dim`: raise on meaningless dimensions queried (*e.g.* 2D node data).
+    - `check_type`: raise on invalid index type, allowing for a few restricted conversions.
+    - `check_value`: raise on meaningless index value.
+    - `check_query`: raise on mismatch between index value and model value.
+  - `obtain`: retrieve the desired data. Cannot fail.
+
+- Pipeline "data mutation": happens after expansion, the data kind is available as context.
+  Most steps share responsibilities with the ones in pipelines above, and default to them:
+  - Index check: like above to determine the target "LHS" data (mutation is `RHS = LHS`).
+  - `convert` the RHS.
+  - `early_check` the RHS.
+  - OR `parse` the RHS: the above two in one step.
+    This may require that parsing starts the lowering process.
+  - `late_check` the RHS.
+  - `commit`: record mutation result into the internal representation. Cannot fail.
+
+The above steps are default-configured within the lib for typical component types,
+and are exposed as possible extension points to component authors.
+When implementing `*_check()` steps, raise using the simplest exception message.
+The library should catch it and append relevant context before it bubbles up to user.
 """
 module NetworkFramework
 

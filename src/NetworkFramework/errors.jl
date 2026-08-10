@@ -2,9 +2,10 @@
 # Try to leverage the upgrading mechanism for every need,
 # the different error types should only be useful to tweak final display.
 
-abstract type LibError <: F.InputError end # <: Useful to be caught during F.add!.
+"Exposed exception, ok to be caught by `F.add!` and also bubble up to end user."
+abstract type LibError <: F.InputError end
 
-# Useful for the core reason, trusting the above layers to append more context.
+"Raise as the core failure reason, eg. within checks when implementing components."
 struct SimpleError <: LibError
     mess::String
 end
