@@ -1,4 +1,5 @@
-struct QueryError <: NF.LibError
+"Report invalid attempt to index with views."
+struct QueryError <: NF.IndexError
     View::Type
     query::Tuple
     typechecked::Bool # Lower to make sure to display query at the end.
@@ -6,6 +7,7 @@ struct QueryError <: NF.LibError
 end
 qerr(V::Type, q, t, m, throw = Base.throw) = throw(QueryError(V, q, t, m))
 qerr(v, x...) = qerr(typeof(v), x...)
+
 # Decide whether the error can assume that the query is short to display.
 function short(e::QueryError)
     (; query, typechecked) = e
@@ -14,6 +16,7 @@ function short(e::QueryError)
     query isa Tuple{AbstractArray} && return false # Uncertain if size is unbound.
     true # Otherwise okay.
 end
+
 function Base.showerror(io::IO, e::QueryError)
     (; View, query, mess) = e
     d = dispatcher(View)
@@ -43,38 +46,20 @@ function Base.showerror(io::IO, e::QueryError)
     end
 end
 
-# Raised to be later upgraded into a QueryError.
-struct RefErr <: Exception
+"Raise to be later upgraded into a `QueryError`."
+struct RefErr <: NF.LibError
     mess::String
 end
 referr(m, throw = Base.throw) = throw(RefErr(m))
 
-# Raised when attempting to mutate through a view into immutable data.
-struct ImmutableErr <: NF.LibError
+"Report attempt to mutate through a view into immutable data."
+struct ImmutableError <: NF.LibError
     View::Type
-    ImmutableErr(v::Type) = new(v)
+    ImmutableError(v::Type) = new(v)
 end
-ImmutableErr(v) = ImmutableErr(typeof(v))
-function Base.showerror(io::IO, e::ImmutableErr)
+ImmutableError(v) = ImmutableError(typeof(v))
+function Base.showerror(io::IO, e::ImmutableError)
     (; View) = e
     d = dispatcher(View)
     print(io, "Cannot change $d $(type_info(View)) once they have been set.")
-end
-
-# ONHOLD: can we not get the same with a clever use of the error type above?
-struct WriteError <: Exception
-    message::String
-    fieldname::Symbol
-    index::Any
-    value::Any
-end
-function Base.showerror(io::IO, e::WriteError)
-    (; fieldname, index, value, message) = e
-    it, reset = crayon"italics", crayon"reset"
-    print(
-        io,
-        "Cannot set node data $fieldname$(display_index(index)):\n\
-         $it$message$reset\n\
-         Received value: $(repr(value)) ::$(typeof(value))",
-    )
 end

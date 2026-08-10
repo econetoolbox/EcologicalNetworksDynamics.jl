@@ -158,7 +158,7 @@ function Base.getindex(v::AbstractView, q...)
     obtain(v, q)
 end
 
-Base.setindex!(v::TopologyView, _...) = throw(ImmutableErr(v))
+Base.setindex!(v::TopologyView, _...) = throw(ImmutableError(v))
 function Base.setindex!(v::FieldView, rhs, q...)
     q = check_all(v, q)
     set!(v, q, rhs)
