@@ -17,7 +17,6 @@ struct CheckError <: RootCause
     value::Any # The problematic value within the input.
     mess::String # Explanation.
 end
-checkerr(v, m::String, throw = Base.throw) = throw(CheckError(v, m))
 function Base.showerror(io::IO, e::CheckError)
     (; value, mess) = e
     print(io, mess)
@@ -55,14 +54,14 @@ const Ref = Union{Int,Symbol}
 struct Ref1D <: InputRef
     i::Ref
 end
-Base.show(::IO, r::Ref1D) = print(io, "[$(repr(r.i))]")
+Base.show(io::IO, r::Ref1D) = print(io, "[$(repr(r.i))]")
 
 "Two references to locate invalid value within input."
 struct Ref2D <: InputRef
     i::Ref
     j::Ref
 end
-Base.show(::IO, r::Ref1D) = print(io, "[$(repr(r.i)), $(repr(r.j))]")
+Base.show(io::IO, r::Ref2D) = print(io, "[$(repr(r.i)), $(repr(r.j))]")
 
 # Default construct the above.
 InputRef(::Tuple{}) = WholeInput()
@@ -80,28 +79,44 @@ In this case, call `checkerr()` with a reference.
 struct RefErr <: F.LibError
     ref::InputRef # Interpreted within *user input*.
     src::RootCause
+    RefErr(ref::InputRef, src::RootCause) = new(ref, src)
 end
-upgrade(s::RootCause, r, rethrow = Base.rethrow) = rethrow(RefErr(InputRef(r), s))
-checkerr(r, v, m::String, throw = Base.throw) = upgrade(CheckError(v, m), r, throw)
+RefErr(src::RefErr, a...) = src # Trust lowest-level during upgrade.
+RefErr(src::RootCause) = RefErr(WholeInput(), src)
+RefErr(src::RootCause, ref) = RefErr(InputRef(ref), src)
 
 """
 Upgrade referenced exception with a reference into model data if available and relevant.
 Same use as `RefErr`, yet only possible within `late_check` and `mutate!` or `reassign!`.
 Most of the time the reference here should be the same as RefErr
 because input data and the data stored in the model have the same structure.
-This is okay, and the exposed constructor defaults to just copying the reference.
+This is okay, and the exposed constructors default to just copying the reference.
 """
 struct ModelRefErr <: F.LibError
     mref::Union{InputRef} # Intepreted within *model data*. Nothing if irrelevant.
     src::RefErr
+    ModelRefErr(src::RefErr) = new(nothing, src)
+    ModelRefErr(mref::InputRef, src::RootCause) = new(mref, src)
 end
-upgrade(s::RefErr, r, rethrow = Base.rethrow) = rethrow(ModelRefErr(InputRef(r), s))
-function checkerr(::Model, r, v, m::String, throw = Base.throw)
-    ref = InputRef(r)
-    chk = CheckError(v, m)
-    rfr = RefErr(ref, chk)
-    upgrade(rfr, ref, throw)
+ModelRefErr(src::ModelRefErr, a...) = src # Trust lowest-level during upgrade.
+ModelRefErr(src::RefErr, ::Nothing) = ModelRefErr(nothing, src)
+ModelRefErr(src::RefErr, mref) = ModelRefErr(InputRef(mref), src)
+ModelRefErr(src::RootCause, ::Nothing) = ModelRefErr(nothing, src)
+function ModelRefErr(src::RootCause, ref...)
+    referr = RefErr(src, ref...)
+    ModelRefErr(referr.ref, referr) # Copy the model ref as an input ref.
 end
+
+# Upgrading utils (rethrow-only).
+upgrade(e::LibError, E::Type, a...) = rethrow(E(e, a...))
+
+# Expose convenience entrypoints anywhere in the chain to component authors.
+checkerr(v, m::String, throw = Base.throw) = throw(CheckError(v, m))
+checkerr(ref, v, m::String, throw = Base.throw) = throw(RefErr(CheckError(v, m), ref))
+checkerr(::Model, mref, v, m::String, throw = Base.throw) =
+    throw(ModelRefErr(CheckError(v, m), mref))
+checkerr(::Model, mref, ref, v, m::String, throw = Base.throw) =
+    throw(ModelRefErr(RefErr(CheckError(v, m), ref), mref))
 
 # ==========================================================================================
 """
@@ -114,6 +129,8 @@ struct BlueprintError <: F.LibError
     model::Option{Model} # If available (not before :late_check).
     src::ModelRefErr
 end
+BlueprintError(e::LibError, refs::Tuple, a...) =
+    BlueprintError(a..., ModelRefErr(e, refs...))
 
 function Base.showerror(io::IO, e::BlueprintError)
     (; B, step, model, src) = e
@@ -163,6 +180,7 @@ struct MutationError <: F.LibError
     model::Model # Always available.
     src::ModelRefErr # mref cannot be `nothing`.
 end
+MutationError(e::LibError, refs::Tuple, a...) = MutationError(a..., ModelRefErr(e, refs...))
 
 function Base.showerror(io::IO, e::MutationError)
     (; d, step, model, src) = e

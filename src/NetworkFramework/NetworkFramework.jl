@@ -84,8 +84,6 @@ but every method may be specialized depending on pipeline, data kind or blueprin
       - Verify converted value consistency against expected data kind. Out-of-context.
       - Raise exception in case the value does not make sense.
 
-    - OR `parse`: a single procedure responsible for the above two.
-
   - `early_check` responsibilities:
     - Verify blueprint value prior to expansion.
       This involves checking blueprint fields again
@@ -125,8 +123,6 @@ but every method may be specialized depending on pipeline, data kind or blueprin
   - Index check: like above to determine the target "LHS" data (mutation is `RHS = LHS`).
   - `convert` the RHS.
   - `early_check` the RHS.
-  - OR `parse` the RHS: the above two in one step.
-    This may require that parsing starts the lowering process.
   - `late_check` the RHS.
   - `commit`: record mutation result into the internal representation. Cannot fail.
 
