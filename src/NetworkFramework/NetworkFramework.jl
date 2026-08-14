@@ -180,20 +180,20 @@ include("./display.jl")
 
 function non_negative(T, input)
     v = convert(T, input)
-    v < 0 && liberr(v, "Value cannot be negative.")
+    v < 0 && checkerr(v, "Value cannot be negative.")
     v
 end
 
 function fraction(T, input)
     v = convert(T, input)
-    0.0 <= v <= 1.0 || liberr(v, "Value must belong to [0, 1].")
+    0.0 <= v <= 1.0 || checkerr(v, "Value must belong to [0, 1].")
     v
 end
 
 function name_among(expected, input)
     name = convert(Symbol, input)
     name in expected ||
-        liberr(name, "Expected one of $(EN.join_elided(expected, ", ", " or ")).")
+        checkerr(name, "Expected one of $(EN.join_elided(expected, ", ", " or ")).")
     name
 end
 
@@ -203,6 +203,6 @@ aliasing_symbol(dict, input) =
         AD.standardize(input, dict)
     catch e
         e isa AD.AliasingError || rethrow(e)
-        parserr(input, sprint(showerror, e), rethrow)
+        checkerr(input, e, rethrow) # TODO: this will fail. Newtype in an NF.RootCause?
     end
 end

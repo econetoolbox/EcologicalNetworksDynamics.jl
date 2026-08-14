@@ -61,7 +61,7 @@ _construct(B::Type{<:Blueprint}, args...; kwargs...) =
         construct(B, args...; kwargs...)
     catch e
         e isa LibError || rethrow(e)
-        upgrade(e, BlueprintError, (nothing,), :construct, nothing)
+        upgrade(e, BlueprintError, (nothing,), B, :construct, nothing)
     end
 
 #-------------------------------------------------------------------------------------------
@@ -80,7 +80,7 @@ _early_check(b::Blueprint) =
         early_check(b, data(b))
     catch e
         e isa LibError || rethrow(e)
-        upgrade(e, BlueprintError, (nothing,), :early_check, nothing)
+        upgrade(e, BlueprintError, (nothing,), typeof(b), :early_check, nothing)
     end
 
 #-------------------------------------------------------------------------------------------
@@ -96,7 +96,7 @@ _late_check(m::Model, b::Blueprint, data) =
         late_check(m, b, data)
     catch e
         e isa LibError || rethrow(e)
-        upgrade(e, BlueprintError, (WholeInput(),), :late_check, m)
+        upgrade(e, BlueprintError, (WholeInput(),), typeof(b), :late_check, m)
     end
 
 #-------------------------------------------------------------------------------------------
@@ -126,17 +126,22 @@ expand!(m::Model, b::Blueprint) = expand!(m, dispatcher(b), data(b))
 # Reassign.
 
 "Default lowering pipeline from raw input to the data to be reassigned."
-reassign(::Model, ::Dispatcher, _) = throw("unimplemented")
+function reassign(m::Model, d::Dispatcher, input)
+    T = D.type(d)
+    conv = convert(T, d, input)
+    early = early_check(d, conv)
+    late = late_check(m, d, early)
+    low = lower(m, d, late)
+    low
+end
+
+"Actually perform the reassignment, assuming lowered data."
+reassign!(::Model, ::Dispatcher, _) = throw("unimplemented")
 
 # Entrypoint from generated code.
 function _reassign(m::Model, d::Dispatcher, input)
-    T = D.type(d)
     try
-        conv = convert(T, d, input)
-        early = early_check(d, conv)
-        late = late_check(m, d, early)
-        low = lower(m, d, late)
-        low
+        reassign(m, d, input)
     catch e
         e isa LibError || rethrow(e)
         upgrade(e, MutationError, (WholeInput(),), d, :assign, m)

@@ -13,6 +13,7 @@ const D = Dispatchers
 const Option{T} = Union{Nothing,T}
 const Ref = Union{Int,Symbol}
 
+"For convenience, initial constructors (from symbols) return both instance and type."
 abstract type Dispatcher end
 
 # ==========================================================================================
@@ -22,7 +23,10 @@ abstract type Dispatcher end
 Dispatch to a particular class.
 """
 struct Class{class} <: Dispatcher end
-Class(class::Symbol) = Class{class}()
+function Class(class::Symbol)
+    T = Class{class}
+    T(), T
+end
 S = Class # 'Self'
 class(::S{cl}) where {cl} = cl
 
@@ -60,7 +64,10 @@ end
 Dispatch to a particular class from the perspective of a parent class.
 """
 struct Subclass{class,parent} <: Dispatcher end
-Subclass(class::Symbol, parent::Option{Symbol}) = Subclass{class,parent}()
+function Subclass(class::Symbol, parent::Option{Symbol})
+    T = Subclass{class,parent}
+    T(), T
+end
 S = Subclass
 content(::S{class,parent}) where {class,parent} = (class, parent)
 class(s::S) = first(content(s))
@@ -84,7 +91,10 @@ end
 Dispatch to a particular web.
 """
 struct Web{web} <: Dispatcher end
-Web(web::Symbol) = Web{web}()
+function Web(web::Symbol)
+    T = Web{web}
+    T(), T
+end
 S = Web # 'Self'
 web(::S{w}) where {w} = w
 
@@ -144,7 +154,10 @@ end
 Dispatch to a particular global network field.
 """
 struct GraphField{field} <: Dispatcher end
-GraphField(field::Symbol) = GraphField{field}()
+function GraphField(field::Symbol)
+    T = GraphField{field}
+    T(), T
+end
 S = GraphField # 'Self'
 field(::S{fd}) where {fd} = fd
 
@@ -173,7 +186,10 @@ end
 Dispatch extension point to particular class field data.
 """
 struct NodeField{class,field} <: Dispatcher end
-NodeField(class::Symbol, field::Symbol) = NodeField{class,field}()
+function NodeField(class::Symbol, field::Symbol)
+    T = NodeField{class,field}
+    T(), T
+end
 S = NodeField # 'Self'
 content(::S{class,field}) where {class,field} = (class, field)
 class(s::S) = first(content(s))
@@ -199,8 +215,10 @@ Dispatch extension point to particular class field data
 from the perspective of a parent class.
 """
 struct SubnodeField{class,field,parent} <: Dispatcher end
-SubnodeField(class::Symbol, field::Symbol, parent::Option{Symbol}) =
-    SubnodeField{class,field,parent}()
+function SubnodeField(class::Symbol, field::Symbol, parent::Option{Symbol})
+    T = SubnodeField{class,field,parent}
+    T(), T
+end
 S = SubnodeField # 'Self'
 content(::S{class,field,parent}) where {class,field,parent} = (class, field, parent)
 class(s::S) = first(content(s))
@@ -233,7 +251,10 @@ const AbstractNodeField{class,field} =
 Dispatch extension point to particular web field data.
 """
 struct EdgeField{web,field} <: Dispatcher end
-EdgeField(web::Symbol, field::Symbol) = EdgeField{web,field}()
+function EdgeField(web::Symbol, field::Symbol)
+    T = EdgeField{web,field}
+    T(), T
+end
 S = EdgeField # 'Self'
 content(::S{web,field}) where {web,field} = (web, field)
 web(s::S) = first(content(s))

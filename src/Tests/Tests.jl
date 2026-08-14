@@ -112,9 +112,10 @@ end
 #-------------------------------------------------------------------------------------------
 # Validating user input.
 
-@genfailsmacro inputfails EN.NetworkFramework.SimpleError (; mess)
-@genfailsmacro valuefails EN.NetworkFramework.ValueError (; mess)
-@genfailsmacro convertfails EN.NetworkFramework.ConvertError (; mess)
+# HERE: needs upgrade to feature NF.LibErrors.
+#  @genfailsmacro inputfails EN.NetworkFramework.SimpleError (; mess)
+#  @genfailsmacro valuefails EN.NetworkFramework.ValueError (; mess)
+#  @genfailsmacro convertfails EN.NetworkFramework.ConvertError (; mess)
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)

@@ -57,6 +57,18 @@ end
 export @alias
 
 # ==========================================================================================
+# Display.
+
+function bpdisplay(B::Type{<:Blueprint})
+    cc = F.component_color
+    bc = F.blueprint_color
+    C = D.component(dispatcher(B)) # TODO: will fail on dispatchers without components.
+    B = B.name.name
+    B = "$cc$C$reset.$bc$B$reset"
+    "$(F.blueprint_color)$B$reset"
+end
+
+# ==========================================================================================
 
 @doc """
 Model is the main object that we hand out to user

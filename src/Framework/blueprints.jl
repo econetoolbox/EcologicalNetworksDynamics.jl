@@ -176,8 +176,9 @@ expand!(_, ::Blueprint) = nothing # ..and do nothing by default.
 # or concrete calls to `check(system, myblueprint)` would be ambiguous.
 
 # ==========================================================================================
-# Explicit terminal display.
-function Base.show(io::IO, ::MIME"text/plain", B::Type{<:Blueprint{V}}) where {V}
+# Display.
+function Base.show(io::IO, ::MIME"text/plain", B::Type{<:Blueprint})
+    V = system_value_type(B)
     B = stripped_path(B)
     print(
         io,

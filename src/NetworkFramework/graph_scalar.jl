@@ -78,7 +78,10 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
                 get_value(::Network, m::Model) = NF.get_value(m, d)
                 NF.define_method(get_value; read_as = props, depends = [C])
                 if !D.readonly(d)
-                    set_value!(::Network, m::Model, input) = NF.reassign!(m, d, input)
+                    function set_value!(::Network, m::Model, input)
+                        low = NF._reassign(m, d, input)
+                        NF.reassign!(m, d, low)
+                    end
                     NF.define_method(set_value!; write_as = props, depends = [C])
                 end
                 end
@@ -92,25 +95,26 @@ end
 
 # ==========================================================================================
 # Specialisation for this typical component type.
+# The data may be aliased throughout the default lowering pipeline,
+# because it has been checked for immutability anyway.
 
-function expand!(m::Model, d::D.GraphField, data)
+function expand!(m::Model, d::D.GraphField, low)
     field, n = D.field(d), N.network(m)
-    N.add_field!(n, field, data)
+    N.add_field!(n, field, low)
 end
 
 function get_value(m::Model, d::D.GraphField)
     field, n = D.field(d), N.network(m)
     entry = n.data[field]
     N.read(entry) do value
-        value # Just leak the value: it has been checked for immutability.
+        value # Just leak it: immutable.
     end
 end
 
-function reassign!(m::Model, d::D.GraphField, input)
+function reassign!(m::Model, d::D.GraphField, low)
     field, n = D.field(d), N.network(m)
-    data = reassign(m, d, input)
     entry = n.data[field]
-    N.reassign!(entry, data) # Just feed it down: typechecked for immutability.
+    N.reassign!(entry, data)
 end
 
 #-------------------------------------------------------------------------------------------

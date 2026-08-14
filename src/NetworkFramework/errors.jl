@@ -76,7 +76,7 @@ The framework should fill this automatically unless *you*
 zare implementing the part where this context is available.
 In this case, call `checkerr()` with a reference.
 """
-struct RefErr <: F.LibError
+struct RefErr <: LibError
     ref::InputRef # Interpreted within *user input*.
     src::RootCause
     RefErr(ref::InputRef, src::RootCause) = new(ref, src)
@@ -92,16 +92,16 @@ Most of the time the reference here should be the same as RefErr
 because input data and the data stored in the model have the same structure.
 This is okay, and the exposed constructors default to just copying the reference.
 """
-struct ModelRefErr <: F.LibError
-    mref::Union{InputRef} # Intepreted within *model data*. Nothing if irrelevant.
+struct ModelRefErr <: LibError
+    mref::Option{InputRef} # Intepreted within *model data*. Nothing if irrelevant.
     src::RefErr
     ModelRefErr(src::RefErr) = new(nothing, src)
-    ModelRefErr(mref::InputRef, src::RootCause) = new(mref, src)
+    ModelRefErr(mref::Option{InputRef}, src::RefErr) = new(mref, src)
 end
 ModelRefErr(src::ModelRefErr, a...) = src # Trust lowest-level during upgrade.
 ModelRefErr(src::RefErr, ::Nothing) = ModelRefErr(nothing, src)
 ModelRefErr(src::RefErr, mref) = ModelRefErr(InputRef(mref), src)
-ModelRefErr(src::RootCause, ::Nothing) = ModelRefErr(nothing, src)
+ModelRefErr(src::RootCause, ::Nothing) = ModelRefErr(nothing, RefErr(src))
 function ModelRefErr(src::RootCause, ref...)
     referr = RefErr(src, ref...)
     ModelRefErr(referr.ref, referr) # Copy the model ref as an input ref.
@@ -123,7 +123,7 @@ checkerr(::Model, mref, ref, v, m::String, throw = Base.throw) =
 Final upgrade of model-referenced exception into a blueprint failure report.
 This should be done automatically by the framework without component authors noticing.
 """
-struct BlueprintError <: F.LibError
+struct BlueprintError <: LibError
     B::Type{<:Blueprint}
     step::Symbol # Failed operation (exposed pipeline step).
     model::Option{Model} # If available (not before :late_check).
@@ -134,10 +134,10 @@ BlueprintError(e::LibError, refs::Tuple, a...) =
 
 function Base.showerror(io::IO, e::BlueprintError)
     (; B, step, model, src) = e
-    (; ref, src) = src
     (; mref, src) = src
-    d = D.dispatcher(B)
-    B = "blueprint $B"
+    (; ref, src) = src
+    d = dispatcher(B)
+    B = "blueprint " * bpdisplay(B)
     doing = if step == :construct
         "constructing $B"
     elseif step == :early
@@ -174,7 +174,7 @@ abstract type IndexError <: LibError end
 Final upgrade of model-referenced exception into a mutation failure report.
 This should be done automatically by the framework without component authors noticing.
 """
-struct MutationError <: F.LibError
+struct MutationError <: LibError
     d::D.AbstractField
     step::Symbol # Failed operation (:mutate or :assign).
     model::Model # Always available.
