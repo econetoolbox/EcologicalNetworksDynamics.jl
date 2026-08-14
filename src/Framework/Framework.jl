@@ -89,9 +89,9 @@ This *may* make it useless to ever feature component removal.
 """
 module Framework
 
-import EcologicalNetworksDynamics: I, Option, argerr
+using EcologicalNetworksDynamics: I, Option, argerr, Display
+using .Display: red, yellow, blue, cyan, black, italics, bold, reset
 
-using Crayons
 using OrderedCollections
 
 const F = Framework
@@ -126,29 +126,12 @@ export InputError
 # ==========================================================================================
 # Display.
 
-const component_color = crayon"yellow"
-const blueprint_color = crayon"blue"
-const field_color = crayon"cyan"
-const gray = crayon"dark_gray"
-const reset = crayon"reset"
+const component_color = yellow
+const blueprint_color = blue
+const field_color = cyan
 cc(C) = "$component_color$C$reset"
 bc(B) = "$blueprint_color$B$reset"
 fc(C) = "$field_color$C$reset"
-
-# Strip paths to identifiers up to some user-defined root(s).
-const mod_roots = [] # <- Framework-level config.
-function stripped_path(C::Type)
-    name = C.name
-    mod = name.module
-    path = [strip_compname(nameof(C))]
-    while !(mod in mod_roots)
-        push!(path, nameof(mod))
-        parent = parentmodule(mod)
-        parent === mod && break # Reached toplevel.
-        mod = parent
-    end
-    join(reverse(path), '.')
-end
 
 # ==========================================================================================
 

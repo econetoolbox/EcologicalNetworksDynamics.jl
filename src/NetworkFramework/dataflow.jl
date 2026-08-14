@@ -77,10 +77,10 @@ early_check(b::Blueprint) = early_check(dispatcher(b), data(b))
 # Framework entrypoint.
 _early_check(b::Blueprint) =
     try
-        early_check(b, data(b))
+        early_check(b)
     catch e
         e isa LibError || rethrow(e)
-        upgrade(e, BlueprintError, (nothing,), typeof(b), :early_check, nothing)
+        upgrade(e, BlueprintError, (nothing,), typeof(b), :early, nothing)
     end
 
 #-------------------------------------------------------------------------------------------
@@ -96,7 +96,7 @@ _late_check(m::Model, b::Blueprint, data) =
         late_check(m, b, data)
     catch e
         e isa LibError || rethrow(e)
-        upgrade(e, BlueprintError, (WholeInput(),), typeof(b), :late_check, m)
+        upgrade(e, BlueprintError, (WholeInput(),), typeof(b), :late, m)
     end
 
 #-------------------------------------------------------------------------------------------

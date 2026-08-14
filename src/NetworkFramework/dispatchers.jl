@@ -7,7 +7,8 @@ by specializing implementations for their particular component.
 """
 module Dispatchers
 
-using EcologicalNetworksDynamics: N, Networks
+using EcologicalNetworksDynamics: N, Networks, Display
+using .Display: cyan, reset
 const D = Dispatchers
 
 const Option{T} = Union{Nothing,T}
@@ -54,7 +55,7 @@ component(s::S) = throw("Component unspeficied for $s.")
 # Display.
 function Base.show(io::IO, s::S)
     class = D.class(s)
-    print(io, "<$class>")
+    print(io, "$cyan<$class>$reset")
 end
 
 # ==========================================================================================
@@ -81,7 +82,7 @@ Class(s::S) = Class(class(s))
 # Display.
 function Base.show(io::IO, s::S)
     class, parent = content(s)
-    print(io, "<$parent:$class>")
+    print(io, "$cyan<$parent:$class>$reset")
 end
 
 # ==========================================================================================
@@ -143,7 +144,7 @@ target(s::S) = Class(targetname(s))
 # Display.
 function Base.show(io::IO, s::S)
     web = D.web(s)
-    print(io, "<$web>")
+    print(io, "$cyan<$web>$reset")
 end
 
 # TODO: do we need a "Subweb"? Maybe refactor components first to figure this.
@@ -176,7 +177,7 @@ CamelCaseSingular(s::S) = name_variants(s)[3]
 # Display.
 function Base.show(io::IO, s::S)
     field = D.field(s)
-    print(io, "<$field>")
+    print(io, "$cyan<$field>$reset")
 end
 
 # ==========================================================================================
@@ -204,7 +205,7 @@ Class(s::S) = Class(class(s))
 # Display.
 function Base.show(io::IO, s::S)
     class, field = content(s)
-    print(io, "<$class:$field>")
+    print(io, "$cyan<$class:$field>$reset")
 end
 
 # ==========================================================================================
@@ -236,7 +237,7 @@ NodeField(s::S) = NodeField(class(s), field(s))
 # Display.
 function Base.show(io::IO, s::S)
     class, field, parent = content(s)
-    print(io, "<$parent:$class:$field>")
+    print(io, "$cyan<$parent:$class:$field>$reset")
 end
 
 #-------------------------------------------------------------------------------------------
@@ -268,7 +269,7 @@ Web(s::S) = Web(web(s))
 # Display.
 function Base.show(io::IO, s::S)
     web, field = content(s)
-    print(io, "<$web:$field>")
+    print(io, "$cyan<$web:$field>$reset")
 end
 
 # ==========================================================================================

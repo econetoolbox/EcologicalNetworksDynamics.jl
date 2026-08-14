@@ -1,16 +1,39 @@
 # Specialize display for Model = System{Network}.
 
-push!(F.mod_roots, EN)
-
 Base.show(io::IO, ::Type{Model}) = print(io, "Model")
 
 Base.show(io::IO, ::MIME"text/plain", I::Type{Network}) = Base.show(io, I)
 Base.show(io::IO, ::MIME"text/plain", ::Type{Model}) =
-    print(io, "Model $(crayon"dark_gray")(alias for $(F.System){$Network})$(crayon"reset")")
+    print(io, "$(green)Model$reset $(black)(alias for $(F.System){$Network})$reset")
 
 # Filter out _-prefixed names.
 Base.show(io::IO, p::F.PropertySpace{name,P,Network}) where {name,P} =
     F.display_long(io, p, non_underscore)
+
+function F.bpdisplay(io::IO, B::Type{<:Blueprint}; color = false)
+    (cc, bc, res) = color ? (F.component_color, F.blueprint_color, reset) : ("", "", "")
+    C = D.component(dispatcher(B)) # TODO: will fail on dispatchers without components.
+    C = F.compdisplay(C)
+    B = B.name.name
+    print(io, "$cc$C$res.$bc$B$res")
+end
+
+# Strip paths to identifiers up to package root.
+function F.compdisplay(io::IO, C::Type{<:Component}; color = false)
+    s, e = color ? (F.component_color, reset) : ("", "")
+    mod = C.name.module
+    C = F.compname(C)
+    path = ["$s$C$e"]
+    while mod !== EN
+        push!(path, nameof(mod))
+        parent = parentmodule(mod)
+        mod = parent
+    end
+    print(io, join(reverse(path), '.'))
+end
+# Strip lib-standard leading underscore.
+F.compname(C::Type{<:Component}) = '<' * lstrip("$(C.name.name)", '_') * '>'
+F.compname(c::Component) = lstrip("$(typeof(c).name.name)", '_')
 
 #-------------------------------------------------------------------------------------------
 # Default display for blueprint fields.
@@ -48,6 +71,7 @@ function F.display_blueprint_field_short(io::IO, m::EN.SparseMatrix, ::Blueprint
         end
     end
 end
+
 function F.display_blueprint_field_long(io::IO, m::EN.SparseMatrix, ::Blueprint)
     (p, q) = size(m)
     print(io, "$p×$q ")

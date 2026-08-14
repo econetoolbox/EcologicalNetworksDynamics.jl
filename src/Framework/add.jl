@@ -477,7 +477,7 @@ function add!(
             epilog = ""
             throw
         end
-        raise(ErrorException("\n$(crayon"red")\
+        raise(ErrorException("\n$red\
                ⚠ ⚠ ⚠ $title ⚠ ⚠ ⚠\
                $reset\n\
                $subtitle\n\
@@ -530,12 +530,11 @@ end
 
 # Render errors into proper error messages.
 function render_path(path::BpPath; prefix = true)
-    p1 = stripped_path(path[1])
-    res = prefix ? "$(gray)in$reset " : ""
-    res *= "$blueprint_color$p1$reset\n"
+    res = prefix ? "$(black)in$reset " : ""
+    bpd(p) = bpdisplay(p; color = true)
+    res *= "$(bpd(path[1]))\n"
     for parent in path[2:end]
-        parent = stripped_path(parent)
-        res *= "$gray implied by:$reset $blueprint_color$parent$reset\n"
+        res *= "$black implied by:$reset $(bpd(parent))\n"
     end
     res
 end
@@ -602,8 +601,7 @@ function Base.showerror(io::IO, e::MissingRequiredComponent)
     if isnothing(reason)
         body = "."
     else
-        it = crayon"italics"
-        body = ":\n  $it$reason$reset"
+        body = ":\n  $italics$reason$reset"
     end
     print(io, "$header$body\n$path")
 end
@@ -628,8 +626,7 @@ function Base.showerror(io::IO, e::HookCheckFailure)
         header = "Blueprint value cannot be expanded"
         footer = path
     end
-    it = crayon"italics"
-    print(io, "$header:\n$it$mess$reset\n$footer")
+    print(io, "$header:\n$mess\n$footer")
 end
 
 struct UnexpectedHookFailure <: AddError

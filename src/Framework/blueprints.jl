@@ -41,11 +41,12 @@ system_value_type(::Blueprint{V}) where {V} = V
 Return non-empty list if components are required for this blueprint to expand,
 even though the corresponding component itself would make sense without these.
 """
-expands_from(::Blueprint{V}) where {V} = () # Require nothing by default.
+expands_from(::Blueprint) = () # Require nothing by default.
 
 # The above is specialized by hand by framework users,
 # so make its return type flexible, guarded by the below.
-function checked_expands_from(bp::Blueprint{V}) where {V}
+function checked_expands_from(bp::Blueprint)
+    V = system_value_type(bp)
     err(x) = throw(InvalidBlueprintDependency("Invalid expansion requirement. \
                                                Expected either a component for $V \
                                                or (component, reason::String), \
@@ -177,16 +178,6 @@ expand!(_, ::Blueprint) = nothing # ..and do nothing by default.
 
 # ==========================================================================================
 # Display.
-function Base.show(io::IO, ::MIME"text/plain", B::Type{<:Blueprint})
-    V = system_value_type(B)
-    B = stripped_path(B)
-    print(
-        io,
-        "$blueprint_color$B$reset \
-         $gray(blueprint type for $(nameof(System)){$V})$reset",
-    )
-end
-
 function Base.showerror(io::IO, ::UnspecifiedComponents{B}) where {B}
     print(io, "Unspecified provided components for '$(repr(B))'.")
 end
@@ -198,3 +189,12 @@ Base.getproperty(b::Blueprint, name::Symbol) =
     else
         error("blueprint $(typeof(b)) has no field $(repr(name))")
     end
+
+# Display extension points.
+function bpdisplay(io::IO, B::Type{Blueprint}; color = false)
+    s, e = color ? (blueprint_color, reset) : ("", "")
+    print(io, "$s$(repr(B))$e")
+end
+bpdisplay(B; kwargs...) = sprint(B) do io, B
+    bpdisplay(io, B; kwargs...)
+end

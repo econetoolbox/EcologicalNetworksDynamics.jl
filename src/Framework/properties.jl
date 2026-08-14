@@ -261,9 +261,7 @@ macro PropertySpace(path, V)
         property_space_type(path, Core.eval(__module__, V))
     catch e
         src = __source__
-        blue = crayon"blue"
-        res = crayon"reset"
-        @warn "Error in macro at $blue$(src.file):$(src.line)$res"
+        @warn "Error in macro at $blue$(src.file):$(src.line)$reset"
         rethrow(e)
     end
 end
@@ -320,11 +318,11 @@ end
 Base.show(io::IO, p::PropertySpace) = display_long(io, p, properties)
 function display_long(io::IO, p::PropertySpace, properties::Function)
     V = system_value_type(p)
-    print(io, "Property space for `$(V)`: ", crayon"black bold")
+    print(io, "Property space for `$(V)`: $black$bold")
     for name in reverse(names_sequence(p))
         print(io, ".$name")
     end
-    print(io, crayon"reset")
+    print(io, reset)
     any = false
     for (name, _) in properties(p)
         print("\n  .$name")

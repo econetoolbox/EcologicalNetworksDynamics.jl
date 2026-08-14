@@ -136,7 +136,7 @@ module NetworkFramework
 import EcologicalNetworksDynamics:
     EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD,
     FailedAttempts, Display
-import .Display: render_input, black, reset
+import .Display: render_input, green, black, reset
 
 using Crayons
 using OrderedCollections

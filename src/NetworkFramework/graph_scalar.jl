@@ -114,18 +114,20 @@ end
 function reassign!(m::Model, d::D.GraphField, low)
     field, n = D.field(d), N.network(m)
     entry = n.data[field]
-    N.reassign!(entry, data)
+    N.reassign!(entry, low)
 end
 
 #-------------------------------------------------------------------------------------------
 # Display.
 
 function graph_scalar_shortline(d::D.GraphField, io, m::Model)
+    cc = F.component_color
+    fc = F.field_color
     field = D.field(d)
     Field = D.CamelCaseSingular(d)
     net = N.network(m)
     entry = net.data[field]
     read(entry) do value
-        print(io, "$Field: $(repr(value))")
+        print(io, "$cc$Field$reset: $fc$(repr(value))$reset")
     end
 end

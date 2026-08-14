@@ -137,27 +137,25 @@ function Base.showerror(io::IO, e::BlueprintError)
     (; mref, src) = src
     (; ref, src) = src
     d = dispatcher(B)
-    B = "blueprint " * bpdisplay(B)
     doing = if step == :construct
-        "constructing $B"
+        "constructing blueprint " * F.bpdisplay(B; color = true)
     elseif step == :early
-        "verifying $B"
+        "verifying blueprint"
     elseif step == :late
-        "verifying $B against model"
+        "verifying blueprint against model"
     else
         "<performing step $(repr(step)) with blueprint $B \
          $black(display bug, please report)$reset>"
     end
     println(io, "While $doing:")
-    print(io, "In the provided value")
     if !(ref isa WholeInput)
-        print(io, " at $ref")
-    end
-    if isnothing(mref)
-        println(io, ":")
-    else
-        mv = modelvalue(d, mref, model)
-        println(io, " that would become $mv:")
+        print(io, "In the provided value at $ref")
+        if !isnothing(mref)
+            println(io, ":")
+        else
+            mv = modelvalue(d, mref, model)
+            println(io, " that would become $mv:")
+        end
     end
     showerror(io, src)
 end
@@ -184,23 +182,20 @@ MutationError(e::LibError, refs::Tuple, a...) = MutationError(a..., ModelRefErr(
 
 function Base.showerror(io::IO, e::MutationError)
     (; d, step, model, src) = e
-    (; ref, src) = src
     (; mref, src) = src
-    f = D.field(d)
+    (; ref, src) = src
     changing = if step == :mutate
         "mutating"
-    elseif step == :early
-        "assigning"
+    elseif step == :assign
+        "assigning to"
     else
         "<performing $(repr(step)) $black(display bug, please report)$reset>"
     end
     mv = modelvalue(d, mref, model)
-    println(io, "While $changing $f $mv:")
-    print(io, "In the provided value")
+    println(io, "While $changing $mv:")
     if !(ref isa WholeInput)
-        print(io, " at $ref")
+        print(io, "In the provided value at $ref:")
     end
-    println(io, ":")
     showerror(io, src)
 end
 

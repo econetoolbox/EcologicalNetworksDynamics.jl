@@ -3,12 +3,12 @@ module Display
 using SparseArrays
 
 using Crayons
-for col in [:red, :green, :blue, :yellow, :black, :bold, :italics, :reset]
+for col in [:red, :green, :blue, :cyan, :yellow, :black, :bold, :italics, :reset]
     eval(quote
         const $col = Crayons.@crayon_str $(String(col))
     end)
 end
-local red, green, blue, yellow, black, bold, italics, reset # (reassure JuliaLS)
+local red, green, blue, cyan, yellow, black, bold, italics, reset # (reassure JuliaLS)
 
 "Report value along with its type."
 rept(x) = "$(repr(x))  ::$(typeof(x))"
@@ -67,7 +67,7 @@ function render_input(
     type = sprint(show, T)
     short = repr(input)
     if length(short) + length(type) < 80 && !('\n' in short)
-        print(io, if_short("$yellow$short$reset", type))
+        print(io, if_short("$cyan$short$reset", type))
         between()
     else
         between()

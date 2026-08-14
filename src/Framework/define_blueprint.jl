@@ -44,51 +44,58 @@ function define_blueprint(B::DataType, shortline::Option{String} = nothing; depe
     # is the code required for the system to work correctly.
 
     # Setup expansion dependencies.
-    eval(quote
-        F.expands_from(::$B) = $checked_deps
+    eval(
+        quote
+            F.expands_from(::$B) = $checked_deps
 
-        # Enhance display.
-        Base.show(io::IO, b::$B) = display_short(io, b)
-        Base.show(io::IO, ::MIME"text/plain", b::$B) = display_long(io, b, 0)
+            # Enhance display.
+            Base.show(io::IO, b::$B) = display_short(io, b; color = false)
+            Base.show(io::IO, ::MIME"text/plain", b::$B) =
+                display_long(io, b, 0; color = true)
 
-        function F.display_short(io::IO, bp::$B)
-            comps = provided_comps_display(bp, 0, false)
-            print(io, "$comps:$(nameof($B))(")
-            for (i, name) in enumerate(fieldnames($B))
-                i > 1 && print(io, ", ")
-                print(io, "$name: ")
-                # Dispatch on both (bp, name) and field value to allow
-                # either kind of specialization.
-                value = getfield(bp, name)
-                display_blueprint_field_short(io, value, bp, Val(name))
+            function F.display_short(io::IO, bp::$B; color = false)
+                comps = provided_comps_display(bp, 0; color)
+                print(io, "$comps:$(nameof($B))(")
+                for (i, name) in enumerate(fieldnames($B))
+                    i > 1 && print(io, ", ")
+                    print(io, "$name: ")
+                    # Dispatch on both (bp, name) and field value to allow
+                    # either kind of specialization.
+                    value = getfield(bp, name)
+                    display_blueprint_field_short(io, value, bp, Val(name))
+                end
+                print(io, ")")
             end
-            print(io, ")")
-        end
 
-        function F.display_long(io::IO, bp::$B, level)
-            comps = provided_comps_display(bp, level, true)
-            g = level == 0 ? "" : gray
-            print(
-                io,
-                "$(g)blueprint for$reset $comps: \
-                 $blueprint_color$(nameof($B))$reset {",
-            )
-            preindent = repeat("  ", level)
-            level += 1
-            indent = repeat("  ", level)
-            names = fieldnames($B)
-            for name in names
-                print(io, "\n$indent$field_color$name:$reset ")
-                value = getfield(bp, name)
-                display_blueprint_field_long(io, value, bp, Val(name), level)
-                print(io, ",")
+            # TODO: seems that this logic is still inheriting from embedded blueprints?
+            # If so, simplify by removing these nested "levels".
+            function F.display_long(io::IO, bp::$B, level; color = false)
+                (fc, bc, fade, res) =
+                    color ? (field_color, blueprint_color, black, reset) : ("", "", "")
+                comps = provided_comps_display(bp, level; color)
+                fade = level == 0 ? "" : fade
+                print(
+                    io,
+                    "$(fade)blueprint for$res $comps: \
+                     $bc$(nameof($B))$res {",
+                )
+                preindent = repeat("  ", level)
+                level += 1
+                indent = repeat("  ", level)
+                names = fieldnames($B)
+                for name in names
+                    print(io, "\n$indent$fc$name:$res ")
+                    value = getfield(bp, name)
+                    display_blueprint_field_long(io, value, bp, Val(name), level)
+                    print(io, ",")
+                end
+                if !isempty(names)
+                    print(io, "\n$preindent")
+                end
+                print(io, "}")
             end
-            if !isempty(names)
-                print(io, "\n$preindent")
-            end
-            print(io, "}")
-        end
-    end)
+        end,
+    )
 
     # Record to avoid multiple calls to `define_blueprint(A)`.
     if !isnothing(shortline)
@@ -106,7 +113,7 @@ export define_blueprint
 #-------------------------------------------------------------------------------------------
 # Minor stubs for the generated code evaluation to work.
 
-specified_as_blueprint(B::Type{<:Blueprint}) = false
+specified_as_blueprint(::Type{<:Blueprint}) = false
 
 # Stubs for display methods.
 function display_short end
@@ -116,19 +123,16 @@ function display_long end
 #  Display.
 
 # Only display full relative path to component name in this context.
-function comp_name_or_path(c::CompRef, level, col)
+function comp_name_or_path(c::CompRef, level; color = false)
+    cc, res = color ? (component_color, reset) : ("", "")
     C = component_type(c)
-    if level == 0
-        fmt_compname(comp_path(C); col)
-    else
-        fmt_compname(strip_compname(nameof(C)); col)
-    end
+    level == 0 ? compdisplay(C; color) : "$cc$(C.name.name)$res"
 end
 
 # Special-case the single-provided-component case.
-function provided_comps_display(bp::Blueprint, level, col)
+function provided_comps_display(bp::Blueprint, level; color = false)
     comps = map(componentsof(bp)) do C
-        comp_name_or_path(C, level, col)
+        comp_name_or_path(C, level; color)
     end
     if length(comps) == 1
         "$(first(comps))"
