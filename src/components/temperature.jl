@@ -1,8 +1,8 @@
-# Temperature is a single graph-level scalar
-# useful to calculate allometric values for various biorates.
+# First example of a single network-level scalar.
 
+# Namespace intermediate constants within the module to avoid cross-component clashes.
 module TemperatureDef
-using EcologicalNetworksDynamics: EN, D, NF
+using EcologicalNetworksDynamics.NetworkFramework: EN, NF, D
 
 # Specify datakind.
 const d, _D = D.GraphField(:temperature)
@@ -10,8 +10,9 @@ D.name_variants(::_D) = (:T, :temperature, :Temperature)
 D.type(::_D) = Float64
 NF.intrinsic_check(::_D, T) = NF.non_negative(Float64, T)
 
-# Generate typical component and blueprints.
-NF.define_graph_scalar(EN, d) # (define them in outer module)
+# Generate and execute the code to generate blueprints and component.
+# Execute this within toplevel module to still expose the component.
+NF.define_graph_scalar(EN, d)
 
 end
 local Temperature, _Temperature # (reassure JuliaLS)

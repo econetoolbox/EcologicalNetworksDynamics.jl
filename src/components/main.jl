@@ -15,16 +15,11 @@
 # I would advise that the following files be read in order
 # as later comments build upon earlier ones.
 
-using .NetworkFramework: D, Blueprint, Model
-
-# (skip on first read: defining typical allometry-related blueprints)
-include("./allometry.jl")
-
 # First example graph-level data.
 include("./temperature.jl")
 
 # First example of a nodes class.
-#  include("./species.jl")
+include("./species.jl")
 
 # First example of an edges web.
 #  include("./foodweb.jl")

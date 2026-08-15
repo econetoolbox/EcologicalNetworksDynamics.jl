@@ -54,7 +54,6 @@ macro alias(new, old)
         F.@alias($new, $old, $Network)
     end
 end
-export @alias
 
 # ==========================================================================================
 

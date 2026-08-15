@@ -28,15 +28,17 @@ function define_class_component(mod::Module, d::D.Class)
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    bpmod = mod.eval((
-        quote
-            module $Plural_
-            import EcologicalNetworksDynamics: F, NF, Model
-            import .NF: @bp_construct
-            const d = $d
+    bpmod = mod.eval(
+        (
+            quote
+                module $Plural_
+                import EcologicalNetworksDynamics.NetworkFramework:
+                    F, NF, D, Model, @bp_construct
+                const d = $d
+                end
             end
-        end
-    ).args |> last)
+        ).args |> last,
+    )
 
     #---------------------------------------------------------------------------------------
     # Construct from a given set of names.
@@ -46,7 +48,7 @@ function define_class_component(mod::Module, d::D.Class)
             @bp_construct(Names)
         end
         export Names
-        $NF.register_blueprint(Names, "raw $($s) names"; dispatcher = d)
+        $NF.register_blueprint(Names, "raw $($s) names"; d)
     end)
 
     #---------------------------------------------------------------------------------------
@@ -57,29 +59,29 @@ function define_class_component(mod::Module, d::D.Class)
             @bp_construct(Number)
         end
         export Number
-        $NF.register_blueprint(Number, "number of $($s)"; dispatcher = d)
+        $NF.register_blueprint(Number, "number of $($s)"; d)
     end)
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
-    comp = mod.eval(
+    comp = NF.eval(
         quote # Need to reach toplevel first to access generated values.
-            $NF.define_component($(Meta.quot(Plural)), $mod; blueprints = [$bpmod])
+            define_component($(Meta.quot(Plural)), $mod; blueprints = [$bpmod])
         end,
     )
     C = typeof(comp)
 
     # Dispatch to correct constructor depending on input given to direct call on component.
     DT = typeof(d)
-    mod.eval(quote
+    NF.eval(quote
         D.component(::$DT) = $comp
         (::$C)(n::Integer) = $comp.Number(n)
         (::$C)(names...) = $comp.Names(names...)
     end)
 
     # Display.
-    mod.eval(quote
-        $F.shortline(io::IO, model::Model, ::$C) = $class_shortline($d, io, model)
+    NF.eval(quote
+        F.shortline(io::IO, model::Model, ::$C) = class_shortline($d, io, model)
     end)
 
     define_class_properties(mod, d; depends = [C])
@@ -102,7 +104,7 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics: N, V, D, Network, Model
+                using EcologicalNetworksDynamics.NetworkFramework: N, V, D, Network, Model
                 using OrderedCollections
                 const defmeth = $defmeth
                 const d = $d
@@ -156,12 +158,12 @@ construct(BP::Type{<:ClassNames}, first, second, rest...) =
 
 # Names: forbid duplicates (triangular check).
 function intrinsic_check(B::Type{<:ClassNames}, names::Vector{Symbol})
-    Class = B |> dispatcher |> D.CamelCaseSingular
     already = OrderedDict{Symbol,Int}() # {name: index}
     for (i, name) in enumerate(names)
         if haskey(already, name)
+            Class = B |> dispatcher |> D.CamelCaseSingular
             j = already[name]
-            liberr("$Class $j and $i would both be named $(repr(name)).")
+            checkerr(i, name, "$Class $j and $i would both be named $(repr(name)).")
         end
         already[name] = i
     end
@@ -172,14 +174,14 @@ end
 function intrinsic_check(B::Type{<:ClassNumber}, n::Int)
     n >= 0 && return n
     class = B |> dispatcher |> D.snake_case_plural
-    liberr(n, "Cannot construct a negative number of $class.")
+    checkerr(n, "Cannot construct a negative number of $class nodes.")
 end
 
 #-------------------------------------------------------------------------------------------
 # Expand.
 
 # From names.
-function expand!(m::Model, d::D.Class, names) # Generic for this data kind: raw names.
+function expand!(m::Model, d::D.Class, names)
     class = d |> D.class
     network = NF.network(m)
     N.add_class!(network, class, names)
@@ -190,7 +192,7 @@ function expand!(m::Model, b::ClassNumber, n)
     d = dispatcher(b)
     prefix = D.short_prefix(d)
     names = (Symbol(prefix, i) for i in 1:n)
-    expand!(m, d, names) # Resort to generic procedure once raw names are available.
+    expand!(m, d, names)
 end
 
 #-------------------------------------------------------------------------------------------

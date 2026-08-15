@@ -1,31 +1,19 @@
-# Species nodes are the first basic type of node in the ecological graph model.
+# First example of a network class.
 
-(false) && (local Species) # Reassure JuliaLS.
-export Species # Generated within the module execution.
-
-# Namespace intermediate constants within the module to avoid cross-component clashes.
 module SpeciesDef
+using EcologicalNetworksDynamics.NetworkFramework: EN, D, NF, @alias
 
-using EcologicalNetworksDynamics: EN, D, NF, @alias
+const d, _D = D.Class(:species)
+D.name_variants(::_D) = (:s, :species, :species, :Species, :Species)
 
-# Define associated dispatcher.
-const d = D.Class(:species)
-const DT = typeof(d)
-
-# Specify additional information with extension points.
-D.name_variants(::DT) = (:s, :species, :species, :Species, :Species)
-
-# Generate and execute the code to generate blueprints and component.
-# Execute this within toplevel module to still expose the component.
 NF.define_class_component(EN, d)
-using .EN: Species
+local Species # (reassure JuliaLS)
 
 # Extra aliases used by the community.
 @alias S species.number
 @alias richness S
 @alias species.richness S
 
-# Document.
 @doc """
 The Species component adds the most basic nodes compartment into the model: species.
 There is one node per species, and every species is given a unique name and index.
@@ -88,3 +76,5 @@ OrderedCollections.OrderedDict{Symbol, Int64} with 3 entries:
 """ Species
 
 end
+local Species, _Species # Reassure JuliaLS.
+export Species

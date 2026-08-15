@@ -167,11 +167,14 @@ const V = Views
 
 # Templates for typical network blueprint/components.
 include("./graph_scalar.jl")
-#  include("./class.jl")
+include("./class.jl")
 #  include("./web.jl")
 #  include("./node_field.jl")
 #  include("./subnode_field.jl")
 #  include("./edge_field.jl")
+
+# Typical allometry-related blueprints.
+#  include("./allometry.jl")
 
 include("./display.jl")
 

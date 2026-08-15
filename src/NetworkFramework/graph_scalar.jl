@@ -46,19 +46,18 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
     # ======================================================================================
     # The component itself.
 
-    comp = mod.eval(
+    comp = NF.eval(
         quote
-            $NF.define_component($(Meta.quot(Singular)), $mod; blueprints = [$bpmod])
+            define_component($(Meta.quot(Singular)), $mod; blueprints = [$bpmod])
         end,
     )
     C = typeof(comp)
     DT = typeof(d)
-    mod.eval(
+    NF.eval(
         quote
             D.component(::$DT) = $comp
             (::$C)(input) = $comp.Raw(input)
-            $F.shortline(io::IO, model::Model, ::$C) =
-                $graph_scalar_shortline($d, io, model)
+            F.shortline(io::IO, model::Model, ::$C) = graph_scalar_shortline($d, io, model)
         end,
     )
 
