@@ -160,7 +160,8 @@ function GraphField(field::Symbol)
     T(), T
 end
 S = GraphField # 'Self'
-field(::S{fd}) where {fd} = fd
+content(::S{fd}) where {fd} = (fd,)
+field(s::S) = s |> content |> first
 
 """
 Obtain name variants for field data, in order:

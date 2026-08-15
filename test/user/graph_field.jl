@@ -8,7 +8,7 @@ module GraphField
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    N, F, @test_repr, @test_disp, @bpfails, addfails
+    N, F, @test_repr, @test_disp, @test_err, @bpfails, @mutfails, addfails
 using Test
 
 @testset "Typical GraphScalar component" begin
@@ -32,8 +32,16 @@ using Test
     @test bp == Temperature(215) # Component as constructor.
 
     # Checked on construction.
-    @bpfails(Temperature(-1), Temperature.Raw, :construct, nothing,
-        (nothing, nothing, :check, -1.0, "Value cannot be negative."))
+    @bpfails(Temperature(-1),
+        Temperature.Raw, :construct, nothing,
+        (nothing, :whole, :check, -1.0, "Value cannot be negative."))
+    @test_err(Temperature(-1),
+        """
+        While constructing blueprint Temperature.Raw:
+        Value cannot be negative.
+        Received: -1.0 ::Float64\
+        """
+    )
 
     # Expand into a field component.
     m = Model(bp)
@@ -61,13 +69,23 @@ using Test
     @test m.T == 244 # Current model updated.
 
     # Value is still checked.
-    @bpfails(m.T = -1, -1.0, "Value cannot be negative.")
+    @mutfails(m.T = -1,
+        (:temperature,), :assign, m,
+        (:whole, :whole, :check, -1.0, "Value cannot be negative."))
+    @test_err(m.T = -1,
+        """
+        While assigning to model <temperature> value for the network:
+        Value cannot be negative.
+        Received: -1.0 ::Float64\
+        """
+    )
+
     bp.T = -1 # Even after blueprint corruption.
     addfails.@check(
         Model(bp),
         [Temperature.Raw],
         """
-        When checking <temperature> blueprint data:
+        While verifying blueprint:
         Value cannot be negative.
         Received: -1.0 ::$Float64\
         """,

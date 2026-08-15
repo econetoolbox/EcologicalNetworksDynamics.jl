@@ -25,7 +25,7 @@ include("./errors.jl")
 const T = Tests
 
 using EcologicalNetworksDynamics:
-    EN, N, F, NF, I, SparseMatrix, Display, errwith, withcontext, prepend_context!,
+    EN, N, F, NF, D, I, SparseMatrix, Display, errwith, withcontext, prepend_context!,
     OneShotReport
 using .Display: rept, render_input, yellow, black, reset, italics
 
@@ -144,10 +144,10 @@ function test_mref(exp, act::NF.ModelRefErr)
     end
     a, b, c, d... = exp
     exp = (; mref = a, ref = b, root = c, fields = d)
-    withcontext(WrongField, FieldsCompare.default, exp.mref, act.mref) do io
+    withcontext(WrongField, compare_refs, exp.mref, act.mref) do io
         println(io, "Reported model reference $(black).mref$reset:")
     end
-    withcontext(WrongField, compare_inputrefs, exp.ref, act.src.ref) do io
+    withcontext(WrongField, compare_refs, exp.ref, act.src.ref) do io
         println(io, "Reported input reference $(black).ref$reset:")
     end
     withcontext(WrongField, FieldsCompare.type, :root, exp.root) do io
@@ -182,17 +182,36 @@ function test_mref(exp, act::NF.ModelRefErr)
         end,
     )
 end
-compare_inputrefs(exp, act::NF.InputRef) = FieldsCompare.default(exp, act)
-compare_inputrefs(::Nothing, ::NF.WholeInput) = @test true
-compare_inputrefs(exp, ::NF.WholeInput) =
-    errwith(WrongField, "wrong input reference", rethrow) do io
-        showcompare(
-            io,
-            exp,
-            "nothing $italics(meaning $black$(NF.WholeInput)$reset$italics)$reset",
-        )
+
+"Test `$(NF.InputRef)` value, using `:whole` to expect `$(NF.WholeInput)`."
+compare_refs(::Nothing, ::Nothing) = @test true
+compare_refs(exp, act::NF.InputRef) = FieldsCompare.default(exp, act)
+compare_refs(exp::Symbol, ::NF.WholeInput) =
+    if exp == :whole
+        @test true
+    else
+        errwith(WrongField, "wrong input reference", rethrow) do io
+            showcompare(
+                io,
+                exp,
+                ":whole $italics(alias for $black$(NF.WholeInput)$reset$italics)$reset",
+            )
+        end
     end
+
+"Test datakind/dispatcher value, using tuples of symbols for their content."
+test_datakind(exp, ::D.Dispatcher) =
+    errwith("Not a tuple of symbols to compare against data kind:", rethrow) do io
+        showcompare(io, "data kind spec like (:class, :field)", exp)
+    end
+test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
+    FieldsCompare.value(exp, D.content(act))
+
 @genfailsmacro bpfails EN.NetworkFramework.BlueprintError (; src = test_mref)
+@genfailsmacro mutfails EN.NetworkFramework.MutationError (;
+    d = test_datakind,
+    src = test_mref,
+)
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)
@@ -209,6 +228,7 @@ macro jl_callfails end
 macro jl_deffails end
 macro labelfails end
 macro methfails end
+macro mutfails end
 macro netfails end
 macro propfails end
 
