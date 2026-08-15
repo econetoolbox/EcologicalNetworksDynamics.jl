@@ -147,8 +147,7 @@ forgive(f, parser) =
     try
         f()
     catch e
-        isnothing(parser) && e isa Forgiveness &&
-            rethrow(RefErr(ListParseError(e.mess), WholeInput()))
+        isnothing(parser) && e isa Forgiveness && rethrow(ListParseError(e.mess))
         # TODO: Upgrade `path` into an `InputRef` to fill it in? Not required?
         rethrow(e)
     end

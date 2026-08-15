@@ -175,7 +175,7 @@ function test_mref(exp, act::NF.ModelRefErr)
             showcompare(io, "one among: $(keys(dict))", exp.root)
         end
     end
-    T.test_errsource(act.src.src, RootCauseType, exp.fields)
+    T.test_errsource(act.src.src, RootCauseType, exp.fields, (; mess))
 end
 
 "Test `$(NF.InputRef)` value, using `:whole` to expect `$(NF.WholeInput)`."
@@ -202,6 +202,9 @@ test_datakind(exp, ::D.Dispatcher) =
 test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     FieldsCompare.value(exp, D.content(act))
 
+@genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess)
+@genfailsmacro convfails EN.NetworkFramework.ConvertError (; mess)
+@genfailsmacro listfails EN.NetworkFramework.ListParseError (; mess)
 @genfailsmacro bpfails EN.NetworkFramework.BlueprintError (; src = test_mref)
 @genfailsmacro mutfails EN.NetworkFramework.MutationError (;
     d = test_datakind,
@@ -223,12 +226,15 @@ macro argfails end
 macro bluefails end
 macro bpfails end
 macro callfails end
+macro checkfails end
 macro compfails end
 macro conflfails end
+macro convfails end
 macro errfails end
 macro jl_callfails end
 macro jl_deffails end
 macro labelfails end
+macro listfails end
 macro methfails end
 macro mutfails end
 macro netfails end

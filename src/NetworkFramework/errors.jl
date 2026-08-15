@@ -32,7 +32,7 @@ end
 converr(T::Type, i, m::String, throw = Base.throw) = throw(ConvertError(T, i, m))
 function Base.showerror(io::IO, e::ConvertError)
     (; T, input, mess) = e
-    println(io, "Cannot convert inut to `$T`:")
+    println(io, "Cannot convert input to `$T`:")
     println(io, mess)
     render_input(io, input)
 end
