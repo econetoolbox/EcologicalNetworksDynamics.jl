@@ -18,7 +18,8 @@ generalize again if required to also check macro *expansion* process.
 """
 module Errors
 
-using EcologicalNetworksDynamics: I, Display, @ErrBrand, errwith, errwrap, escall, Tests
+using EcologicalNetworksDynamics:
+    I, Display, @ErrBrand, errwith, errwrap, withcontext, escall, Tests
 using .Display: blue, red, yellow, black, bold, italics, reset, rept, eprintln
 using .Tests.Strings: showcompare, showdiff, check_string, UnmatchedStrings, Ln, lnline
 
@@ -199,10 +200,20 @@ function check_fields_expression(
     expected_names::Tuple{Vararg{Symbol}},
     fields::Tuple,
 )
+    withcontext(check_expected_fields, E, expected_names, fields) do io
+        println(io, lnline(src))
+    end
+end
+
+"Extract a version of the above that also works for fields already evaluated."
+function check_expected_fields(
+    E::Type,
+    expected_names::Tuple{Vararg{Symbol}},
+    fields::Tuple,
+)
     e, a = length.((expected_names, fields))
     e == a && return # (no +1 for @testset: this is just about invocation correctness)
     errwith("Wrong number of error fields:") do io
-        println(io, lnline(src))
         se, sa = I.map(n -> n == 1 ? "" : "s", (e, a))
         println(io, "This error type requires checking $blue$e$reset field$se:")
         println(io, "  $yellow$E$black$bold$expected_names$reset")
@@ -225,9 +236,9 @@ unexpected_success(E::Type, fields) =
         )
     end
 
-unexpected_error_type(err, E::Type, fields) =
-    errwrap(err, "Unexpected error type:") do io
-        showcompare(io, "$yellow$E$blue$fields$reset", "$(typeof(err)), saying:")
+unexpected_error_type(act, E::Type, fields) =
+    errwrap(act, "Unexpected error type:") do io
+        showcompare(io, "$yellow$E$blue$fields$reset", "$(typeof(act)), saying:")
     end
 
 """
@@ -235,11 +246,13 @@ Raise on mismatched exception fields.
 Header is a short string to include during upgrade.
 """
 @ErrBrand WrongField
+local WrongField # (reassure JuliaLS)
 
 "Test actual error value against (evaluated) expected fields."
 function test_error_expected(err, E::Type, enames::Tuple{Vararg{Symbol}}, fields, checks)
     length(enames) == length(fields) ||
         error("inconsistent call: bug in the testing system")
+    success = nothing
     for (i, (name, exp)) in enumerate(zip(enames, fields))
         act = getfield(err, name)
         try
@@ -261,8 +274,9 @@ function test_error_expected(err, E::Type, enames::Tuple{Vararg{Symbol}}, fields
                 e.display(io)
             end
         end
-        @test true # +1 test count in @testset per checked error field.
+        success = @test true # +1 test count in @testset per checked error field.
     end
+    isnothing(success) ? @test(true) : success # Forward up to the console.
 end
 
 #-------------------------------------------------------------------------------------------

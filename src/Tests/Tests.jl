@@ -24,8 +24,10 @@ include("./errors.jl")
 
 const T = Tests
 
-using EcologicalNetworksDynamics: EN, N, F, I, SparseMatrix, Display, errwith
-using .Display: rept
+using EcologicalNetworksDynamics:
+    EN, N, F, NF, I, SparseMatrix, Display, errwith, withcontext, prepend_context!,
+    OneShotReport
+using .Display: rept, render_input, yellow, black, reset, italics
 
 using .Strings:
     showcompare,
@@ -33,6 +35,8 @@ using .Strings:
     check_string, check_repr, check_disp, check_err,
     @test_string, @test_repr, @test_disp, @test_err
 using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare, WrongField
+
+using Test
 
 """
 Numerous exception types in the package have a `mess` field
@@ -110,12 +114,85 @@ module addfails
 end
 
 #-------------------------------------------------------------------------------------------
-# Validating user input.
+raw"""
+Exposed library errors.
+These are sophisticated, nested error types.
+Only macros testing toplevel reports are generated.
+Here is how to use them:
 
-# HERE: needs upgrade to feature NF.LibErrors.
-#  @genfailsmacro inputfails EN.NetworkFramework.SimpleError (; mess)
-#  @genfailsmacro valuefails EN.NetworkFramework.ValueError (; mess)
-#  @genfailsmacro convertfails EN.NetworkFramework.ConvertError (; mess)
+  @bpfails(     <- Expect NF.BlueprintError.
+    xp,         <- The expression tested.
+    B, step, m, <- The regular exception fields.
+    (           <- Recurse into nested exceptions. No need to test their (fixed) types.
+      mref,     <- Expected subfield.
+      ref,      <- Expected sub-subfield, although no need to nest more!
+      :root,    <- Target expectetdj NF.RootCause type with a short name.
+      ...       <- Subsequent fields are those of the rootcause type.
+    ),
+  )
+
+"""
+function test_mref(exp, act::NF.ModelRefErr)
+    exp isa Tuple ||
+        errwith("Not a tuple to compare against nested error:", rethrow) do io
+            render_input(io, exp)
+        end
+    if length(exp) < 4
+        errwith("Not enough expected nested fields values to test:", rethrow) do io
+            showcompare(io, "(mref, ref, root, root_fields...)", exp)
+        end
+    end
+    a, b, c, d... = exp
+    exp = (; mref = a, ref = b, root = c, fields = d)
+    withcontext(WrongField, FieldsCompare.default, exp.mref, act.mref) do io
+        println(io, "Reported model reference $(black).mref$reset:")
+    end
+    withcontext(WrongField, compare_inputrefs, exp.ref, act.src.ref) do io
+        println(io, "Reported input reference $(black).ref$reset:")
+    end
+    withcontext(WrongField, FieldsCompare.type, :root, exp.root) do io
+        println(io, "Reported root cause type:")
+    end
+    # Translate to expected root error type.
+    dict = (; check = NF.CheckError, convert = NF.ConvertError)
+    R = if haskey(dict, exp.root)
+        dict[exp.root]
+    else
+        errwith("Unknown possible root cause type:", rethrow) do io
+            showcompare(io, "one among: $(keys(dict))", exp.root)
+        end
+    end
+    # Then reuse former utils to check the root error as usual.
+    act_root = act.src.src
+    enames = fieldnames(R)
+    err = try
+        Errors.check_expected_fields(R, enames, exp.fields)
+        act_root isa R || Errors.unexpected_error_type(act_root, R, exp.fields)
+        Errors.test_error_expected(act_root, R, enames, exp.fields, (;))
+        nothing
+    catch e
+        e isa OneShotReport || rethrow(e)
+        e # Exit that nested block to avoid cluttering output with original error.
+    end
+    isnothing(err) || rethrow(
+        prepend_context!(err) do io
+            println(io,
+                "When testing underlying root cause \
+                 $yellow$(repr(exp.root))$reset:")
+        end,
+    )
+end
+compare_inputrefs(exp, act::NF.InputRef) = FieldsCompare.default(exp, act)
+compare_inputrefs(::Nothing, ::NF.WholeInput) = @test true
+compare_inputrefs(exp, ::NF.WholeInput) =
+    errwith(WrongField, "wrong input reference", rethrow) do io
+        showcompare(
+            io,
+            exp,
+            "nothing $italics(meaning $black$(NF.WholeInput)$reset$italics)$reset",
+        )
+    end
+@genfailsmacro bpfails EN.NetworkFramework.BlueprintError (; src = test_mref)
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)
@@ -123,18 +200,16 @@ end
 macro aliasfails end
 macro argfails end
 macro bluefails end
+macro bpfails end
 macro callfails end
 macro compfails end
 macro conflfails end
-macro convertfails end
 macro errfails end
-macro inputfails end
 macro jl_callfails end
 macro jl_deffails end
 macro labelfails end
 macro methfails end
 macro netfails end
 macro propfails end
-macro valuefails end
 
 end

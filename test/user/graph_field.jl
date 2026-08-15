@@ -8,7 +8,7 @@ module GraphField
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    N, F, @test_repr, @test_disp, @valuefails, addfails
+    N, F, @test_repr, @test_disp, @bpfails, addfails
 using Test
 
 @testset "Typical GraphScalar component" begin
@@ -32,14 +32,8 @@ using Test
     @test bp == Temperature(215) # Component as constructor.
 
     # Checked on construction.
-    @valuefails(
-        Temperature(-1),
-        -1.0, # HERE how to avoid test error message context only once?
-        """
-        When constructing blueprint for <temperature>:
-        Value cannot be negative.\
-        """
-    )
+    @bpfails(Temperature(-1), Temperature.Raw, :construct, nothing,
+        (nothing, nothing, :check, -1.0, "Value cannot be negative."))
 
     # Expand into a field component.
     m = Model(bp)
@@ -67,7 +61,7 @@ using Test
     @test m.T == 244 # Current model updated.
 
     # Value is still checked.
-    @valuefails(m.T = -1, -1.0, "Value cannot be negative.")
+    @bpfails(m.T = -1, -1.0, "Value cannot be negative.")
     bp.T = -1 # Even after blueprint corruption.
     addfails.@check(
         Model(bp),

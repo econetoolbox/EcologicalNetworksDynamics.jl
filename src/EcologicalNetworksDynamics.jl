@@ -84,14 +84,12 @@ include("./diversity.jl")
 include("Tests/Tests.jl")
 
 # ==========================================================================================
-# Default exposed interface.
+# Default exposed interface (+ components provide their own alongside their definition).
 
 using .MultiplexApi
 export interactions_names, multiplex_parameters_names
 
 using .NetworkFramework
 export Blueprint, Component, Model
-
-export Temperature
 
 end

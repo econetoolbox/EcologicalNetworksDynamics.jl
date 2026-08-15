@@ -5,12 +5,14 @@ Use to throw or rethrow when the error is identified within user arguments.
 """
 argerr(message, throw = Base.throw) = throw(ArgumentError(message))
 
+abstract type OneShotReport end
+
 """
 Use to create apparent one-shot error type,
 passing just a closure capturing the environment required for display.
 May be 'wrapping' up an underlying source.
 """
-struct ErrWith <: Exception
+mutable struct ErrWith <: OneShotReport
     head::String
     display::Function
     source::Option{Exception}
@@ -42,7 +44,7 @@ macro ErrBrand(Brand)
         end
     end
 end
-abstract type BrandedErrWith <: Exception end
+abstract type BrandedErrWith <: OneShotReport end
 errwith(f::Function, E::Type{<:BrandedErrWith}, h::String, throw = Base.throw) =
     throw(E(ErrWith(h, f, nothing)))
 errwrap(f::Function, s, E::Type{<:BrandedErrWith}, h::String, rethrow = Base.rethrow) =
@@ -51,6 +53,29 @@ errwith(E::Type{<:BrandedErrWith}, h::String, throw = Base.throw) =
     throw(E(ErrWith(h, identity, nothing)))
 errwrap(s, E::Type{<:BrandedErrWith}, h::String, rethrow = Base.rethrow) =
     rethrow(E(ErrWith(h, identity, s)))
+
+"Prepend context in case of error."
+withcontext(ctx::Function, E::Type{<:OneShotReport}, f::Function, args...; kwargs...) =
+    try
+        f(args...; kwargs...)
+    catch e
+        e isa E || rethrow(e)
+        rethrow(prepend_context!(ctx, e))
+    end
+withcontext(ctx::Function, f::Function, args...; kwargs...) =
+    withcontext(ctx, OneShotReport, f, args...; kwargs...)
+function prepend_context!(ctx::Function, e::ErrWith)
+    original = e.display
+    e.display = io -> begin
+        ctx(io)
+        original(io)
+    end
+    e
+end
+function prepend_context!(ctx::Function, e::BrandedErrWith)
+    prepend_context!(ctx, e.source)
+    e
+end
 
 """
 Construct this error type when 'asking forgiveness rather than permission' in a row,

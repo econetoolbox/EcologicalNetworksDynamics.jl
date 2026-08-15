@@ -55,11 +55,11 @@ the 'bottom' being defined by anything we would like to render in-'between'.
 function render_input(
     io,
     input,
-    if_short::Function = (short, type) -> "\nReceived: $short ::$type",
+    if_short::Function = (short, type) -> "Received: $short ::$type",
     if_long::Function = (long, type) -> begin
-        print(io, "\nReceived: ")
+        print(io, "Received: ")
         long()
-        print(io, "\nType: $type")
+        print(io, "Type: $type")
     end,
     between::Function = () -> nothing,
 )
