@@ -481,7 +481,7 @@ module PropertySpaces
 
         # The space is still empty.
         @propfails(s.mre.a, MRE, :a, "Unknown property.")
-        T.@test_err(s.mre.a, "In property `mre.a` of `$S`: Unknown property.\n")
+        T.@test_err(s.mre.a, "In property `mre.a` of `$S`: Unknown property.")
 
         # Add property to the space.
         eval(quote
@@ -515,7 +515,7 @@ module PropertySpaces
             get_dru(::Value) = "dru"
         end)
         define_method(get_dru; read_as = [:(mre.txv.dru)])
-        T.@test_err(s.mre.txv.a, "In property `mre.txv.a` of `$S`: Unknown property.\n")
+        T.@test_err(s.mre.txv.a, "In property `mre.txv.a` of `$S`: Unknown property.")
         @propfails(s.mre.txv.a, TXV, :a, "Unknown property.")
         @propfails(s.mre.dru, MRE, :dru, "Unknown property.")
         @propfails(s.dru, S, :dru, "Unknown property.")

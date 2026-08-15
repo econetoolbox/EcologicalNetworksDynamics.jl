@@ -124,6 +124,8 @@ module addfails
         # .. and the first element in the path should always be redundant with BP type:
         node = (e, a) -> node(e, a; skip_first = true),
     )
+    # Keep a simple one around to check the framework itself.
+    @genfailsmacro check_raw F.HookCheckFailure (; node, err = (e, a) -> mess(e, a.mess))
 end
 
 #-------------------------------------------------------------------------------------------

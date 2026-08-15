@@ -342,7 +342,7 @@ module Abstracts
             Already brought: $E_b
              implied by: $Crh_b
             ---
-            in $Crh_b
+            in $Crh_b\
             """)
 
     end

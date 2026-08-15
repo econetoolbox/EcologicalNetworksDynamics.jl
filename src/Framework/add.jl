@@ -706,7 +706,7 @@ function Base.showerror(io::IO, e::ConflictWithBroughtComponent)
     else
         body = ":\n  $reason"
     end
-    print(io, "$header$body\nAlready brought: $other_path---\n$path")
+    print(io, "$header$body\nAlready brought: $other_path\n---\n$path")
 end
 
 struct InternalAddError <: AddError

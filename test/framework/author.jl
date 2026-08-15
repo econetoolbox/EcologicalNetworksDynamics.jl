@@ -18,8 +18,8 @@ Base.setproperty!(v::Value, p::Symbol, rhs) = F.unchecked_setproperty!(v, p, rhs
 struct CheckError <: F.InputError
     mess::String
 end
-F.message(e::CheckError) = e.mess
 checkfails(mess) = throw(CheckError(mess))
+Base.showerror(io::IO, e::CheckError) = print(io, e.mess)
 
 # ==========================================================================================
 # Define basic blueprints/components to work with the above value.
@@ -234,13 +234,13 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # Forbid unexistent properties.
         @propfails(s.x, S, :x, "Unknown property.")
-        @test_err(s.x, "In property `.x` of `$System{$Value}`: Unknown property.\n")
+        @test_err(s.x, "In property `.x` of `$System{$Value}`: Unknown property.")
         # Forbid existent properties without appropriate component.
         @propfails(s.b, S, :b, "Component $_B is required to read this property.")
         # Same with methods.
         @jl_deffails(get_x(s), :get_x, Basics)
         @callfails(get_b(s), V, :get_b, "Requires component $_B.")
-        @test_err(get_b(s), "In method `get_b` for `$Value`: Requires component $_B.\n")
+        @test_err(get_b(s), "In method `get_b` for `$Value`: Requires component $_B.")
 
         # Forbid write.
         @propfails((s.n = 4), S, :n, "This property is read-only.")
@@ -251,7 +251,7 @@ module Basics # Use submodules to not clash blueprints/components names.
             """
             Blueprint would expand into component $_Size, \
             which is already in the system.
-            in $NLines
+            in $NLines\
             """)
 
         # Add component requiring previous one from a blueprint.
@@ -259,7 +259,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test t.a == [5, 5, 5]
 
         # Fail if custom blueprint constraints are not enforced.
-        addfails.@check(
+        addfails.@check_raw(
             s + A.Raw([5, 5]),
             [A.Raw],
             "Cannot expand 2 'a' values into 3 lines.",
@@ -273,7 +273,7 @@ module Basics # Use submodules to not clash blueprints/components names.
             Not all blueprints have been expanded.
             This means that the system consistency is still guaranteed, \
             but some components have not been added.
-            in $(A.Raw)
+            in $(A.Raw)\
             """
         )
 
@@ -288,7 +288,7 @@ module Basics # Use submodules to not clash blueprints/components names.
             """
             Component $_B requires $_A, \
             neither found in the system nor brought by the blueprints.
-            in $(B.Raw)
+            in $(B.Raw)\
             """
         )
 
@@ -307,14 +307,14 @@ module Basics # Use submodules to not clash blueprints/components names.
             """
             Blueprint would expand into $_Sparse, \
             which conflicts with $_Size already in the system.
-            in $SparseMark
+            in $SparseMark\
             """
         )
 
         # Blueprint checking may depend on other components.
         r = ReflectionMark()
         s = e + NLines(5)
-        addfails.@check(s + r, [ReflectionMark], "Cannot reflect from no data.", true)
+        addfails.@check_raw(s + r, [ReflectionMark], "Cannot reflect from no data.", true)
 
         # Blueprint expansion may depend on other components.
         sa = s + A.Uniform(5)
@@ -383,7 +383,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test s.n == 2
 
         # Display path to failing brought sub-blueprint in case of failure.
-        addfails.@check(
+        addfails.@check_raw(
             e + A.Raw([]),
             [NLines, A.Raw],
             "Not a positive number of lines: 0.",
@@ -394,7 +394,7 @@ module Basics # Use submodules to not clash blueprints/components names.
             Blueprint value cannot be expanded:
             Not a positive number of lines: 0.
             in $NLines
-             implied by: $(A.Raw)
+             implied by: $(A.Raw)\
             """
         )
 
@@ -405,7 +405,7 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # But a failure to match is still a failure.
         s = e + NLines(3)
-        addfails.@check(
+        addfails.@check_raw(
             s += a,
             [A.Raw],
             "Cannot expand 2 'a' values into 3 lines.",
@@ -432,7 +432,7 @@ module Basics # Use submodules to not clash blueprints/components names.
             Not all blueprints have been expanded.
             This means that the system consistency is still guaranteed, \
             but some components have not been added.
-            in $Llz_b
+            in $Llz_b\
             """)
 
         struct Sta_b <: Blueprint{Value} end
@@ -447,7 +447,7 @@ module Basics # Use submodules to not clash blueprints/components names.
             Consider reporting to component authors \
             if you can reproduce with a minimal example.
             In any case, please drop the current system value and create a new one.
-            in $Sta_b
+            in $Sta_b\
             """)
 
     end

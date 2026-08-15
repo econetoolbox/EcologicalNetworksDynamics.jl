@@ -53,5 +53,5 @@ end
 callerr(V, n, m, throw = Base.throw) = throw(MethodCallError(V, n, m))
 function Base.showerror(io::IO, e::MethodCallError)
     (; Value, name, mess) = e
-    println(io, "In method `$name` for `$Value`: $mess")
+    print(io, "In method `$name` for `$Value`: $mess")
 end

@@ -191,7 +191,7 @@ Base.getproperty(b::Blueprint, name::Symbol) =
     end
 
 # Display extension points.
-function bpdisplay(io::IO, B::Type{Blueprint}; color = false)
+function bpdisplay(io::IO, B::Type{<:Blueprint}; color = false)
     s, e = color ? (blueprint_color, reset) : ("", "")
     print(io, "$s$(repr(B))$e")
 end
