@@ -21,13 +21,9 @@
 #
 # This is used for the multiplex API and the Allometric rates API.
 
-deverr(mess) = throw(mess)
-argerr(mess) = throw(ArgumentError(mess))
-aliaserr(mess) = throw(AliasingError(mess))
-
 #-------------------------------------------------------------------------------------------
 # Improve error messages by keeping track of the exact way arguments were input.
-abstract type Nested2DArg{O<:AliasingDict,I<:AliasingDict} end # Parametrize with the aliased dict type O{I{T}}.
+abstract type Nested2DArg{O<:AD,I<:AD} end # Parametrize with the aliased dict type O{I{T}}.
 
 for T in [
     :BasalArg, # The two parts are explicitly given: `<o>_<i> = ..`.
@@ -45,12 +41,14 @@ for T in [
         end
     end)
 end
+# (reassure JuliaLS)
+local BasalArg, RevBasalArg, NestedArg, RevNestedArg, OuterContextArg, InnerContextArg
 
 # Canonicalize nesting order.
-reorder(::Type{<:BasalArg}) = (o, i) -> (o, i)
-reorder(::Type{<:RevBasalArg}) = (i, o) -> (o, i)
-reorder(::Type{<:NestedArg}) = (o, i) -> (o, i)
-reorder(::Type{<:RevNestedArg}) = (i, o) -> (o, i)
+reorder(::Type{BasalArg}) = (o, i) -> (o, i)
+reorder(::Type{RevBasalArg}) = (i, o) -> (o, i)
+reorder(::Type{NestedArg}) = (o, i) -> (o, i)
+reorder(::Type{RevNestedArg}) = (i, o) -> (o, i)
 
 # Reconstruct original input to produce useful error messages
 original(a::BasalArg) = Symbol("$(a.o)_$(a.i)")
@@ -68,14 +66,9 @@ function expand(a::Nested2DArg)
         "'$a' argument"
     end
 end
-export expand
 
-# Diverge on user input ambiguity.
-function ambiguity(
-    nest_name,
-    a::Nested2DArg{O,I},
-    b::Nested2DArg{O,I},
-) where {O<:AliasingDict,I<:AliasingDict}
+# Error on user input ambiguity.
+function ambiguity(nest_name, a::Nested2DArg{O,I}, b::Nested2DArg{O,I}) where {O<:AD,I<:AD}
     o = standardize(a.o, O)
     i = standardize(a.i, I)
     argerr("Ambiguous or redundant specification in aliased 2D input for '$nest_name': \
@@ -91,7 +84,7 @@ end
 # Given an argument name, parse it into all valid (o, i) pairs.
 # Return a list of re-ordered (Option{OuterSymbol}, Option{InnerSymbol}, Option{Bool}),
 # with the terminal flag defined and raised if reversed.
-function arg_parses(arg, ::Type{O}, ::Type{I}) where {O<:AliasingDict,I<:AliasingDict}
+function arg_parses(arg, ::Type{O}, ::Type{I}) where {O<:AD,I<:AD}
     arg = Symbol(arg)
     orefs = all_references(O)
     irefs = all_references(I)
@@ -110,7 +103,7 @@ function arg_parses(arg, ::Type{O}, ::Type{I}) where {O<:AliasingDict,I<:Aliasin
     bits = split(arg, '_')
     for k in 1:(length(bits)-1)
         a = Symbol(join(bits[1:k], '_'))
-        b = Symbol(join(bits[k+1:end], '_'))
+        b = Symbol(join(bits[(k+1):end], '_'))
         if a in orefs && b in irefs
             push!(parses, (a, b, false))
         end
@@ -127,7 +120,7 @@ function parse_message(
     i::Union{Nothing,Symbol},
     ::Type{O},
     ::Type{I},
-) where {O<:AliasingDict,I<:AliasingDict}
+) where {O<:AD,I<:AD}
     if isnothing(o)
         si = standardize(i, I)
         hi = shortname(I)
@@ -146,12 +139,7 @@ function parse_message(
 end
 
 # Protect against ambiguous arguments splitting.
-function ambiguity_guard(
-    arg,
-    nest_name::Symbol,
-    ::Type{O},
-    ::Type{I},
-) where {O<:AliasingDict,I<:AliasingDict}
+function ambiguity_guard(arg, nest_name::Symbol, ::Type{O}, ::Type{I}) where {O<:AD,I<:AD}
     parses = arg_parses(arg, O, I)
     if length(parses) > 1
         # There is lexical ambiguity,
@@ -175,15 +163,15 @@ function ambiguity_guard(
         if length(different) > 1
             # This is a true semantic ambiguity.
             (o1, i1), (o2, i2) = different
-            deverr("Ambiguous aliasing for '$nest_name' 2D API: \
-                    argument '$arg' either means \
-                    $(parse_message(o1, i1, O, I)) or \
-                    $(parse_message(o2, i2, O, I)).")
+            def2derr(
+                "Ambiguous aliasing for '$nest_name' 2D API: argument '$arg' either means \
+                 $(parse_message(o1, i1, O, I)) or $(parse_message(o2, i2, O, I)).",
+            )
         end
     end
 end
 
-function all_guards(nest_name, ::Type{O}, ::Type{I}) where {O<:AliasingDict,I<:AliasingDict}
+function all_guards(nest_name, ::Type{O}, ::Type{I}) where {O<:AD,I<:AD}
 
     # 2D input argument names are separated
     # into valid combinations of one or two references.
@@ -194,8 +182,8 @@ function all_guards(nest_name, ::Type{O}, ::Type{I}) where {O<:AliasingDict,I<:A
             si = standardize(i, I)
             ho = shortname(O)
             hi = shortname(I)
-            deverr("Ambiguous aliasing for '$nest_name' 2D API: \
-                   argument '$o' either means '$ho::$so' or '$hi::$si'.")
+            def2derr("Ambiguous aliasing for '$nest_name' 2D API: \
+                      argument '$o' either means '$ho::$so' or '$hi::$si'.")
         end
     end
 
@@ -241,7 +229,7 @@ function parse_2D_arguments(
     # Set if we know either piece of data from the context.
     implicit_outer = nothing,
     implicit_inner = nothing,
-) where {O<:AliasingDict,I<:AliasingDict}
+) where {O<:AD,I<:AD}
 
     # Start empty, fill as we collect and check arguments from input.
     (inner_types, all_types) = types
@@ -286,7 +274,7 @@ function parse_2D_arguments(
                 if arg in all_references(OuterDict)
                     found_nested = true
                     # Scroll sub-arguments within the nested specification.
-                    # (better ask forgiveness than permission on this one)
+                    # (ask forgiveness not permission here)
                     iterr(e) = begin
                         fname = uppercasefirst(name(OuterDict))
                         nname = name(InnerDict)
@@ -301,7 +289,6 @@ function parse_2D_arguments(
                     for (nested_arg, val) in z
                         typeof(nested_arg) <: Integer && iterr("integer keys.")
                         outer, inner = ro(arg, nested_arg)
-                        T = typeof(val)
                         nested = ArgType{O,I}(outer, inner)
                         record(nested, outer, inner, val)
                     end
@@ -325,17 +312,15 @@ function parse_2D_arguments(
             # There may be several matches,
             # but development ambiguity guards guarantee only one meaning.
             ((outer, inner, reversed),) = splits
-            T = typeof(value)
             basal = (reversed ? RevBasalArg{O,I} : BasalArg{O,I})(outer, inner)
             record(basal, outer, inner, value)
 
         end
 
-        # If context is given, parsing is more simple since nesting is disallowed.
+        # If context is given, then parsing is simpler since nesting is disallowed.
     elseif isnothing(implicit_outer)
         standardize(implicit_inner, I) # Guard against invalid implicit ref.
         for (outer, value) in input
-            T = typeof(value)
             arg = InnerContextArg{O,I}(outer, implicit_inner)
             record(arg, outer, implicit_inner, value)
         end
@@ -343,7 +328,6 @@ function parse_2D_arguments(
     elseif isnothing(implicit_inner)
         standardize(implicit_outer, O) # Guard agains invalid implicit ref.
         for (inner, value) in input
-            T = typeof(value)
             arg = OuterContextArg{O,I}(implicit_outer, inner)
             record(arg, implicit_outer, inner, value)
         end
@@ -371,7 +355,7 @@ function parse_outer_arguments_with_context(
     input,
     ::Type{O},
     ::Type{I};
-) where {O<:AliasingDict,I<:AliasingDict}
+) where {O<:AD,I<:AD}
     all_args = parse_2D_arguments(
         types,
         make_empty,
@@ -400,7 +384,7 @@ function parse_inner_arguments_with_context(
     input,
     ::Type{O},
     ::Type{I};
-) where {O<:AliasingDict,I<:AliasingDict}
+) where {O<:AD,I<:AD}
     all_args = parse_2D_arguments(
         types,
         make_empty,
@@ -420,186 +404,185 @@ end
 # Requires that check_<name>_arguments be defined.
 # Requires that <name>_types be defined as a type template for all values.
 # (see example uses in tests)
-macro prepare_2D_api(name, O, I)
-    O, I = esc.((O, I))
-    name_sym = Meta.quot(name)
-    quote
+function define_2D_api(mod::Module, name::Symbol, O::Type{<:AD}, I::Type{<:AD})
+    all_guards(name, O, I)
 
-        O, I = ($O, $I)
-        all_guards($name_sym, O, I)
+    # The following items are mostly generated from short names.
+    # This requires a nested `eval`
+    # because eg. `shortname(O)` cannot be evaluated during macro expansion.
+    lname = Symbol(lowercase(String(name)))
+    oshort = shortname(O)
+    ishort = shortname(I)
+    Oshort, Ishort = Symbol.(pascalcase.(string.((oshort, ishort))))
+    Input = Symbol(name, :Input)
+    TrackedValue = Symbol(name, :TrackedValue)
+    TrackedInnerDict = Symbol(:Tracked, Ishort, :Dict)
+    Arguments = Symbol(name, :Arguments)
+    NestedDict = Symbol(name, :Dict)
+    types = Symbol(lname, :_types)
+    make_empty = Symbol(:empty_, lname, :_args)
+    parse = Symbol(:parse_, lname, :_arguments)
+    check = Symbol(:check_, lname, :_arguments)
+    parse_outer = Symbol(:parse_, oshort, :_for_, ishort)
+    parse_inner = Symbol(:parse_, ishort, :_for_, oshort)
 
-        # The following items are mostly generated from short names.
-        # This requires a nested `eval`
-        # because eg. `shortname(O)` cannot be evaluated during macro expansion.
-        lname = Symbol(lowercase(String($name_sym)))
-        oshort = shortname(O)
-        ishort = shortname(I)
-        Oshort, Ishort = Symbol.(pascalcase.(string.((oshort, ishort))))
-        Input = Symbol(name, :Input)
-        TrackedValue = Symbol(name, :TrackedValue)
-        TrackedInnerDict = Symbol(:Tracked, Ishort, :Dict)
-        Arguments = Symbol($name_sym, :Arguments)
-        NestedDict = Symbol($name_sym, :Dict)
-        types = Symbol(lname, :_types)
-        make_empty = Symbol(:empty_, lname, :_args)
-        parse = Symbol(:parse_, lname, :_arguments)
-        check = Symbol(:check_, lname, :_arguments)
-        parse_outer = Symbol(:parse_, oshort, :_for_, ishort)
-        parse_inner = Symbol(:parse_, ishort, :_for_, oshort)
-        name_sym = Meta.quot($name_sym)
-        Core.eval(
-            $__module__,
-            quote
-                O, I = ($O, $I)
-                types = $types
+    # Calculate common types per sub-dict.
+    types = mod.eval(types)
+    inner_common_types =
+        O{DataType}((k => multi_promotion(values(sub)) for (k, sub) in types)...)
+    types = (inner_common_types, types)
 
-                # Calculate common types per sub-dict.
-                inner_common_types = O{DataType}(
-                    (k => $multi_promotion(values(sub)) for (k, sub) in $types)...,
+    # Types, aliases and new exposed methods definition within the caller chosen module.
+    sname = Meta.quot(name)
+    MI = methlhs(I)
+    MO = methlhs(O)
+    mod.eval(
+        quote
+            # Alias the basic nested (untracked) dict
+            # and specify an outer builder for it.
+            const $NestedDict{T} = $O{$I{T}}
+
+            # The values returned from arguments parsing
+            # also contains the original arguments input to improve error messages.
+            # Value possibly set to 'nothing' downstream.
+            const $Input = $Option{$Nested2DArg{$O,$I}}
+            # Value + original input argument.
+            const $TrackedValue{T} = $Tuple{$Input,T}
+            # All tracked internal values.
+            const $TrackedInnerDict{T} = $I{$TrackedValue{T}}
+            # All tracked nested values.
+            const $Arguments = $O{$I}
+
+            # Missing entries correspond to entries not specified as input.
+            # They can be filled with `nothing` values downstream.
+            # All entries start missing.
+            $make_empty(inner_types) = $Arguments(
+                (
+                    o_key => $TrackedInnerDict{inner_types[o_key]}() for
+                    o_key in $standards($O)
+                )...,
+            )
+
+            # Construct plain inner dict from tracked one.
+            function $MI{T}(parsed::$TrackedInnerDict) where {T}
+                $I{T}((i => value for (i, (_, value)) in parsed)...)
+            end
+
+            # Parse directly from kwargs input.
+            function $NestedDict{T}(; kwargs...) where {T}
+                parsed = $parse(kwargs)
+                $NestedDict{T}(parsed)
+            end
+
+            # Remove arguments tracking information.
+            function $NestedDict{T}(parsed::$Arguments) where {T}
+                $NestedDict{T}(
+                    (
+                        o => $I{T}((i => value for (i, (_, value)) in sub)...) for
+                        (o, sub) in parsed
+                    )...,
                 )
-                types = (inner_common_types, types)
+            end
 
-                # Alias the basic nested (untracked) dict
-                # and specify an outer builder for it.
-                const $NestedDict{T} = O{I{T}}
+            # Leave a hook to the check function to widen possible use cases.
+            $parse(
+                input;
+                implicit_outer = nothing,
+                implicit_inner = nothing,
+                check = $check,
+            ) = $parse_2D_arguments(
+                $types,
+                $make_empty,
+                $sname,
+                check,
+                input,
+                $O,
+                $I;
+                implicit_outer,
+                implicit_inner,
+            )
 
-                # The values returned from arguments parsing
-                # also contains the original arguments input to improve error messages.
-                # Value possibly set to 'nothing' downstream.
-                const $Input = $Option{$Nested2DArg{O,I}}
-                # Value + original input argument.
-                const $TrackedValue{T} = Tuple{$Input,T}
-                # All tracked internal values.
-                const $TrackedInnerDict{T} = I{$TrackedValue{T}}
-                # All tracked nested values.
-                const $Arguments = O{I}
-
-                # Missing entries correspond to entries not specified as input.
-                # They can be filled with `nothing` values downstream.
-                # All entries start missing.
-                $make_empty(inner_types) = begin
-                    $Arguments(
-                        (
-                            o_key => $TrackedInnerDict{inner_types[o_key]}() for
-                            o_key in $standards(O)
-                        )...,
-                    )
-                end
-
-                # Construct plain inner dict from tracked one.
-                function $I{T}(parsed::$TrackedInnerDict) where {T}
-                    $I{T}((i => value for (i, (_, value)) in parsed)...)
-                end
-
-                # Parse directly from kwargs input.
-                function $NestedDict{T}(; kwargs...) where {T}
-                    parsed = $parse(kwargs)
-                    $NestedDict{T}(parsed)
-                end
-
-                # Remove arguments tracking information.
-                function $NestedDict{T}(parsed::$Arguments) where {T}
-                    $NestedDict{T}(
-                        (
-                            o => I{T}((i => value for (i, (_, value)) in sub)...) for
-                            (o, sub) in parsed
-                        )...,
-                    )
-                end
-
-                # Leave a hook to the check function to widen possible use cases.
-                $parse(
-                    input;
-                    implicit_outer = nothing,
-                    implicit_inner = nothing,
-                    check = $check,
-                ) = $parse_2D_arguments(
-                    types,
+            $parse_outer(inner, input; check = $check) =
+                $parse_outer_arguments_with_context(
+                    inner,
+                    $types,
                     $make_empty,
-                    $name_sym,
+                    $sname,
                     check,
                     input,
-                    O,
-                    I;
-                    implicit_outer,
-                    implicit_inner,
+                    $O,
+                    $I,
                 )
 
-                $parse_outer(inner, input; check = $check) =
-                    $parse_outer_arguments_with_context(
-                        inner,
-                        types,
-                        $make_empty,
-                        $name_sym,
-                        check,
-                        input,
-                        $O,
-                        $I,
-                    )
+            $parse_inner(outer, input; check = $check) =
+                $parse_inner_arguments_with_context(
+                    outer,
+                    $types,
+                    $make_empty,
+                    $sname,
+                    check,
+                    input,
+                    $O,
+                    $I,
+                )
 
-                $parse_inner(outer, input; check = $check) =
-                    $parse_inner_arguments_with_context(
-                        outer,
-                        types,
-                        $make_empty,
-                        $name_sym,
-                        check,
-                        input,
-                        $O,
-                        $I,
-                    )
+            # Display for the nested dict (no need to name the two levels).
+            function $(methlhs(display_short))(d::$NestedDict)
+                (; display_short, shortest) = $AliasingDicts
+                D = typeof(d)
+                "($(join(("$(shortest(o, D)): $(display_short(sub))"
+                          for (o, sub) in d), ", ")))"
+            end
 
-                # Display for the nested dict (no need to name the two levels).
-                function AliasingDicts.display_short(d::$NestedDict)
-                    (; display_short, shortest) = AliasingDicts
-                    D = typeof(d)
-                    "($(join(("$(shortest(o, D)): $(display_short(sub))"
-                              for (o, sub) in d), ", ")))"
-                end
-
-                function AliasingDicts.display_long(d::$NestedDict; level = 0)
-                    isempty(d) && return "()"
-                    (; aliases) = AliasingDicts
-                    ind(n) = "\n" * repeat("  ", level + n)
-                    res = "("
-                    # Only remind the aliases for the first times sub entry appear.
-                    sub_appeared = Set()
-                    for (oref, als) in aliases(d)
-                        haskey(d, oref) || continue
-                        sub = d[oref]
-                        res *= ind(1) * "$oref ($(join(repr.(als), ", "))) => ("
-                        if isempty(sub)
-                            res *= ")"
-                            continue
-                        end
-                        for (iref, als) in aliases(sub)
-                            haskey(sub, iref) || continue
-                            if iref in sub_appeared
-                                als = ""
-                            else
-                                als = " ($(join(repr.(als), ", ")))"
-                                push!(sub_appeared, iref)
-                            end
-                            v = sub[iref]
-                            res *= ind(2) * "$iref$als => $v"
-                        end
-                        res *= ind(1) * ")"
+            function $(methlhs(display_long))(d::$NestedDict; level = 0)
+                isempty(d) && return "()"
+                (; aliases) = $AliasingDicts
+                ind(n) = "\n" * repeat("  ", level + n)
+                res = "("
+                # Only remind the aliases for the first times sub entry appear.
+                sub_appeared = Set()
+                for (oref, als) in aliases(d)
+                    haskey(d, oref) || continue
+                    sub = d[oref]
+                    res *= ind(1) * "$oref ($(join(repr.(als), ", "))) => ("
+                    if isempty(sub)
+                        res *= ")"
+                        continue
                     end
-                    res * ind(0) * ")"
+                    for (iref, als) in aliases(sub)
+                        haskey(sub, iref) || continue
+                        if iref in sub_appeared
+                            als = ""
+                        else
+                            als = " ($(join(repr.(als), ", ")))"
+                            push!(sub_appeared, iref)
+                        end
+                        v = sub[iref]
+                        res *= ind(2) * "$iref$als => $v"
+                    end
+                    res *= ind(1) * ")"
                 end
+                res * ind(0) * ")"
+            end
 
-                function Base.show(io::IO, d::$NestedDict{T}) where {T}
-                    (; display_short) = AliasingDicts
-                    print(io, "$(typeof(d))$(display_short(d))")
-                end
+            function $(methlhs(show))(io::IO, d::$NestedDict{T}) where {T}
+                print(io, "$(typeof(d))$($display_short(d))")
+            end
 
-                function Base.show(io::IO, ::MIME"text/plain", d::$NestedDict{T}) where {T}
-                    (; display_long) = AliasingDicts
-                    print(io, "$(typeof(d))$(display_long(d))")
-                end
+            function $(methlhs(show))(
+                io::IO,
+                ::MIME"text/plain",
+                d::$NestedDict{T},
+            ) where {T}
+                print(io, "$(typeof(d))$($display_long(d))")
+            end
 
-            end,
-        )
-    end
+        end,
+    )
 end
-export @prepare_2D_api
+
+struct Def2DAlias <: Exception
+    mess::String
+end
+def2derr(m, throw = Base.throw) = throw(Def2DAlias(m))
+Base.showerror(io::IO, e::Def2DAlias) = print(io, e.mess)

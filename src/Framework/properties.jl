@@ -1,33 +1,31 @@
-# Methods with these exact signatures:
-#
-#   - method(v::Value)
-#   - method!(v::Value, rhs)
-#
-# .. can optionally become properties of the system/value,
-# in the sense of julia's `getproperty/set_property!`.
-#
-# The properties come in two styles:
-#
-#   - system.property -> Checks that the required components exist.
-#   - value.property -> Runs and see what happens.
-#
-# Properties can be namespaced into packed accessors like:
-#
-#   system.space.a
-#   system.space.b
-#   system.other.subspace.a # (different from 'space.a')
-#
-# Where `system.space` and `system.other.subspace` are raw opaque accessor types
-# called *property spaces*
-# wrapping a simple reference to the underlying systems.
+"""
+Methods with these exact signatures:
 
-# In this context, 'P' or *property target*
-# refers to either the wrapped system value type
-# *or* a property space dedicated to systems for this value type.
+```jl
+method(v::Value)
+method!(v::Value, rhs)
+```
 
-# ==========================================================================================
-# Properties space forward `.name` accesses.
+.. can optionally become properties of the system/value,
+in the sense of julia's `getproperty/setproperty!`.
 
+Properties can be namespaced into packed accessors like:
+
+```
+system.space.a
+system.space.b
+system.other.subspace.a # (different from 'system.space.a')
+```
+
+Where `system.space` and `system.other.subspace` are raw opaque accessor types
+called *property spaces* and wrapping a simple reference to the underlying systems.
+
+In this context, 'P' or *property target*
+refers to either the wrapped system value type
+*or* a property space dedicated to systems for this value type.
+
+Properties space forward `.name` accesses.
+"""
 struct PropertySpace{name,P,V}
     _system::System{V}
 end
@@ -37,14 +35,16 @@ const PropertyTarget = Union{System,PropertySpace}
 
 # Basic queries.
 system_value_type(::Type{PropertySpace{name,P,V}}) where {name,P,V} = V
-property_name(::Type{PropertySpace{name,P,V}}) where {name,P,V} = name
-super(::Type{PropertySpace{name,P,V}}) where {name,P,V} = P
 system_value_type(sp::PropertySpace) = system_value_type(typeof(sp))
+property_name(::Type{PropertySpace{name,P,V}}) where {name,P,V} = name
 property_name(sp::PropertySpace) = property_name(typeof(sp))
+super(::Type{PropertySpace{name,P,V}}) where {name,P,V} = P
 super(sp::PropertySpace) = super(typeof(sp))
-system(p::PropertySpace) = getfield(p, :_system) # Bypass property checks.
 value(p::PropertySpace) = value(system(p))
+system(p::PropertySpace) = getfield(p, :_system) # Bypass property checks.
 system(s::System) = s # Consistency accross targets.
+system(::Type{PropertySpace{name,P,V}}) where {name,P,V} = System{V}
+system(::Type{S}) where {S<:System} = S
 
 # Climb up the types hierarchy to reconstruct `.path.to.concrete.property`.
 # (the result is a reversed tuple)
@@ -71,40 +71,36 @@ names_sequence(p::PropertyTarget) = names_sequence(typeof(p))
 
 # Factorize for reuse with properties spaces.
 function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
-    # Authorize direct accesses to private fields.
-    pname in fieldnames(P) && return getfield(target, pname)
     # Search property method.
     fn = read_property(P, Val(pname))
     # Check for required components availability.
-    miss = first_missing_dependency_for(fn, target)
+    miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
         comp = isabstracttype(miss) ? "A component $miss" : "Component $miss"
         properr(P, pname, "$comp is required to read this property.")
     end
     # Forward to method.
-    fn(target)
+    fn(system(target))
 end
 
 function Base.setproperty!(target::P, pname::Symbol, rhs) where {P<:PropertyTarget}
-    # Authorize direct accesses to private fields.
-    pname in fieldnames(P) && return setfield!(target, pname, rhs)
     # Search property method.
     fn = readwrite_property(P, Val(pname))
     # Check for required components availability.
-    miss = first_missing_dependency_for(fn, target)
+    miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
         comp = isabstracttype(miss) ? "A component $miss" : "Component $miss"
         properr(P, pname, "$comp is required to write to this property.")
     end
     # Invoke property method.
-    fn(target, rhs)
+    fn(system(target), rhs)
 end
 
 # In case the framework user agrees,
 # also forward the properties to the wrapped value.
 # Note that this happens without checking dependent components,
 # and that the `; _system` hook cannot be provided then in this context.
-# Still, a lot of things *are* checked, so this 'unchecked' does *not* mean 'performant'.
+# Still, a lot of things *are* checked, so this 'unchecked' does not mean 'performant'.
 function unchecked_getproperty(value::V, p::Symbol) where {V}
     p in fieldnames(V) && return getfield(value, p)
     fn = read_property(System{V}, Val(p))
@@ -123,9 +119,9 @@ end
 
 # Map wrapped system value and property name to the corresponding function.
 read_property(P::PropertyTargetType, ::Val{name}) where {name} =
-    throw(PropertyError(P, name, "Unknown property."))
+    properr(P, name, "Unknown property.")
 write_property(P::PropertyTargetType, ::Val{name}) where {name} =
-    throw(PropertyError(P, name, "Unknown property."))
+    properr(P, name, "Unknown property.")
 
 has_read_property(P::PropertyTargetType, n::Val{name}) where {name} =
     try
@@ -153,7 +149,7 @@ function readwrite_property(P::PropertyTargetType, n::Val{name}) where {name}
         write_property(P, n)
     catch e
         e isa PropertyError || rethrow(e)
-        rethrow(PropertyError(P, name, "This property is read-only."))
+        properr(P, name, "This property is read-only.", rethrow)
     end
 end
 
@@ -186,13 +182,28 @@ function set_write_property!(P::PropertyTargetType, name::Symbol, fn::Function)
     end)
 end
 
-# ==========================================================================================
-# List all properties and associated functions for this type.
-# Yields (property_name, fn_read, Option{fn_write}, iterator{dependencies...}).
+# Do both within the same call, useful to avoid world age inconsistency.
+function set_property!(P::PropertyTargetType, name::Symbol, fn::Function, fn!::Function)
+    REVISING ||
+        has_read_property(P, Val(name)) && properr(P, name, "Property already exists.")
+    name = Meta.quot(name)
+    eval(quote
+        read_property(::Type{$P}, ::Val{$name}) = $fn
+        write_property(::Type{$P}, ::Val{$name}) = $fn!
+    end)
+end
+# Only do the read part if no set! function is provided.
+set_property!(P, name, fn, ::Nothing) = set_read_property!(P, name, fn)
 
+# ==========================================================================================
+
+"""
+List all properties and associated functions for this type.
+Yield `(property_name, fn_read, Option{fn_write}, iterator{dependencies...})`.
+"""
 function properties(P::PropertyTargetType)
-    imap(
-        ifilter(methods(read_property, Tuple{Type{P},Val}, Framework)) do mth
+    I.map(
+        I.filter(methods(read_property, Tuple{Type{P},Val}, Framework)) do mth
             mth.sig isa UnionAll && return false # Only consider concrete implementations.
             val = mth.sig.types[end]
             val <: Val ||
@@ -204,51 +215,53 @@ function properties(P::PropertyTargetType)
         name = first(val.parameters)
         read_fn = read_property(P, Val(name))
         write_fn = possible_write_property(P, Val(name))
-        (name, read_fn, write_fn, imap(identity, depends(P, read_fn)))
+        (name, read_fn, write_fn, I.map(identity, depends(system(P), read_fn)))
     end
 end
-export properties
 
-# List properties available for *this* particular instance.
-# Yields (:propname, read, Option{write})
+"""
+List properties available for *this* particular instance.
+Yield `(:propname, read, Option{write})`.
+"""
 function properties(target::PropertyTarget)
-    imap(
-        ifilter(properties(typeof(target))) do (_, read, _, _)
-            isnothing(first_missing_dependency_for(read, target))
+    I.map(
+        I.filter(properties(typeof(target))) do (_, read, _, _)
+            isnothing(first_missing_dependency_for(read, system(target)))
         end,
     ) do (name, read, write, _)
         (name, read, write)
     end
 end
 
-# List *unavailable* properties for this instance
-# along with the components missing to support them.
-# Yields (:propname, read, Option{write}, iterator{missing_dependencies...})
+"""
+List *unavailable* properties for this instance
+along with the components missing to support them.
+Yield `(:propname, read, Option{write}, iterator{missing_dependencies...})`.
+"""
 function latent_properties(target::PropertyTarget)
-    imap(
-        ifilter(properties(typeof(target))) do (_, read, _, _)
-            !isnothing(first_missing_dependency_for(read, target))
+    I.map(
+        I.filter(properties(typeof(target))) do (_, read, _, _)
+            !isnothing(first_missing_dependency_for(read, system(target)))
         end,
     ) do (name, read, write, deps)
-        (name, read, write, ifilter(d -> !has_component(target, d), deps))
+        (name, read, write, I.filter(d -> !has_component(target, d), deps))
     end
 end
-export latent_properties
 
 # Consistency + REPL completion.
-Base.propertynames(target::PropertyTarget) = imap(first, properties(target))
+Base.propertynames(target::PropertyTarget) = I.map(first, properties(target))
 
 # ==========================================================================================
-# Helper macro to define deep nested type paths.
 
+"""
+Helper macro to define deep nested type paths.
+"""
 macro PropertySpace(path, V)
     try
         property_space_type(path, Core.eval(__module__, V))
     catch e
         src = __source__
-        blue = crayon"blue"
-        res = crayon"reset"
-        @warn "Error in macro at $blue$(src.file):$(src.line)$res"
+        @warn "Error in macro at $blue$(src.file):$(src.line)$reset"
         rethrow(e)
     end
 end
@@ -270,23 +283,21 @@ end
 # ==========================================================================================
 # Dedicated exceptions.
 
-struct PropertyError{P} <: SystemException
+struct PropertyError <: SystemException
+    P::Type
     name::Symbol
-    message::String
-    _::PhantomData{P}
-    PropertyError(::Type{P}, s, m) where {P} = new{P}(s, m, PhantomData{P}())
+    mess::String
 end
-super(::PropertyError{P}) where {P} = P
 
-function Base.showerror(io::IO, e::PropertyError{P}) where {P}
-    (; name, message) = e
+properr(P, n, m, throw = Base.throw) = throw(PropertyError(P, n, m))
+
+function Base.showerror(io::IO, e::PropertyError)
+    (; P, name, mess) = e
     V = system_value_type(P)
     pth = path(P)
     isnothing(pth) && (pth = "")
-    println(io, "In property `$pth.$name` of '$V': $message")
+    print(io, "In property `$pth.$name` of `$(System{V})`: $mess")
 end
-
-properr(P, n, m) = throw(PropertyError(P, n, m))
 
 # ==========================================================================================
 # Display property types.
@@ -307,12 +318,15 @@ end
 Base.show(io::IO, p::PropertySpace) = display_long(io, p, properties)
 function display_long(io::IO, p::PropertySpace, properties::Function)
     V = system_value_type(p)
-    print(io, "Property space for '$(V)': ", crayon"black bold")
+    print(io, "Property space for `$(V)`: $black$bold")
     for name in reverse(names_sequence(p))
         print(io, ".$name")
     end
-    print(io, crayon"reset")
+    print(io, reset)
+    any = false
     for (name, _) in properties(p)
         print("\n  .$name")
+        any = true
     end
+    any || print("\n  <empty>")
 end

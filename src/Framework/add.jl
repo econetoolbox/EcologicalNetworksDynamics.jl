@@ -3,35 +3,33 @@
 # The expansion procedure is rather general,
 # as it assumes that several blueprints are added at once
 # and that they constitute an ordered *forest*
-# since they each may bring sub-blueprints.
+# since they each may imply "sub-blueprints".
 #
 # In addition, the caller can provide:
 #   - `defaults`: a set of blueprints to be automatically added
 #      if not explicitly provided as the main input.
-#   - `hooks`: a set of sub-blueprints to be automatically brought
+#   - `hooks`: a set of blueprints to be automatically added
 #      if either defaults or given blueprints require it.
-#   - `excluded/without`: a set of components to explicitly *not* bring
-#      from the defaults, or the hooks.
+#   - `excluded/without`: a set of components to explicitly not pick
+#      from the defaults or the hooks.
 #
 # The challenge here is to correctly check for conflicts/inconsistencies etc.
 # and then pick a correct expansion order.
 # Here is the general procedure without additional options:
 #   - The forest is visited pre-order to collect the corresponding graph of sub-blueprints:
-#     the one given by the caller are root nodes, and edges are colored depending on whether
-#     the 'broughts' are 'embedded' or 'implied'.
-#     - Error if an embedded blueprint brings a component already in the system.
-#     - Ignore implied blueprints bringing components already in the system.
-#     - Build implied blueprints if they are not already brought.
-#     - Ignore implied blueprints if they are already brought.
-#     - Error if any brought component is already brought by another blueprint
-#       and the two differ.
-#     - Error if any brought components was supposed to be excluded.
+#     the ones given by the caller are root nodes.
+#     - Ignore implied blueprints for components already in the system.
+#     - Build implied blueprints if they are not going to be added.
+#     - Ignore implied blueprints if they are going to be added.
+#     - Error if any implied component is already implied by another blueprint
+#       and the two blueprints differ.
+#     - Error if any required components was supposed to be excluded.
 #   - When collection is over, decide whether to construct the defaults blueprints
-#     and append them at the end of the forest,
-#     pre-order again like an extension of the above step.
+#     and append them at the end of the forest.
+#     Do this in pre-order again like an extension of the above step.
 #   - Second traversal: visit the forest post-order to:
-#     - Error if any brought component conflicts with components already in the system.
-#     - Check requirements/conflicts against components already brought in pre-order.
+#     - Error if any implied component conflicts with components already in the system.
+#     - Check requirements/conflicts against components already implied in pre-order.
 #     - Trigger any required 'hook' by appending them to the forest (pre-order)
 #       if this can avoid a 'MissingRequiredComponent' error.
 #     - Run the `early_check`.
@@ -41,13 +39,12 @@
 #     - Expand the blueprint into a component.
 #     - Execute possible triggers.
 
-# Prepare thorough analysis of recursive sub-blueprints possibly brought
-# by the blueprints given.
+# Prepare thorough analysis of recursive sub-blueprints possibly implied
+# by the blueprints received.
 # Reify the underlying 'forest' structure.
 struct Node
     blueprint::Blueprint # Owned copy, so it doesn't leave refs to add! caller.
     parent::Option{Node}
-    implied::Bool # Raise if 'implied' by the parent and not 'embedded'.
     children::Vector{Node}
 end
 
@@ -57,25 +54,26 @@ struct AddState{V}
     target::System{V}
     forest::Vector{Node}
 
-    # Keep track of the blueprints about to be brought (including root blueprints),
+    # Keep track of all blueprints about to be brought,
     # indexed by the concrete components they provide.
     # Blueprints providing several components are duplicated.
     # Populated during pre-order traversal.
     brought::Dict{CompType{V},Vector{Node}}
 
     # Keep track of the fully checked blueprints,
-    # along with the brought blueprints that need to be expanded *prior* to themselves.
+    # along with the implied blueprints that need to be expanded *prior* to them,
+    # and the arbitrary data created by `early_check`.
     # Populated during post-order traversal.
-    checked::OrderedDict{CompType{V},Tuple{Node,Requirements{V}}}
+    checked::OrderedDict{CompType{V},Tuple{Node,Requirements{V},Any}}
 
-    # Bring defaults.
+    # Defaults to be picked from.
     # The callables signature is (caller_status, if_unbrought) -> Blueprint:
     #  - `caller_status`: any value constructed after first pass
-    #    from the `defaults_status`(is_brought) function provided by caller.
+    #    from the `defaults_status(is_brought)` function provided by caller.
     #    where `is_brought` is a callable we provide to check whether
-    #    the given component is found to be brought after the first forest visit.
+    #    the given component is found to be about to be added after the first forest visit.
     #  - `if_unbrought(C, BP)` is a callable we provide to fill default sub-blueprints.
-    #    It either returns nothing if C is already brought\
+    #    It either returns nothing if C is already brought
     #    or it calls the caller-provided constructor `BP`.
     defaults::OrderedDict{CompType{V},Function}
 
@@ -88,31 +86,27 @@ struct AddState{V}
     AddState{V}(target::System{V}) where {V} =
         new(target, [], Dict(), OrderedDict(), OrderedDict(), Dict(), [])
 end
-is_excluded(add::AddState, C) = any(X <: C for X in add.excluded)
-is_brought(add::AddState, C) = any(B <: C for B in keys(add.brought))
+is_excluded(add::AddState, c::CompRef) = any(X <: component_type(c) for X in add.excluded)
+is_brought(add::AddState, c::CompRef) =
+    any(B <: component_type(c) for B in keys(add.brought))
 
 #-------------------------------------------------------------------------------------------
 # Recursively create during first pass, pre-order,
 # possibly checking the indexed list of nodes already brought.
-function Node(
-    blueprint::Blueprint,
-    parent::Option{Node},
-    implied::Bool,
-    system::System,
-    add::AddState,
-)
+function Node(blueprint::Blueprint, parent::Option{Node}, system::System, add::AddState)
     (; brought) = add
 
     # Create node and connect to parent, without its children yet.
-    node = Node(blueprint, parent, implied, [])
+    node = Node(blueprint, parent, [])
 
     for C in componentsof(blueprint)
-        isabstracttype(C) && throw("No blueprint expands into an abstract component. \
-                                    This is a bug in the framework.")
+        isabstracttype(C) &&
+            throw(InternalAddError("No blueprint expands into an abstract component."))
 
         is_excluded(add, C) && throw(ExcludedBrought(C, node))
 
-        # Check for duplication if embedded.
+        # Check for duplication.
+        implied = !isnothing(parent)
         !implied && has_component(system, C) && throw(BroughtAlreadyInValue(C, node))
 
         # Check for consistency with other possible blueprints bringing the same component.
@@ -129,32 +123,39 @@ function Node(
     end
 
     # Recursively construct children.
-    for br in Framework.brought(blueprint)
-        if br isa CompType
-            # An 'implied' brought blueprint possibly needs to be constructed.
-            implied_C = br
-            # Skip it if already brought or already present in the target system.
-            has_component(system, implied_C) && continue
-            is_brought(add, implied_C) && continue
-            implied_bp = try
-                checked_implied_blueprint_for(blueprint, implied_C)
-            catch e
-                e isa _CannotImplyConstruct && throw(CannotImplyConstruct(implied_C, node))
-                rethrow(e)
-            end
-            child = Node(implied_bp, node, true, system, add)
-            push!(node.children, child)
-        elseif br isa Blueprint
-            # An 'embedded' blueprint is brought.
-            embedded_bp = br
-            child = Node(embedded_bp, node, false, system, add)
-            push!(node.children, child)
-        else
-            throw("⚠ Invalid brought value. ⚠ \
-                   This is either a bug in the framework or in the components library. \
-                   Please report if you can reproduce with a minimal example.\n\
-                   Received brought value: $br ::$(typeof(br)).")
-        end
+    B = typeof(blueprint)
+    comperr(m) = throw(ComponentError(m))
+    report(v) = ": $(repr(v)) ::$(typeof(v))."
+    implied = F.implied(blueprint)
+    applicable(iterate, implied) ||
+        comperr("Not an iterable list of component types$(report(implied))")
+    for C in implied
+        C isa Component && (C = typeof(C)) # (accepting component instances)
+        C isa CompType || comperr("Not a component type$(report(C))")
+        eV = system_value_type(system)
+        aV = system_value_type(C)
+        eV === aV || comperr("Blueprint $(bc(B)) for values of `$eV` is \
+                             implying component $(cc(C)) for values of `$aV`.")
+        implies_blueprint_for(blueprint, C) || comperr(
+            "Blueprint $(bc(B)) is supposed to imply $(cc(C)) \
+             but the corresponding method is not defined: $F.$implied_blueprint_for.",
+        )
+        # Skip it if already brought or already present in the target system.
+        has_component(system, C) && continue
+        is_brought(add, C) && continue
+        bp = implied_blueprint_for(blueprint, C)
+        bp isa Blueprint ||
+            comperr("Implicit constructor to implying $(cc(C)) from $(bc(B)) \
+                     did not yield a blueprint but$(report(bp))")
+        comps = componentsof(bp)
+        any(comp -> comp <: C, comps) || comperr("Blueprint $(bc(typeof(blueprint))) \
+                                                  is supposed to imply a blueprint \
+                                                  for $(cc(C)), \
+                                                  but it implied a blueprint for \
+                                                  [$(join(map(cc, collect(comps)), ","))] \
+                                                  instead.")
+        child = Node(bp, node, system, add)
+        push!(node.children, child)
     end
 
     node
@@ -191,7 +192,7 @@ function check!(add::AddState, node::Node)
             # No blueprint brings the missing component.
             # Pick it from the hooks if to fill up the gap if any.
             hooked = false
-            for (H, h) in hooks
+            for H in keys(hooks)
                 if H <: R
                     # Append the hook to the forest,
                     # re-doing the first pass over it at least.
@@ -210,8 +211,8 @@ function check!(add::AddState, node::Node)
     for C in componentsof(blueprint)
         for (C_as, Other, reason) in all_conflicts(C)
             if has_component(target, Other)
-                (Other, Other_abstract) =
-                    isabstracttype(Other) ? (first(target._abstract[Other]), Other) :
+                (Other, OtherAbstract) =
+                    isabstracttype(Other) ? (first(abstract(target)[Other]), Other) :
                     (Other, nothing)
                 throw(
                     ConflictWithSystemComponent(
@@ -219,7 +220,7 @@ function check!(add::AddState, node::Node)
                         C_as === C ? nothing : C_as,
                         node,
                         Other,
-                        Other_abstract,
+                        OtherAbstract,
                         reason,
                     ),
                 )
@@ -243,11 +244,11 @@ function check!(add::AddState, node::Node)
         end
 
         # Run exposed hook for further checking.
-        try
+        data = try
             early_check(blueprint)
         catch e
-            if e isa CheckError
-                rethrow(HookCheckFailure(node, e.message, false))
+            if e isa InputError
+                rethrow(HookCheckFailure(node, e, false))
             else
                 throw(UnexpectedHookFailure(node, false))
             end
@@ -256,7 +257,7 @@ function check!(add::AddState, node::Node)
         # Record as a fully checked node, along with the list of nodes
         # to expand prior to itself.
         checked[C] =
-            (node, OrderedSet(R for (R, _, _) in reqs if !has_component(target, R)))
+            (node, OrderedSet(R for (R, _, _) in reqs if !has_component(target, R)), data)
     end
 
 end
@@ -303,55 +304,32 @@ function add!(
     #---------------------------------------------------------------------------------------
     # Read-only preliminary checking.
 
-    try
+    # Preorder visit: construct the trees.
+    for bp in blueprints
+        root = Node(bp, nothing, system, add)
+        push!(forest, root)
+    end
 
-        # Preorder visit: construct the trees.
-        for bp in blueprints
-            # Get our owned local copy so it cannot be changed afterwards by the caller.
-            bp = copy(bp)
-            root = Node(bp, nothing, false, system, add)
-            push!(forest, root)
-        end
+    # Construct caller state,
+    # useful for them to decide their defaults
+    # depending on the blueprints already brought.
+    is_brought_(C) = is_brought(add, component_type(C))
+    caller_state = defaults_status(is_brought_)
+    # Based on this state,
+    # ask the caller to construct their additional default blueprints.
+    if_unbrought(U, BP) = is_brought_(component_type(U)) ? nothing : BP()
+    for (D, build_default) in defaults
+        D = component_type(D)
+        is_excluded(add, D) && continue
+        is_brought_(D) && continue
+        def = build_default(caller_state, if_unbrought)
+        root = Node(def, nothing, false, system, add)
+        push!(forest, root)
+    end
 
-        # Construct caller state,
-        # useful for them to decide their defaults
-        # depending on the blueprints already brought.
-        is_brought_(C) = is_brought(add, component_type(C))
-        caller_state = defaults_status(is_brought_)
-        # Based on this state,
-        # ask the caller to construct their additional default blueprints.
-        if_unbrought(U, BP) = is_brought_(component_type(U)) ? nothing : BP()
-        for (D, build_default) in defaults
-            D = component_type(D)
-            is_excluded(add, D) && continue
-            is_brought_(D) && continue
-            def = build_default(caller_state, if_unbrought)
-            root = Node(def, nothing, false, system, add)
-            push!(forest, root)
-        end
-
-        # Post-order visit, check requirements, using hooks if needed.
-        for node in forest
-            check!(add, node)
-        end
-
-    catch e
-        # The system value has not been modified during if the error is caught now.
-        E = typeof(e)
-        if E in (
-            BroughtAlreadyInValue,
-            ExcludedBrought,
-            CannotImplyConstruct,
-            InconsistentForSameComponent,
-            MissingRequiredComponent,
-            ConflictWithSystemComponent,
-            ConflictWithBroughtComponent,
-            HookCheckFailure,
-        )
-            rethrow(AddError(V, e))
-        else
-            rethrow(e)
-        end
+    # Post-order visit, check requirements, using hooks if needed.
+    for node in forest
+        check!(add, node)
     end
 
     #---------------------------------------------------------------------------------------
@@ -383,44 +361,51 @@ function add!(
         end
 
         # Order the checked blueprints so their requirements are met prior to expansion.
-        expand = OrderedSet{CompType{V}}()
+        expand = OrderedDict{CompType{V},Any}()
         while !isempty(checked)
             # Search for the first component
             # whose bringer blueprint has all requirements met.
-            (C, (_, reqs)) = first(checked)
+            (C, (_, reqs, data)) = first(checked)
             while true
                 for R in reqs
-                    R in expand && continue
+                    haskey(expand, R) && continue
                     C = R
-                    _, reqs = checked[R]
+                    _, reqs, data = checked[R]
                     break
                 end
                 break
             end
             # Expand it before the others.
             pop!(checked, C)
-            push!(expand, C)
+            expand[C] = data
         end
 
         # Expand them all in correct order.
-        for C in expand
+        for (C, data) in expand
             node = first(brought[C])
             blueprint = node.blueprint
 
             # Last check hook against current system value.
-            try
-                late_check(system._value, blueprint, system)
+            data = try
+                late_check(system, blueprint, data)
             catch e
-                if e isa CheckError
-                    rethrow(HookCheckFailure(node, e.message, true))
+                if e isa InputError
+                    rethrow(HookCheckFailure(node, e, true))
                 else
                     throw(UnexpectedHookFailure(node, true))
                 end
             end
 
+            # Last data conversion opportunity.
+            data = try
+                lower(system, blueprint, data)
+            catch _
+                throw(LoweringAborted(node))
+            end
+
             # Expand.
             try
-                expand!(system._value, blueprint, system)
+                expand!(system, blueprint, data)
             catch _
                 throw(ExpansionAborted(node))
             end
@@ -428,7 +413,7 @@ function add!(
             # Record.
             just_added = Set()
             for C in componentsof(blueprint)
-                crt, abs = system._concrete, system._abstract
+                crt, abs = concrete(system), abstract(system)
                 push!(crt, C)
                 push!(just_added, C)
                 for sup in supertypes(C)
@@ -446,7 +431,7 @@ function add!(
                 if isempty(remaining)
                     for trig in trigs
                         try
-                            trig(system._value, system)
+                            trig(value(system), system)
                         catch _
                             throw(TriggerAborted(node, combination))
                         end
@@ -462,46 +447,47 @@ function add!(
         # At this point, the system *has been modified*
         # but we cannot guarantee that all desired blueprints
         # have been expanded as expected.
-        E = typeof(e)
-        if E in (HookCheckFailure, UnexpectedHookFailure)
-            # This originated from hook in late check:
-            # not all blueprints have been expanded,
-            # but the underlying system state consistency is safe.
-            rethrow(AddError(V, e))
+
+        # These originated from hook in late check:
+        # not all blueprints have been expanded,
+        # but the underlying system state consistency is safe.
+        e isa HookCheckFailure && rethrow(e)
+        e isa UnexpectedHookFailure && rethrow(e)
+        e isa LoweringAborted && rethrow(e)
+        # This is unexpected and it may have occured during expansion.
+        # The underlying system state consistency is no longuer guaranteed.
+        raise = if e isa ExpansionAborted
+            title = "Failure during blueprint expansion."
+            subtitle = "This is a bug in the components library."
+            who = "component authors"
+            epilog = render_path(e.node)
+            rethrow
+        elseif e isa TriggerAborted
+            title = "Failure during trigger execution \
+                     for the combination of components \
+                     {$(join(sort(collect(e.combination); by=T->T.name.name), ", "))}."
+            subtitle = "This is a bug in the components library."
+            who = "component authors"
+            epilog = render_path(e.node)
+            rethrow
         else
-            # This is unexpected and it may have occured during expansion.
-            # The underlying system state consistency is no longuer guaranteed.
-            raise = if e isa ExpansionAborted
-                title = "Failure during blueprint expansion."
-                subtitle = "This is a bug in the components library."
-                epilog = render_path(e.node)
-                rethrow
-            elseif e isa TriggerAborted
-                title = "Failure during trigger execution \
-                         for the combination of components \
-                         {$(join(sort(collect(e.combination); by=T->T.name.name), ", "))}."
-                subtitle = "This is a bug in the components library."
-                epilog = render_path(e.node)
-                rethrow
-            else
-                title = "Failure during blueprint addition."
-                subtitle = "This is a bug in the internal addition procedure."
-                epilog = ""
-                throw
-            end
-            raise(ErrorException("\n$(crayon"red")\
-                   ⚠ ⚠ ⚠ $title ⚠ ⚠ ⚠\
-                   $reset\n\
-                   $subtitle\n\
-                   This system state consistency \
-                   is no longer guaranteed by the program. \
-                   This should not happen and must be considered a bug.\n\
-                   Consider reporting if you can reproduce \
-                   with a minimal example.\n\
-                   In any case, please drop the current system value \
-                   and create a new one.\n\
-                   $epilog"))
+            title = "Failure during blueprint addition."
+            subtitle = "This is a bug in the internal addition procedure."
+            who = "package developers"
+            epilog = ""
+            throw
         end
+        raise(ErrorException("\n$red\
+               ⚠ ⚠ ⚠ $title ⚠ ⚠ ⚠\
+               $reset\n\
+               $subtitle\n\
+               This system state consistency \
+               is no longer guaranteed by the program.\n\
+               Consider reporting to $who if you can reproduce \
+               with a minimal example.\n\
+               In any case, please drop the current system value \
+               and create a new one.\n\
+               $epilog"))
     end
 
     system
@@ -515,151 +501,78 @@ export add!
 # and displaying of a useful message,
 # provided the tree will still be consistenly readable.
 
-abstract type AddException <: SystemException end
-
-struct BroughtAlreadyInValue <: AddException
-    comp::CompType
-    node::Node
-end
-
-struct CannotImplyConstruct <: AddException
-    comp::CompType
-    node::Node
-end
-
-struct ExcludedBrought <: AddException
-    comp::CompType
-    node::Node
-end
-
-struct InconsistentForSameComponent <: AddException
-    comp::CompType
-    focal::Node
-    other::Node
-end
-
-struct MissingRequiredComponent <: AddException
-    miss::CompType
-    comp::Option{CompType} # Set if the *component* requires, none if the *blueprint* does.
-    node::Node
-    reason::Reason
-end
-
-struct ConflictWithSystemComponent <: AddException
-    comp::CompType
-    comp_abstract::Option{CompType} # Fill if 'comp' conflicts as this abstract type.
-    node::Node
-    other::CompType
-    other_abstract::Option{CompType} # Fill if 'other' conflicts as this abstract type.
-    reason::Reason
-end
-
-struct ConflictWithBroughtComponent <: AddException
-    comp::CompType
-    comp_abstract::Option{CompType}
-    node::Node
-    other::CompType
-    other_abstract::Option{CompType}
-    other_node::Node
-    reason::Reason
-end
-
-struct HookCheckFailure <: AddException
-    node::Node
-    message::String
-    late::Bool
-end
-
-struct UnexpectedHookFailure <: AddException
-    node::Node
-    late::Bool
-end
-
-struct ExpansionAborted <: AddException
-    node::Node
-end
-
-struct TriggerAborted <: AddException
-    node::Node
-    combination::Set
-end
-
-# Once the above have been processed,
-# convert into this dedicated user-facing one:
-struct AddError{V} <: SystemException
-    e::AddException
-    _::PhantomData{V}
-    AddError(::Type{V}, e) where {V} = new{V}(e, PhantomData{V}())
-end
-Base.showerror(io::IO, e::AddError{V}) where {V} = showerror(io, e.e)
+abstract type AddError <: SystemException end
 
 # ==========================================================================================
 # Ease exception testing by comparing blueprint paths along tree to simple vectors.
 # The vector starts from current node,
 # and expands up to a sequence of blueprint types and flags:
-#   true: implied
-#   false: embedded
-const PathElement = Union{Bool,Type{<:Blueprint}}
+const PathElement = Type{<:Blueprint}
 const BpPath = Vector{PathElement}
+
+compreport = "\nThis is a bug in the component library. \
+              Please report to component authors \
+              if you can reproduce with a minimal example."
+
+frareport = "\nThis is a bug in the framework. \
+             Please report to package authors \
+             if you can reproduce with a minimal example."
 
 # Extract path from Node.
 function path(node::Node)::BpPath
     res = PathElement[typeof(node.blueprint)]
     while !isnothing(node.parent)
-        push!(res, node.implied)
         node = node.parent
         push!(res, typeof(node.blueprint))
     end
     res
 end
 
-# ==========================================================================================
 # Render errors into proper error messages.
-
-function render_path(path::BpPath)
-    p1 = stripped_path(path[1])
-    res = "$(grayed)in$reset $blueprint_color$p1$reset\n"
-    i = 2
-    while i <= length(path)
-        broughtby = path[i] ? "     implied by:" : "embedded within:"
-        parent = path[i+1]
-        parent = stripped_path(parent)
-        res *= "$grayed$broughtby$reset $blueprint_color$parent$reset\n"
-        i += 2
+function render_path(path::BpPath; prefix = true)
+    res = prefix ? "$(black)in$reset " : ""
+    bpd(p) = bpdisplay(p; color = true)
+    res *= "$(bpd(path[1]))"
+    for parent in path[2:end]
+        res *= "\n$black implied by:$reset $(bpd(parent))"
     end
     res
 end
-render_path(node::Node) = render_path(path(node))
+render_path(node::Node; kwargs...) = render_path(path(node); kwargs...)
 
+struct BroughtAlreadyInValue <: AddError
+    Comp::CompType
+    node::Node
+end
 function Base.showerror(io::IO, e::BroughtAlreadyInValue)
-    (; comp, node) = e
+    (; Comp, node) = e
     path = render_path(node)
     print(
         io,
-        "Blueprint would expand into component $(cc(comp)), \
+        "Blueprint would expand into component $(cc(Comp)), \
          which is already in the system.\n$path",
     )
 end
 
-function Base.showerror(io::IO, e::CannotImplyConstruct)
-    (; comp, node) = e
-    path = render_path(node)
-    print(
-        io,
-        "This particular brought $(cc(comp)) cannot be implicitly constructed.\n$path",
-    )
+struct ExcludedBrought <: AddError
+    Comp::CompType
+    node::Node
 end
-
 function Base.showerror(io::IO, e::ExcludedBrought)
-    (; comp, node) = e
+    (; Comp, node) = e
     path = render_path(node)
     print(
         io,
-        "Component $(cc(comp)) is explicitly excluded \
+        "Component $(cc(Comp)) is explicitly excluded \
          but this blueprint is bringing it:\n$path",
     )
 end
 
+struct InconsistentForSameComponent <: AddError
+    Comp::CompType
+    focal::Node
+    other::Node
+end
 function Base.showerror(io::IO, e::InconsistentForSameComponent)
     (; focal, other) = e
     println(io, "Component would be brought by two inconsistent blueprints:")
@@ -670,20 +583,25 @@ function Base.showerror(io::IO, e::InconsistentForSameComponent)
     println(io, '\n' * render_path(other))
 end
 
+struct MissingRequiredComponent <: AddError
+    Miss::CompType
+    Comp::Option{CompType} # Set if the *component* requires, none if the *blueprint* does.
+    node::Node
+    reason::Reason
+end
 function Base.showerror(io::IO, e::MissingRequiredComponent)
-    (; miss, comp, node, reason) = e
+    (; Miss, Comp, node, reason) = e
     path = render_path(node)
-    if isnothing(comp)
-        header = "Blueprint cannot expand without component $(cc(miss))"
+    if isnothing(Comp)
+        header = "Blueprint cannot expand without component $(cc(Miss))"
     else
-        header = "Component $(cc(comp)) requires $(cc(miss)), neither found in the system \
+        header = "Component $(cc(Comp)) requires $(cc(Miss)), neither found in the system \
                   nor brought by the blueprints"
     end
     if isnothing(reason)
         body = "."
     else
-        it = crayon"italics"
-        body = ":\n  $it$reason$reset"
+        body = ":\n  $italics$reason$reset"
     end
     print(io, "$header$body\n$path")
 end
@@ -693,8 +611,13 @@ late_fail_warn(path) = "Not all blueprints have been expanded.\n\
                         but some components have not been added.\n\
                         $path"
 
+struct HookCheckFailure <: AddError
+    node::Node
+    err::InputError
+    late::Bool
+end
 function Base.showerror(io::IO, e::HookCheckFailure)
-    (; node, message, late) = e
+    (; node, err, late) = e
     path = render_path(node)
     if late
         header = "Blueprint cannot expand against current system value"
@@ -703,10 +626,16 @@ function Base.showerror(io::IO, e::HookCheckFailure)
         header = "Blueprint value cannot be expanded"
         footer = path
     end
-    it = crayon"italics"
-    print(io, "$header:\n  $it$message$reset\n$footer")
+    println(io, "$header:")
+    showerror(io, err)
+    println(io)
+    print(io, footer)
 end
 
+struct UnexpectedHookFailure <: AddError
+    node::Node
+    late::Bool
+end
 function Base.showerror(io::IO, e::UnexpectedHookFailure)
     (; node, late) = e
     path = render_path(node)
@@ -717,22 +646,35 @@ function Base.showerror(io::IO, e::UnexpectedHookFailure)
         header = "Unexpected failure during early blueprint checking."
         footer = path
     end
-    print(
-        io,
-        "$header\n\
-         This is a bug in the components library. \
-         Please report if you can reproduce with a minimal example.\n\
-         $footer",
-    )
+    print(io, "$header$compreport\n$footer")
 end
 
-function Base.showerror(io::IO, e::ConflictWithSystemComponent)
-    (; comp, comp_abstract, node, other, other_abstract, reason) = e
+struct LoweringAborted <: AddError
+    node::Node
+end
+function Base.showerror(io::IO, e::LoweringAborted)
+    (; node) = e
     path = render_path(node)
-    comp_as = isnothing(comp_abstract) ? "" : " (as a $(cc(comp_abstract)))"
-    other_as = isnothing(other_abstract) ? "" : " (as a $(cc(other_abstract)))"
-    header = "Blueprint would expand into $(cc(comp)), \
-              which$comp_as conflicts with $other$other_as already in the system"
+    header = "Unexpected failure during data lowering."
+    footer = late_fail_warn(path)
+    print(io, "$header$compreport\n$footer")
+end
+
+struct ConflictWithSystemComponent <: AddError
+    Comp::CompType
+    CompAbstract::Option{CompType} # Fill if 'comp' conflicts as this abstract type.
+    node::Node
+    Other::CompType
+    OtherAbstract::Option{CompType} # Fill if 'other' conflicts as this abstract type.
+    reason::Reason
+end
+function Base.showerror(io::IO, e::ConflictWithSystemComponent)
+    (; Comp, CompAbstract, node, Other, OtherAbstract, reason) = e
+    path = render_path(node)
+    comp_as = isnothing(CompAbstract) ? "" : " (as a $(cc(CompAbstract)))"
+    other_as = isnothing(OtherAbstract) ? "" : " (as a $(cc(OtherAbstract)))"
+    header = "Blueprint would expand into $(cc(Comp)), \
+              which$comp_as conflicts with $Other$other_as already in the system"
     if isnothing(reason)
         body = "."
     else
@@ -741,19 +683,55 @@ function Base.showerror(io::IO, e::ConflictWithSystemComponent)
     print(io, "$header$body\n$path")
 end
 
+struct ConflictWithBroughtComponent <: AddError
+    Comp::CompType
+    CompAbstract::Option{CompType}
+    node::Node
+    Other::CompType
+    OtherAbstract::Option{CompType}
+    other_node::Node
+    reason::Reason
+end
 function Base.showerror(io::IO, e::ConflictWithBroughtComponent)
-    (; comp, comp_abstract, node, other, other_abstract, other_node, reason) = e
+    (; Comp, CompAbstract, node, Other, OtherAbstract, other_node, reason) = e
     path = render_path(node)
-    other_path = render_path(other_node)
-    comp_as = isnothing(comp_abstract) ? "" : " (as a $(cc(comp_abstract)))"
-    other_as = isnothing(other_abstract) ? "" : " (as a $(cc(other_abstract)))"
-    header = "Blueprint would expand into $(cc(comp)), \
-              which$comp_as would conflict with $other$other_as \
+    other_path = render_path(other_node; prefix = false)
+    comp_as = isnothing(CompAbstract) ? "" : " (as a $(cc(CompAbstract)))"
+    other_as = isnothing(OtherAbstract) ? "" : " (as a $(cc(OtherAbstract)))"
+    header = "Blueprint would expand into $(cc(Comp)), \
+              which$comp_as would conflict with $(cc(Other))$other_as \
               already brought by the same blueprint"
     if isnothing(reason)
         body = "."
     else
         body = ":\n  $reason"
     end
-    print(io, "$header$body\nAlready brought: $other_path---\n$path")
+    print(io, "$header$body\nAlready brought: $other_path\n---\n$path")
+end
+
+struct InternalAddError <: AddError
+    mess::String
+end
+function Base.showerror(io::IO, e::InternalAddError)
+    (; mess) = e
+    print(io, mess)
+    print(io, frareport)
+end
+
+struct ComponentError <: AddError
+    mess::String
+end
+function Base.showerror(io::IO, e::ComponentError)
+    (; mess) = e
+    print(io, mess)
+    print(io, compreport)
+end
+
+struct ExpansionAborted <: AddError
+    node::Node
+end
+
+struct TriggerAborted <: AddError
+    node::Node
+    combination::Set
 end

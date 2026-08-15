@@ -1,31 +1,23 @@
 module TestUser
 
-using EcologicalNetworksDynamics
-using Random
-using Test
-using ..TestFailures
+# XXX: translate or clear previous tests under onhold/ folder.
 
-Value = EcologicalNetworksDynamics.Internal # To make @sysfails work.
-import ..Main: @viewfails, @sysfails, @argfails, @failswith
+include("./symbols.jl")
 
-# Expose to further test submodules.
-export Value, @viewfails, @sysfails, @argfails, @failswith
+# Input checking.
+include("./convert.jl")
 
-# Run all .jl files we can find except the current one (and without recursing).
-only = [] # Unless some files are specified here, in which case only run these.
-if isempty(only)
-    folder = dirname(@__FILE__)
-    for file in readdir(folder)
-        path = joinpath(folder, file)
-        if !endswith(path, ".jl") || (abspath(path) == @__FILE__)
-            continue
-        end
-        include(path)
-    end
-else
-    for file in only
-        include(file)
-    end
-end
+# Typical network compartments.
+include("graph_field.jl")
+include("class.jl")
+#  include("web.jl")
+#  include("subclass.jl")
+#  include("node_field.jl")
+#  include("subnode_field.jl")
+#  include("allometric_blueprints.jl")
+#  include("edge_field.jl")
+#  include("indexing_guards.jl")
+#  include("components.jl")
+#  include("kwargs.jl")
 
 end

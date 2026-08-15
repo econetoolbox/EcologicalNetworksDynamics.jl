@@ -1,0 +1,121 @@
+(false) && begin # (fix JuliaLS missing refs)
+    using EcologicalNetworksDynamics.Networks
+end
+
+function inline_info(v::EdgeFieldView)
+    web = D.web(v)
+    field = D.field(v)
+    "<$web:$field>"
+end
+
+function inline_info(v::EdgeMaskView)
+    web = D.web(v)
+    "<$web>"
+end
+
+function display_info(v::EdgeFieldView)
+    T = eltype(v)
+    info = inline_info(v)
+    "EdgesFieldView$info{$T}"
+end
+
+function display_info(v::EdgeMaskView)
+    T = eltype(v)
+    info = inline_info(v)
+    "EdgesMaskView$info{$T}"
+end
+
+type_info(::Type{<:EdgeFieldView}) = "edges"
+type_info(::Type{<:EdgeMaskView}) = "edges mask"
+
+function Base.show(io::IO, v::EdgeFieldView)
+    print(io, inline_info(v))
+    raw = N.entry(v)
+    l, (m, n) = N.n_edges(v), size(v)
+    if l == 0
+        print(io, "($m×$n: no values)")
+    elseif l == 1
+        (x,) = read(identity, raw)
+        print(io, "($m×$n: 1 value: $x)")
+    else
+        min, max = read(extrema, raw)
+        range = min == max ? "($min)" : "ranging from $min to $max"
+        print(io, "($m×$n: $l values $range)")
+    end
+end
+
+function Base.show(io::IO, v::EdgeMaskView)
+    print(io, inline_info(v))
+    l, (m, n) = N.n_edges(N.web(v)), size(v)
+    print(io, "($m×$n: ")
+    if l == 0
+        print(io, "no edges")
+    elseif l == 1
+        print(io, "1 edge")
+    else
+        print(io, "$l edges")
+    end
+    print(io, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", v::EdgeFieldView)
+    print(io, display_info(v))
+    l, (m, n) = N.n_edges(v), size(v)
+    l, s = ns(l)
+    top = N.topology(v)
+    print(io, " ($m×$n: $l value$s)")
+    widths = zeros(Int, n)
+    lines = []
+    view = N.view(v)
+    for i in 1:m
+        line = []
+        for j in 1:n
+            f = if N.is_edge(top, i, j)
+                x = view[(i, j)]
+                repr(x)
+            else
+                "·"
+            end
+            w = length(f)
+            widths[j] < w && (widths[j] = w)
+            push!(line, f)
+        end
+        push!(lines, line)
+    end
+    for line in lines
+        print(io, '\n')
+        for (value, width) in zip(line, widths)
+            print(io, ' ' * lpad(value, width))
+        end
+    end
+end
+
+function Base.show(io::IO, ::MIME"text/plain", v::EdgeMaskView)
+    print(io, display_info(v))
+    l, (m, n) = N.n_edges(N.web(v)), size(v)
+    l, s = ns(l)
+    top = N.topology(v)
+    print(io, " ($m×$n: $l edge$s)")
+    widths = zeros(Int, n)
+    lines = []
+    for i in 1:m
+        line = []
+        for j in 1:n
+            f = if N.is_edge(top, i, j)
+                "1"
+            else
+                "·"
+            end
+            w = length(f)
+            widths[j] < w && (widths[j] = w)
+            push!(line, f)
+        end
+        push!(lines, line)
+    end
+    for line in lines
+        print(io, '\n')
+        for (value, width) in zip(line, widths)
+            print(io, ' ' * lpad(value, width))
+        end
+    end
+end

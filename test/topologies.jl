@@ -1,6 +1,7 @@
 module TestTopologies
 
 using EcologicalNetworksDynamics.Topologies
+
 using Test
 import ..Main: @argfails
 

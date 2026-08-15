@@ -1,5 +1,77 @@
 # v0.3.x
 
+# New
+
+- All `<class>`es like `species`, `producers`, `consumers`, `nutrients`, *etc.*
+  now have the same standard properties available:
+  - `model.<class>.number`: class size = number of nodes in the class.
+  - `model.<class>.names`: class node labels in canonical (=original) order.
+  - `model.<class>.index`: map labels to local class indices.
+  - `model.<class>.mask`:
+    view into underlying sparse restrictions from parent class.
+
+- All `<web>`s like `trophic`, `herbivory`, `carnivory` *etc.*
+  now have the same standard properties available:
+  - `model.<web>.matrix` or `model.<web>.mask`:
+    view into underlying sparse topology.
+  - `model.<web>.n_links` or `model.<web>.n_edges`:
+    number of links/edges in the web.
+
+- Extract regular vectors/matrices from views into a model `m`
+  with `extract` *e.g.*
+  `extract(m.A)`, `extract(m.M)`, `extract(m.species.names)` *etc.*
+
+# Breaking
+
+- Subclasses of nodes are also classes of their own right.
+  Raw blueprints to construct them
+  now expect dense collections with one value per node in the subclass,
+  no need to fill it up with zeros. For instance:
+  ```julia
+  m = Model(Foodweb([:a => :b, :c => :d]), GrowthRate([5, 8])) # Only 2 producers.
+  m.growth_rate # Sparse view: [·, 5.0, ·, 8.0].
+  ```
+
+- `Raw` blueprint for edge fields now expect a dense *vector* or raw values.
+  If you want to input a matrix instead. Use the `Matrix` blueprint.
+  ```julia
+  Efficiency.Raw([4, 5, 6]) # 3 values for a model with 3 trophic links.
+  Efficiency.Matrix([0 4 0; 5 0 0; 6 0 0]) # Matrix input version equivalent.
+  ```
+  Note that the generic constructor with component call still works as expected.
+  ```julia
+  Efficiency([4, 5, 6])             # Raw values input.
+  Efficiency([0 4 0; 5 0 0; 6 0 0]) # Matrix input.
+  ```
+
+- "Embedded" blueprints and their "brought" fields are no more.
+  They can now only be implied instead.
+  TODO: figure resulting interface change and attempt to keep ergonomics.
+
+- `model.trophic.levels` becomes `model.trophic.level` for consistency with
+  other node properties being named with singular form.
+
+- `model.trophic.herbivory_matrix` becomes `model.trophic.herbivory.matrix`
+  or just `model.herbivory.matrix`,
+  with other standard web properties namespaced within `model.herbivory`,
+  and aliased to `model.trophic.herbivory`.
+  The same goes for `carnivory`.
+
+- A bunch of redundant properties and methods are dropped
+  in favour of raw `model.<class>.index`, `model.<class>.names`
+  and `model.<class>.mask` views:
+  - `is_<class>(model, i)` methods are dropped.
+  - `model.<class>.label` property is dropped.
+  - `model.<class>_<sparse|dense>_index` are dropped.
+
+- Operating on slices from views now requires the broadcast operator:
+  - `model.M[2:3] *= 10` used to work, but is not supported anymore.
+  - `model.M[2:3] .*= 10` continues to work.
+
+- Cannot create species blueprints from an index anymore,
+  so `Species(Dict([:a => 1, :b => 2]))` stops working.
+  But any iterator is accepted now like `Species("sp_$i" for i in 1:5)`.
+
 # Bugfixes
 
 - Fix world count in Framework `@conflicts` macro with Julia 1.12.
@@ -50,6 +122,15 @@ Model(
 #   0.8  ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
 #   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
 #   ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅    ⋅
+```
+
+Properties can now be used to set all values at once:
+XXX: There is no risk of aliasing anymore, but throrough test is still required.
+```julia
+m = Model(Foodweb([(:a, :b) => :c]), BodyMass(; Z=2))
+m.M = [1, 2, 3] # Reset all values.
+m.M = [:a => 3, :b => 2, :c => 1] # Map-form allowed.
+m.M = 5 # Allowed at least for component with a .Flat blueprint.
 ```
 
 ## Improvements

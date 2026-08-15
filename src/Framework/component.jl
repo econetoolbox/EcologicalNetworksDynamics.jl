@@ -1,30 +1,34 @@
-# Components are not values, but they are reified here as julia *singletons types*
-# whose corresponding blueprints associate to.
-#
-# No concrete component type can be added twice to the system.
-#
-# When user wants to add components to the system,
-# they provide a blueprint value which is then *expanded* into components.
-#
-# Components may 'require' other components,
-# because the data they represent are meaningless without them.
-# If A requires B, it means that A cannot be added in a system with no B.
-#
-# Components also 'conflict' with each other:
-# because the data they represent make no sense within their context.
-# If A conflicts with B, it means that an error should be raised
-# when attempting to add A in a system with B.
-#
-# Component types can be structured with julia's abstract type hierarchy:
-#
-#   - Conflicting with an abstract component A
-#     means conflicting with any component subtyping A.
-#
-#   - If component B subtypes A, then A and B cannot conflict with each other.
-#
-# It is not currently possible for an abstract component to 'require'.
-# This might be implemented in the future for a convincingly motivated need,
-# at the cost of extending @component macro to produce abstract types.
+"""
+Components are not values, conceptually,
+but they are reified here as julia *singletons types*
+whose corresponding blueprints associate to.
+
+No concrete component type can be added twice to the system.
+
+When user wants to add components to the system,
+they provide a blueprint value which is then *expanded* into components.
+
+Components may 'require' other components,
+because the data they represent are meaningless without them.
+If A requires B, it means that A cannot be added in a system with no B.
+
+Components also 'conflict' with each other:
+because the data they represent make no sense within their context.
+If A conflicts with B, it means that an error should be raised
+to prevent from adding A in a system with B.
+
+Component types can be structured with julia's abstract type hierarchy:
+
+  - Conflicting with an abstract component A
+    means conflicting with any component subtyping A.
+
+  - If component B subtypes A, then A and B cannot conflict with each other.
+
+It is not currently possible for an abstract component to 'require'.
+This might be implemented in the future for a convincingly motivated need,
+at the cost of extending the `define_component()` function to produce abstract types.
+"""
+Component
 
 # Retrieve type from either instance or the type itself.
 component_type(C::CompType) = C
@@ -32,7 +36,8 @@ component_type(c::Component) = typeof(c)
 component_type(x::Any) =
     argerr("Not a component or a component type: $(repr(x)) ::$(typeof(x))")
 
-# Component types being singleton, we *can* infer the value from the type at runtime.
+# Component types being singleton, we *can* infer the value from the type at runtime,
+# provided it is not abstract.
 singleton_instance(c::Component) = c
 singleton_instance(C::CompType) = throw("No concrete singleton instance of '$C'.")
 
@@ -43,7 +48,6 @@ system_value_type(::CompRef{V}) where {V} = V
 isacomponent(::CompType) = true
 isacomponent(::Component) = true
 isacomponent(::Any) = false
-export isacomponent
 
 #-------------------------------------------------------------------------------------------
 # Requirements.
@@ -112,10 +116,10 @@ end
 # yields (conflict_key, conflicting_component, reason)
 # The yielded conflict key may be a supercomponent of the focal one.
 function all_conflicts(C::CompType)
-    supers = ifilter(T -> T !== Any, supertypes(C))
-    Iterators.flatten(imap(supers) do Sup
+    supers = I.filter(T -> T !== Any, supertypes(C))
+    Iterators.flatten(I.map(supers) do Sup
         entries = conflicts_(Sup)
-        imap(entries) do (k, v)
+        I.map(entries) do (k, v)
             (Sup, k, v)
         end
     end)
@@ -199,32 +203,50 @@ function add_trigger!(components, fn::Function)
 
     nothing
 end
-export add_trigger! # Expose directly..
+export add_trigger!
 
 # ==========================================================================================
-# Display.
+# Display extension points.
 
-# By default, strip the standard leading '_' in component type, wrap in angle brackets <>,
-# and don't display blueprint details within component values.
-# NOTE: this enhances ergonomics
-# but it makes unexpected framework errors rather confusing.
-# Comment out when debugging.
-
-strip_compname(name::Symbol) = Symbol(lstrip(String(name), '_'))
-function fmt_compname(name; col = false)
-    c, r = col ? (component_color, reset) : ("", "")
-    "$c<$name>$r"
+compname(C::CompType) = "<$(C.name.name)>" # Singletons *types* in brackets.
+compname(c::Component) = String(typeof(c).name.name)
+function compdisplay(io::IO, cr::CompRef; color = false)
+    s, e = color ? (component_color, reset) : ("", "")
+    name = compname(cr)
+    print(io, "$s$name$e")
+end
+compdisplay(cr; kwargs...) = sprint(cr) do io, cr
+    compdisplay(io, cr; kwargs...)
 end
 
-comp_path(C::CompType) = stripped_path(C)
-comp_path(::Type{V}, C::Type{Component{V}}) where {V} = "$(comp_path(C)){$V}"
-Base.show(io::IO, C::CompType) = print(io, fmt_compname(comp_path(C)))
-Base.show(io::IO, c::Component) = print(io, comp_path(typeof(c)))
+# Toplevel escape hatch (abstract types have no name).
+compname(::Type{Component}) = "$F.Component"
 
-# More explicit terminal display.
-function Base.show(io::IO, ::MIME"text/plain", C::CompType)
-    abs = isabstracttype(C) ? "abstract " : ""
-    print(io, "$component_color$C$reset $grayed($(abs)component type ")
-    @invoke show(io::IO, C::DataType)
+function Base.show(io::IO, ::MIME"text/plain", C::Type{<:Component})
+    V = system_value_type(C)
+    compdisplay(io, C; color = true)
+    print(io, " $black(component type for $V)$reset")
+end
+
+# Helpful display resuming base blueprint types for this component,
+# assuming it has been generated by the above.
+function Base.show(io::IO, ::MIME"text/plain", c::Component)
+    V = system_value_type(c)
+    names = fieldnames(typeof(c))
+    cd = compdisplay(c; color = true)
+    print(io, "$cd $black(component for $V")
+    if isempty(names)
+        print(io, " with no base blueprint")
+    else
+        println(io, ", expandable from:")
+        for name in names
+            B = getfield(c, name)
+            print(io, "  $blueprint_color$name$reset$black: $italics")
+            shortline(io, B)
+            println(io, "$reset$black,")
+        end
+    end
     print(io, ")$reset")
 end
+
+shortline(io, B::Type{<:Blueprint}) = @invoke show(io, B::DataType)

@@ -1,0 +1,133 @@
+using .Networks: Network
+using .Framework: define_blueprint, define_conflicts # Unchanged.
+
+# For component authors, this is what these should almost always mean.
+const Blueprint = F.Blueprint{Network}
+const BlueprintSum = F.BlueprintSum{Network}
+const CompType = F.CompType{Network}
+const Component = F.Component{Network}
+export Blueprint, Component
+
+# The central type for end users.
+const Model = F.System{Network}
+export Model
+
+# Access underlying network or model.
+N.network(m::Model) = F.value(m)
+model(m::Model) = m # (override for views, solutions etc.)
+
+# Define items, always for the 'Network' type.
+define_component(Name, mod; kwargs...) = F.define_component(Name, Network, mod; kwargs...)
+define_method(fn; kwargs...) = F.define_method(fn, Network; kwargs...)
+
+# Skip _-prefixed properties when listing, and sort alphabetically.
+function properties(m::Model)
+    res = []
+    for (name, _) in F.properties(m)
+        startswith(String(name), '_') && continue
+        push!(res, name)
+    end
+    sort!(res)
+    res
+end
+non_underscore(p::F.PropertySpace) =
+    I.filter(F.properties(p)) do (name, _)
+        !startswith(String(name), '_')
+    end
+properties(p::F.PropertySpace) = collect(I.map(first, non_underscore(p)))
+Base.propertynames(m::Model) = properties(m)
+Base.propertynames(p::F.PropertySpace{name,P,Network}) where {name,P} = properties(p)
+
+# Property spaces default to Network.
+function define_propspace(path)
+    get = Symbol(:get_, path)
+    NF.eval(quote
+        $get(::Network, s::Model) = F.@PropertySpace($path, Network)(s)
+        F.define_method($get, Network; read_as = [$(Meta.quot(path))])
+    end)
+end
+# TODO: Should define_propspace() first be exposed as an underlying Framework primitive?
+
+# Property aliases default to network.
+macro alias(new, old)
+    quote
+        F.@alias($new, $old, $Network)
+    end
+end
+
+# ==========================================================================================
+
+@doc """
+Model is the main object that we hand out to user
+which contains all the information about the underlying ecological model.
+
+# Create a Model
+
+The most straightforward way to create a model is to use [`default_model`](@ref).
+This function only requires you to specify the trophic network.
+
+```julia
+fw = [1 => 2, 2 => 3]
+model = default_model(fw)
+```
+
+This function will help you to create a model with ease,
+however it relies on default values for the parameters,
+which are not always suitable for your specific case,
+even though extracted from the literature.
+
+To create a model with custom parameters, you can pass
+other arguments to `default_model`.
+
+```julia
+model = default_model(fw, BodyMass(; Z = 100))
+```
+
+For instance, the above example creates a model with a
+body mass distribution with a predator-prey mass ratio of 100.
+
+It is also possible to create a model manually by adding the components one by one.
+First, create an empty model:
+
+```julia
+m = Model()
+```
+
+Then add your components one by one.
+Note that you have to add the components in the right order, as some components depend on others.
+Moreover, some components are mandatory.
+Specifically, you need to provide a food web, species body masses, a functional response, metabolic rates and a producer growth function.
+
+```julia
+m = Model()
+m += Foodweb([3 => 2, 2 => 1])
+m += ClassicResponse(; h = 2, M = BodyMass([0.1, 2, 3]))
+m += LogisticGrowth(; r = 1, K = 10)
+m += Metabolism(:Miele2019)
+m += Mortality(0)
+```
+
+# Read and write properties of the model
+
+First all properties contained in the model
+can be listed with:
+
+```julia
+properties(m) # Where m is a Model.
+```
+
+Then, the value of a property can be read with
+`get_<X>` where `X` is the name of the property.
+For instance, to read mortality rates:
+
+```julia
+get_mortality(m) # Equivalent to: m.mortality.
+```
+
+You can also re-write properties of the model using `set_<X>!`.
+However, not all properties can be re-written,
+because some of them are derived from the others.
+For instance, many parameters are derived from species body masses,
+therefore changing body masses would make the model inconsistent.
+However, terminal properties can be re-written, as the species metabolic rate.
+""" Model
