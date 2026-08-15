@@ -81,15 +81,18 @@ using Test
     )
 
     bp.T = -1 # Even after blueprint corruption.
-    addfails.@check(
-        Model(bp),
-        [Temperature.Raw],
+    addfails.@check(Model(bp), [],
+        (Temperature.Raw, :early, nothing,
+            (nothing, :whole, :check, -1.0, "Value cannot be negative.")),
+    )
+    @test_err(Model(bp),
         """
+        Blueprint value cannot be expanded:
         While verifying blueprint:
         Value cannot be negative.
-        Received: -1.0 ::$Float64\
-        """,
-        false,
+        Received: -1.0 ::Float64
+        in Temperature.Raw\
+        """
     )
 
 end

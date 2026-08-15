@@ -248,7 +248,7 @@ function check!(add::AddState, node::Node)
             early_check(blueprint)
         catch e
             if e isa InputError
-                rethrow(HookCheckFailure(node, message(e), false))
+                rethrow(HookCheckFailure(node, e, false))
             else
                 throw(UnexpectedHookFailure(node, false))
             end
@@ -390,7 +390,7 @@ function add!(
                 late_check(system, blueprint, data)
             catch e
                 if e isa InputError
-                    rethrow(HookCheckFailure(node, message(e), true))
+                    rethrow(HookCheckFailure(node, e, true))
                 else
                     throw(UnexpectedHookFailure(node, true))
                 end
@@ -532,9 +532,9 @@ end
 function render_path(path::BpPath; prefix = true)
     res = prefix ? "$(black)in$reset " : ""
     bpd(p) = bpdisplay(p; color = true)
-    res *= "$(bpd(path[1]))\n"
+    res *= "$(bpd(path[1]))"
     for parent in path[2:end]
-        res *= "$black implied by:$reset $(bpd(parent))\n"
+        res *= "\n$black implied by:$reset $(bpd(parent))"
     end
     res
 end
@@ -613,11 +613,11 @@ late_fail_warn(path) = "Not all blueprints have been expanded.\n\
 
 struct HookCheckFailure <: AddError
     node::Node
-    mess::String
+    err::InputError
     late::Bool
 end
 function Base.showerror(io::IO, e::HookCheckFailure)
-    (; node, mess, late) = e
+    (; node, err, late) = e
     path = render_path(node)
     if late
         header = "Blueprint cannot expand against current system value"
@@ -626,7 +626,10 @@ function Base.showerror(io::IO, e::HookCheckFailure)
         header = "Blueprint value cannot be expanded"
         footer = path
     end
-    print(io, "$header:\n$mess\n$footer")
+    println(io, "$header:")
+    showerror(io, err)
+    println(io)
+    print(io, footer)
 end
 
 struct UnexpectedHookFailure <: AddError

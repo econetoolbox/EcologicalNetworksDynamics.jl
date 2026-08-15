@@ -59,7 +59,7 @@ function render_input(
     if_long::Function = (long, type) -> begin
         print(io, "Received: ")
         long()
-        print(io, "Type: $type")
+        print(io, "\nType: $type")
     end,
     between::Function = () -> nothing,
 )

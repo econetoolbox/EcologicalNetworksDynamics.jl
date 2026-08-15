@@ -25,8 +25,7 @@ include("./errors.jl")
 const T = Tests
 
 using EcologicalNetworksDynamics:
-    EN, N, F, NF, D, I, SparseMatrix, Display, errwith, withcontext, prepend_context!,
-    OneShotReport
+    EN, N, F, NF, D, I, SparseMatrix, Display, errwith, withcontext
 using .Display: rept, render_input, yellow, black, reset, italics
 
 using .Strings:
@@ -34,7 +33,8 @@ using .Strings:
     is_string, is_repr, is_disp,
     check_string, check_repr, check_disp, check_err,
     @test_string, @test_repr, @test_disp, @test_err
-using .Errors: @fails, @fails_with, @genfailsmacro, FieldsCompare, WrongField
+using .Errors:
+    @fails, @fails_with, @genfailsmacro, FieldsCompare, WrongField, test_errsource, errfield
 
 using Test
 
@@ -81,23 +81,27 @@ end
 
 "Test various possible failures during `Framework.add!()`."
 module addfails
-    using ..T: T, I, F, @genfailsmacro, mess, rept
+    using ..T: T, I, F, NF, @genfailsmacro, mess, rept, WrongField, italics, reset
     "The `node` fields on `AddError` is easily tested as a *path* of blueprint types."
-    function node(exp, node)
+    function node(exp, node; skip_first = false)
         exp isa Vector ||
             T.errwith("not a path vector to compare against a node", rethrow) do io
                 println(io, rept(exp))
             end
-        node isa F.Node || T.errwith(T.WrongField, "not an `add!` node", rethrow) do io
+        node isa F.Node || T.errwith(WrongField, "not an `add!` node", rethrow) do io
             println(io, rept(node))
         end
-        act = []
-        while !isnothing(node)
-            push!(act, typeof(node.blueprint))
-            node = node.parent
+        act = F.path(node)
+        if skip_first
+            popfirst!(act)
         end
-        err() = T.errwith(T.WrongField, "wrong nodes path", rethrow) do io
-            T.showcompare(io, repr.(exp), repr.(act))
+        err() = T.errwith(WrongField, "wrong nodes path", rethrow) do io
+            if skip_first
+                println(io, "  $italics(the first actual path step was skipped)$reset")
+            end
+            e = join(exp, ", ")
+            a = join(act, ", ")
+            T.showcompare(io, "[$e]", "[$a]") # (display vecs without leading type)
         end
         length(act) == length(exp) || err()
         for (e, a) in zip(exp, act)
@@ -107,10 +111,18 @@ module addfails
     @genfailsmacro bpconflict F.ConflictWithBroughtComponent (; node, other_node = node)
     @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
     @genfailsmacro component F.ComponentError (; mess)
-    @genfailsmacro check F.HookCheckFailure (; node, mess)
     @genfailsmacro lower F.LoweringAborted (; node)
     @genfailsmacro missingrequired F.MissingRequiredComponent (; node)
     @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)
+    # That one is more involved..
+    @genfailsmacro check F.HookCheckFailure (;
+        # ..because it's forwarding underlying library exception..
+        err = T.errfield(NF.BlueprintError),
+        # ..so this should always be redundant with the above :early vs :late 'step':
+        late = nothing,
+        # .. and the first element in the path should always be redundant with BP type:
+        node = (e, a) -> node(e, a; skip_first = true),
+    )
 end
 
 #-------------------------------------------------------------------------------------------
@@ -137,7 +149,7 @@ function test_mref(exp, act::NF.ModelRefErr)
         errwith("Not a tuple to compare against nested error:", rethrow) do io
             render_input(io, exp)
         end
-    if length(exp) < 4
+    if length(exp) < 3
         errwith("Not enough expected nested fields values to test:", rethrow) do io
             showcompare(io, "(mref, ref, root, root_fields...)", exp)
         end
@@ -155,32 +167,14 @@ function test_mref(exp, act::NF.ModelRefErr)
     end
     # Translate to expected root error type.
     dict = (; check = NF.CheckError, convert = NF.ConvertError)
-    R = if haskey(dict, exp.root)
+    RootCauseType = if haskey(dict, exp.root)
         dict[exp.root]
     else
         errwith("Unknown possible root cause type:", rethrow) do io
             showcompare(io, "one among: $(keys(dict))", exp.root)
         end
     end
-    # Then reuse former utils to check the root error as usual.
-    act_root = act.src.src
-    enames = fieldnames(R)
-    err = try
-        Errors.check_expected_fields(R, enames, exp.fields)
-        act_root isa R || Errors.unexpected_error_type(act_root, R, exp.fields)
-        Errors.test_error_expected(act_root, R, enames, exp.fields, (;))
-        nothing
-    catch e
-        e isa OneShotReport || rethrow(e)
-        e # Exit that nested block to avoid cluttering output with original error.
-    end
-    isnothing(err) || rethrow(
-        prepend_context!(err) do io
-            println(io,
-                "When testing underlying root cause \
-                 $yellow$(repr(exp.root))$reset:")
-        end,
-    )
+    T.test_errsource(act.src.src, RootCauseType, exp.fields)
 end
 
 "Test `$(NF.InputRef)` value, using `:whole` to expect `$(NF.WholeInput)`."
@@ -212,6 +206,13 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     d = test_datakind,
     src = test_mref,
 )
+
+# Systematic redirection of `src` field testing for these type.
+# (useful to have addfails.@hook invocations correctly forward flow)
+T.test_errsource(err, E::Type{NF.BlueprintError}, fields, checks = (;)) =
+    @invoke T.test_errsource(err, E::Type, fields, (; src = test_mref, checks))
+T.test_errsource(err, E::Type{NF.MutationError}, fields, checks = (;)) =
+    @invoke T.test_errsource(err, E::Type, fields, (; src = test_mref, checks))
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)

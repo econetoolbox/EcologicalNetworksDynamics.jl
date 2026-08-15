@@ -19,8 +19,9 @@ generalize again if required to also check macro *expansion* process.
 module Errors
 
 using EcologicalNetworksDynamics:
-    I, Display, @ErrBrand, errwith, errwrap, withcontext, escall, Tests
-using .Display: blue, red, yellow, black, bold, italics, reset, rept, eprintln
+    I, Display, @ErrBrand, errwith, errwrap, withcontext, prepend_context!, OneShotReport,
+    escall, Tests
+using .Display: blue, red, yellow, black, bold, italics, reset, rept, eprintln, render_input
 using .Tests.Strings: showcompare, showdiff, check_string, UnmatchedStrings, Ln, lnline
 
 using Test
@@ -321,5 +322,36 @@ module FieldsCompare
         end
     end
 end
+
+#-------------------------------------------------------------------------------------------
+
+"""
+Test an exception field which is its own exception type,
+considered an underlying 'source' error cause, reusing all the utils above.
+"""
+function test_errsource(err, E::Type, fields, checks = (;))
+    fields isa Tuple ||
+        errwith("Not a tuple to compare against error fields:", rethrow) do io
+            render_input(io, fields)
+        end
+    enames = fieldnames(E)
+    err = try
+        Errors.check_expected_fields(E, enames, fields)
+        err isa E || Errors.unexpected_error_type(err, E, fields)
+        Errors.test_error_expected(err, E, enames, fields, checks)
+        nothing
+    catch e
+        e isa OneShotReport || rethrow(e)
+        e # Exit that nested block to avoid cluttering output with original error.
+    end
+    isnothing(err) || rethrow(
+        prepend_context!(err) do io
+            println(io, "When testing underlying error cause $yellow$(E.name.name)$reset:")
+        end,
+    )
+end
+
+"For inclusion within checksmap."
+errfield(E::Type, checks = (;)) = (fields, act) -> test_errsource(act, E, fields, checks)
 
 end

@@ -120,7 +120,6 @@ const CompRef{V} = Union{Component{V},CompType{V}}
 # it will not bubble up to toplevel scope
 # but be upgraded differently depending on the context.
 abstract type InputError <: Exception end
-message(e::InputError) = sprint(showerror, e)
 export InputError
 
 # ==========================================================================================
