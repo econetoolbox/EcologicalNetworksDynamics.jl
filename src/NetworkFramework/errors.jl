@@ -150,7 +150,7 @@ function Base.showerror(io::IO, e::BlueprintError)
     println(io, "While $doing:")
     if !(ref isa WholeInput)
         print(io, "In the provided value at $ref")
-        if !isnothing(mref)
+        if isnothing(mref)
             println(io, ":")
         else
             mv = modelvalue(d, mref, model)

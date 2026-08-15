@@ -198,3 +198,6 @@ end
 bpdisplay(B; kwargs...) = sprint(B) do io, B
     bpdisplay(io, B; kwargs...)
 end
+
+bpcol(io::IO, B::Type{<:Blueprint}) = bpdisplay(io, B; color = true)
+bpcol(B) = bpdisplay(B; color = true)

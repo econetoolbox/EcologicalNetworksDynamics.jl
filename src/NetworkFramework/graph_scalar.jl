@@ -1,6 +1,4 @@
-"""
-Expand into a graph-level scalar given the value.
-"""
+"Expand into a graph-level scalar given the value."
 abstract type GraphScalarBlueprint <: Blueprint end
 
 """

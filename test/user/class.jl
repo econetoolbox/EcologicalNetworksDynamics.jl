@@ -5,30 +5,32 @@ Anything specific to species will be tested in a dedicated file.
 """
 module ClassTest
 
-# What the end user should have to import.
 using EcologicalNetworksDynamics
 
-# Additional imports only used here for testing purpose.
-using Test
+using EcologicalNetworksDynamics.Tests:
+    @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
+    @mutfails, @propfails, addfails
+using EcologicalNetworksDynamics.NetworkFramework: EN, D, Network, Views
+using EcologicalNetworksDynamics.Framework: F, @PropertySpace
+# The data kind, view type and property spaces tested here.
+const d, _D = D.Class(:species)
+const View = Views.NodeNameView{d}
+const Sp = @PropertySpace(species, Network)
 using OrderedCollections
-import EcologicalNetworksDynamics: EN, F, D, Network, Views
-import Main: is_repr, is_disp, is_err, @inputfails, @sysfails, Value
-const View = Views.NodeNameView{D.Class(:species)} # Tested view type.
+using Test
 
 @testset "Class component: blueprints" begin
 
     # Blueprints available from component.
     @test Species isa EN.Component
-    @test is_repr(Species, "Species")
-    @test is_disp(
-        Species,
+    @test_disp(typeof(Species), "<Species> (component type for $Network)")
+    @test_disp(Species,
         """
         Species (component for $Network, expandable from:
           Names: raw species names,
           Number: number of species,
         )\
-        """,
-    )
+        """)
     @test Species.Names <: EN.Blueprint
     @test Species.Number <: EN.Blueprint
 
@@ -50,15 +52,13 @@ const View = Views.NodeNameView{D.Class(:species)} # Tested view type.
     @test bp == Species(["a", "b", "c"])
     @test bp == Species(split("a b c"))
     @test bp == Species(:a, 'b', "c")
-    @test is_repr(bp, "<Species>:Names(names: [:a, :b, :c])")
-    @test is_disp(
-        bp,
+    @test_repr(bp, "<Species>:Names(names: [:a, :b, :c])")
+    @test_disp( bp,
         """
         blueprint for <Species>: Names {
           names: [:a, :b, :c],
         }\
-        """,
-    )
+        """)
 
     # Alias to the value inside the blueprint if input type matches exactly.
     input = Symbol[:a, :b, :c]
@@ -67,13 +67,23 @@ const View = Views.NodeNameView{D.Class(:species)} # Tested view type.
     input[2] = :x
     @test bp.names == [:a, :x, :c]
 
+    @bpfails(Species(:a),
+        Species.Names, :construct, nothing,
+        (nothing, :whole, :convert, Vector{Symbol}, :a, "Input is not iterable."))
+    @jl_basic_callfails(Species(5; a = 5))
+
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
-    @inputfails(
-        Species([:a, :b, :b]),
-        "When constructing blueprint for <species>:\n\
-         Species 2 and 3 would both be named :b."
-    )
+    @bpfails(Species([:a, :b, :b]),
+        Species.Names, :construct, nothing,
+        (nothing, 3, :check, :b, "Species 2 and 3 would both be named :b."))
+    @test_err(Species([:a, :b, :b]), # First time with a 1D index.
+        """
+        While constructing blueprint Species.Names:
+        In the provided value at [3]:
+        Species 2 and 3 would both be named :b.
+        Received: :b ::Symbol\
+        """)
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -81,68 +91,50 @@ const View = Views.NodeNameView{D.Class(:species)} # Tested view type.
     # It is (still) ok to break values checking afterwards..
     input[3] = :x
     # .. but then expansion fails.
-    @sysfails(
-        Model(bp),
-        Check(
-            early,
-            [Species.Names],
-            "When checking <species> blueprint data:\n\
-             Species 2 and 3 would both be named :x.",
-        )
-    )
+    addfails.@check(Model(bp), [],
+        (Species.Names, :early, nothing,
+            (nothing, 3, :check, :x, "Species 2 and 3 would both be named :x.")))
 
     # Expand.
     m = Model(Species(collect("abc")))
-    @test is_disp(
-        m,
+    @test_disp(m,
         """
-        Model (alias for $(F.System){$(EN.Network)}) with 1 component:
+        Model (alias for $(F.System){$Network}) with 1 component:
           - Species: 3 (:a, :b, :c)\
-        """,
-    )
+        """)
 
     # ======================================================================================
     # From a number, generating short distinct names.
 
     bp = Species.Number(5)
     @test bp == Species(5) # Directly dispatched from component.
-    @test is_repr(bp, "<Species>:Number(n: 5)")
-    @test is_disp(
-        bp,
+    @test_repr(bp, "<Species>:Number(n: 5)")
+    @test_disp(bp,
         """
         blueprint for <Species>: Number {
           n: 5,
         }\
-        """,
-    )
+        """)
 
     # Intrinsic check.
-    @inputfails(
-        Species(-1),
-        -1,
-        "When constructing blueprint for <species>:\n\
-         Cannot construct a negative number of species.",
-    )
+    @bpfails(Species(-1),
+        Species.Number, :construct, nothing,
+        (nothing, :whole, :check, -1,
+            "Cannot construct a negative number of species nodes."))
 
     # Early check.
     bp.n = -3
-    @sysfails(
-        Model(bp),
-        Check(
-            early,
-            [Species.Number],
-            "When checking <species> blueprint data:\n\
-             Cannot construct a negative number of species.\n\
-             Received: -3 ::Int64",
-        ),
-    )
+    addfails.@check(Model(bp), [],
+        (Species.Number, :early, nothing,
+            (nothing, :whole, :check, -3,
+                "Cannot construct a negative number of species nodes.")))
 
     # Expand.
     m = Model(Species(3))
-    @test is_disp(
+    @test_disp(
         m,
         """
-        Model (alias for $(F.System){$(EN.Network)}) with 1 component:
+        Model (alias for $(F.System){$Network}) with 1 component:
           - Species: 3 (:s1, :s2, :s3)\
         """,
     )
@@ -152,13 +144,8 @@ end
 @testset "Class component: views" begin
 
     # No view if the component is missing.
-    @sysfails(
-        Model().species.names,
-        Property(
-            species.names,
-            "Component $(EN._Species) is required to read this property.",
-        ),
-    )
+    @propfails(Model().species.names,
+        Sp, :names, "Component $(EN._Species) is required to read this property.")
 
     # The names property becomes available as a view.
     m = Model(Species(:a, :b, :c))
@@ -166,16 +153,14 @@ end
 
     @test v isa View
     @test v isa AbstractVector{Symbol}
-    @test is_repr(v, "<species>[:a, :b, :c]")
-    @test is_disp(
-        v,
+    @test_repr(v, "<species>[:a, :b, :c]")
+    @test_disp(v,
         """
         NodeNameView<species>{Symbol} (3 values)
          :a
          :b
          :c\
-        """,
-    )
+        """)
 
     # The view has some basic vector-like interface.
     @test v == collect(v) == [:a, :b, :c] == [i for i in v]
@@ -202,7 +187,7 @@ end
     @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
 
     # Mask within the parent class (no parent class with this root example).
-    K = Views.NodeMaskView{D.Subclass(:species, nothing)}
+    K = Views.NodeMaskView{D.Subclass(:species, nothing)[1]}
     k = m.species.mask
     @test k isa K
     @test k isa AbstractVector{Bool}
@@ -210,9 +195,9 @@ end
     @test k[:a] && k[:b] && k[:c]
     @test k == Bool[1, 1, 1]
     @test k[1:2] == Bool[1, 1]
-    @test k[end-1:end] == Bool[1, 1]
-    @test is_repr(k, "<::species>[1, 1, 1]")
-    @test is_disp(
+    @test k[(end-1):end] == Bool[1, 1]
+    @test_repr(k, "<::species>[1, 1, 1]")
+    @test_disp(
         k,
         """
         NodeMaskView<::species>{Bool} (3/3 values)
@@ -224,6 +209,7 @@ end
 
 end
 
+# HERE: almost finished refreshing this file.
 @testset "Class component: immutable" begin
 
     bp = Species(:a, :b, :c)
@@ -231,16 +217,16 @@ end
     v = m.species.names
 
     # Immutable.
-    @inputfails((v[1] = :u), View)
-    @inputfails((v[:a] = :u), View)
-    @inputfails((v[:a] = 2), View)
+    @mutfails((v[1] = :u), d, :mutate, m, ())
+    @mutfails((v[:a] = :u), View)
+    @mutfails((v[:a] = 2), View)
     # This takes priority over other indexing guards.
-    @inputfails((v[] = 2), View)
-    @inputfails((v[1, 2] = 2), View)
-    @inputfails((v[nothing] = 2), View)
+    @mutfails((v[] = 2), View)
+    @mutfails((v[1, 2] = 2), View)
+    @mutfails((v[nothing] = 2), View)
 
     # What the user gets.
-    @test is_err(
+    @test_err(
         () -> v[1] = :u,
         "Cannot change <species> nodes names once they have been set.",
     )

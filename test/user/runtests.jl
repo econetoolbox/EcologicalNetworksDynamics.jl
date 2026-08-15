@@ -2,6 +2,8 @@ module TestUser
 
 # XXX: translate or clear previous tests under onhold/ folder.
 
+include("./symbols.jl")
+
 # Input checking.
 include("./convert.jl")
 

@@ -49,10 +49,22 @@ datatype(bp::Blueprint) = typeof(data(bp))
 Transform raw input into blueprint data.
 Return a *tuple* to be passed to new(...).
 """
-function construct(B::Type{<:Blueprint}, input)
+function construct(B::Type{<:Blueprint}, args...; kwargs...)
+    # Not sure how to guard against that with dispatching
+    # without breaking per-blueprint specialization.
+    input, rest... = args
+    err(unexp) = io -> begin
+        print(io, "in ")
+        bpcol(io, B)
+        print(io, ":")
+        render_input(io, unexp)
+    end
+    isempty(rest) || errwith(err(rest), "Unexpected arguments to blueprint constructor:")
+    isempty(kwargs) ||
+        errwith(err(kwargs), "Unexpected keyword arguments to blueprint constructor:")
     T = datatype(B)
     data = convert(T, B, input)
-    intrinsic_check(B, data)
+    (intrinsic_check(B, data),)
 end
 
 # Actual framework entrypoint to inject error handling.

@@ -77,6 +77,7 @@ using Crayons
 Extract an owned copy of the viewed data under a regular dense/sparse vector/matrix form.
 """
 function extract end
+export extract
 
 # TODO: watch https://github.com/JuliaEditorSupport/JuliaFormatter.jl/issues/1203
 """

@@ -1,13 +1,10 @@
 # Specialize display for Model = System{Network}.
 
-Base.show(io::IO, ::Type{Model}) = print(io, "Model")
-
-Base.show(io::IO, ::MIME"text/plain", I::Type{Network}) = Base.show(io, I)
 Base.show(io::IO, ::MIME"text/plain", ::Type{Model}) =
     print(io, "$(green)Model$reset $(black)(alias for $(F.System){$Network})$reset")
 
 # Filter out _-prefixed names.
-Base.show(io::IO, p::F.PropertySpace{name,P,Network}) where {name,P} =
+Base.show(io::IO, ::MIME"text/plain", p::F.PropertySpace) =
     F.display_long(io, p, non_underscore)
 
 function F.bpdisplay(io::IO, B::Type{<:Blueprint}; color = false)
@@ -25,7 +22,7 @@ function F.compdisplay(io::IO, C::Type{<:Component}; color = false)
     C = F.compname(C)
     path = ["$s$C$e"]
     while mod !== EN
-        push!(path, nameof(mod))
+        push!(path, String(nameof(mod)))
         parent = parentmodule(mod)
         mod = parent
     end
@@ -40,7 +37,7 @@ F.compname(c::Component) = lstrip("$(typeof(c).name.name)", '_')
 
 # Vector.
 function F.display_blueprint_field_short(io::IO, v::AbstractVector, ::Blueprint)
-    print(io, "[$(EN.join_elided(v, ", "))]")
+    print(io, "[$(join_elided(v, ", "))]")
 end
 
 # Matrix.

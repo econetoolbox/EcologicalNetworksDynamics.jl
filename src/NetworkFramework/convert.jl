@@ -60,7 +60,7 @@ ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 # From iterators.
 function convert(::Type{Vector{T}}, input) where {T}
     hasmethod(iterate, Tuple{typeof(input)}) ||
-        converr(input, Vector{T}, "Input is not iterable.")
+        converr(Vector{T}, input, "Input is not iterable.")
     T[convert(T, v) for v in input]
 end
 

@@ -50,6 +50,11 @@ const mess = FieldsCompare.message
 @genfailsmacro argfails Base.ArgumentError (; msg = mess)
 @genfailsmacro jl_deffails Base.UndefVarError (; world = nothing)
 @genfailsmacro jl_callfails Base.MethodError (; world = nothing)
+@genfailsmacro jl_basic_callfails Base.MethodError (;
+    f = nothing,
+    args = nothing,
+    world = nothing,
+)
 
 # Network errors.
 @genfailsmacro netfails EN.Networks.NetworkError
@@ -180,9 +185,14 @@ function test_mref(exp, act::NF.ModelRefErr)
     T.test_errsource(act.src.src, RootCauseType, exp.fields, (; mess))
 end
 
+const Ref = NF.Ref
 "Test `$(NF.InputRef)` value, using `:whole` to expect `$(NF.WholeInput)`."
 compare_refs(::Nothing, ::Nothing) = @test true
 compare_refs(exp, act::NF.InputRef) = FieldsCompare.default(exp, act)
+compare_refs(exp::Ref, act::NF.Ref1D) = FieldsCompare.default(exp, act.i)
+compare_refs((i,)::Tuple{Ref}, act::NF.Ref1D) = FieldsCompare.default(i, act.i)
+compare_refs(exp::Tuple{Ref,Ref}, act::NF.Ref2D) =
+    FieldsCompare.default.(exp, (act.i, act.j))
 compare_refs(exp::Symbol, ::NF.WholeInput) =
     if exp == :whole
         @test true
@@ -234,6 +244,7 @@ macro conflfails end
 macro convfails end
 macro errfails end
 macro jl_callfails end
+macro jl_basic_callfails end
 macro jl_deffails end
 macro labelfails end
 macro listfails end

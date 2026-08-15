@@ -135,8 +135,9 @@ module NetworkFramework
 
 import EcologicalNetworksDynamics:
     EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD,
-    FailedAttempts, Display
-import .Display: render_input, green, black, reset
+    FailedAttempts, Display, errwith
+import .Display: render_input, green, black, reset, join_elided
+import .Framework: bpdisplay, bpcol
 
 using Crayons
 using OrderedCollections
@@ -208,4 +209,8 @@ aliasing_symbol(dict, input) =
         e isa AD.AliasingError || rethrow(e)
         checkerr(input, e, rethrow) # TODO: this will fail. Newtype in an NF.RootCause?
     end
+
+using .Views
+export extract
+
 end

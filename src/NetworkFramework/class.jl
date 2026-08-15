@@ -1,23 +1,15 @@
 # Generate typical component bringing a new class.
 
-"""
-Expand into a new nodes class.
-"""
+"Expand into a new nodes class."
 abstract type ClassBlueprint <: Blueprint end
 
-"""
-From raw nodes names.
-"""
+"From raw nodes names."
 abstract type ClassNames <: ClassBlueprint end
 
-"""
-From a number of nodes.
-"""
+"From a number of nodes."
 abstract type ClassNumber <: ClassBlueprint end
 
-"""
-Typical setup for a component bringing a new class to the network.
-"""
+"Typical setup for a component bringing a new class to the network."
 function define_class_component(mod::Module, d::D.Class)
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
     Plural_ = Symbol(Plural, :_) # Blueprints module name.
@@ -125,7 +117,7 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
                 get_parent_index(n::Network) =
                     OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
                 mask(n::Network, m::Model) =
-                    V.mask_view(D.Subclass(c, N.class(n, c).parent), m)
+                    V.mask_view(D.Subclass(c, N.class(n, c).parent)[1], m)
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)
@@ -150,18 +142,18 @@ data(b::ClassNames) = b.names
 data(b::ClassNumber) = b.n
 
 # Construct: allow passing names as separate arguments.
-construct(BP::Type{<:ClassNames}, first, second, rest...) =
-    @invoke construct(BP::Type{<:Blueprint}, (first, second, rest...))
+construct(B::Type{<:ClassNames}, first, second, rest...) =
+    @invoke(construct(B::Type{<:Blueprint}, (first, second, rest...)))
 
 #-------------------------------------------------------------------------------------------
 # Intrinsic check.
 
 # Names: forbid duplicates (triangular check).
-function intrinsic_check(B::Type{<:ClassNames}, names::Vector{Symbol})
+function intrinsic_check(d::D.Class, names::Vector{Symbol})
     already = OrderedDict{Symbol,Int}() # {name: index}
     for (i, name) in enumerate(names)
         if haskey(already, name)
-            Class = B |> dispatcher |> D.CamelCaseSingular
+            Class = D.CamelCaseSingular(d)
             j = already[name]
             checkerr(i, name, "$Class $j and $i would both be named $(repr(name)).")
         end
@@ -171,9 +163,9 @@ function intrinsic_check(B::Type{<:ClassNames}, names::Vector{Symbol})
 end
 
 # Number: forbid negative number of nodes.
-function intrinsic_check(B::Type{<:ClassNumber}, n::Int)
+function intrinsic_check(d::D.Class, n::Int)
     n >= 0 && return n
-    class = B |> dispatcher |> D.snake_case_plural
+    class = D.snake_case_plural(d)
     checkerr(n, "Cannot construct a negative number of $class nodes.")
 end
 
@@ -183,7 +175,7 @@ end
 # From names.
 function expand!(m::Model, d::D.Class, names)
     class = d |> D.class
-    network = NF.network(m)
+    network = N.network(m)
     N.add_class!(network, class, names)
 end
 
@@ -203,5 +195,5 @@ function class_shortline(d::D.Class, io::IO, m::Model)
     Class = D.CamelCaseSingular(d)
     names = getproperty(m, class)._names
     n = length(names)
-    print(io, "$Class: $n ($(EN.join_elided(names, ", ")))")
+    print(io, "$Class: $n ($(join_elided(names, ", ")))")
 end
