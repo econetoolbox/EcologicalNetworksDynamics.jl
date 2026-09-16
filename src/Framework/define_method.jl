@@ -96,7 +96,7 @@ function define_method(
                     C_V = system_value_type(C)
                     err("Depends section: system value type \
                          is supposed to be `$V`$based, \
-                         but $C subtypes `$Component{$C_V}` \
+                         but $(cd(C)) subtypes `$Component{$C_V}` \
                          and not `$Component{$V}`.")
                 end
             end
@@ -119,7 +119,7 @@ function define_method(
     for paths in (read_as, write_as)
         for (i, path) in enumerate(paths)
             is_identifier_path(path) || err("Property name [$i] is not a simple \
-                                             identifier path$(valr(path))")
+                                             identifier path: $(rept(path))")
             push!(prop_paths, path)
         end
     end
@@ -303,7 +303,10 @@ function define_method(
                 $dep = first_missing_dependency_for($fn, $system($receiver))
                 if !isnothing($dep)
                     $a = isabstracttype($dep) ? " a" : ""
-                    throw(MethodCallError($V, nameof($fn), "Requires$($a) component $($dep)."))
+                    throw(
+                        MethodCallError($V, nameof($fn),
+                            "Requires$($a) component $(compdisplay($dep))."),
+                    )
                 end
                 $fn(; kwargs...)
             end
@@ -370,7 +373,7 @@ function check_dependency(dep, V, ctx, err)
     if dep isa Function
         specified_as_method(V, typeof(dep)) ||
             err("$ctx:\nThe function specified as a dependency \
-                 has not been recorded as a system method for `$V`$(valr(dep))")
+                 has not been recorded as a system method for `$V`: $(rept(dep))")
         dep
     else
         check_component(dep, V, ctx, err)
@@ -382,7 +385,7 @@ function check_dependency(dep, ctx, err)
     if dep isa Function
         vals = method_for_values(typeof(dep))
         isempty(vals) && err("$ctx:\nThe function specified as a dependency has not \
-                              been recorded as a system method$(valr(dep))")
+                              been recorded as a system method: $(rept(dep))")
         dep
     else
         check_component(dep, ctx, err)

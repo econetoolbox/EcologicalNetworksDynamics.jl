@@ -14,12 +14,9 @@
 #
 # The following helper functions ease the definition / checking of the overall interface.
 
-# Display input expression, its evaluation result and its resulting type.
-valr(value) = ": $(repr(value)) ::$(typeof(value))"
-
 # Evaluate given input against expected type.
 function check_type(v, context, err, T)
-    v isa T || err("$context:\nExpected $T, received instead$(valr(v))")
+    v isa T || err("$context:\nExpected $T, received instead: $(rept(v))")
     v
 end
 
@@ -35,6 +32,10 @@ function check_blueprint_type(value, V, ctx, err)
     B
 end
 
+# Special-case unexpected component value display.
+compr(c) = ": " * rept(c)
+compr(c::Component) = ": $(compdisplay(c))  ::$(compdisplay(typeof(c)))"
+
 # Same for a component type, but a singleton *instance* can be given instead.
 function check_component(C, V, ctx, err)
     Sup = Component{V}
@@ -45,14 +46,14 @@ function check_component(C, V, ctx, err)
             else
                 "`$Component`"
             end
-            err("$ctx:\nNot a subtype of $comp$(valr(C))")
+            err("$ctx:\nNot a subtype of $comp$(compr(C))")
         end
         C
     else
         c = C # Actually an instance.
         if !(c isa Sup)
             but = c isa Component ? ", but for `$(system_value_type(c))`" : ""
-            err("$ctx:\nNot a component for `$V`$but$(valr(C))")
+            err("$ctx:\nNot a component for `$V`$but$(compr(C))")
         end
         typeof(c)
     end
@@ -61,11 +62,11 @@ end
 # Same, but without checking against a prior expectation for the system value type.
 function check_component(C, ctx, err)
     if C isa Type
-        C <: Component || err("$ctx:\nNot a subtype of $Component$(valr(C))")
+        C <: Component || err("$ctx:\nNot a subtype of $Component$(compr(C))")
         C
     else
         c = C # Actually an instance.
-        c isa Component || err("$ctx:\nNot a component$(valr(C))")
+        c isa Component || err("$ctx:\nNot a component$(compr(C))")
         typeof(c)
     end
 end
@@ -98,8 +99,9 @@ function triangular_vertical_guard(comp_reasons, V, xerr)
             vertical_guard(
                 Req,
                 Already,
-                () -> xerr("Requirement $Req is specified twice."),
-                (Sub, Sup) -> xerr("Requirement $Sub is also specified as $Sup."),
+                () -> xerr("Requirement $(cd(Req)) is specified twice."),
+                (Sub, Sup) ->
+                    xerr("Requirement $(cd(Sub)) is also specified as $(cd(Sup))."),
             )
         end
         reqs[Req] = reason

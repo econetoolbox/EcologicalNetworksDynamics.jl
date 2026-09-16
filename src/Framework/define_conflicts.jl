@@ -78,7 +78,7 @@ function define_conflicts(input...)
             b in keys || err("Conflict reason [$i, $j] \
                               does not refer to a component listed \
                               in the same `define_conflicts()` call: \
-                              $b => $(repr(message)).")
+                              $(cd(b)) => $(repr(message)).")
             declare_conflict(a, b, message, err)
         end
     end
@@ -90,8 +90,8 @@ export define_conflicts
 # Guard against declaring conflicts between sub/super components.
 function vertical_conflict(err)
     (sub, sup) -> begin
-        it = sub === sup ? "itself" : "its own super-component $sup"
-        err("Component $sub cannot conflict with $it.")
+        it = sub === sup ? "itself" : "its own super-component $(cd(sup))"
+        err("Component $(cd(sub)) cannot conflict with $it.")
     end
 end
 
@@ -102,10 +102,10 @@ function declare_conflict(A::CompType, B::CompType, reason::Reason, err)
     for (k, c, reason) in all_conflicts(A)
         isnothing(reason) && continue
         if B <: c
-            as_K = k === A ? "" : " (as $k)"
-            as_C = B === c ? "" : " (as $c)"
-            err("Component $A$as_K already declared to conflict with $B$as_C \
-                 for the following reason:\n  $(reason)")
+            as_K = k === A ? "" : " (as $(cd(k)))"
+            as_C = B === c ? "" : " (as $(cd(c)))"
+            err("Component $(cd(A))$as_K already declared to conflict with $(cd(B))$as_C \
+                 for the following reason:\n  $reason")
         end
     end
     # Append new method or override by updating value.

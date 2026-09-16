@@ -23,7 +23,7 @@ using Test
     @test_repr(Temperature, "$EN._Temperature($EN.Temperature_.Raw)")
 
     # These ones may be fancy.
-    @test_disp(typeof(Temperature), "<Temperature> (component type for Network)")
+    @test_disp(typeof(Temperature), "<Temperature> (component type for $(N.Network))")
     @test_disp(
         Temperature,
         """

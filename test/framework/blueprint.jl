@@ -191,21 +191,21 @@ module Abstracts
         # Forgot to specify implicit constructor.
         impl[] = (_D,)
         addfails.@component(S(x),
-            "Blueprint $X_b is supposed to imply $_D \
+            "Blueprint $X_b is supposed to imply <D> \
              but the corresponding method is not defined: $F.implied_blueprint_for.")
 
         # Wrong implicit constructors.
         F.implied_blueprint_for(::X_b, ::Type{_D}) = :a
         addfails.@component(S(x),
-            "Implicit constructor to implying $_D from $X_b did not yield a blueprint \
+            "Implicit constructor to implying <D> from $X_b did not yield a blueprint \
              but: :a ::$Symbol.",
         )
 
         impl[] = (_C,)
         F.implied_blueprint_for(::X_b, ::Type{_C}) = D.b()
         addfails.@component(S(x),
-            "Blueprint $X_b is supposed to imply a blueprint for $_C, \
-             but it implied a blueprint for [$_D] instead.",
+            "Blueprint $X_b is supposed to imply a blueprint for <C>, \
+             but it implied a blueprint for [<D>] instead.",
         )
 
     end

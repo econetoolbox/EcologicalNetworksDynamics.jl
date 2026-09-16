@@ -145,7 +145,7 @@ end
 
     # No view if the component is missing.
     @propfails(Model().species.names,
-        Sp, :names, "Component $(EN._Species) is required to read this property.")
+        Sp, :names, "Component <Species> is required to read this property.")
 
     # The names property becomes available as a view.
     m = Model(Species(:a, :b, :c))

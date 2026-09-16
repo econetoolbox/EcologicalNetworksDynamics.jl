@@ -38,6 +38,8 @@
 #     - Run the late `check`.
 #     - Expand the blueprint into a component.
 #     - Execute possible triggers.
+const cd = compdisplay
+const bd = bpdisplay
 
 # Prepare thorough analysis of recursive sub-blueprints possibly implied
 # by the blueprints received.
@@ -134,10 +136,10 @@ function Node(blueprint::Blueprint, parent::Option{Node}, system::System, add::A
         C isa CompType || comperr("Not a component type$(report(C))")
         eV = system_value_type(system)
         aV = system_value_type(C)
-        eV === aV || comperr("Blueprint $(bc(B)) for values of `$eV` is \
-                             implying component $(cc(C)) for values of `$aV`.")
+        eV === aV || comperr("Blueprint $(bd(B)) for values of `$eV` is \
+                             implying component $(cd(C)) for values of `$aV`.")
         implies_blueprint_for(blueprint, C) || comperr(
-            "Blueprint $(bc(B)) is supposed to imply $(cc(C)) \
+            "Blueprint $(bd(B)) is supposed to imply $(cd(C)) \
              but the corresponding method is not defined: $F.$implied_blueprint_for.",
         )
         # Skip it if already brought or already present in the target system.
@@ -145,14 +147,14 @@ function Node(blueprint::Blueprint, parent::Option{Node}, system::System, add::A
         is_brought(add, C) && continue
         bp = implied_blueprint_for(blueprint, C)
         bp isa Blueprint ||
-            comperr("Implicit constructor to implying $(cc(C)) from $(bc(B)) \
+            comperr("Implicit constructor to implying $(cd(C)) from $(bd(B)) \
                      did not yield a blueprint but$(report(bp))")
         comps = componentsof(bp)
-        any(comp -> comp <: C, comps) || comperr("Blueprint $(bc(typeof(blueprint))) \
+        any(comp -> comp <: C, comps) || comperr("Blueprint $(bd(typeof(blueprint))) \
                                                   is supposed to imply a blueprint \
-                                                  for $(cc(C)), \
+                                                  for $(cd(C)), \
                                                   but it implied a blueprint for \
-                                                  [$(join(map(cc, collect(comps)), ","))] \
+                                                  [$(join(map(cd, collect(comps)), ","))] \
                                                   instead.")
         child = Node(bp, node, system, add)
         push!(node.children, child)
@@ -549,7 +551,7 @@ function Base.showerror(io::IO, e::BroughtAlreadyInValue)
     path = render_path(node)
     print(
         io,
-        "Blueprint would expand into component $(cc(Comp)), \
+        "Blueprint would expand into component $(cd(Comp)), \
          which is already in the system.\n$path",
     )
 end
@@ -563,7 +565,7 @@ function Base.showerror(io::IO, e::ExcludedBrought)
     path = render_path(node)
     print(
         io,
-        "Component $(cc(Comp)) is explicitly excluded \
+        "Component $(cd(Comp)) is explicitly excluded \
          but this blueprint is bringing it:\n$path",
     )
 end
@@ -593,9 +595,9 @@ function Base.showerror(io::IO, e::MissingRequiredComponent)
     (; Miss, Comp, node, reason) = e
     path = render_path(node)
     if isnothing(Comp)
-        header = "Blueprint cannot expand without component $(cc(Miss))"
+        header = "Blueprint cannot expand without component $(cd(Miss))"
     else
-        header = "Component $(cc(Comp)) requires $(cc(Miss)), neither found in the system \
+        header = "Component $(cd(Comp)) requires $(cd(Miss)), neither found in the system \
                   nor brought by the blueprints"
     end
     if isnothing(reason)
@@ -671,10 +673,10 @@ end
 function Base.showerror(io::IO, e::ConflictWithSystemComponent)
     (; Comp, CompAbstract, node, Other, OtherAbstract, reason) = e
     path = render_path(node)
-    comp_as = isnothing(CompAbstract) ? "" : " (as a $(cc(CompAbstract)))"
-    other_as = isnothing(OtherAbstract) ? "" : " (as a $(cc(OtherAbstract)))"
-    header = "Blueprint would expand into $(cc(Comp)), \
-              which$comp_as conflicts with $Other$other_as already in the system"
+    comp_as = isnothing(CompAbstract) ? "" : " (as a $(cd(CompAbstract)))"
+    other_as = isnothing(OtherAbstract) ? "" : " (as a $(cd(OtherAbstract)))"
+    header = "Blueprint would expand into $(cd(Comp)), \
+              which$comp_as conflicts with $(cd(Other))$other_as already in the system"
     if isnothing(reason)
         body = "."
     else
@@ -696,10 +698,10 @@ function Base.showerror(io::IO, e::ConflictWithBroughtComponent)
     (; Comp, CompAbstract, node, Other, OtherAbstract, other_node, reason) = e
     path = render_path(node)
     other_path = render_path(other_node; prefix = false)
-    comp_as = isnothing(CompAbstract) ? "" : " (as a $(cc(CompAbstract)))"
-    other_as = isnothing(OtherAbstract) ? "" : " (as a $(cc(OtherAbstract)))"
-    header = "Blueprint would expand into $(cc(Comp)), \
-              which$comp_as would conflict with $(cc(Other))$other_as \
+    comp_as = isnothing(CompAbstract) ? "" : " (as a $(cd(CompAbstract)))"
+    other_as = isnothing(OtherAbstract) ? "" : " (as a $(cd(OtherAbstract)))"
+    header = "Blueprint would expand into $(cd(Comp)), \
+              which$comp_as would conflict with $(cd(Other))$other_as \
               already brought by the same blueprint"
     if isnothing(reason)
         body = "."

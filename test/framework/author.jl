@@ -236,11 +236,11 @@ module Basics # Use submodules to not clash blueprints/components names.
         @propfails(s.x, S, :x, "Unknown property.")
         @test_err(s.x, "In property `.x` of `$System{$Value}`: Unknown property.")
         # Forbid existent properties without appropriate component.
-        @propfails(s.b, S, :b, "Component $_B is required to read this property.")
+        @propfails(s.b, S, :b, "Component <B> is required to read this property.")
         # Same with methods.
         @jl_deffails(get_x(s), :get_x, Basics)
-        @callfails(get_b(s), V, :get_b, "Requires component $_B.")
-        @test_err(get_b(s), "In method `get_b` for `$Value`: Requires component $_B.")
+        @callfails(get_b(s), V, :get_b, "Requires component <B>.")
+        @test_err(get_b(s), "In method `get_b` for `$Value`: Requires component <B>.")
 
         # Forbid write.
         @propfails((s.n = 4), S, :n, "This property is read-only.")
@@ -249,7 +249,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         addfails.@broughtalready(add!(s, NLines(5)), _Size, [NLines])
         @test_err(add!(s, NLines(5)),
             """
-            Blueprint would expand into component $_Size, \
+            Blueprint would expand into component <Size>, \
             which is already in the system.
             in $NLines\
             """)
@@ -286,7 +286,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         @test_err(
             e + B.Raw([8, 8, 8]),
             """
-            Component $_B requires $_A, \
+            Component <B> requires <A>, \
             neither found in the system nor brought by the blueprints.
             in $(B.Raw)\
             """
@@ -305,8 +305,8 @@ module Basics # Use submodules to not clash blueprints/components names.
         )
         @test_err(s + SparseMark(),
             """
-            Blueprint would expand into $_Sparse, \
-            which conflicts with $_Size already in the system.
+            Blueprint would expand into <Sparse>, \
+            which conflicts with <Size> already in the system.
             in $SparseMark\
             """
         )
@@ -463,8 +463,8 @@ module Basics # Use submodules to not clash blueprints/components names.
         # Check that the original system is always empty.
         function test_empty(i)
             @test isempty(collect(F.components(i)))
-            @callfails(get_a(i), V, :get_a, "Requires component $_A.")
-            @propfails(i.a, S, :a, "Component $_A is required to read this property.")
+            @callfails(get_a(i), V, :get_a, "Requires component <A>.")
+            @propfails(i.a, S, :a, "Component <A> is required to read this property.")
         end
         test_empty(init)
 

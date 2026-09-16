@@ -158,14 +158,14 @@ module Calls
         @compfails(
             define_component(:Uvv, blueprints = [4 + 5]),
             :Uvv,
-            "Not a `name => blueprint` pair: 9 ::$Int",
+            "Not a `name => blueprint` pair: 9  ::$Int",
         )
 
         @compfails(
             define_component(:Uvv, blueprints = [:b => (4 + 5)]),
             :Uvv,
             "Blueprints list [1]:\n\
-             Expected DataType, received instead: 9 ::$Int",
+             Expected DataType, received instead: 9  ::$Int",
         )
 
         @compfails(
@@ -232,14 +232,14 @@ module Calls
             define_component(:Kpr, requires = [4 + 5]),
             :Kpr,
             "Required component:\n\
-             Not a component for `$Value`: 9 ::$Int"
+             Not a component for `$Value`: 9  ::$Int"
         )
 
         @compfails(
             define_component(:Kpr, requires = [Int]),
             :Kpr,
             "Required component:\n\
-             Not a subtype of `$Component`: $Int ::DataType"
+             Not a subtype of `$Component`: $Int  ::DataType"
         )
 
         abstract type Ayz <: Component{Int} end
@@ -248,7 +248,7 @@ module Calls
             :Kpr,
             "Required component:\n\
              Not a subtype of `$Component{$Value}`, but of `$Component{$Int}`: \
-             $Ayz ::$DataType"
+             $Ayz  ::$DataType"
         )
 
         define_component(:Wdj, Int)
@@ -256,7 +256,7 @@ module Calls
             define_component(:Odv, requires = [Wdj]),
             :Odv,
             "Required component:\n\
-             Not a component for `$Value`, but for `$Int`: $Wdj ::<$Wdj>"
+             Not a component for `$Value`, but for `$Int`: Wdj  ::<Wdj>"
         )
 
         # Guard against redundancies.
@@ -267,19 +267,19 @@ module Calls
         @compfails(
             define_component(:Mpz, requires = [Crq, Crq]),
             :Mpz,
-            "Requirement <$Crq> is specified twice."
+            "Requirement <Crq> is specified twice."
         )
 
         @compfails(
             define_component(:Mpz, requires = [Lpx, Rhr]),
             :Mpz,
-            "Requirement <$Rhr> is also specified as $Lpx."
+            "Requirement <Rhr> is also specified as <Lpx>."
         )
 
         @compfails(
             define_component(:Mpz, requires = [Rhr, Lpx]),
             :Mpz,
-            "Requirement <$Rhr> is also specified as $Lpx."
+            "Requirement <Rhr> is also specified as <Lpx>."
         )
 
     end

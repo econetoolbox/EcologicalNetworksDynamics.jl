@@ -68,7 +68,7 @@ function define_component(
                 a, b = bp
                 a, b
             catch _
-                err("Not a `name => blueprint` pair: $(repr(bp)) ::$(typeof(bp))")
+                err("Not a `name => blueprint` pair: $(rept(bp))")
             end
             name = check_type(name, "Blueprint name [$i]", err, Symbol)
             bp = check_blueprint_type(bp, V, "Blueprints list [$i]", err)

@@ -90,7 +90,7 @@ This *may* make it useless to ever feature component removal.
 module Framework
 
 using EcologicalNetworksDynamics: I, Option, argerr, Display
-using .Display: red, yellow, blue, cyan, black, italics, bold, reset
+using .Display: rept, red, yellow, blue, cyan, black, italics, bold, reset
 
 using OrderedCollections
 
@@ -128,9 +128,6 @@ export InputError
 const component_color = yellow
 const blueprint_color = blue
 const field_color = cyan
-cc(C) = "$component_color$C$reset"
-bc(B) = "$blueprint_color$B$reset"
-fc(C) = "$field_color$C$reset"
 
 # ==========================================================================================
 

@@ -70,11 +70,11 @@ module Calls
 
         # Checked method issue correct errors when the required components are missing.
         e = System{Value}()
-        @callfails(get_m(e), V, :get_m, "Requires component $_Unf.")
-        @callfails(set_m!(e, 0), V, :set_m!, "Requires component $_Unf.")
-        @propfails(e.m, S, :m, "Component $_Unf is required to read this property.")
+        @callfails(get_m(e), V, :get_m, "Requires component <Unf>.")
+        @callfails(set_m!(e, 0), V, :set_m!, "Requires component <Unf>.")
+        @propfails(e.m, S, :m, "Component <Unf> is required to read this property.")
         @propfails((e.m = 0),
-            S, :m, "Component $_Unf is required to write to this property.")
+            S, :m, "Component <Unf> is required to write to this property.")
 
         # ==================================================================================
         # Variations.
@@ -121,7 +121,7 @@ module Calls
         @test enm(10, 4, s; shift = 5) == 6 / 8 + 5
         @jl_callfails(enm(s, 4), enm, (s, 4)) # Not overriden.
         # Checked on their receiver arguments.
-        @callfails(enm(10, 4, e), V, :enm, "Requires component $_Unf.")
+        @callfails(enm(10, 4, e), V, :enm, "Requires component <Unf>.")
 
         # Forbid several receivers (yet).
         eval(quote
@@ -142,7 +142,7 @@ module Calls
         define_method(pum; depends = [Unf])
         @test pum(4, s) == 5 # Method generated for system.
         # Receiver actually *used* in the generated method.
-        @callfails(pum(4, e), V, :pum, "Requires component $_Unf.")
+        @callfails(pum(4, e), V, :pum, "Requires component <Unf>.")
 
         # System hook.
         eval(quote
@@ -179,19 +179,19 @@ module Calls
         @methfails(
             define_method(oab; read_as = [4 + 5]),
             oab,
-            "Property name [1] is not a simple identifier path: 9 ::$Int"
+            "Property name [1] is not a simple identifier path: 9  ::$Int"
         )
 
         @methfails(
             define_method(oab; read_as = [:oab], depends = [4 + 5]),
             oab,
-            "Method dependency [1]:\nNot a component: 9 ::$Int"
+            "Method dependency [1]:\nNot a component: 9  ::$Int"
         )
 
         @methfails(
             define_method(oab; read_as = [:oab], depends = [Unf, 4 + 5]),
             oab,
-            "Method dependency [2]:\nNot a component: 9 ::$Int"
+            "Method dependency [2]:\nNot a component: 9  ::$Int"
         )
 
         @methfails(
@@ -214,14 +214,14 @@ module Calls
             define_method(hjc; depends = [Unf, Rle]),
             hjc,
             "Depends section: system value type is supposed to be `$Value`, \
-             but $_Rle subtypes `$Component{$Int}` and not `$Component{$Value}`.",
+             but <Rle> subtypes `$Component{$Int}` and not `$Component{$Value}`.",
         )
 
         @methfails(
             define_method(hjc, Int; depends = [Unf]),
             hjc,
             "Depends section: system value type is supposed to be `$Int`, \
-             but $_Unf subtypes `$Component{$Value}` and not `$Component{$Int}`.",
+             but <Unf> subtypes `$Component{$Value}` and not `$Component{$Int}`.",
         )
 
         # Dependency not recorded as a method.
@@ -233,7 +233,7 @@ module Calls
             hjc,
             "Method dependency [1]:\n\
              The function specified as a dependency \
-             has not been recorded as a system method: $Calls.dbm ::$(typeof(dbm))"
+             has not been recorded as a system method: $Calls.dbm  ::$(typeof(dbm))"
         )
 
         # Dependency not recorded as a method for this system value.
@@ -268,7 +268,7 @@ module Calls
         # Disambiguate.
         define_method(txc, Value; depends = [luu])
         @test txc(s) == 8 + 1
-        @callfails(txc(e), V, :txc, "Requires component <$Unf>.") # Correctly inherited.
+        @callfails(txc(e), V, :txc, "Requires component <Unf>.") # Correctly inherited.
 
         #-----------------------------------------------------------------------------------
         # Properties.
@@ -399,11 +399,11 @@ module Abstracts
         define_method(set_prop!; depends = [A], write_as = [:prop])
 
         s = System{Value}()
-        @callfails(f(s, 5), V, :f, "Requires a component $A.")
+        @callfails(f(s, 5), V, :f, "Requires a component <A>.")
         @propfails(s.prop,
-            S, :prop, "A component $A is required to read this property.")
+            S, :prop, "A component <A> is required to read this property.")
         @propfails((s.prop = 5),
-            S, :prop, "A component $A is required to write to this property.")
+            S, :prop, "A component <A> is required to write to this property.")
 
         # Any subtype enables the method and properties.
         add!(s, B.b())
@@ -542,10 +542,10 @@ module PropertySpaces
         @test are_props(s.goa, [])
 
         @propfails(s.goa.gyq,
-            GOA, :gyq, "Component $_Anq is required to read this property.")
+            GOA, :gyq, "Component <Anq> is required to read this property.")
         goa = s.goa # Delayed access, same result.
         @propfails(goa.gyq,
-            GOA, :gyq, "Component $_Anq is required to read this property.")
+            GOA, :gyq, "Component <Anq> is required to read this property.")
         s += Anq.b()
         @test s.goa.gyq isa GYQ
 
@@ -592,7 +592,7 @@ module PropertySpaces
 
         @test s.goa.gyq.nbu == 8
         @propfails((s.goa.gyq.nbu = 9),
-            GYQ, :nbu, "Component $_Vnq is required to write to this property.")
+            GYQ, :nbu, "Component <Vnq> is required to write to this property.")
         s += Vnq.b()
         s.goa.gyq.nbu = 9
         @test s.goa.gyq.nbu == 10
@@ -618,11 +618,11 @@ module PropertySpaces
             read_as = [:btt, :(goa.btt), :(goa.gyq.btt)],
         )
 
-        @propfails(s.btt, S, :btt, "Component $_Vnq is required to read this property.")
+        @propfails(s.btt, S, :btt, "Component <Vnq> is required to read this property.")
         @propfails(s.goa.btt,
-            GOA, :btt, "Component $_Vnq is required to read this property.")
+            GOA, :btt, "Component <Vnq> is required to read this property.")
         @propfails(s.goa.gyq.btt,
-            GYQ, :btt, "Component $_Vnq is required to read this property.")
+            GYQ, :btt, "Component <Vnq> is required to read this property.")
         s += Vnq.b()
         @test s.btt == s.goa.btt == s.goa.gyq.btt == "btt"
 
@@ -640,11 +640,11 @@ module PropertySpaces
         )
 
         @propfails((s.btt = 44),
-            S, :btt, "Component $_Tkq is required to write to this property.")
+            S, :btt, "Component <Tkq> is required to write to this property.")
         @propfails((s.goa.btt = 44),
-            GOA, :btt, "Component $_Tkq is required to write to this property.")
+            GOA, :btt, "Component <Tkq> is required to write to this property.")
         @propfails((s.goa.gyq.btt = 44),
-            GYQ, :btt, "Component $_Tkq is required to write to this property.")
+            GYQ, :btt, "Component <Tkq> is required to write to this property.")
         s += Tkq.b()
         s.btt = 44
         @test F.value(s)._member == 440

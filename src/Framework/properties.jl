@@ -76,8 +76,8 @@ function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
     # Check for required components availability.
     miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
-        comp = isabstracttype(miss) ? "A component $miss" : "Component $miss"
-        properr(P, pname, "$comp is required to read this property.")
+        comp = isabstracttype(miss) ? "A component" : "Component"
+        properr(P, pname, "$comp $(compdisplay(miss)) is required to read this property.")
     end
     # Forward to method.
     fn(system(target))
@@ -89,8 +89,9 @@ function Base.setproperty!(target::P, pname::Symbol, rhs) where {P<:PropertyTarg
     # Check for required components availability.
     miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
-        comp = isabstracttype(miss) ? "A component $miss" : "Component $miss"
-        properr(P, pname, "$comp is required to write to this property.")
+        comp = isabstracttype(miss) ? "A component" : "Component"
+        properr(P, pname,
+            "$comp $(compdisplay(miss)) is required to write to this property.")
     end
     # Invoke property method.
     fn(system(target), rhs)
@@ -157,7 +158,7 @@ end
 function set_read_property!(P::PropertyTargetType, name::Symbol, fn::Function)
     REVISING ||
         has_read_property(P, Val(name)) &&
-            properr(P, name, "Readable property already exists.")
+        properr(P, name, "Readable property already exists.")
     # Dynamically add method to connect property name to the given function.
     name = Meta.quot(name)
     eval(quote
@@ -175,7 +176,7 @@ function set_write_property!(P::PropertyTargetType, name::Symbol, fn::Function)
     )
     REVISING ||
         has_write_property(P, Val(name)) &&
-            properr(P, name, "Writable property already exists.")
+        properr(P, name, "Writable property already exists.")
     name = Meta.quot(name)
     eval(quote
         write_property(::Type{$P}, ::Val{$name}) = $fn

@@ -50,11 +50,11 @@ module Calls
         )
         @conflfails(
             (define_conflicts(A, A)),
-            "Component $_A cannot conflict with itself."
+            "Component <A> cannot conflict with itself."
         )
         @conflfails(
             (define_conflicts(A, A)),
-            "Component $_A cannot conflict with itself."
+            "Component <A> cannot conflict with itself."
         )
 
         #-----------------------------------------------------------------------------------
@@ -81,25 +81,25 @@ module Calls
         @conflfails(
             define_conflicts(4 + 5, 6),
             "First conflicting entry:\n\
-             Not a component: 9 ::$Int"
+             Not a component: 9  ::$Int"
         )
 
         @conflfails(
             define_conflicts(A, 6),
             "Conflicting entry [2]:\n\
-             Not a component for `$Value`: 6 ::$Int"
+             Not a component for `$Value`: 6  ::$Int"
         )
 
         @conflfails(
             define_conflicts(Int, Float64),
             "First conflicting entry:\n\
-             Not a subtype of $Component: $Int ::DataType",
+             Not a subtype of $Component: $Int  ::$DataType",
         )
 
         @conflfails(
             define_conflicts(A, Float64), # `Value` inferred from the first entry.
             "Conflicting entry [2]:\n\
-             Not a subtype of `$Component`: $Float64 ::DataType",
+             Not a subtype of `$Component`: $Float64  ::$DataType",
         )
 
         #-----------------------------------------------------------------------------------
@@ -123,61 +123,61 @@ module Calls
         # Invalid reasons specs.
         @conflfails(
             define_conflicts(E, (4 + 5) => [E => "ok"]),
-            "Conflicting entry [2]:\nNot a component for `$Value`: 9 ::$Int",
+            "Conflicting entry [2]:\nNot a component for `$Value`: 9  ::$Int",
         )
 
         @conflfails(
             define_conflicts(E, F => [4 + 5]),
-            "Reason reference [2, 1]:\nNot a component for `$Value`: 9 ::$Int",
+            "Reason reference [2, 1]:\nNot a component for `$Value`: 9  ::$Int",
         )
 
         @conflfails(
             define_conflicts(E, F => [E => 4 + 5]),
-            "Reason message [2, 1]:\nExpected String, received instead: 9 ::$Int"
+            "Reason message [2, 1]:\nExpected $String, received instead: 9  ::$Int"
         )
 
         @conflfails(
             define_conflicts(E, F => [4 + 5 => "ok"]),
-            "Reason reference [2, 1]:\nNot a component for `$Value`: 9 ::$Int",
+            "Reason reference [2, 1]:\nNot a component for `$Value`: 9  ::$Int",
         )
 
         @conflfails(
             define_conflicts(E, F => [A => "A dislikes F."]),
             "Conflict reason [2, 1] does not refer to a component listed \
-             in the same `define_conflicts()` call: $_A => \"A dislikes F.\"."
+             in the same `define_conflicts()` call: <A> => \"A dislikes F.\"."
         )
 
         @conflfails(
             define_conflicts(E, F => [F => "F again?"]),
-            "Component $_F cannot conflict with itself."
+            "Component <F> cannot conflict with itself."
         )
 
         @conflfails(
             define_conflicts(E, F => [F => "F again?"]),
-            "Component $_F cannot conflict with itself."
+            "Component <F> cannot conflict with itself."
         )
 
         @conflfails(
             define_conflicts(E, F => [B => "B?"]),
             "Conflict reason [2, 1] does not refer to a component \
-             listed in the same `define_conflicts()` call: $_B => \"B?\"."
+             listed in the same `define_conflicts()` call: <B> => \"B?\"."
         )
 
         # Same, but with a list of reasons.
         @conflfails(
             define_conflicts(E, F, G => [F => "ok", E => 4 + 5]),
-            "Reason message [3, 2]:\nExpected String, received instead: 9 ::$Int"
+            "Reason message [3, 2]:\nExpected String, received instead: 9  ::$Int"
         )
 
         @conflfails(
             define_conflicts(E, F, G => [F => "ok", 4 + 5 => "message"]),
-            "Reason reference [3, 2]:\nNot a component for `$Value`: 9 ::$Int",
+            "Reason reference [3, 2]:\nNot a component for `$Value`: 9  ::$Int",
         )
 
         @conflfails(
             define_conflicts(E, F, G => [F => "ok", A => "A dislikes F."]),
             "Conflict reason [3, 2] does not refer to a component listed \
-             in the same `define_conflicts()` call: $_A => \"A dislikes F.\"."
+             in the same `define_conflicts()` call: <A> => \"A dislikes F.\"."
         )
 
         #-----------------------------------------------------------------------------------
@@ -225,7 +225,7 @@ module Calls
         # .. unless it would override the reason already specified.
         @conflfails(
             define_conflicts(B, U, V => [U => "New reason why V dislikes U."]),
-            "Component $_V already declared to conflict with $_U \
+            "Component <V> already declared to conflict with <U> \
              for the following reason:\n  V dislikes U.",
         )
 
@@ -307,22 +307,22 @@ module Abstracts
         # Forbid vertical conflicts.
         @conflfails(
             define_conflicts(G, I),
-            "Component $_I cannot conflict with its own super-component $G."
+            "Component <I> cannot conflict with its own super-component <G>."
         )
         @conflfails(
             define_conflicts(I, G),
-            "Component $_I cannot conflict with its own super-component $G."
+            "Component <I> cannot conflict with its own super-component <G>."
         )
 
         # Guard against redundant reason specifications.
         @conflfails(
             define_conflicts(F, H => [F => "H dislikes F."]),
-            "Component $_H already declared to conflict with $_F (as $A) \
+            "Component <H> already declared to conflict with <F> (as <A>) \
              for the following reason:\n  H dislikes A."
         )
         @conflfails(
             define_conflicts(D, E => [D => "E dislikes D."]),
-            "Component $_E (as $C) already declared to conflict with $_D (as $B) \
+            "Component <E> (as <C>) already declared to conflict with <D> (as <B>) \
              for the following reason:\n  C dislikes B."
         )
 
@@ -337,8 +337,8 @@ module Abstracts
         addfails.@bpconflict(S(crh), _D, B, [Crh_b], _E, C, [E.b, Crh_b], nothing)
         @test_err(S(crh),
             """
-            Blueprint would expand into $_D, which (as a $B) \
-            would conflict with $_E (as a $C) already brought by the same blueprint.
+            Blueprint would expand into <D>, which (as a <B>) \
+            would conflict with <E> (as a <C>) already brought by the same blueprint.
             Already brought: $E_b
              implied by: $Crh_b
             ---

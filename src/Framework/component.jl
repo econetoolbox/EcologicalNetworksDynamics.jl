@@ -208,8 +208,10 @@ export add_trigger!
 # ==========================================================================================
 # Display extension points.
 
-compname(C::CompType) = "<$(C.name.name)>" # Singletons *types* in brackets.
-compname(c::Component) = String(typeof(c).name.name)
+# Hide `_` prefix from type name in UI.
+cname(C::Type) = chopprefix(String(C.name.name), '_')
+compname(C::CompType) = "<$(cname(C))>" # Singletons *types* in brackets.
+compname(c::Component) = String(cname(typeof(c)))
 function compdisplay(io::IO, cr::CompRef; color = false)
     s, e = color ? (component_color, reset) : ("", "")
     name = compname(cr)
@@ -218,9 +220,6 @@ end
 compdisplay(cr; kwargs...) = sprint(cr) do io, cr
     compdisplay(io, cr; kwargs...)
 end
-
-# Toplevel escape hatch (abstract types have no name).
-compname(::Type{Component}) = "$F.Component"
 
 function Base.show(io::IO, ::MIME"text/plain", C::Type{<:Component})
     V = system_value_type(C)
@@ -250,3 +249,7 @@ function Base.show(io::IO, ::MIME"text/plain", c::Component)
 end
 
 shortline(io, B::Type{<:Blueprint}) = @invoke show(io, B::DataType)
+
+# Toplevel escape hatch (union types have no name).
+Base.show(io::IO, ::Type{Component}) = @invoke show(io, Component::UnionAll)
+Base.show(io::IO, ::MIME"text/plain", ::Type{Component}) = print(io, Component)
