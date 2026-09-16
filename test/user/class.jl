@@ -9,15 +9,16 @@ using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
-    @mutfails, @immutfails, @propfails, addfails
+    @viewfails, @immutfails, @propfails, addfails
 using EcologicalNetworksDynamics.NetworkFramework: EN, D, Network, Views
 using EcologicalNetworksDynamics.Framework: F, @PropertySpace
+using OrderedCollections
+using Test
+
 # The data kind, view type and property spaces tested here.
 const d, _D = D.Class(:species)
 const View = Views.NodeNameView{d}
 const Sp = @PropertySpace(species, Network)
-using OrderedCollections
-using Test
 
 @testset "Class component: blueprints" begin
 
@@ -131,23 +132,59 @@ using Test
 
     # Expand.
     m = Model(Species(3))
-    @test_disp(
-        m,
+    @test_disp(m,
         """
         Model (alias for $(F.System){$Network}) with 1 component:
           - Species: 3 (:s1, :s2, :s3)\
-        """,
-    )
+        """)
 
 end
 
-@testset "Class component: views" begin
+@testset "Class component: properties" begin
 
-    # No view if the component is missing.
+    # Not available if the component is missing.
     @propfails(Model().species.names,
         Sp, :names, "Component <Species> is required to read this property.")
+    @test_err(Model().species.names,
+        """
+        In property `species.names` of `$(F.System){$Network}`:
+        Component <Species> is required to read this property.\
+        """)
 
-    # The names property becomes available as a view.
+    m = Model(Species(:a, :b, :c))
+
+    # Names view (tested further below).
+    @test m.species.names == [:a, :b, :c]
+    # Number of nodes in the class.
+    @test m.species.number == 3
+    # Index to map labels to canonical order.
+    @test m.species.index == OrderedDict(:a => 1, :b => 2, :c => 3)
+    # Same within the parent class (no parent class for this root example).
+    @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
+
+    # Mask within the parent class (no parent class with this root example).
+    K = Views.NodeMaskView{D.Subclass(:species, nothing)[1]}
+    k = m.species.mask
+    @test k isa K
+    @test k isa AbstractVector{Bool}
+    @test k[1] && k[2] && k[3]
+    @test k[:a] && k[:b] && k[:c]
+    @test k == Bool[1, 1, 1]
+    @test k[1:2] == Bool[1, 1]
+    @test k[(end-1):end] == Bool[1, 1]
+    @test_repr(k, "<::species>[1, 1, 1]")
+    @test_disp(k,
+        """
+        NodeMaskView<::species>{Bool} (3/3 values)
+         1
+         1
+         1\
+        """)
+
+end
+
+@testset "Class component: names view" begin
+
     m = Model(Species(:a, :b, :c))
     v = m.species.names
 
@@ -175,36 +212,46 @@ end
     @test v[:a] == :a  # (not super-useful but consistent with other views)
     @test v['b'] == :b
     @test v["c"] == :c
-    @test v[split("a")...] == :a # (accept substrings as label)
+    @test v[split("a")...] == :a # Accept substrings as label
+    @test v[[false, true, false]] == v[[0, 1, 0]] == [:b] # Accept boolean masks.
 
-    # The component enables various other properties:
+    @viewfails(v[], View, "Node-level data has 1 dimension, received 0")
+    @viewfails(v[1, 2], View, "Node-level data has 1 dimension, received 2")
+    @viewfails(v[1, 2, 3], View, "Node-level data has 1 dimension, received 3")
+    @viewfails(v[true], View, "Views are queried with indices [::Int] or labels [::Symbol]")
+    @viewfails(v[(1,)], View, "Cannot index into views with explicit tuples")
+    @viewfails(v[0x8000000000000000], View,
+        "Index too large to be used with julia arrays (9223372036854775808)")
+    @viewfails(v[-5], View, "Integer node references can only be positive")
+    @viewfails(v[[0, 1, 2]], View,
+        "Could not interpret as a boolean mask (not only 1's and 0's?)"
+    )
+    @viewfails(v[5], View, "This class only contains 3 nodes")
+    @viewfails(v[:x], View, "No node in this class is labeled :x")
+    @viewfails(v[[0, 1]], View,
+        "The given mask is of size 2 but there are 3 nodes in the class")
+    @viewfails(Model(Species(1)).species.names[[0, 1]], View,
+        "The given mask is of size 2 but there is 1 node in the class")
 
-    # Number of nodes in the class.
-    @test m.species.number == 3
-    # Index to map labels to canonical order.
-    @test m.species.index == OrderedDict(:a => 1, :b => 2, :c => 3)
-    # Same within the parent class (no parent class for this root example).
-    @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
-
-    # Mask within the parent class (no parent class with this root example).
-    K = Views.NodeMaskView{D.Subclass(:species, nothing)[1]}
-    k = m.species.mask
-    @test k isa K
-    @test k isa AbstractVector{Bool}
-    @test k[1] && k[2] && k[3]
-    @test k[:a] && k[:b] && k[:c]
-    @test k == Bool[1, 1, 1]
-    @test k[1:2] == Bool[1, 1]
-    @test k[(end-1):end] == Bool[1, 1]
-    @test_repr(k, "<::species>[1, 1, 1]")
-    @test_disp(
-        k,
+    # Possibly large query display.
+    @test_err(v[true, 2],
         """
-        NodeMaskView<::species>{Bool} (3/3 values)
-         1
-         1
-         1\
-        """,
+        View error (nodes names):
+        Node-level data has 1 dimension, received 2:
+        Cannot index into <species> with: [
+          true ::$Bool,
+          2 ::$Int,
+        ]\
+        """
+    )
+
+    # Typechecked query display.
+    @test_err(v[:x],
+        """
+        View error (nodes names):
+        Cannot index with [:x] into <species>:
+        No node in this class is labeled :x.\
+        """
     )
 
 end
@@ -229,6 +276,23 @@ end
     # But the *blueprint* can be mutated.
     bp.names[2] = :x
     @test Model(bp).species.names == [:a, :x, :c]
+
+end
+
+@testset "Class component: no nodes" begin
+
+    m = Model(Species(0))
+    @test_disp(m,
+        """
+        Model (alias for $(F.System){$Network}) with 1 component:
+          - Species: 0 ()\
+        """)
+
+    @test m.species.names == []
+    @test m.species.number == 0
+    @test m.species.index == OrderedDict()
+    @test m.species.parent_index == OrderedDict()
+    @test m.species.mask == []
 
 end
 

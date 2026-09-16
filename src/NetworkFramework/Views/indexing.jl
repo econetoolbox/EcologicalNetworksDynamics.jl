@@ -29,14 +29,19 @@ check_dim(::EdgeView, i, j) = (i, j)
 # Check query type.
 
 # Then dispatch to per-dimension checking.
-check_type(v::AbstractView, q::Tuple) = check_type.((v,), q)
-check_type(::AbstractView, q::Query) = q
-check_type(::AbstractView, q) =
+check_type(v::AbstractView, q::Tuple, already_broadcasted = false) =
+    if already_broadcasted
+        referr("Cannot index into views with explicit tuples")
+    else
+        check_type.((v,), q, true)
+    end
+check_type(::AbstractView, q::Query, _) = q
+check_type(::AbstractView, q, _) =
     referr("Views are queried with indices [::Int] or labels [::Symbol]")
 
 # Allow for a few implicit conversions.
-check_type(::AbstractView, q::Union{Char,AbstractString}) = Symbol(q)
-check_type(::AbstractView, q::Unsigned) =
+check_type(::AbstractView, q::Union{Char,AbstractString}, _) = Symbol(q)
+check_type(::AbstractView, q::Unsigned, _) =
     try
         Int(q)
     catch e
@@ -45,7 +50,7 @@ check_type(::AbstractView, q::Unsigned) =
         rethrow(e)
     end
 
-check_type(::AbstractView, q::AbstractArray{<:Integer}) =
+check_type(::AbstractView, q::AbstractArray{<:Integer}, _) =
     try
         copyto!(similar(q, Bool), q)
     catch e

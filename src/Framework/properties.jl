@@ -297,7 +297,7 @@ function Base.showerror(io::IO, e::PropertyError)
     V = system_value_type(P)
     pth = path(P)
     isnothing(pth) && (pth = "")
-    print(io, "In property `$pth.$name` of `$(System{V})`: $mess")
+    print(io, "In property `$pth.$name` of `$(System{V})`:\n$mess")
 end
 
 # ==========================================================================================

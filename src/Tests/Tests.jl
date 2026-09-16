@@ -222,6 +222,11 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     d = test_datakind,
     src = test_mref,
 )
+
+@genfailsmacro viewfails EN.NetworkFramework.Views.QueryError (;
+    query = nothing, # (redundant with test lhs)
+    typechecked = nothing, # (display implementation detail)
+)
 @genfailsmacro immutfails EN.NetworkFramework.Views.ImmutableError
 
 # Systematic redirection of `src` field testing for these type.
@@ -254,5 +259,6 @@ macro methfails end
 macro mutfails end
 macro netfails end
 macro propfails end
+macro viewfails end
 
 end

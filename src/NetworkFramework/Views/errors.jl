@@ -25,7 +25,7 @@ function Base.showerror(io::IO, e::QueryError)
         # Can assume the query is short: insert anywhere.
         q = "[" * join_elided(query, ", ") * "]"
         println(io, "Cannot index with $q into $d:")
-        println(io, mess, '.')
+        print(io, mess, '.')
     else
         # The query has unbounded display: push it to the end.
         println(io, mess, ':')

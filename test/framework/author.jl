@@ -234,7 +234,7 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # Forbid unexistent properties.
         @propfails(s.x, S, :x, "Unknown property.")
-        @test_err(s.x, "In property `.x` of `$System{$Value}`: Unknown property.")
+        @test_err(s.x, "In property `.x` of `$System{$Value}`:\nUnknown property.")
         # Forbid existent properties without appropriate component.
         @propfails(s.b, S, :b, "Component <B> is required to read this property.")
         # Same with methods.
