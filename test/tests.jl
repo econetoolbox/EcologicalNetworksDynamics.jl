@@ -148,6 +148,13 @@ end
         #-----------------------------------------------------------------------------------
         # Unexpected error obtained (fields values unchecked).
 
+        # (displayed candidates actually depend on julia version)
+        candidates = try
+            1 + :a
+        catch e
+            split(sprint(showerror, e), "Closest candidates are:\n")[2]
+        end
+
         @test_err(
             (@fails (5 + :a) Expected -1 -1),
             """
@@ -160,13 +167,7 @@ end
              for this combination of argument types.
 
             Closest candidates are:
-              +(::Any, ::Any, !Matched::Any, !Matched::Any...)
-               @ Base operators.jl:642
-              +(::Real, !Matched::Complex{Bool})
-               @ Base complex.jl:322
-              +(::Real, !Matched::Complex)
-               @ Base complex.jl:334
-              ...
+            $candidates\
             """,
             nothing,
         )
