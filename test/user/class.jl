@@ -9,7 +9,7 @@ using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
-    @mutfails, @propfails, addfails
+    @mutfails, @immutfails, @propfails, addfails
 using EcologicalNetworksDynamics.NetworkFramework: EN, D, Network, Views
 using EcologicalNetworksDynamics.Framework: F, @PropertySpace
 # The data kind, view type and property spaces tested here.
@@ -53,7 +53,7 @@ using Test
     @test bp == Species(split("a b c"))
     @test bp == Species(:a, 'b', "c")
     @test_repr(bp, "<Species>:Names(names: [:a, :b, :c])")
-    @test_disp( bp,
+    @test_disp(bp,
         """
         blueprint for <Species>: Names {
           names: [:a, :b, :c],
@@ -209,7 +209,6 @@ end
 
 end
 
-# HERE: almost finished refreshing this file.
 @testset "Class component: immutable" begin
 
     bp = Species(:a, :b, :c)
@@ -217,19 +216,15 @@ end
     v = m.species.names
 
     # Immutable.
-    @mutfails((v[1] = :u), d, :mutate, m, ())
-    @mutfails((v[:a] = :u), View)
-    @mutfails((v[:a] = 2), View)
+    @immutfails((v[1] = :u), View)
+    @immutfails((v[:a] = :u), View)
+    @immutfails((v[:a] = 2), View)
     # This takes priority over other indexing guards.
-    @mutfails((v[] = 2), View)
-    @mutfails((v[1, 2] = 2), View)
-    @mutfails((v[nothing] = 2), View)
+    @immutfails((v[] = 2), View)
+    @immutfails((v[1, 2] = 2), View)
+    @immutfails((v[nothing] = 2), View)
 
-    # What the user gets.
-    @test_err(
-        () -> v[1] = :u,
-        "Cannot change <species> nodes names once they have been set.",
-    )
+    @test_err((v[1] = :u), "Cannot change <species> nodes names once they have been set.")
 
     # But the *blueprint* can be mutated.
     bp.names[2] = :x

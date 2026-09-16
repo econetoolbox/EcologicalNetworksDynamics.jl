@@ -222,6 +222,7 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     d = test_datakind,
     src = test_mref,
 )
+@genfailsmacro immutfails EN.NetworkFramework.Views.ImmutableError
 
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@hook invocations correctly forward flow)
@@ -243,8 +244,9 @@ macro compfails end
 macro conflfails end
 macro convfails end
 macro errfails end
-macro jl_callfails end
+macro immutfails end
 macro jl_basic_callfails end
+macro jl_callfails end
 macro jl_deffails end
 macro labelfails end
 macro listfails end
