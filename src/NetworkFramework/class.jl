@@ -37,7 +37,7 @@ function define_class_component(mod::Module, d::D.Class)
     bpmod.eval(quote
         mutable struct Names <: NF.ClassNames
             names::Vector{Symbol}
-            @bp_construct(Names)
+            @bp_construct Names
         end
         export Names
         $NF.register_blueprint(Names, "raw $($s) names"; d)
@@ -48,7 +48,7 @@ function define_class_component(mod::Module, d::D.Class)
     bpmod.eval(quote
         mutable struct Number <: NF.ClassNumber
             n::Int
-            @bp_construct(Number)
+            @bp_construct Number
         end
         export Number
         $NF.register_blueprint(Number, "number of $($s)"; d)
@@ -141,7 +141,10 @@ datatype(::Type{<:ClassNumber}) = Int
 data(b::ClassNames) = b.names
 data(b::ClassNumber) = b.n
 
-# Construct: allow passing names as separate arguments.
+#-------------------------------------------------------------------------------------------
+# Construct.
+
+# Allow passing names as separate arguments.
 construct(B::Type{<:ClassNames}, first, second, rest...) =
     @invoke(construct(B::Type{<:Blueprint}, (first, second, rest...)))
 

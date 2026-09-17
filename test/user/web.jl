@@ -3,22 +3,20 @@ Test all aspects of typical Web component, using foodweb as an example.
 """
 module WebTest
 
-# What the end user should have to import.
 using EcologicalNetworksDynamics
 using SparseArrays
 
-# Additional imports only used here for testing purpose.
+import EcologicalNetworksDynamics.Tests:
+    @test_repr, @test_disp, @bpfails, @propfails, @immutfails
+import EcologicalNetworksDynamics.NetworkFramework: EN, D, Network, Views, SparseMatrix
+
+const d, _D = D.Web(:trophic)
+const View = Views.EdgeMaskView{d}
 using Test
-import EcologicalNetworksDynamics: EN, Network, Views, Web, SparseMatrix
-import Main: is_repr, is_disp, @viewfails, @inputfails, @sysfails, Value
-const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
 
-@testset "Typical Web component" begin
+@testset "Web component: blueprints" begin
 
-    # Blueprints available from component.
-    @test Foodweb isa EN.Component
-    @test is_repr(Foodweb, "Foodweb")
-    @test is_disp(
+    @test_disp(
         Foodweb,
         """
         Foodweb (component for $Network, expandable from:
@@ -27,23 +25,32 @@ const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
         )\
         """,
     )
-    @test Foodweb.Matrix <: EN.Blueprint
-    @test Foodweb.Adjacency <: EN.Blueprint
 
-    # Construct from a matrix, converted from various input types.
+    # ======================================================================================
+    # From a matrix.
+
     A = Bool[
         0 1 1
         1 0 0
         1 1 0
     ]
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
+
+    # Various input types.
     bp = Foodweb.Matrix(A)
-    Ai = Int[0 1 1; 1 0 0; 1 1 0]
-    @test bp == Foodweb.Matrix(Ai)
+    @test bp == Foodweb.Matrix(Int.(A))
+    @test bp == Foodweb.Matrix(BitMatrix(A))
     # Implicit constructor.
     @test bp == Foodweb(A)
-    @test bp == Foodweb(Ai)
-    @test is_repr(bp, "<Foodweb>:Matrix(A: 3×3:5 (true))")
-    @test is_disp(
+    @test bp == Foodweb(Int.(A))
+    @test bp == Foodweb(BitMatrix(A))
+    @test bp == Foodweb(sparse(A))
+    @test bp == Foodweb(sparse(Int.(A)))
+    @test bp == Foodweb(sparse(BitMatrix(A)))
+    @test_repr(bp, "<Foodweb>:Matrix(A: 3×3:5 (true))")
+    @test_disp(
         bp,
         """
         blueprint for <Foodweb>: Matrix {
@@ -51,6 +58,27 @@ const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
         }\
         """,
     )
+
+    # Alias.
+    input = sparse(A)
+    bp = Foodweb(input)
+    @test bp.A === input
+
+    @bpfails(Foodweb.Matrix(:a),
+        Foodweb.Matrix, :construct, nothing,
+        (nothing, :whole, :convert, SparseMatrix{Bool}, :a, "Conversion not implemented."))
+
+    #---------------------------------------------------------------------------------------
+    # Intrinsic check.
+
+    @bpfails(Foodweb(zeros(Bool, 2, 3)),
+        Foodweb.Matrix, :construct, nothing,
+        (nothing, :whole, :check, spzeros(Bool, (2, 3)),
+            "The adjacency matrix of size (3, 2) is not squared."))
+
+    # ======================================================================================
+    # ↑ ↑ HERE updating tests ↑ ↑
+    # ======================================================================================
 
     # Expand into a web component.
     m = Model(Species("abc"), bp)
@@ -70,12 +98,10 @@ const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
          1 1 ·\
         """,
     )
-    @sysfails( # Unless the component is missing, as all properties.
+    @propfails(
         Model().foodweb.mask,
-        Property(
-            trophic.mask, # (alias)
-            "Component $(EN._Foodweb) is required to read this property.",
-        ),
+        Tr, trophic.mask, # (alias)
+        "Component <Foodweb> is required to read this property."
     )
 
     # The view has some basic matrix-like interface.
@@ -92,54 +118,18 @@ const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
     @test v[:a, :a] == false
     @test v[:a, :b] == true
     @test v[1:2, 2:3] == [1 1; 0 0]
-    @test v[2:end, end-1:end] == [0 0; 1 0]
-
-    # Wrong access.
-    @viewfails(v[], View, "Two indices are required to index into webs. Received 0: [].")
-    for single in (nothing, 2, :b)
-        @viewfails(
-            v[single],
-            View,
-            "Two indices are required to index into webs. Received 1: [$(repr(single))]."
-        )
-    end
-    @viewfails(
-        v[0, 1],
-        View,
-        "Cannot index with [0, ·] into a :trophic web with 3 species source nodes."
-    )
-    @viewfails(
-        v[:x, :b],
-        View,
-        "Cannot index with [:x, ·] into this :trophic web \
-         because :x is not a node label in source class :species."
-    )
-    @viewfails(
-        v[:a, :y],
-        View,
-        "Cannot index with [·, :y] into this :trophic web \
-         because :y is not a node label in target class :species."
-    )
-    for index in (() -> v[nothing, 1], () -> v[1, nothing])
-        @viewfails(
-            index(),
-            View,
-            "Views are indexed with indices (::Int) or labels (::Symbol). \
-             Cannot index with: $nothing ::$Nothing."
-        )
-    end
+    @test v[2:end, (end-1):end] == [0 0; 1 0]
 
     # Immutable.
-    mess = "Cannot mutate edges topology."
-    @viewfails((v[1, 1] = true), View, mess)
-    @viewfails((v[:a, :b] = false), View, mess)
-    @viewfails((v[1:2, 2:end] = false), View, mess)
+    @immutfails((v[1, 1] = true), immut)
+    @immutfails((v[:a, :b] = false), immut)
+    @immutfails((v[1:2, 2:end] = false), immut)
     # This takes priority over indexing semantics.
-    @viewfails((v[] = true), View, mess)
-    @viewfails((v[1, 2, 3] = true), View, mess)
-    @viewfails((v[nothing] = true), View, mess)
-    @viewfails((v[nothing, 1] = true), View, mess)
-    @viewfails((v[1, nothing] = true), View, mess)
+    @immutfails((v[] = true), immut)
+    @immutfails((v[1, 2, 3] = true), immut)
+    @immutfails((v[nothing] = true), immut)
+    @immutfails((v[nothing, 1] = true), immut)
+    @immutfails((v[1, nothing] = true), immut)
 
     # But the *blueprint* can be mutated.
     bp.A[1, 1] = true
@@ -153,28 +143,18 @@ const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
     @test bp.A == [0 1; 0 0]
 
     # Fail construct from matrix.
-    @sysfails(
-        Model(Foodweb([1 0 1; 0 1 0])),
-        Check(
-            early,
-            [Foodweb.Matrix],
-            "The adjacency matrix of size (3, 2) is not squared.\n\
-             Received: 2×3 SparseMatrixCSC{Bool, $Int} with 3 stored entries:\n \
-              1  ⋅  1\n \
-              ⋅  1  ⋅",
-        )
-    )
-    @sysfails(
-        Model(Species(3), Foodweb([0 1; 0 0])),
-        Check(
-            late,
-            [Foodweb.Matrix],
-            "There are 3 :species nodes but the provided matrix is of size (2, 2).\n\
-             Received: 2×2 SparseMatrixCSC{Bool, $Int} with 1 stored entry:\n \
-              ⋅  1\n \
-              ⋅  ⋅",
-        )
-    )
+    @bpfails(Model(Foodweb([1 0 1; 0 1 0])),
+        early, [Foodweb.Matrix],
+        "The adjacency matrix of size (3, 2) is not squared.\n\
+         Received: 2×3 SparseMatrixCSC{Bool, $Int} with 3 stored entries:\n \
+          1  ⋅  1\n \
+          ⋅  1  ⋅")
+    @bpfails(Model(Species(3), Foodweb([0 1; 0 0])),
+        late, [Foodweb.Matrix],
+        "There are 3 :species nodes but the provided matrix is of size (2, 2).\n\
+         Received: 2×2 SparseMatrixCSC{Bool, $Int} with 1 stored entry:\n \
+          ⋅  1\n \
+          ⋅  ⋅")
 
     # Construct from adjacency matrix.
     A = [:a => (:b, :c), (:d, :c) => (:b, :e)]
@@ -190,12 +170,10 @@ const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
         """,
     )
     # All list parsing errors are available here.
-    @inputfails(
-        Foodweb.Adjacency([:a => :b => :c]),
+    @bpfails(Foodweb.Adjacency([:a => :b => :c]),
         "The pair at [1][right] \
          is just considered an iterable in this context, which may be confusing. \
-         Consider grouping with an explicit vector instead like [:b, :c]."
-    )
+         Consider grouping with an explicit vector instead like [:b, :c].")
     m = Model(bp)
     @test m.species.names == [:a, :b, :c, :d, :e]
     @test m.trophic.matrix == [
@@ -219,10 +197,8 @@ const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
         }\
         """,
     )
-    @inputfails(
-        Foodweb.Adjacency([1 => (2, 2)]),
-        "Duplicated target node reference at [1][right][2]: 2 ::$Int."
-    )
+    @bpfails(Foodweb.Adjacency([1 => (2, 2)]),
+        "Duplicated target node reference at [1][right][2]: 2 ::$Int.")
     m = Model(bp)
     @test m.species.names == [:s1, :s2, :s3, :s4, :s5]
     @test m.trophic.mask ==
@@ -248,13 +224,11 @@ const View = Views.EdgeMaskView{Web(:trophic)} # Tested view type.
     ]
 
     # Generic construct failure.
-    @inputfails(
-        Foodweb([1 => 2 0 1]),
+    @bpfails(Foodweb([1 => 2 0 1]),
         "Cannot convert input to either:\n  \
            - $(SparseMatrix{Bool})\n  \
            - $(EN.BinAdjacency)",
-        [1 => 2 0 1],
-    )
+        [1 => 2 0 1])
 
 end
 

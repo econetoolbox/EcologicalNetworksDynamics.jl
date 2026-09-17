@@ -22,7 +22,7 @@ include("./temperature.jl")
 include("./species.jl")
 
 # First example of an edges web.
-#  include("./foodweb.jl")
+include("./foodweb.jl")
 
 # First example of nodes data.
 #  include("./body_mass.jl")

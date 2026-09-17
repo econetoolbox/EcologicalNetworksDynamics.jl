@@ -1,37 +1,29 @@
-# Foodweb aka. "Trophic layer",
-# is special because it structures the whole network
-# in a way that makes it a dependency
-# of numerous other biorates and interaction layers.
-# Typically, many default values are calculated from this layer,
-# and values checks are performed against this layer.
-
-(false) && (local Foodweb, _Foodweb, TrophicLayer)
-export Foodweb, TrophicLayer
+# First example of a network web.
 
 module FoodwebDef
-
-using EcologicalNetworksDynamics:
-    EN, D, N, F, NF, V, Network, Model, KwargsHelpers, argerr, @alias
-using .KwargsHelpers
+using EcologicalNetworksDynamics.NetworkFramework:
+    EN, N, F, NF, D, V, Network, Model, @alias, argerr
+using EcologicalNetworksDynamics.KwargsHelpers
 
 using Distributions
 using LinearAlgebra
 using SparseArrays
 using Graphs
 
-# Dispatcher.
-const d = D.Web(:trophic)
-const DT = typeof(d)
+# Foodweb aka. "Trophic layer",
+# is special because it structures the whole network
+# in a way that makes it a dependency
+# of numerous other biorates and interaction layers.
+# Typically, many default values are calculated from this layer,
+# and values checks are performed against this layer.
+const d, _D = D.Web(:trophic)
+D.sidenames(::_D) = (:species, :species)
+D.name_variants(::_D) = (:foodweb, :Foodweb)
+D.propnames(::_D) = (:trophic, :Trophic)
+D.is_symmetric(::_D) = false
 
-# Extensions.
-D.sidenames(::DT) = (:species, :species)
-D.name_variants(::DT) = (:foodweb, :Foodweb)
-D.propnames(::DT) = (:trophic, :Trophic)
-D.is_symmetric(::DT) = false
-
-# Codegen + exec.
 NF.define_reflexive_web_component(EN, d)
-using .EN: Foodweb, _Foodweb
+const Foodweb, _Foodweb = EN.Foodweb, EN._Foodweb
 
 # Community consistency aliases.
 @alias foodweb trophic
@@ -41,7 +33,7 @@ using .EN: Foodweb, _Foodweb
 # ==========================================================================================
 # Web-derived classes and webs.
 
-function NF.post_expand!(d::DT, model)
+function NF.post_expand!(d::_D, model)
     network = N.network(model)
     web = D.web(d)
     topology = N.web(network, web).topology
@@ -84,10 +76,10 @@ function NF.post_expand!(d::DT, model)
 end
 
 depends = [Foodweb]
-p = D.Class(:producers)
-c = D.Class(:consumers)
-t = D.Class(:tops)
-r = D.Class(:preys)
+p, _ = D.Class(:producers)
+c, _ = D.Class(:consumers)
+t, _ = D.Class(:tops)
+r, _ = D.Class(:preys)
 # TODO: fix that there is no need for a short prefix for them: subclasses.
 D.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
 D.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
@@ -102,9 +94,9 @@ NF.define_class_properties(EN, c; depends)
 NF.define_class_properties(EN, t; depends)
 NF.define_class_properties(EN, r; depends)
 
-p = D.Web(:producers_web)
-h = D.Web(:herbivory)
-c = D.Web(:carnivory)
+p, _ = D.Web(:producers_web)
+h, _ = D.Web(:herbivory)
+c, _ = D.Web(:carnivory)
 D.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
 D.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
 D.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
@@ -150,7 +142,7 @@ NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb]
 # Construct Matrix blueprint from a random model.
 include("./structural_models.jl")
 function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
-    model = NF.inputconvert(Symbol, model)
+    model = Symbol(model)
     @kwargs_helpers kwargs
 
     given(:S) || argerr("Random foodweb models require a number of species 'S'.")
@@ -469,4 +461,6 @@ julia> m.carnivorous_links
 
 end
 
-const TrophicLayer = Foodweb # Export alias.
+local Foodweb, _Foodweb # (reassure JuliaLS)
+const TrophicLayer = Foodweb # Alias to also fit non-trophic interactions naming scheme.
+export Foodweb, TrophicLayer

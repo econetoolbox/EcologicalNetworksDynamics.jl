@@ -133,11 +133,12 @@ The library should catch it and append relevant context before it bubbles up to 
 """
 module NetworkFramework
 
-import EcologicalNetworksDynamics:
+using EcologicalNetworksDynamics:
     EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD,
     FailedAttempts, Display, errwith
-import .Display: render_input, green, black, reset, join_elided
-import .Framework: bpdisplay, bpcol
+using .Display: render_input, green, black, reset, join_elided
+using .Networks: Topology
+using .Framework: bpdisplay, bpcol
 
 using Crayons
 using OrderedCollections
@@ -169,7 +170,7 @@ const V = Views
 # Templates for typical network blueprint/components.
 include("./graph_scalar.jl")
 include("./class.jl")
-#  include("./web.jl")
+include("./web.jl")
 #  include("./node_field.jl")
 #  include("./subnode_field.jl")
 #  include("./edge_field.jl")

@@ -1,12 +1,15 @@
+"Expand into a new edges web."
+abstract type WebBlueprint <: Blueprint end
+
 """
 Expand into a new reflexive web from a sparse boolean matrix.
 """
-abstract type ReflexiveWebMatrixBlueprint <: Blueprint end
+abstract type ReflexiveWebMatrixBlueprint <: WebBlueprint end
 
 """
 Expand into a new reflexive web from an adjacency list.
 """
-abstract type ReflexiveWebAdjacencyBlueprint <: Blueprint end
+abstract type ReflexiveWebAdjacencyBlueprint <: WebBlueprint end
 
 """
 Typical setup for a component bringing a new reflexive web to the network.
@@ -19,7 +22,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
     class, same = D.sidenames(d)
     same == class || argerr("Reflexive webs must match source and target, \
                              here $(repr(class)) != $(repr(same)).")
-    src = D.source(d)
+    src, _ = D.source(d)
     Web_ = Symbol(Web, :_) # Blueprints module name.
     _Web = Symbol(:_, Web) # Component type name.
     w, c, p = Meta.quot.((web, class, prop)) # Symbol names.
@@ -32,9 +35,9 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
         (
             quote
                 module $Web_
-                import EcologicalNetworksDynamics: F, NF, SparseMatrix, BinAdjacency, Model
-                const d = $d
-                const src = $src
+                using EcologicalNetworksDynamics.NetworkFramework:
+                    F, NF, SparseMatrix, BinAdjacency, Model, @bp_construct
+                const d, src = $d, $src
                 const Class = $(D.component(src))
                 const _Class = typeof(Class)
                 end
@@ -48,16 +51,13 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
         quote
             mutable struct Matrix <: NF.ReflexiveWebMatrixBlueprint
                 A::SparseMatrix{Bool}
-                Matrix(A) = new(NF.inputconvert(SparseMatrix{Bool}, A))
+                @bp_construct Matrix
             end
             # Infer number of class nodes from matrix size.
             F.implied(::Matrix) = (Class,)
             F.implied_blueprint_for(bp::Matrix, ::Type{_Class}) =
                 NF.implied_class(d, Class, bp)
-            F.early_check(bp::Matrix) = NF._early_check(d, bp)
-            F.late_check(model, bp::Matrix) = NF.late_check(d, model, bp)
-            F.expand!(model, bp::Matrix) = NF.expand!(d, model, bp)
-            NF.define_blueprint(Matrix, "boolean matrix of $($w) links")
+            NF.register_blueprint(Matrix, "boolean matrix of $($w) links"; d)
             export Matrix
         end,
     )
@@ -68,15 +68,13 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
         quote
             mutable struct Adjacency <: NF.ReflexiveWebAdjacencyBlueprint
                 A::BinAdjacency
-                Adjacency(A) = new(NF.inputconvert(BinAdjacency, A))
+                @bp_construct Adjacency
             end
             # Infer number or names of class nodes from the lists.
             F.implied(::Adjacency) = (Class,)
             F.implied_blueprint_for(bp::Adjacency, ::Type{_Class}) =
                 NF.implied_class(d, Class, bp)
-            F.late_check(model, bp::Adjacency) = NF.late_check(d, model, bp)
-            F.expand!(model, bp::Adjacency) = NF.expand!(d, model, bp)
-            NF.define_blueprint(Adjacency, "adjacency list of $($w) links")
+            NF.register_blueprint(Adjacency, "adjacency list of $($w) links"; d)
             export Adjacency
         end,
     )
@@ -109,33 +107,39 @@ function define_web_properties(mod::Module, d::D.Web; depends = [])
     defmeth(fn, s) = NF.define_method(fn; depends, read_as = map(s -> :($prop.$s), s))
 
     M = Symbol(Web, :Methods)
-    mod.eval((
-        quote
-            module $M
-            using EcologicalNetworksDynamics: N, V, D, Network, Model
-            const defmeth = $defmeth
-            const d = $d
-            const w = D.web(d)
+    mod.eval(
+        (
+            quote
+                module $M
+                using EcologicalNetworksDynamics.NetworkFramework: N, V, D, Network, Model
+                const d, defmeth = $d, $defmeth
+                const w = D.web(d)
 
-            web(m::Network) = N.web(m, w)
-            topology(m::Network) = web(m).topology
-            number(m::Network) = m |> topology |> N.n_edges
-            mask(::Network, m::Model) = V.mask_view(d, m)
+                web(m::Network) = N.web(m, w)
+                topology(m::Network) = web(m).topology
+                number(m::Network) = m |> topology |> N.n_edges
+                mask(::Network, m::Model) = V.mask_view(d, m)
 
-            defmeth(topology, [:_topology])
-            defmeth(mask, [:mask, :matrix])
-            defmeth(number, [:n_links, :n_edges])
+                defmeth(topology, [:_topology])
+                defmeth(mask, [:mask, :matrix])
+                defmeth(number, [:n_links, :n_edges])
+                end
             end
-        end
-    ).args |> last)
+        ).args |> last,
+    )
 end
 
 # ==========================================================================================
-# Extract implementation detail to ease Revise work.
+# Specialization.
+
+data(bp::WebBlueprint) = bp.A
+datatype(::Type{<:ReflexiveWebMatrixBlueprint}) = SparseMatrix{Bool}
+datatype(::Type{<:ReflexiveWebAdjacencyBlueprint}) = BinAdjacency
 
 #-------------------------------------------------------------------------------------------
 # Construct.
 
+# Pick blueprint depending on input conversion success.
 construct(::D.Web, Web::Component, input, args...; kwargs...) = try_convert(
     input,
     SparseMatrix{Bool} => A -> Web.Matrix(A, args...; kwargs...),
@@ -143,10 +147,9 @@ construct(::D.Web, Web::Component, input, args...; kwargs...) = try_convert(
 )
 
 #-------------------------------------------------------------------------------------------
-# Early check.
+# Intrinsic check.
 
-function early_check(::D.Web, bp::ReflexiveWebMatrixBlueprint)
-    (; A) = bp
+function intrinsic_check(::D.Web, A::SparseMatrix{Bool})
     n, m = size(A)
     n == m || checkerr(A, "The adjacency matrix of size $((m, n)) is not squared.")
 end
