@@ -69,15 +69,17 @@ const Sp = @PropertySpace(species, Network)
     @test bp.names == [:a, :x, :c]
 
     @bpfails(Species(:a),
-        Species.Names, :construct, nothing,
+        Species.Names, :construct,
         (nothing, :whole, :convert, Vector{Symbol}, :a, "Input is not iterable."))
     @jl_basic_callfails(Species(5; a = 5))
 
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
+
     @bpfails(Species([:a, :b, :b]),
-        Species.Names, :construct, nothing,
+        Species.Names, :construct,
         (nothing, 3, :check, :b, "Species 2 and 3 would both be named :b."))
+
     @test_err(Species([:a, :b, :b]), # First time with a 1D index.
         """
         While constructing blueprint Species.Names:
@@ -119,7 +121,7 @@ const Sp = @PropertySpace(species, Network)
 
     # Intrinsic check.
     @bpfails(Species(-1),
-        Species.Number, :construct, nothing,
+        Species.Number, :construct,
         (nothing, :whole, :check, -1,
             "Cannot construct a negative number of species nodes."))
 

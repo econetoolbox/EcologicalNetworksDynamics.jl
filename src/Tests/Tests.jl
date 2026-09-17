@@ -124,7 +124,7 @@ module addfails
     @genfailsmacro check F.HookCheckFailure (;
         # ..because it's forwarding underlying library exception..
         err = T.errfield(NF.BlueprintError),
-        # ..so this should always be redundant with the above :early vs :late 'step':
+        # ..so this should always be redundant with the above's :early vs :late 'step':
         late = nothing,
         # .. and the first element in the path should always be redundant with BP type:
         node = (e, a) -> node(e, a; skip_first = true),
@@ -217,11 +217,18 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
 @genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess)
 @genfailsmacro convfails EN.NetworkFramework.ConvertError (; mess)
 @genfailsmacro listfails EN.NetworkFramework.ListParseError (; mess)
-@genfailsmacro bpfails EN.NetworkFramework.BlueprintError (; src = test_mref)
 @genfailsmacro mutfails EN.NetworkFramework.MutationError (;
     d = test_datakind,
     src = test_mref,
 )
+
+# This one is sometimes yielded as toplevel,
+# and sometimes as a *cause* during addfails.check.
+const bpchecks = (;
+    model = nothing,
+    src = test_mref,
+)
+@genfailsmacro bpfails EN.NetworkFramework.BlueprintError bpchecks
 
 @genfailsmacro viewfails EN.NetworkFramework.Views.QueryError (;
     query = nothing, # (redundant with test lhs)
@@ -230,11 +237,11 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
 @genfailsmacro immutfails EN.NetworkFramework.Views.ImmutableError
 
 # Systematic redirection of `src` field testing for these type.
-# (useful to have addfails.@hook invocations correctly forward flow)
+# (useful to have addfails.@check invocations correctly forward flow)
 T.test_errsource(err, E::Type{NF.BlueprintError}, fields, checks = (;)) =
-    @invoke T.test_errsource(err, E::Type, fields, (; src = test_mref, checks))
+    @invoke T.test_errsource(err, E::Type, fields, (; bpchecks..., checks...))
 T.test_errsource(err, E::Type{NF.MutationError}, fields, checks = (;)) =
-    @invoke T.test_errsource(err, E::Type, fields, (; src = test_mref, checks))
+    @invoke T.test_errsource(err, E::Type, fields, (; bpchecks..., checks...))
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)

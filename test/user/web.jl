@@ -7,7 +7,7 @@ using EcologicalNetworksDynamics
 using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
-    @test_repr, @test_disp, @bpfails, @propfails, @immutfails
+    @test_repr, @test_disp, @test_err, @bpfails, addfails, @propfails, @immutfails
 import EcologicalNetworksDynamics.NetworkFramework: EN, D, Network, Views, SparseMatrix
 
 const d, _D = D.Web(:trophic)
@@ -65,16 +65,36 @@ using Test
     @test bp.A === input
 
     @bpfails(Foodweb.Matrix(:a),
-        Foodweb.Matrix, :construct, nothing,
+        Foodweb.Matrix, :construct,
         (nothing, :whole, :convert, SparseMatrix{Bool}, :a, "Conversion not implemented."))
 
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
 
     @bpfails(Foodweb(zeros(Bool, 2, 3)),
-        Foodweb.Matrix, :construct, nothing,
+        Foodweb.Matrix, :construct,
         (nothing, :whole, :check, spzeros(Bool, (2, 3)),
             "The adjacency matrix of size (3, 2) is not squared."))
+
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
+    m = Model(Species(3))
+    addfails.@check(m + Foodweb(zeros(Bool, 2, 2)), [],
+        (Foodweb.Matrix, :late,
+            (:whole, :whole, :check, spzeros(Bool, 2, 2),
+                "There are 3 :species nodes but the provided matrix is of size (2, 2).")))
+    @test_err(m + Foodweb(zeros(Bool, 2, 2)), # First time with a :late error.
+        """
+        Blueprint cannot expand against current system value:
+        While verifying blueprint against model:
+        There are 3 :species nodes but the provided matrix is of size (2, 2).
+        Received: sparse(Int64[], Int64[], Bool[], 2, 2) ::SparseMatrixCSC{Bool, Int64}
+        Not all blueprints have been expanded.
+        This means that the system consistency is still guaranteed, \
+        but some components have not been added.
+        in Foodweb.Matrix\
+        """)
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑

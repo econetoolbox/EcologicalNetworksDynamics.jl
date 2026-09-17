@@ -43,7 +43,7 @@ using Test
     @jl_basic_callfails(Temperature(5, 8))
     @jl_basic_callfails(Temperature(5; a = 8))
     @bpfails(Temperature(-1),
-        Temperature.Raw, :construct, nothing,
+        Temperature.Raw, :construct,
         (nothing, :whole, :check, -1.0, "Value cannot be negative."))
     @test_err(Temperature(-1), # First time we test with @bpfails: check the actual report.
         """
@@ -53,7 +53,7 @@ using Test
         """
     )
     @bpfails(Temperature(:a),
-        Temperature.Raw, :construct, nothing,
+        Temperature.Raw, :construct,
         (nothing, :whole, :convert, Float64, :a, "Conversion not implemented."))
     @test_err(Temperature(:a), # First time combined with :convert root cause.
         """

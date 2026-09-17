@@ -20,7 +20,7 @@ module Errors
 
 using EcologicalNetworksDynamics:
     I, Display, @ErrBrand, errwith, errwrap, withcontext, prepend_context!, OneShotReport,
-    escall, Tests
+    escall, Tests, Option
 using .Display: blue, red, yellow, black, bold, italics, reset, rept, eprintln, render_input
 using .Tests.Strings: showcompare, showdiff, check_string, UnmatchedStrings, Ln, lnline
 
@@ -49,20 +49,20 @@ function fails(src::Ln, xp, E, fields, checks;
     # Provide list of non-ignored expected field names if already evaluated/checked.
     checked_enames = nothing,
 )
-    # Try to reduce the amount of generated quote.
+    # Try to reduce the amount of generated code.
     # The only irreducible part being that arguments to the following
     # *must* have been evaluated at execution time after expansion.
     # Not exactly sure how to make this part less verbose, but.. (vvv)
     _check_exception_type =
         check_exception_type ?
-        E -> R.check_exception_type(src, E) :
+        E -> R.check_exception_type(E, src) :
         E -> nothing
     _checked_enames =
         isnothing(checked_enames) ?
-        (E::Type, checks) -> R.check_checksmap(src, E, checks) :
+        (E::Type, checks) -> R.check_checksmap(E, checks, src) :
         (::Type, _) -> checked_enames
-    check_fields_expression(E, en) = R.check_fields_expression(src, E, en, fields)
-    eval_fields(ev) = R.eval_macro_input(src, ev, fields, "expected error fields")
+    check_fields_expression(E, en) = R.check_fields_expression(E, en, fields, src)
+    eval_fields(ev) = R.eval_macro_input(ev, fields, "expected error fields", src)
     wrap(e) = Base.rethrow(FailedFailureTest(src, e))
     # (^^^) ..the intent is to clarify what's happening in the generated code below.
     # Control flow can therefore wind between execution(vvv)scope and expansion(^^^)scope.
@@ -115,8 +115,8 @@ macro fails_with(xp, E, checks, fields...)
 end
 
 function macrofails(src, xp, E, fields, checks)
-    eval_E(ev) = R.eval_macro_input(src, ev, E, "expected error type")
-    eval_checks(ev) = R.eval_macro_input(src, ev, checks, "fields checking functions")
+    eval_E(ev) = R.eval_macro_input(ev, E, "expected error type", src)
+    eval_checks(ev) = R.eval_macro_input(ev, checks, "fields checking functions", src)
     fails(src, xp,
         :($eval_E(() -> $(esc(E)))),
         fields,
@@ -131,9 +131,9 @@ with pre-evaluated/checked `E` and `checks` argument.
 macro genfailsmacro(name::Symbol, E, checks = :(;))
     src = __source__
     name = esc(name)
-    check_checksmap(E::Type, checks) = R.check_checksmap(src, E, checks)
-    eval_checks(ev) = R.eval_macro_input(src, ev, checks, "fields checking functions")
-    eval_E(ev) = R.eval_macro_input(src, ev, E, "expected error type") # <^^ these happen..
+    check_checksmap(E::Type, checks) = R.check_checksmap(E, checks, src)
+    eval_checks(ev) = R.eval_macro_input(ev, checks, "fields checking functions", src)
+    eval_E(ev) = R.eval_macro_input(ev, E, "expected error type", src) # <^^ these happen..
     quote                                                              #   |
         E = $eval_E(() -> $(esc(E)))                                   #   |
         checks = $eval_checks(() -> $(esc(checks)))                    #   |
@@ -155,7 +155,7 @@ end
 Evaluate macro input and decorate any error when forwarding it up.
 Useful if the given function body needs to be `esc`aped.
 """
-eval_macro_input(src::Ln, eval::Function, origin, what) =
+eval_macro_input(eval::Function, origin, what, src::Ln) =
     try
         eval()
     catch e
@@ -166,21 +166,21 @@ eval_macro_input(src::Ln, eval::Function, origin, what) =
     end
 
 "Test (evaluated) input provided as an expected exception type."
-check_exception_type(src::Ln, E) = errwith("Not a(n exception) type:") do io
+check_exception_type(E, src::Ln) = errwith("Not a(n exception) type:") do io
     println(io, lnline(src))
     print(io, "  ", rept(E))
 end
-check_exception_type(::Ln, ::Type) = @test true # +1 for @testset.
+check_exception_type(::Type, ::Ln) = @test true # +1 for @testset.
 
 """
 Check (evaluated) custom fields checks map against (evaluated) expected type expression.
 Filter out ignored fields and return included ones.
 """
-function check_checksmap(src::Ln, E::Type, checks)
+function check_checksmap(E::Type, checks, src::Option{Ln} = nothing)
     enames = fieldnames(E)
     for cname in keys(checks)
         cname in enames || errwith("Invalid field name:.") do io
-            println(io, lnline(src))
+            isnothing(src) || println(io, lnline(src))
             println(
                 io,
                 "Exception type $italics$yellow$E$reset \
@@ -196,10 +196,10 @@ Assuming the above passed,
 check (unevaluated) fields signature against the non-ignored fields list.
 """
 function check_fields_expression(
-    src::Ln,
     E::Type,
     expected_names::Tuple{Vararg{Symbol}},
     fields::Tuple,
+    src::Ln,
 )
     withcontext(check_expected_fields, E, expected_names, fields) do io
         println(io, lnline(src))
@@ -334,11 +334,11 @@ function test_errsource(err, E::Type, fields, checks = (;))
         errwith("Not a tuple to compare against error fields:", rethrow) do io
             render_input(io, fields)
         end
-    enames = fieldnames(E)
     err = try
-        Errors.check_expected_fields(E, enames, fields)
-        err isa E || Errors.unexpected_error_type(err, E, fields)
-        Errors.test_error_expected(err, E, enames, fields, checks)
+        enames = R.check_checksmap(E, checks)
+        R.check_expected_fields(E, enames, fields)
+        err isa E || R.unexpected_error_type(err, E, fields)
+        R.test_error_expected(err, E, enames, fields, checks)
         nothing
     catch e
         e isa OneShotReport || rethrow(e)
