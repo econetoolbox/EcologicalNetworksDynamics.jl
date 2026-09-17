@@ -1,19 +1,25 @@
-module TestAliasingDicts
+module AliasingDicts
 
-using EcologicalNetworksDynamics.AliasingDicts
-using Main: @argfails, @aliasfails, @xaliasfails, @failswith
+using EcologicalNetworksDynamics.AliasingDicts:
+    AliasingDicts as AD, define_aliasing_dict, define_2D_api
+
+using EcologicalNetworksDynamics.Tests: Tests, @test_err, @argfails, @aliasfails
 using Test
-
-const AD = AliasingDicts
+using OrderedCollections
 
 # Leverage `repr` summarize most tested features within a single string comparison.
-macro check(xp, expected, type)
+macro test_dict(d, T, expected)
+    src = __source__
+    repr = Tests.liftmcall(:($Tests.@test_repr $d $expected), src)
+    is = Tests.liftmcall(:(@test $d isa $AliasingDicts.FruitDict{$T}), src)
     quote
-        d = $(esc(xp))
-        @test $expected == repr(d)
-        @test d isa FruitDict{$type}
-    end
+        $repr
+        $is
+    end |> esc
 end
+
+dad(args...) = define_aliasing_dict(AliasingDicts, args...)
+d2d(args...) = define_2D_api(AliasingDicts, args...)
 
 @testset "Aliased references" begin
 
@@ -21,7 +27,7 @@ end
     # Construct an aliasing dict subtype.
     # with all associated methods.
 
-    @aliasing_dict(FruitDict, "fruit", :fruit, (:apple => [:a], :berry => [:b, :br]))
+    dad(:FruitDict, "fruit", :fruit, (:apple => [:a], :berry => [:b, :br]))
 
     F = FruitDict
     @test length(F) == 2
@@ -38,7 +44,7 @@ end
           (a = :apple, apple = :apple, b = :berry, br = :berry, berry = :berry)
 
     # Cheat-sheet.
-    @test AD.aliases(F) == AD.OrderedDict(:apple => [:a], :berry => [:b, :br])
+    @test AD.aliases(F) == OrderedDict(:apple => [:a], :berry => [:b, :br])
 
     @test AD.name(F) == "fruit"
 
@@ -56,23 +62,13 @@ end
 
     # Guard against invalid or ambiguous referencing.
     @aliasfails(AD.standardize(:xy, F), "fruit", "Invalid reference: 'xy'.")
-    @xaliasfails(
-        @aliasing_dict(
-            FruitDict_dsr,
-            "fruit",
-            :fruit,
-            (:peach => [:p, :h], :pear => [:r, :p])
-        ),
+    @aliasfails(
+        dad(:FruitDict_dsr, "fruit", :fruit, (:peach => [:p, :h], :pear => [:r, :p])),
         "fruit",
         "Ambiguous fruit reference: 'p' either means 'peach' or 'pear'.",
     )
-    @xaliasfails(
-        @aliasing_dict(
-            FruitDict_eas,
-            "fruit",
-            :fruit,
-            (:peach => [:h, :e], :pear => [:p, :p]),
-        ),
+    @aliasfails(
+        dad(:FruitDict_eas, "fruit", :fruit, (:peach => [:h, :e], :pear => [:p, :p])),
         "fruit",
         "Duplicated fruit alias for 'pear': 'p'.",
     )
@@ -87,35 +83,36 @@ end
     # Keys are implicitly converted to symbols if possible.
 
     # Empty.
-    @check FruitDict() "$FruitDict{Any}()" Any
-    @check FruitDict{Int64}() "$FruitDict{Int64}()" Int64
-    @check FruitDict{Real}() "$FruitDict{Real}()" Real
+    FD = FruitDict
+    @test_dict(FD(), Any, "$FD{Any}()")
+    @test_dict(FD{Int64}(), Int64, "$FD{Int64}()")
+    @test_dict(FD{Real}(), Real, "$FD{Real}()")
 
     # With single kwarg.
-    @check FruitDict(; a = 5.0) "$FruitDict{Float64}(a: 5.0)" Float64
-    @check FruitDict{Int64}(; a = 5.0) "$FruitDict{Int64}(a: 5)" Int64 # (conversion)
-    @check FruitDict{Real}(; a = 5.0) "$FruitDict{Real}(a: 5.0)" Real # (retained abstract)
+    @test_dict(FD(; a = 5.0), Float64, "$FD{Float64}(a: 5.0)")
+    @test_dict(FD{Int64}(; a = 5.0), Int64, "$FD{Int64}(a: 5)") # (converted)
+    @test_dict(FD{Real}(; a = 5.0), Real, "$FD{Real}(a: 5.0)") # (still abstract)
 
     # With single arg.
-    @check FruitDict(:a => 5.0) "$FruitDict{Float64}(a: 5.0)" Float64
-    @check FruitDict('a' => 5.0) "$FruitDict{Float64}(a: 5.0)" Float64
-    @check FruitDict{Int64}(:a => 5.0) "$FruitDict{Int64}(a: 5)" Int64
-    @check FruitDict{Int64}('a' => 5.0) "$FruitDict{Int64}(a: 5)" Int64 # (key conversion)
-    @check FruitDict{Real}(:a => 5.0) "$FruitDict{Real}(a: 5.0)" Real
-    @check FruitDict{Real}("a" => 5.0) "$FruitDict{Real}(a: 5.0)" Real# (key conversion)
+    @test_dict(FD(:a => 5.0), Float64, "$FD{Float64}(a: 5.0)")
+    @test_dict(FD('a' => 5.0), Float64, "$FD{Float64}(a: 5.0)")
+    @test_dict(FD{Int64}(:a => 5.0), Int64, "$FD{Int64}(a: 5)")
+    @test_dict(FD{Int64}('a' => 5.0), Int64, "$FD{Int64}(a: 5)") # (key converted)
+    @test_dict(FD{Real}(:a => 5.0), Real, "$FD{Real}(a: 5.0)")
+    @test_dict(FD{Real}("a" => 5.0), Real, "$FD{Real}(a: 5.0)") # (key converted)
 
     # With double kwargs.
-    @check FruitDict(; a = 5, b = 8.0) "$FruitDict{Real}(a: 5, b: 8.0)" Real
-    @check FruitDict{Int64}(; a = 5, b = 8.0) "$FruitDict{Int64}(a: 5, b: 8)" Int64
-    @check FruitDict{Real}(; a = 5, b = 8.0) "$FruitDict{Real}(a: 5, b: 8.0)" Real
+    @test_dict(FD(; a = 5, b = 8.0), Real, "$FD{Real}(a: 5, b: 8.0)")
+    @test_dict(FD{Int64}(; a = 5, b = 8.0), Int64, "$FD{Int64}(a: 5, b: 8)")
+    @test_dict(FD{Real}(; a = 5, b = 8.0), Real, "$FD{Real}(a: 5, b: 8.0)")
 
     # With double args.
-    @check FruitDict(:a => 5, :b => 8.0) "$FruitDict{Real}(a: 5, b: 8.0)" Real
-    @check FruitDict('a' => 5, "b" => 8.0) "$FruitDict{Real}(a: 5, b: 8.0)" Real
-    @check FruitDict{Int64}(:a => 5, :b => 8.0) "$FruitDict{Int64}(a: 5, b: 8)" Int64
-    @check FruitDict{Int64}('a' => 5, "b" => 8.0) "$FruitDict{Int64}(a: 5, b: 8)" Int64
-    @check FruitDict{Real}(:a => 5, :b => 8.0) "$FruitDict{Real}(a: 5, b: 8.0)" Real
-    @check FruitDict{Real}('a' => 5, "b" => 8.0) "$FruitDict{Real}(a: 5, b: 8.0)" Real
+    @test_dict(FD(:a => 5, :b => 8.0), Real, "$FD{Real}(a: 5, b: 8.0)")
+    @test_dict(FD('a' => 5, "b" => 8.0), Real, "$FD{Real}(a: 5, b: 8.0)")
+    @test_dict(FD{Int64}(:a => 5, :b => 8.0), Int64, "$FD{Int64}(a: 5, b: 8)")
+    @test_dict(FD{Int64}('a' => 5, "b" => 8.0), Int64, "$FD{Int64}(a: 5, b: 8)")
+    @test_dict(FD{Real}(:a => 5, :b => 8.0), Real, "$FD{Real}(a: 5, b: 8.0)")
+    @test_dict(FD{Real}('a' => 5, "b" => 8.0), Real, "$FD{Real}(a: 5, b: 8.0)")
 
     # Guard against ambiguities.
     @aliasfails(
@@ -165,7 +162,7 @@ mix_types = nothing
 @testset "Nested 2D API" begin
 
     # Nest fruit and properties.
-    @aliasing_dict(PropertyDict, "property", :prop, (:color => [:c, :col], :depth => [:d]))
+    dad(:PropertyDict, "property", :prop, (:color => [:c, :col], :depth => [:d]))
 
     # Specify type template.
     F, P = FruitDict, PropertyDict
@@ -175,7 +172,7 @@ mix_types = nothing
         berry = P(; color = Float32, depth = Float64),
     )
 
-    @prepare_2D_api(Mix, FruitDict, PropertyDict)
+    d2d(:Mix, FruitDict, PropertyDict)
 
     # These are now defined.
     MA = MixArguments
@@ -392,57 +389,47 @@ mix_types = nothing
     # Guard nested 2D api *devs* against possible ambiguous input.
     # (use random trigrams as api names to not have tests interact with each other)
 
-    @aliasing_dict(SneakDict_jpc, "sneak", :sneak, (:ambiguous => [:a],))
+    dad(:SneakDict_jpc, "sneak", :sneak, (:ambiguous => [:a],))
     global tfi_types = nothing # (dummy)
-    @failswith(
-        @prepare_2D_api(Tfi, FruitDict, SneakDict_jpc),
+    @test_err(
+        d2d(:Tfi, FruitDict, SneakDict_jpc),
         "Ambiguous aliasing for 'Tfi' 2D API: \
          argument 'a' either means 'fruit::apple' or 'sneak::ambiguous'."
     )
     global euz_types = nothing
-    @failswith(
-        @prepare_2D_api(Euz, SneakDict_jpc, FruitDict),
+    @test_err(
+        d2d(:Euz, SneakDict_jpc, FruitDict),
         "Ambiguous aliasing for 'Euz' 2D API: \
          argument 'a' either means 'sneak::ambiguous' or 'fruit::apple'."
     )
 
-    @aliasing_dict(
-        SneakDict_sys,
-        "sneak",
-        :sneak,
-        (:dummy => [:d], :alter_daemon => [:a_d])
-    )
+    dad(:SneakDict_sys, "sneak", :sneak, (:dummy => [:d], :alter_daemon => [:a_d]))
     global ycd_types = nothing # (dummy)
-    @failswith(
-        @prepare_2D_api(Ycd, FruitDict, SneakDict_sys),
+    @test_err(
+        d2d(:Ycd, FruitDict, SneakDict_sys),
         "Ambiguous aliasing for 'Ycd' 2D API: \
          argument 'a_d' either means 'sneak::alter_daemon' \
          or 'sneak::dummy' within 'fruit::apple'."
     )
     global rig_types = nothing
-    @failswith(
-        @prepare_2D_api(Rig, SneakDict_sys, FruitDict),
+    @test_err(
+        d2d(:Rig, SneakDict_sys, FruitDict),
         "Ambiguous aliasing for 'Rig' 2D API: \
          argument 'a_d' either means 'sneak::alter_daemon' \
          or 'fruit::apple' within 'sneak::dummy'."
     )
 
-    @aliasing_dict(
-        SneakDict_iae,
-        "sneak",
-        :sneak,
-        (:dummy => [:d], :direct_attack => [:d_a])
-    )
+    dad(:SneakDict_iae, "sneak", :sneak, (:dummy => [:d], :direct_attack => [:d_a]))
     global bbt_types = nothing
-    @failswith(
-        @prepare_2D_api(Bbt, FruitDict, SneakDict_iae),
+    @test_err(
+        d2d(:Bbt, FruitDict, SneakDict_iae),
         "Ambiguous aliasing for 'Bbt' 2D API: \
          argument 'd_a' either means 'sneak::direct_attack' \
          or 'sneak::dummy' within 'fruit::apple'."
     )
     global daz_types = nothing
-    @failswith(
-        @prepare_2D_api(Daz, SneakDict_iae, FruitDict),
+    @test_err(
+        d2d(:Daz, SneakDict_iae, FruitDict),
         "Ambiguous aliasing for 'Daz' 2D API: \
          argument 'd_a' either means 'sneak::direct_attack' \
          or 'fruit::apple' within 'sneak::dummy'."

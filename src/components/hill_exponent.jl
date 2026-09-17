@@ -1,53 +1,22 @@
-# Set or generate hill-exponent.
+# Hill exponent is a single graph-level scalar
+# useful to calculate allometric values for various biorates.
 
-# (reassure JuliaLS)
-(false) && (local HillExponent, _HillExponent)
-
-# ==========================================================================================
-# Blueprints.
-
-module HillExponent_
-include("blueprint_modules.jl")
-
-#-------------------------------------------------------------------------------------------
-# From raw value.
-
-mutable struct Raw <: Blueprint
-    h::Float64
-end
-@blueprint Raw "power value"
-export Raw
-
-F.early_check(bp::Raw) = check(bp.h)
-check(h) = check_value(>=(0), h, nothing, :h, "Not a positive (power) value")
-
-F.expand!(raw, bp::Raw) = raw._scratch[:hill_exponent] = bp.h
-
-end
-
-# ==========================================================================================
-# Component and generic constructors.
-
-@component HillExponent{Internal} blueprints(HillExponent_)
+(false) && (local HillExponent, _HillExponent) # (reassure JuliaLS)
 export HillExponent
 
-(::_HillExponent)(h) = HillExponent.Raw(h)
+module HillExponentDef
 
-@expose_data graph begin
-    property(hill_exponent, h)
-    depends(HillExponent)
-    get(raw -> raw._scratch[:hill_exponent])
-    set!((raw, rhs::Real) -> begin
-        HillExponent_.check(rhs)
-        h = Float64(rhs)
-        raw._scratch[:hill_exponent] = h
-        # Legacy updates, required because scalars don't alias.
-        # Should not be needed once the Internals have been refactored.
-        fr = raw.functional_response
-        fr isa Internals.BioenergeticResponse && (fr.h = h)
-        fr isa Internals.ClassicResponse && (fr.h = h)
-    end)
+using EcologicalNetworksDynamics: EN, D, NF
+
+const d = D.GraphField(:hill_exponent)
+const DT = typeof(d)
+
+D.name_variants(::DT) = (:h, :hill_exponent, :HillExponent)
+D.type(::DT) = Float64
+NF.check(::DT, input) = NF.non_negative(Float64, input)
+
+# Codegen + exec.
+NF.define_graph_scalar(EN, d)
+using .EN: HillExponent, _HillExponent
+
 end
-
-# Display.
-F.shortline(io::IO, model::Model, ::_HillExponent) = print(io, "Hill Exponent: $(model.h)")

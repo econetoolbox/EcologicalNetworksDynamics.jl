@@ -1,13 +1,23 @@
-@testset "Hill exponent component." begin
+module HillExponentTest
 
-    m = Model(HillExponent(2))
-    @test m.hill_exponent == m.h == 2
+using EcologicalNetworksDynamics
 
+using Test
+using Main: @inputfails, @sysfails, Value
+
+@testset "HillExponent component." begin
+
+    # Checked conversion to a positive Float64.
+    bp = HillExponent(2)
+    @test bp.h isa Float64
+    @test bp.h == 2
+    m = Model(bp)
+    @test m.h isa Float64
     m.h = 3
-    @test m.hill_exponent == m.h == 3
+    @test m.h isa Float64
+    @test m.h == 3
+    @inputfails(m.h = -1, "Value cannot be negative.", -1)
 
-    mess = "Not a positive (power) value: h ="
-    @sysfails(Model(HillExponent(-4)), Check(early, [HillExponent.Raw], "$mess -4.0."))
-    @failswith(m.h = -1, WriteError("$mess -1.", :hill_exponent, nothing, -1))
+end
 
 end

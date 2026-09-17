@@ -20,6 +20,7 @@ DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 Mangal = "b8b640a6-63d9-51e6-b784-5033db27bef2"
@@ -28,6 +29,9 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StringCases = "f22f4433-750e-5048-95f9-cae576f2c120"
+# Useful for the Test module.
+StringManipulation = "892a3eda-7b42-436c-8928-eab12a02cf0e"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 Crayons = "4.1"
@@ -37,6 +41,7 @@ DiffEqCallbacks = "4.0"
 DifferentialEquations = "7.15"
 Distributions = "0.25"
 Graphs = "1.9"
+Infiltrator = "1.9.10"
 MacroTools = "0.5"
 Mangal = "0.5"
 OrderedCollections = "1.6"
@@ -59,7 +64,6 @@ Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SyntaxTree = "a4af3ec5-f8ac-5fed-a759-c2e80b4d74cb"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = [
@@ -71,5 +75,4 @@ test = [
     "Random",
     "SyntaxTree",
     "TOML",
-    "Test",
 ]
