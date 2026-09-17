@@ -140,27 +140,29 @@ datatype(::Type{<:ReflexiveWebAdjacencyBlueprint}) = BinAdjacency
 # Construct.
 
 # Pick blueprint depending on input conversion success.
-construct(::D.Web, Web::Component, input, args...; kwargs...) = try_convert(
-    input,
-    SparseMatrix{Bool} => A -> Web.Matrix(A, args...; kwargs...),
-    BinAdjacency => A -> Web.Adjacency(A, args...; kwargs...),
-)
+function construct(::D.Web, Web::Component, input, args...; kwargs...)
+    try_convert(
+        input,
+        SparseMatrix{Bool} => A -> Web.Matrix(A, args...; kwargs...),
+        BinAdjacency => A -> Web.Adjacency(A, args...; kwargs...),
+    )
+end
 
 #-------------------------------------------------------------------------------------------
 # Intrinsic check.
 
 function intrinsic_check(::D.Web, A::SparseMatrix{Bool})
     n, m = size(A)
-    n == m || checkerr(A, "The adjacency matrix of size $((m, n)) is not squared.")
+    n == m && return A
+    checkerr(A, "The adjacency matrix of size $((m, n)) is not squared.")
 end
 
 #-------------------------------------------------------------------------------------------
 # Late check.
 
-function late_check(d::D.Web, m::Model, bp::ReflexiveWebMatrixBlueprint)
-    (; A) = bp
+function late_check(m::Model, d::D.Web, A::SparseMatrix{Bool})
     a, b = size(A)
-    src = D.source(d)
+    src, _ = D.source(d)
     class = D.snake_case_singular(src)
     n = getproperty(m, class).number
     if !(n == a == b)
@@ -173,9 +175,6 @@ function late_check(d::D.Web, m::Model, bp::ReflexiveWebMatrixBlueprint)
         )
     end
 end
-
-# Dispatch over either label or indices refs.
-late_check(d::D.Web, m::Model, bp::ReflexiveWebAdjacencyBlueprint) = late_check(d, m, bp.A)
 
 function late_check(d::D.Web, m::Model, adj::BinAdjacency{Symbol})
     class = D.sourcename(d)

@@ -75,9 +75,11 @@ const Sp = @PropertySpace(species, Network)
 
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
+
     @bpfails(Species([:a, :b, :b]),
         Species.Names, :construct, nothing,
         (nothing, 3, :check, :b, "Species 2 and 3 would both be named :b."))
+
     @test_err(Species([:a, :b, :b]), # First time with a 1D index.
         """
         While constructing blueprint Species.Names:

@@ -27,18 +27,6 @@ convert(T::Type, B::Type{<:Blueprint}, input) = convert(T, dispatcher(B), input)
 convert(T::Type, b::Blueprint, input) = convert(T, dispatcher(b), input)
 
 #-------------------------------------------------------------------------------------------
-# Intrinsic check.
-
-"""
-Assuming input data already has the right type,
-check that the value is consistent with expectations.
-Return the passed data aliased and unchanged.
-"""
-intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
-intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
-intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
-
-#-------------------------------------------------------------------------------------------
 # Construct.
 
 "Determine main blueprint data type if any (expect *static* answer)."
@@ -75,6 +63,18 @@ _construct(B::Type{<:Blueprint}, args...; kwargs...) =
         e isa LibError || rethrow(e)
         upgrade(e, BlueprintError, (nothing,), B, :construct, nothing)
     end
+
+#-------------------------------------------------------------------------------------------
+# Intrinsic check.
+
+"""
+Assuming input data already has the right type,
+check that the value is consistent with expectations.
+Return the passed data aliased and unchanged.
+"""
+intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
+intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
+intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
 
 #-------------------------------------------------------------------------------------------
 # Early check.

@@ -7,7 +7,7 @@ using EcologicalNetworksDynamics
 using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
-    @test_repr, @test_disp, @bpfails, @propfails, @immutfails
+    @test_repr, @test_disp, @bpfails, addfails, @propfails, @immutfails
 import EcologicalNetworksDynamics.NetworkFramework: EN, D, Network, Views, SparseMatrix
 
 const d, _D = D.Web(:trophic)
@@ -75,6 +75,13 @@ using Test
         Foodweb.Matrix, :construct, nothing,
         (nothing, :whole, :check, spzeros(Bool, (2, 3)),
             "The adjacency matrix of size (3, 2) is not squared."))
+
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
+    m = Model(Species(3))
+    addfails.@check(m + Foodweb(zeros(Bool, 2, 2)),
+        [], (Foodweb.Matrix, :late, m, "a")) # HERE: how to properly test late check? elide m?
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑
