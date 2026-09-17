@@ -86,8 +86,24 @@ end
 
     @test conv(Bool, 1 => true)
     @test conv(Bool, 0x1 => true)
-    @test conv(Vector{Bool}, [1, 0] => [true, false])
-    @test conv(Vector{Bool}, [false, true] => Alias)
+
+    v = [true, false]
+    @test conv(Vector{Bool}, [1, 0] => v)
+    @test conv(Vector{Bool}, BitVector([1, 0]) => v)
+    @test conv(Vector{Bool}, v => Alias)
+    s = sparse(v)
+    @test conv(SparseVector{Bool}, [1, 0] => s)
+    @test conv(SparseVector{Bool}, BitVector([1, 0]) => s)
+    @test conv(SparseVector{Bool}, s => Alias)
+
+    m = [true; false ;; false ; true]
+    @test conv(Matrix{Bool}, [1; 0;; 0; 1] => m)
+    @test conv(Matrix{Bool}, BitMatrix([1; 0;; 0; 1]) => m)
+    @test conv(Matrix{Bool}, m => Alias)
+    s = sparse(m)
+    @test conv(SparseMatrix{Bool}, [1; 0;; 0; 1] => s)
+    @test conv(SparseMatrix{Bool}, BitMatrix([1; 0;; 0; 1]) => s)
+    @test conv(SparseMatrix{Bool}, s => Alias)
     # etc.
 
     #---------------------------------------------------------------------------------------

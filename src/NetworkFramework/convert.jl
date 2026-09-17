@@ -21,7 +21,7 @@
 
 # ==========================================================================================
 # Scalar conversions.
-function allow_convert(Target, Input, f)
+function allow_convert(Target, Input, f = Target)
     eval(
         quote
             convert(::Type{$Target}, v::$Input) =
@@ -95,6 +95,12 @@ end
 ac_all(Float64, Real)
 ac_all(Int, Union{Integer,Unsigned})
 ac_all(Bool, Union{Integer,Unsigned})
+
+# Special-case bitarrays.
+ac(Vector{Bool}, BitVector)
+ac(Matrix{Bool}, BitMatrix)
+ac(SparseVector{Bool}, BitVector)
+ac(SparseMatrix{Bool}, BitMatrix)
 
 # ==========================================================================================
 """
