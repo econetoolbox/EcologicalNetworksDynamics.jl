@@ -47,7 +47,7 @@ end
 """
 Number of nodes in the restriction.
 """
-Base.length(::Restriction) = throw("unimplemented")
+Base.length(r::Restriction) = unimplemented(length, r)
 Base.length(f::Full) = f.n
 Base.length(r::Range) = length(r.range)
 Base.length(s::Sparse) = length(s.select)
@@ -57,7 +57,7 @@ Base.length(s::SparseRanges) = last(s.cumsizes)
 Given an index *from the parent class*,
 query whether it also belongs to the restricted subclass.
 """
-Base.in(::Int, ::Restriction) = throw("unimplemented")
+Base.in(i::Int, r::Restriction) = unimplemented(in, i, r)
 Base.in(::Int, ::Full) = true
 Base.in(i::Int, r::Range) = i in r.range
 Base.in(i::Int, s::Sparse) = insorted(i, s.select)
@@ -69,7 +69,7 @@ end
 """
 Obtain an iterable through all nodes indices in the parent class.
 """
-indices(::Restriction) = throw("unimplemented")
+indices(r::Restriction) = unimplemented(indices, r)
 indices(f::Full) = 1:f.n
 indices(r::Range) = r.range
 indices(s::Sparse) = s.select
@@ -78,7 +78,7 @@ indices(s::SparseRanges) = I.flatten(s.ranges)
 """
 Convert a local index to a parent index.
 """
-toparent(::Int, ::Restriction) = throw("unimplemented")
+toparent(i::Int, r::Restriction) = unimplemented(toparent, i, r)
 toparent(i::Int, ::Full) = i
 toparent(i::Int, r::Range) = i + first(r.range) - 1
 toparent(i::Int, s::Sparse) = s.select[i]
@@ -93,7 +93,7 @@ toparent(i::Int, s::SparseRanges) =
 """
 Convert a parent index to a local index, assuming it exists.
 """
-tolocal(::Int, ::Restriction) = throw("unimplemented")
+tolocal(i::Int, r::Restriction) = unimplemented(tolocal, i, r)
 tolocal(i::Int, ::Full) = i
 tolocal(i::Int, r::Range) = i - first(r.range) + 1
 tolocal(i::Int, s::Sparse) = searchsortedfirst(s.select, i)

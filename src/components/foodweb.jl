@@ -33,7 +33,7 @@ const Foodweb, _Foodweb = EN.Foodweb, EN._Foodweb
 # ==========================================================================================
 # Web-derived classes and webs.
 
-function NF.post_expand!(d::_D, model)
+function NF.post_expand!(model::Model, d::_D)
     network = N.network(model)
     web = D.web(d)
     topology = N.web(network, web).topology
@@ -50,7 +50,7 @@ function NF.post_expand!(d::_D, model)
     N.add_subclass!(network, :consumers, :species, N.nonsinks_mask(topology))
 
     # And also new webs with special trophic links highlighted.
-    S = model.S
+    (; S) = model
 
     # Producers matrix.
     prods = N.node_indices(network, :producers)

@@ -230,27 +230,28 @@ end
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-expand!(d::D.Web, model, bp::ReflexiveWebMatrixBlueprint) =
-    expand!(d, model, N.SparseReflexive(bp.A))
-
-function expand!(d::D.Web, model, bp::ReflexiveWebAdjacencyBlueprint)
-    adj = bp.A
-    class = D.sourcename(d)
-    index = getproperty(model, class)._index
-    to_i(label) = N.to_index(index, label)
-    topology = N.SparseReflexive(length(index), I.map(adj) do (src, sub)
-        (to_i(src), I.map(to_i, sub))
-    end)
-    expand!(d, model, topology)
+function expand!(m::Model, d::D.Web, A::AbstractSparseMatrix)
+    topology = N.SparseReflexive(A)
+    expand!(m, d, topology)
 end
 
-function expand!(d::D.Web, md::Model, top::Topology)
+function expand!(m::Model, d::D.Web, A::BinAdjacency)
+    class = D.sourcename(d)
+    index = getproperty(m, class)._index
+    to_i(label) = N.to_index(index, label)
+    topology = N.SparseReflexive(length(index), I.map(A) do (src, sub)
+        (to_i(src), I.map(to_i, sub))
+    end)
+    expand!(m, d, topology)
+end
+
+function expand!(m::Model, d::D.Web, top::Topology)
     c = D.sourcename(d)
     w = D.web(d)
-    network = NF.network(md)
+    network = NF.network(m)
     N.add_web!(network, w, (c, c), top)
-    post_expand!(d, md)
+    post_expand!(d, m)
 end
 
 # Extension point.
-post_expand!(::D.Web, model) = nothing
+post_expand!(::Model, ::D.Web) = nothing

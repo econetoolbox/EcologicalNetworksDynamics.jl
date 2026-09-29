@@ -1,4 +1,4 @@
-import .Display: yellow, reset
+import .Display: yellow, black, bold, reset, rept, wide_repr
 
 """
 Use to throw or rethrow when the error is identified within user arguments.
@@ -122,3 +122,15 @@ function Base.showerror(io::IO, e::FailedAttempts)
         println(io)
     end
 end
+
+"""
+Useful to document an 'unimplemented' method base stub
+while still getting informed about underlying methods when hit.
+"""
+unimplemented(fn::Function, args...) =
+    errwith("Method $black$bold$fn$reset$yellow unimplemented for:") do io
+        for a in args
+            println(io, "  - " * rept(a))
+        end
+        wide_repr(io, methods(fn))
+    end

@@ -3,7 +3,7 @@
 """
 If relevant, obtain the data kind provided by the blueprint.
 """
-dispatcher(::Type{<:Blueprint}) = throw("unimplemented")
+dispatcher(B::Type{<:Blueprint}) = unimplemented(dispatcher, B)
 dispatcher(b::Blueprint) = b |> typeof |> dispatcher
 
 #-------------------------------------------------------------------------------------------
@@ -30,7 +30,7 @@ convert(T::Type, b::Blueprint, input) = convert(T, dispatcher(b), input)
 # Construct.
 
 "Determine main blueprint data type if any (expect *static* answer)."
-datatype(::Type{<:Blueprint}) = throw("unimplemented")
+datatype(B::Type{<:Blueprint}) = unimplemented(datatype, B)
 datatype(bp::Blueprint) = typeof(data(bp))
 
 """
@@ -80,7 +80,7 @@ intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
 # Early check.
 
 "Extract main blueprint data if any (expect *static* answer)."
-data(::Blueprint) = throw("unimplemented")
+data(b::Blueprint) = unimplemented(data, b)
 
 "Validate data and take this opportunity to start lowering."
 early_check(d::Dispatcher, data) = intrinsic_check(d, data)
@@ -130,7 +130,7 @@ lower(m::Model, b::Blueprint, ld) = lower(m, dispatcher(b), ld)
 Use `lower` data to finally expand into the desired component.
 Cannot fail.
 """
-expand!(::Model, ::Dispatcher, _) = throw("unimplemented")
+expand!(m::Model, d::Dispatcher, t) = unimplemented(expand!, m, d, t)
 expand!(m::Model, b::Blueprint, data) = expand!(m, dispatcher(b), data)
 expand!(m::Model, b::Blueprint) = expand!(m, dispatcher(b), data(b))
 
@@ -148,7 +148,7 @@ function reassign(m::Model, d::Dispatcher, input)
 end
 
 "Actually perform the reassignment, assuming lowered data."
-reassign!(::Model, ::Dispatcher, _) = throw("unimplemented")
+reassign!(m::Model, d::Dispatcher, t) = unimplemented(reassign!, m, d, t)
 
 # Entrypoint from generated code.
 function _reassign(m::Model, d::Dispatcher, input)

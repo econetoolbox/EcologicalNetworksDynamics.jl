@@ -98,7 +98,9 @@ const Sp = @PropertySpace(species, Network)
         (Species.Names, :early, nothing,
             (nothing, 3, :check, :x, "Species 2 and 3 would both be named :x.")))
 
+    #---------------------------------------------------------------------------------------
     # Expand.
+
     m = Model(Species(collect("abc")))
     @test_disp(m,
         """

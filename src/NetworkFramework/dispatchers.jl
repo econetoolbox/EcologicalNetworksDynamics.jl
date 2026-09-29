@@ -7,7 +7,7 @@ by specializing implementations for their particular component.
 """
 module Dispatchers
 
-using EcologicalNetworksDynamics: N, Networks, Display
+using EcologicalNetworksDynamics: N, Networks, Display, unimplemented
 using .Display: cyan, reset
 const D = Dispatchers
 
@@ -104,7 +104,7 @@ is_reflexive(s::S) = source(s) == target(s)
 is_symmetric(s::S) =
     is_reflexive(s) ? throw("Unspecified whether $s reflexive web topology is symmetric.") :
     false # No need to implement for non-reflexive webs.
-is_sparse(::S) = throw("unimplemented") # Always need to specify.
+is_sparse(s::S) = unimplemented(is_sparse, s) # Always need to specify.
 
 
 """
@@ -279,7 +279,7 @@ const AbstractField{field} =
     Union{GraphField{field},<:AbstractNodeField{<:Any,field},<:EdgeField{<:Any,field}}
 S = AbstractField
 readonly(::S) = false # By default, or specialize.
-viewtype(::S) = throw("unimplemented") # The data view for this field.
+viewtype(s::S) = unimplemented(viewtype, s) # The data view for this field.
 
 """
 Obtain name variants for the data points, in order:
