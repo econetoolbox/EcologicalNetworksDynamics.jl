@@ -97,17 +97,58 @@ using Test
         """)
 
     #---------------------------------------------------------------------------------------
-    # Expand, implying species class.
+    # Expand, implying underlying class.
 
     m = Model(bp)
-    @test has_component(m, Species)
     @test has_component(m, Foodweb)
+    @test has_component(m, Species)
     @test_repr(m,
         """
         Model (alias for $(F.System){$Network}) with 2 components:
           - Species: 3 (:s1, :s2, :s3)\
           - Foodweb: 3 links, 1 producer, 2 consumers, 2 preys, 1 top.
         """)
+
+    # ======================================================================================
+    # From an adjacency list.
+
+    A = [:a => (:b, :c), (:b, :d) => :e] # Using labels.
+    Ai = [6 => (4, 2), (4, 1) => 3] # Using indices (with a different topology).
+
+    bp = Foodweb.Adjacency(A)
+    bpi = Foodweb.Adjacency(Ai)
+    @test bp == Foodweb.Adjacency(['a' => ["b", "c"], ['b', :d] => "e"])
+    @test bpi == Foodweb.Adjacency(Iterators.map(identity, [6 => [4, 2], ([4, 1], 3)]))
+    # Implicit constructor.
+    @test bp == Foodweb(A)
+    @test bpi == Foodweb(Ai)
+    @test bp == Foodweb(['a' => ["b", "c"], ['b', :d] => "e"])
+    @test bpi == Foodweb(Iterators.map(identity, [6 => [4, 2], ([4, 1], 3)]))
+    @test_repr(bp, "<Foodweb>:Adjacency(A: {a: {b, c}, b: {e}, d: {e}})")
+    @test_repr(bpi, "<Foodweb>:Adjacency(A: {6: {4, 2}, 4: {3}, 1: {3}})")
+    @test_disp(bp,
+        """
+        blueprint for <Foodweb>: Adjacency {
+          A: {
+            a -> { b, c },
+            b -> { e },
+            d -> { e },
+          },
+        }\
+        """)
+    @test_disp(bpi,
+        """
+        blueprint for <Foodweb>: Adjacency {
+          A: {
+            6 -> { 4, 2 },
+            4 -> { 3 },
+            1 -> { 3 },
+          },
+        }\
+        """)
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑

@@ -256,3 +256,21 @@ end
 
 # Extension point.
 post_expand!(::Model, ::D.Web) = nothing
+
+# ==========================================================================================
+# Display.
+
+function F.display_blueprint_field_long(
+    io::IO,
+    adj::BinAdjacency,
+    ::ReflexiveWebAdjacencyBlueprint,
+)
+    println(io, "$black{$reset")
+    bc = "$black,$reset"
+    srcs = I.map(adj) do (src, sub)
+        subs = join_elided(sub, "$bc ", repr = false)
+        "    $src $black-> {$reset $subs $black}$reset"
+    end
+    print(io, join_elided(srcs, "$bc\n"; repr = false))
+    print(io, "$bc\n  $black}$reset")
+end

@@ -198,7 +198,7 @@ end
 function name_among(expected, input)
     name = convert(Symbol, input)
     name in expected ||
-        checkerr(name, "Expected one of $(EN.join_elided(expected, ", ", " or ")).")
+        checkerr(name, "Expected one of $(join_elided(expected, ", ", " or ")).")
     name
 end
 

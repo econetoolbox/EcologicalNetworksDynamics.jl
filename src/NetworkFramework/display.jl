@@ -93,7 +93,7 @@ function F.display_blueprint_field_short(io::IO, map::Map, ::Blueprint)
     it = I.map(map) do (k, v)
         "$k: $v"
     end
-    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
+    print(io, "{$(join_elided(it, ", "; repr = false))}")
 end
 
 # Adjacency list.
@@ -101,12 +101,12 @@ function F.display_blueprint_field_short(io::IO, adj::Adjacency, bp::Blueprint)
     it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
-    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
+    print(io, "{$(join_elided(it, ", "; repr = false))}")
 end
 
 # Binary map.
 function F.display_blueprint_field_short(io::IO, set::BinMap, ::Blueprint)
-    print(io, "{$(EN.join_elided(set, ", "; repr = false))}")
+    print(io, "{$(join_elided(set, ", "; repr = false))}")
 end
 
 # Binary adjacency list.
@@ -114,7 +114,7 @@ function F.display_blueprint_field_short(io::IO, adj::BinAdjacency, bp::Blueprin
     it = I.map(adj) do (k, v)
         "$k: $(sprint(F.display_blueprint_field_short, v, bp))"
     end
-    print(io, "{$(EN.join_elided(it, ", "; repr = false))}")
+    print(io, "{$(join_elided(it, ", "; repr = false))}")
 end
 
 # Defer long to short by default.
