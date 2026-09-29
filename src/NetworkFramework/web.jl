@@ -177,22 +177,22 @@ function late_check(m::Model, d::D.Web, A::SparseMatrix{Bool})
     A
 end
 
-function late_check(d::D.Web, m::Model, adj::BinAdjacency{Symbol})
+function late_check(m::Model, d::D.Web, adj::BinAdjacency{Symbol})
     class = D.sourcename(d)
     index = getproperty(m, class)._index
     check_refs(d, adj) do side, lab
         N.is_label(index, lab) ||
-            checkerr(adj, "Not a $side label among $(repr(class)): $(repr(lab))")
+            checkerr(lab, "Not a $side label among $(repr(class)).")
     end
 end
 
-function late_check(d::D.Web, m::Model, adj::BinAdjacency{Int})
+function late_check(m::Model, d::D.Web, adj::BinAdjacency{Int})
     class = D.sourcename(d)
     index = getproperty(m, class)._index
     n = length(index)
     check_refs(d, adj) do side, i
         N.is_index(index, i) ||
-            checkerr(adj, "Not a valid $side $(repr(class)) index among $n nodes: [$i].")
+            checkerr(i, "Not a valid $side $(repr(class)) index among $n nodes.")
     end
 end
 
@@ -268,7 +268,7 @@ function F.display_blueprint_field_long(
     println(io, "$black{$reset")
     bc = "$black,$reset"
     srcs = I.map(adj) do (src, sub)
-        subs = join_elided(sub, "$bc ", repr = false)
+        subs = join_elided(sub, "$bc "; repr = false)
         "    $src $black-> {$reset $subs $black}$reset"
     end
     print(io, join_elided(srcs, "$bc\n"; repr = false))

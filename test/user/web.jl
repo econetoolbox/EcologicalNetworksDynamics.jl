@@ -170,6 +170,30 @@ using Test
         """
     )
 
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
+    addfails.@check(Model(Species("axy"), Foodweb(A)), [],
+        (Foodweb.Adjacency, :late,
+            (:whole, :whole, :check, :b, "Not a target label among :species.")))
+    addfails.@check(Model(Species("xyz"), Foodweb(Ai)), [],
+        (Foodweb.Adjacency, :late,
+            (:whole, :whole, :check, 6, "Not a valid source :species index among 3 nodes."),
+        ))
+
+    #---------------------------------------------------------------------------------------
+    # Expand, implying underlying class.
+
+    m = Model(Foodweb(A))
+    @test has_component(m, Foodweb)
+    @test has_component(m, Species)
+    @test m.species.names == [:a, :b, :c, :e, :d]
+
+    m = Model(Foodweb(Ai))
+    @test has_component(m, Foodweb)
+    @test has_component(m, Species)
+    @test m.species.names == [:s1, :s2, :s3, :s4, :s5, :s6]
+
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑
     # ======================================================================================
