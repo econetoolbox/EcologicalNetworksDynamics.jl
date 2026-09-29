@@ -8,7 +8,7 @@ using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @bpfails, addfails, @propfails, @immutfails
-import EcologicalNetworksDynamics.NetworkFramework: EN, D, Network, Views, SparseMatrix
+import EcologicalNetworksDynamics.NetworkFramework: EN, D, F, Network, Views, SparseMatrix
 
 const d, _D = D.Web(:trophic)
 const View = Views.EdgeMaskView{d}
@@ -30,9 +30,9 @@ using Test
     # From a matrix.
 
     A = Bool[
-        0 1 1
-        1 0 0
-        1 1 0
+        0 0 1
+        1 0 1
+        0 0 0
     ]
 
     #---------------------------------------------------------------------------------------
@@ -49,12 +49,12 @@ using Test
     @test bp == Foodweb(sparse(A))
     @test bp == Foodweb(sparse(Int.(A)))
     @test bp == Foodweb(sparse(BitMatrix(A)))
-    @test_repr(bp, "<Foodweb>:Matrix(A: 3×3:5 (true))")
+    @test_repr(bp, "<Foodweb>:Matrix(A: 3×3:3 (true))")
     @test_disp(
         bp,
         """
         blueprint for <Foodweb>: Matrix {
-          A: 3×3 sparse matrix with 5 values (true),
+          A: 3×3 sparse matrix with 3 values (true),
         }\
         """,
     )
@@ -97,7 +97,17 @@ using Test
         """)
 
     #---------------------------------------------------------------------------------------
-    # Expand.
+    # Expand, implying species class.
+
+    m = Model(bp)
+    @test has_component(m, Species)
+    @test has_component(m, Foodweb)
+    @test_repr(m,
+        """
+        Model (alias for $(F.System){$Network}) with 2 components:
+          - Species: 3 (:s1, :s2, :s3)\
+          - Foodweb: 3 links, 1 producer, 2 consumers, 2 preys, 1 top.
+        """)
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑

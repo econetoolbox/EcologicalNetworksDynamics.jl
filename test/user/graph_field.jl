@@ -66,6 +66,7 @@ using Test
 
     # Expand into a field component.
     m = Model(bp)
+    @test has_component(m, Temperature)
     @test_disp(
         m,
         """

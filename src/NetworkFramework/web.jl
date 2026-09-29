@@ -174,6 +174,7 @@ function late_check(m::Model, d::D.Web, A::SparseMatrix{Bool})
              but the provided matrix is of size ($a, $b).",
         )
     end
+    A
 end
 
 function late_check(d::D.Web, m::Model, adj::BinAdjacency{Symbol})
@@ -235,11 +236,11 @@ function expand!(m::Model, d::D.Web, A::AbstractSparseMatrix)
     expand!(m, d, topology)
 end
 
-function expand!(m::Model, d::D.Web, A::BinAdjacency)
+function expand!(m::Model, d::D.Web, adj::BinAdjacency)
     class = D.sourcename(d)
     index = getproperty(m, class)._index
     to_i(label) = N.to_index(index, label)
-    topology = N.SparseReflexive(length(index), I.map(A) do (src, sub)
+    topology = N.SparseReflexive(length(index), I.map(adj) do (src, sub)
         (to_i(src), I.map(to_i, sub))
     end)
     expand!(m, d, topology)
@@ -248,9 +249,9 @@ end
 function expand!(m::Model, d::D.Web, top::Topology)
     c = D.sourcename(d)
     w = D.web(d)
-    network = NF.network(m)
+    network = N.network(m)
     N.add_web!(network, w, (c, c), top)
-    post_expand!(d, m)
+    post_expand!(m, d)
 end
 
 # Extension point.

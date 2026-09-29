@@ -102,6 +102,7 @@ const Sp = @PropertySpace(species, Network)
     # Expand.
 
     m = Model(Species(collect("abc")))
+    @test has_component(m, Species)
     @test_disp(m,
         """
         Model (alias for $(F.System){$Network}) with 1 component:
@@ -136,6 +137,7 @@ const Sp = @PropertySpace(species, Network)
 
     # Expand.
     m = Model(Species(3))
+    @test has_component(m, Species)
     @test_disp(m,
         """
         Model (alias for $(F.System){$Network}) with 1 component:
