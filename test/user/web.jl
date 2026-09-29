@@ -8,7 +8,8 @@ using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @bpfails, addfails, @propfails, @immutfails
-import EcologicalNetworksDynamics.NetworkFramework: EN, D, F, Network, Views, SparseMatrix
+import EcologicalNetworksDynamics.NetworkFramework:
+    EN, D, F, NF, Network, Views, SparseMatrix
 
 const d, _D = D.Web(:trophic)
 const View = Views.EdgeMaskView{d}
@@ -102,15 +103,18 @@ using Test
     m = Model(bp)
     @test has_component(m, Foodweb)
     @test has_component(m, Species)
-    @test_repr(m,
+    @test_disp(m,
         """
         Model (alias for $(F.System){$Network}) with 2 components:
-          - Species: 3 (:s1, :s2, :s3)\
-          - Foodweb: 3 links, 1 producer, 2 consumers, 2 preys, 1 top.
+          - Species: 3 (:s1, :s2, :s3)
+          - Foodweb: 3 links, 1 producer, 2 consumers, 2 preys, 1 top.\
         """)
 
     # ======================================================================================
     # From an adjacency list.
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
 
     A = [:a => (:b, :c), (:b, :d) => :e] # Using labels.
     Ai = [6 => (4, 2), (4, 1) => 3] # Using indices (with a different topology).
@@ -147,8 +151,24 @@ using Test
         }\
         """)
 
-    #---------------------------------------------------------------------------------------
-    # Construct.
+    # Alias.
+    for input in (bp.A, bpi.A)
+        bp = Foodweb(input)
+        @test bp.A === input
+    end
+
+    @bpfails(Foodweb.Adjacency(:a),
+        Foodweb.Adjacency, :construct,
+        (nothing, :whole, :list,
+            "Input for binary adjacency map needs to be iterable.\n\
+             Received: :a  ::$Symbol."))
+    @test_err(Foodweb.Adjacency(:a), # First test with :list.
+        """
+        While constructing blueprint Foodweb.Adjacency:
+        Input for binary adjacency map needs to be iterable.
+        Received: :a  ::Symbol.\
+        """
+    )
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑

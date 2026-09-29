@@ -174,7 +174,7 @@ function test_mref(exp, act::NF.ModelRefErr)
         println(io, "Reported root cause type:")
     end
     # Translate to expected root error type.
-    dict = (; check = NF.CheckError, convert = NF.ConvertError)
+    dict = (; check = NF.CheckError, convert = NF.ConvertError, list = NF.ListParseError)
     RootCauseType = if haskey(dict, exp.root)
         dict[exp.root]
     else

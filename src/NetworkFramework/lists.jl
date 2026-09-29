@@ -134,6 +134,7 @@ end |> I.flatten
 struct ListParseError <: RootCause
     mess::String
 end
+Base.showerror(io::IO, e::ListParseError) = print(io, e.mess)
 
 # Tag thrown exceptions with a symbol
 # to decide which to report in case of multiple 'forgiveness'es.
@@ -248,7 +249,7 @@ report(p::Parser) = isempty(p.path) ? "" : " at $(path(p))"
 # /!\ possibly long: only include at the end of messages.
 function report(p::Parser, input)
     at = report(p)
-    "$at: $(repr(input)) ::$(typeof(input))"
+    "$at: " * rept(input)
 end
 report(::Nothing, _) = ""
 
