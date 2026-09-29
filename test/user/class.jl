@@ -95,7 +95,7 @@ const Sp = @PropertySpace(species, Network)
     input[3] = :x
     # .. but then expansion fails.
     addfails.@check(Model(bp), [],
-        (Species.Names, :early, nothing,
+        (Species.Names, :early,
             (nothing, 3, :check, :x, "Species 2 and 3 would both be named :x.")))
 
     #---------------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ const Sp = @PropertySpace(species, Network)
     # Early check.
     bp.n = -3
     addfails.@check(Model(bp), [],
-        (Species.Number, :early, nothing,
+        (Species.Number, :early,
             (nothing, :whole, :check, -3,
                 "Cannot construct a negative number of species nodes.")))
 

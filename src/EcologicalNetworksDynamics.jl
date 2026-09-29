@@ -89,11 +89,8 @@ include("Tests/Tests.jl")
 using .MultiplexApi
 export interactions_names, multiplex_parameters_names
 
-using .Framework
-export has_component
-
 using .NetworkFramework
-export Blueprint, Component, Model
+export Blueprint, Component, Model, has_component
 export extract
 
 end

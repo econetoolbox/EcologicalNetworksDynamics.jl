@@ -1,5 +1,6 @@
 using .Networks: Network
-using .Framework: define_blueprint, define_conflicts # Unchanged.
+using .Framework: define_blueprint, define_conflicts, has_component
+export has_component
 
 # For component authors, this is what these should almost always mean.
 const Blueprint = F.Blueprint{Network}

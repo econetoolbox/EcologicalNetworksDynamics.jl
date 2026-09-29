@@ -105,7 +105,7 @@ using Test
 
     bp.T = -1 # Even after blueprint corruption.
     addfails.@check(Model(bp), [],
-        (Temperature.Raw, :early, nothing, (nothing, :whole, :check, -1.0, noneg)))
+        (Temperature.Raw, :early, (nothing, :whole, :check, -1.0, noneg)))
     @test_err(Model(bp), # First time nested within @check.
         """
         Blueprint value cannot be expanded:

@@ -90,7 +90,7 @@ using Test
         Blueprint cannot expand against current system value:
         While verifying blueprint against model:
         There are 3 :species nodes but the provided matrix is of size (2, 2).
-        Received: sparse(Int64[], Int64[], Bool[], 2, 2) ::SparseMatrixCSC{Bool, Int64}
+        Received: sparse(Int64[], Int64[], Bool[], 2, 2) ::$(SparseMatrix{Bool})
         Not all blueprints have been expanded.
         This means that the system consistency is still guaranteed, \
         but some components have not been added.
