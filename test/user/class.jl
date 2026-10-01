@@ -17,7 +17,6 @@ using Test
 
 # The data kind, view type and property spaces tested here.
 const d, _D = D.Class(:species)
-const View = Views.NodeNameView{d}
 const Sp = @PropertySpace(species, Network)
 
 @testset "Class component: blueprints" begin
@@ -168,11 +167,16 @@ end
     # Same within the parent class (no parent class for this root example).
     @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
 
+    # Types.
+    @test m.species.names isa Views.NodeNameView{D.Class(:species)[1]}
+    @test m.species.mask isa Views.NodeMaskView{D.Subclass(:species, nothing)[1]}
+    @test m.species.names isa AbstractVector{Symbol}
+    @test m.species.mask isa AbstractVector{Bool}
+    @test m.species.index isa OrderedDict{Symbol,Int}
+    @test m.species.parent_index isa OrderedDict{Symbol,Int}
+
     # Mask within the parent class (no parent class with this root example).
-    K = Views.NodeMaskView{D.Subclass(:species, nothing)[1]}
     k = m.species.mask
-    @test k isa K
-    @test k isa AbstractVector{Bool}
     @test k[1] && k[2] && k[3]
     @test k[:a] && k[:b] && k[:c]
     @test k == Bool[1, 1, 1]
@@ -190,6 +194,8 @@ end
 end
 
 @testset "Class component: names view" begin
+
+    View = Views.NodeNameView{d}
 
     m = Model(Species(:a, :b, :c))
     v = m.species.names
@@ -262,7 +268,13 @@ end
 
 end
 
+@testset "Class component: mask view" begin
+    @test false # TODO: test all interface like above.
+end
+
 @testset "Class component: immutable" begin
+
+    View = Views.NodeNameView{d}
 
     bp = Species(:a, :b, :c)
     m = Model(bp)

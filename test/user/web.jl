@@ -6,13 +6,14 @@ module WebTest
 using EcologicalNetworksDynamics
 using SparseArrays
 
-import EcologicalNetworksDynamics.Tests:
+using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @bpfails, addfails, @propfails, @immutfails
-import EcologicalNetworksDynamics.NetworkFramework:
+using EcologicalNetworksDynamics.NetworkFramework:
     EN, D, F, NF, Network, Views, SparseMatrix
+using EcologicalNetworksDynamics.Framework: @PropertySpace
 
 const d, _D = D.Web(:trophic)
-const View = Views.EdgeMaskView{d}
+const Tr = @PropertySpace(trophic, Network)
 using Test
 
 @testset "Web component: blueprints" begin
@@ -188,39 +189,64 @@ using Test
     @test has_component(m, Foodweb)
     @test has_component(m, Species)
     @test m.species.names == [:a, :b, :c, :e, :d]
+    # TODO: the ordering obtained above is unexpected: fix.
+    # This is because in general `(a, b) => c` gets parsed as `a => c, b => c`
+    # thus reverting the order.
+    # The fix would be that the parsing should also produce an ordered list of labels
+    # but there is nowhere to store that list within the blueprint yet. (Re)Consider?
 
     m = Model(Foodweb(Ai))
     @test has_component(m, Foodweb)
     @test has_component(m, Species)
     @test m.species.names == [:s1, :s2, :s3, :s4, :s5, :s6]
 
+end
+
+@testset "Web component: properties" begin
+
+    @propfails(Model().trophic.matrix,
+        Tr, :matrix, "Component <Foodweb> is required to read this property.")
+
+    m = Model(Species("abcde"), Foodweb([:a => (:b, :c), (:b, :d) => (:c, :e)]))
+
+    # Number of edges in the web.
+    @test m.trophic.n_links == m.trophic.n_edges == 6
+    # Topology as a matrix.
+    @test m.trophic.matrix == m.trophic.mask ==
+          [
+              0 1 1 0 0
+              0 0 1 0 1
+              0 0 0 0 0
+              0 0 1 0 1
+              0 0 0 0 0
+          ]
+    # HERE: feature iterable (source -> target,) or (source -> (targets,) etc?
+
+    # Types.
+    @test m.trophic.n_links isa Int
+    @test m.trophic.n_edges isa Int
+    @test m.trophic.matrix isa Views.EdgeMaskView{d}
+    @test m.trophic.mask isa Views.EdgeMaskView{d}
+
+    @test_repr(m.trophic.matrix, "<trophic>(5×5: 6 edges)")
+    @test_disp(m.trophic.matrix,
+        """
+        EdgesMaskView<trophic>{Bool} (5×5: 6 edges)
+         · 1 1 · ·
+         · · 1 · 1
+         · · · · ·
+         · · 1 · 1
+         · · · · ·\
+        """
+    )
+
+end
+
+@testset "Web component: mask view" begin
+
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑
     # ======================================================================================
-
-    # Expand into a web component.
-    m = Model(Species("abc"), bp)
-    @test m.trophic.n_edges == m.trophic.n_links == 5
-
-    # The adjacence property becomes available as a view.
-    v = m.foodweb.mask
-    @test v isa View
-    @test v isa AbstractMatrix{Bool}
-    @test is_repr(v, "<trophic>(3×3: 5 edges)")
-    @test is_disp(
-        v,
-        """
-        EdgeMaskView<trophic>{Bool} (3×3: 5 edges)
-         · 1 1
-         1 · ·
-         1 1 ·\
-        """,
-    )
-    @propfails(
-        Model().foodweb.mask,
-        Tr, trophic.mask, # (alias)
-        "Component <Foodweb> is required to read this property."
-    )
 
     # The view has some basic matrix-like interface.
     @test v == collect(v) == A == [i for i in v]

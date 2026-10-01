@@ -13,17 +13,21 @@ const Query = Union{Ref,UnitRange,CartesianIndex,Colon,NodeMask,EdgeMask}
 #-------------------------------------------------------------------------------------------
 # Check number of indexing dimensions.
 
-function check_dim(v::AbstractView, q...)
+check_dim(::NodeView, i) = (i,)
+check_dim(::EdgeView, i, j) = (i, j)
+check_dim(v::AbstractView, q...) = dimerr(v, q, false, length(q))
+
+check_dim(::NodeView, c::CartesianIndex{1}) = c
+check_dim(::EdgeView, c::CartesianIndex{2}) = c
+check_dim(v::AbstractView, c::CartesianIndex{N}) where N = dimerr(v, c, true, N)
+
+function dimerr(v, q, tck, act)
     d = dispatcher(v)
     l = titlecase(D.level(d))
     exp = D.dim(d)
-    act = length(q)
     s = exp == 1 ? "" : "s"
-    qerr(v, q, false, "$l-level data has $exp dimension$s, received $act")
+    qerr(v, q, tck, "$l-level data has $exp dimension$s, received $act")
 end
-
-check_dim(::NodeView, i) = (i,)
-check_dim(::EdgeView, i, j) = (i, j)
 
 #-------------------------------------------------------------------------------------------
 # Check query type.
@@ -35,7 +39,7 @@ check_type(v::AbstractView, q::Tuple, already_broadcasted = false) =
     else
         check_type.((v,), q, true)
     end
-check_type(::AbstractView, q::Query, _) = q
+check_type(::AbstractView, q::Query, _ = false) = q
 check_type(::AbstractView, q, _) =
     referr("Views are queried with indices [::Int] or labels [::Symbol]")
 
@@ -62,22 +66,29 @@ check_type(::AbstractView, q::AbstractArray{<:Integer}, _) =
 #-------------------------------------------------------------------------------------------
 # Check intrinsic query value, per dimension.
 
-# Then dispatch to per-dimension checking.
 check_value(::AbstractView, q, _) = q
-check_value(v::NodeView, (i,)) = (check_value(v, i, Val(N.class)),)
-check_value(v::EdgeView, (i, j)) = check_value.(v, (i, j), Val.((N.source, N.target)))
 
-function check_value(::AbstractView, i::Int, c)
+# Then dispatch to per-dimension checking.
+check_value(v::NodeView, (i,)::Tuple) = (check_value(v, i, Val(N.class)),)
+check_value(v::EdgeView, (i, j)::Tuple) =
+    check_value.((v,), (i, j), Val.((N.source, N.target)))
+
+function check_value(::AbstractView, i::Int, _)
     i > 0 && return i
     referr("Integer node references can only be positive")
 end
 
+# Cartesian is checked like the underlying tuple.
+function check_value(v::AbstractView, c::CartesianIndex)
+    check_value(v, Tuple(c))
+    c
+end
 #-------------------------------------------------------------------------------------------
 # Check query against the model.
 
-check_query(v::NodeView, (i,)) = (check_query(v, i, Val(N.class)),) # TODO: subnodes differ.
+check_query(v::NodeView, (i,)::Tuple) = (check_query(v, i, Val(N.class)),) # TODO: subnodes differ.
 
-function check_query(v::EdgeView, (i, j))
+function check_query(v::EdgeView, (i, j)::Tuple)
     check_query((v,), (i, j), Val.((N.source, N.target)))
     check_edge(v, (i, j)) # TODO
 end
@@ -113,6 +124,12 @@ function check_query(v::NodeView, m::NodeMask, ::Val{class}) where {class}
     referr("The given mask is of size $act but there $are $exp node$s in the class")
 end
 
+# Cartesian is checked like the underlying tuple.
+function check_query(v::AbstractView, c::CartesianIndex)
+    check_value(v, Tuple(c))
+    c
+end
+
 # ==========================================================================================
 # Assuming all checks passed, finally obtain the indexed value(s).
 
@@ -132,6 +149,12 @@ obtain(v::NodeMaskView, r::Ref) = N.is_ref(N.class(v).index, r)
 obtain(v::NodeTopologyView, u::UnitRange) = [obtain(v, i) for i in u]
 obtain(v::NodeTopologyView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
 obtain(v::NodeTopologyView, m::NodeMask) = [obtain(v, i) for i in 1:length(v) if m[i]]
+
+# Edges masks.
+obtain(v::EdgeMaskView, (i, j)::Tuple) = N.is_edge(N.web(v).topology, i, j)
+
+# Redirect cartesian index like the underlying tuple.
+obtain(v::AbstractView, c::CartesianIndex) = obtain(v, Tuple(c))
 
 # ==========================================================================================
 # Assuming all checks passed, finally edit the indexed value(s).
