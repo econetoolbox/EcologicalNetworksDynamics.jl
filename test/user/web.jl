@@ -227,18 +227,6 @@ end
     @test m.trophic.matrix isa Views.EdgeMaskView{d}
     @test m.trophic.mask isa Views.EdgeMaskView{d}
 
-    @test_repr(m.trophic.matrix, "<trophic>(5×5: 6 edges)")
-    @test_disp(m.trophic.matrix,
-        """
-        EdgesMaskView<trophic>{Bool} (5×5: 6 edges)
-         · 1 1 · ·
-         · · 1 · 1
-         · · · · ·
-         · · 1 · 1
-         · · · · ·\
-        """
-    )
-
     # Edges iterators.
     c = collect
     mc(it) = map(((src, sub),) -> (src, collect(sub)), it)
@@ -315,17 +303,47 @@ end
 
 @testset "Web component: mask view" begin
 
-    # ======================================================================================
-    # ↑ ↑ HERE updating tests ↑ ↑
-    # ======================================================================================
+    View = Views.EdgeMaskView{d}
+
+    m = Model(Species("abcde"), Foodweb([:a => (:b, :c), (:b, :d) => (:c, :e)]))
+    v = m.trophic.mask
+
+    @test_repr(v, "<trophic>(5×5: 6 edges)")
+    @test_disp(v,
+        """
+        EdgesMaskView<trophic>{Bool} (5×5: 6 edges)
+         · 1 1 · ·
+         · · 1 · 1
+         · · · · ·
+         · · 1 · 1
+         · · · · ·\
+        """
+    )
 
     # The view has some basic matrix-like interface.
-    @test v == collect(v) == A == [i for i in v]
-
+    A = sparse([
+        0 1 1 0 0
+        0 0 1 0 1
+        0 0 0 0 0
+        0 0 1 0 1
+        0 0 0 0 0
+    ])
+    @test v == collect(v) == [i for i in v] == A
     # The view may be extracted into a regular sparse matrix.
     e = extract(v)
     @test e isa SparseMatrix{Bool}
-    @test e == v
+    @test e == v == A
+
+    # Either index with integers or labels, also converted data input.
+    @test v[1, 1] == false
+    @test v[0x1, 0x2] == true
+    @test v[:a, :c] == true
+    @test v['a', "d"] == false
+    # HERE: test boolean masks now.
+
+    # ======================================================================================
+    # ↑ ↑ HERE updating tests ↑ ↑
+    # ======================================================================================
 
     # Index with either integers or labels.
     @test v[1, 1] == false

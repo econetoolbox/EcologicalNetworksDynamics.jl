@@ -89,7 +89,7 @@ end
 check_query(v::NodeView, (i,)::Tuple) = (check_query(v, i, Val(N.class)),) # TODO: subnodes differ.
 
 function check_query(v::EdgeView, (i, j)::Tuple)
-    check_query((v,), (i, j), Val.((N.source, N.target)))
+    check_query.((v,), (i, j), Val.((N.source, N.target)))
     check_edge(v, (i, j)) # TODO
 end
 
@@ -130,6 +130,21 @@ function check_query(v::AbstractView, c::CartesianIndex)
     c
 end
 
+# Edges.
+check_edge(::EdgeMaskView, q) = q # Ok if marginal indices are ok.
+function check_edge(v::EdgeView, (i, j))
+    is_edge(v, (i, j)) || referr("Not an edge")
+    (i, j)
+end
+
+function is_edge(v::EdgeView, (i, j))
+    w = N.web(v)
+    s, t = N.source(v), N.target(v)
+    t, x, y = w.topology, s.index, t.index
+    i, j = N.to_index.((x, y), (i, j))
+    N.is_edge(t, i, j)
+end
+
 # ==========================================================================================
 # Assuming all checks passed, finally obtain the indexed value(s).
 
@@ -151,7 +166,7 @@ obtain(v::NodeTopologyView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
 obtain(v::NodeTopologyView, m::NodeMask) = [obtain(v, i) for i in 1:length(v) if m[i]]
 
 # Edges masks.
-obtain(v::EdgeMaskView, (i, j)::Tuple) = N.is_edge(N.web(v).topology, i, j)
+obtain(v::EdgeMaskView, q) = is_edge(v, q)
 
 # Redirect cartesian index like the underlying tuple.
 obtain(v::AbstractView, c::CartesianIndex) = obtain(v, Tuple(c))

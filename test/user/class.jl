@@ -200,8 +200,6 @@ end
     m = Model(Species(:a, :b, :c))
     v = m.species.names
 
-    @test v isa View
-    @test v isa AbstractVector{Symbol}
     @test_repr(v, "<species>[:a, :b, :c]")
     @test_disp(v,
         """
@@ -226,6 +224,7 @@ end
     @test v["c"] == :c
     @test v[split("a")...] == :a # Accept substrings as label
     @test v[[false, true, false]] == v[[0, 1, 0]] == [:b] # Accept boolean masks.
+    # HERE: test `end` markers.
 
     @viewfails(v[], View, "Node-level data has 1 dimension, received 0")
     @viewfails(v[1, 2], View, "Node-level data has 1 dimension, received 2")
