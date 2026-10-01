@@ -222,9 +222,14 @@ end
     @test v[:a] == :a  # (not super-useful but consistent with other views)
     @test v['b'] == :b
     @test v["c"] == :c
-    @test v[split("a")...] == :a # Accept substrings as label
-    @test v[[false, true, false]] == v[[0, 1, 0]] == [:b] # Accept boolean masks.
-    # HERE: test `end` markers.
+    @test v[split("a")...] == :a # (accept substrings as label)
+
+    # Natural markers, ranges, boolean masks.
+    @test v[end] == :c
+    @test v[end-1] == :b
+    @test v[1:2] == [:a, :b]
+    @test v[end-1:end] == [:b, :c]
+    @test v[[false, true, false]] == v[[0, 1, 0]] == [:b]
 
     @viewfails(v[], View, "Node-level data has 1 dimension, received 0")
     @viewfails(v[1, 2], View, "Node-level data has 1 dimension, received 2")
@@ -239,6 +244,9 @@ end
     )
     @viewfails(v[5], View, "This class only contains 3 nodes")
     @viewfails(v[:x], View, "No node in this class is labeled :x")
+
+    @viewfails(v[end+1], View, "This class only contains 3 nodes")
+    @viewfails(v[(end-1):(end+1)], View, "This class only contains 3 nodes")
     @viewfails(v[[0, 1]], View,
         "The given mask is of size 2 but there are 3 nodes in the class")
     @viewfails(Model(Species(1)).species.names[[0, 1]], View,
