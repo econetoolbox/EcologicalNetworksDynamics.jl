@@ -132,12 +132,12 @@ end
 
 # Edges.
 check_edge(::EdgeMaskView, q) = q # Ok if marginal indices are ok.
-function check_edge(v::EdgeView, (i, j))
+function check_edge(v::EdgeFieldView, (i, j)::Tuple{Ref,Ref})
     is_edge(v, (i, j)) || referr("Not an edge")
     (i, j)
 end
 
-function is_edge(v::EdgeView, (i, j))
+function is_edge(v::EdgeView, (i, j)::Tuple{Ref,Ref})
     w = N.web(v)
     s, t = N.source(v), N.target(v)
     t, x, y = w.topology, s.index, t.index
@@ -166,10 +166,37 @@ obtain(v::NodeTopologyView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
 obtain(v::NodeTopologyView, m::NodeMask) = [obtain(v, i) for i in 1:length(v) if m[i]]
 
 # Edges masks.
-obtain(v::EdgeMaskView, q) = is_edge(v, q)
+obtain(v::EdgeMaskView, q::Tuple) = is_edge(v, q)
 
 # Redirect cartesian index like the underlying tuple.
 obtain(v::AbstractView, c::CartesianIndex) = obtain(v, Tuple(c))
+
+# Accept mixtures of ranges and scalars.
+function obtain(v::EdgeMaskView, (i, rj)::Tuple{Ref, UnitRange})
+    res = spzeros(Bool, length(rj))
+    for j in rj
+        k = j - first(rj) + 1
+        res[k] = obtain(v, (i, j))
+    end
+    res
+end
+function obtain(v::EdgeMaskView, (ri, j)::Tuple{UnitRange, Ref})
+    res = spzeros(Bool, length(ri))
+    for i in ri
+        k = i - first(ri) + 1
+        res[k] = obtain(v, (i, j))
+    end
+    res
+end
+function obtain(v::EdgeMaskView, (ri, rj)::Tuple{UnitRange, UnitRange})
+    res = spzeros(Bool, (length(ri), length(rj)))
+    for i in ri, j in rj
+        ki = i - first(ri) + 1
+        kj = j - first(rj) + 1
+        res[ki, kj] = obtain(v, (i, j))
+    end
+    res
+end
 
 # ==========================================================================================
 # Assuming all checks passed, finally edit the indexed value(s).

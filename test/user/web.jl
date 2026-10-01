@@ -339,7 +339,33 @@ end
     @test v[0x1, 0x2] == true
     @test v[:a, :c] == true
     @test v['a', "d"] == false
-    # HERE: test boolean masks now.
+
+    # Natural markers & ranges.
+    @test v[1, end] == false
+    a = v[2, 3:5]
+    b = v[1:(end-1), 3]
+    c = v[2:3, ((end-1):end)]
+    @test a isa SparseVector{Bool}
+    @test b isa SparseVector{Bool}
+    @test c isa SparseMatrix{Bool}
+    @test a == [1, 0, 1]
+    @test b == [1, 1, 0, 1]
+    @test c == [
+        0 1
+        0 0
+    ]
+
+    # Boolean masks.
+    k = [
+        0 1 0 0 0
+        0 0 1 0 1
+        0 1 1 1 0
+        0 0 1 0 0
+        0 0 0 0 1
+    ]
+    @test v[k] == v[Bool.(k)] == [1, 0, 1, 0, 1, 0, 1, 0]
+    error("HERE: fix")
+
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑
