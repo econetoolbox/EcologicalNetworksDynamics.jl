@@ -109,40 +109,6 @@ function triangular_vertical_guard(comp_reasons, V, xerr)
     reqs
 end
 
-
-# Check whether the expression is a `raw.identifier.path`.
-# (Useful for properties accesses.)
-function is_identifier_path(xp)
-    xp isa Symbol && return true
-    if xp isa Expr
-        xp.head == :. || return false
-        path, last = xp.args
-        last isa QuoteNode || return false
-        is_identifier_path(path) && is_identifier_path(last.value)
-    else
-        false
-    end
-end
-
-# Collect path the 'forward' way: :(a.b.c.d) -> [:a, :b, :c, :d].
-# (assuming it has been checked by the above function)
-function collect_path(path; res = [])
-    if path isa Symbol
-        push!(res, path)
-    else
-        prefix, last = path.args
-        collect_path(prefix; res)
-        collect_path(last.value; res)
-    end
-    res
-end
-
-# Again, assuming the expression has been checked for being a path.
-function last_in_path(path)
-    path isa Symbol && return path
-    path.args[2].value
-end
-
 # ==========================================================================================
 # Dedicated exceptions.
 

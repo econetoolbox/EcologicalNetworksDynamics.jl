@@ -104,25 +104,91 @@ function define_web_properties(mod::Module, d::D.Web; depends = [])
     prop, Prop = D.propnames(d)
 
     NF.define_propspace(prop)
-    defmeth(fn, s) = NF.define_method(fn; depends, read_as = map(s -> :($prop.$s), s))
+    NF.define_propspace(:($prop.iter))
+    NF.define_propspace(:($prop.iter.index))
+    NF.define_propspace(:($prop.iter.label))
+    defmeth(fn, s) =
+        NF.define_method(fn; depends, read_as = map(s -> paste_paths(prop, s), s))
 
     M = Symbol(Web, :Methods)
     mod.eval(
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework: N, V, D, Network, Model
+                using EcologicalNetworksDynamics.NetworkFramework:
+                    I, N, V, D, Network, Model
                 const d, defmeth = $d, $defmeth
                 const w = D.web(d)
 
-                web(m::Network) = N.web(m, w)
-                topology(m::Network) = web(m).topology
-                number(m::Network) = m |> topology |> N.n_edges
+                web(n::Network) = N.web(n, w)
+                topology(n::Network) = web(n).topology
+                number(n::Network) = n |> topology |> N.n_edges
                 mask(::Network, m::Model) = V.mask_view(d, m)
 
                 defmeth(topology, [:_topology])
                 defmeth(mask, [:mask, :matrix])
                 defmeth(number, [:n_links, :n_edges])
+
+                #---------------------------------------------------------------------------
+                # Edges iterators.
+
+                edges(n::Network) = n |> topology |> N.edges
+                forward(n::Network) = n |> topology |> N.forward
+                backward(n::Network) = n |> topology |> N.backward
+
+                # Variants: reverse or skip empty subgroups.
+                edges_transposed(n::Network) = n |> topology |> N.edges_transposed
+                forward_skip(n::Network) = N.forward(topology(n), skip = true)
+                backward_skip(n::Network) = N.backward(topology(n), skip = true)
+
+                # Produce labeled variants.
+                function labeled_flat(fn::Function)
+                    function labeled(n::Network)
+                        index = N.source(n, w).index
+                        I.map(fn(n)) do (i, j)
+                            N.to_label.((index,), (i, j))
+                        end
+                    end
+                end
+                function labeled_nested(fn::Function)
+                    function labeled(n::Network)
+                        index = N.source(n, w).index
+                        I.map(fn(n)) do (i, sub)
+                            (N.to_label(index, i), I.map(sub) do (j, e)
+                                (N.to_label(index, j), e)
+                            end)
+                        end
+                    end
+                end
+
+                # Raw index iterators.
+                defmeth(edges, [:(iter.index.edges)])
+                defmeth(edges_transposed, [:(iter.index.edges_transposed)])
+                defmeth(forward, [:(iter.index.forward)])
+                defmeth(backward, [:(iter.index.backward)])
+                defmeth(forward_skip, [:(iter.index.forward_skip)])
+                defmeth(backward_skip, [:(iter.index.backward_skip)])
+
+                # Yet default to labeled output.
+                defmeth(labeled_flat(edges), [:(iter.edges), :(iter.label.edges)])
+                defmeth(
+                    labeled_flat(edges_transposed),
+                    [:(iter.edges_transposed), :(iter.label.edges_transposed)],
+                )
+                defmeth(labeled_nested(forward), [:(iter.forward), :(iter.label.forward)])
+                defmeth(
+                    labeled_nested(backward),
+                    [:(iter.backward), :(iter.label.backward)],
+                )
+                defmeth(
+                    labeled_nested(forward_skip),
+                    [:(iter.forward_skip), :(iter.label.forward_skip)],
+                )
+                defmeth(
+                    labeled_nested(backward_skip),
+                    [:(iter.backward_skip); :(iter.label.backward_skip)],
+                )
+
                 end
             end
         ).args |> last,

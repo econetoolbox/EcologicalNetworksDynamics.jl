@@ -269,7 +269,8 @@ end
 end
 
 @testset "Class component: mask view" begin
-    @test false # TODO: test all interface like above.
+    View = Views.NodeMaskView{d}
+    # HERE: test with :producers so we get interesting information to test.
 end
 
 @testset "Class component: immutable" begin

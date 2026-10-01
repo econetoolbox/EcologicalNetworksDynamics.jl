@@ -220,7 +220,6 @@ end
               0 0 1 0 1
               0 0 0 0 0
           ]
-    # HERE: feature iterable (source -> target,) or (source -> (targets,) etc?
 
     # Types.
     @test m.trophic.n_links isa Int
@@ -239,6 +238,78 @@ end
          · · · · ·\
         """
     )
+
+    # Edges iterators.
+    c = collect
+    mc(it) = map(((src, sub),) -> (src, collect(sub)), it)
+
+    # Flat:
+    @test c(m.trophic.iter.edges) == c(m.trophic.iter.label.edges) ==
+          [(:a, :b), (:a, :c), (:b, :c), (:d, :c), (:b, :e), (:d, :e)]
+    #       1         2         3         4         5         6
+    # Nested, forward (source-first).
+    @test mc(m.trophic.iter.forward) == mc(m.trophic.iter.label.forward) ==
+          [
+              (:a, [(:b, 1), (:c, 2)]),
+              (:b, [(:c, 3), (:e, 5)]),
+              (:c, []),
+              (:d, [(:c, 4), (:e, 6)]),
+              (:e, []),
+          ]
+    # Nested, backward (target-first).
+    @test mc(m.trophic.iter.backward) == mc(m.trophic.iter.label.backward) ==
+          [
+              (:a, []),
+              (:b, [(:a, 1)]),
+              (:c, [(:a, 2), (:b, 3), (:d, 4)]),
+              (:d, []),
+              (:e, [(:b, 5), (:d, 6)]),
+          ]
+    # Transposed variant.
+    @test c(m.trophic.iter.edges_transposed) == c(m.trophic.iter.label.edges_transposed) ==
+          [(:a, :b), (:a, :c), (:b, :c), (:b, :e), (:d, :c), (:d, :e)]
+    # Skip variants.
+    @test mc(m.trophic.iter.forward_skip) == mc(m.trophic.iter.label.forward_skip) ==
+          [
+              (:a, [(:b, 1), (:c, 2)]),
+              (:b, [(:c, 3), (:e, 5)]),
+              (:d, [(:c, 4), (:e, 6)]),
+          ]
+    @test mc(m.trophic.iter.backward_skip) == mc(m.trophic.iter.label.backward_skip) ==
+          [
+              (:b, [(:a, 1)]),
+              (:c, [(:a, 2), (:b, 3), (:d, 4)]),
+              (:e, [(:b, 5), (:d, 6)]),
+          ]
+
+    # Index versions.                        1       2       3       4       5       6
+    @test c(m.trophic.iter.index.edges) == [(1, 2), (1, 3), (2, 3), (4, 3), (2, 5), (4, 5)]
+    @test mc(m.trophic.iter.index.forward) == [
+        (1, [(2, 1), (3, 2)]),
+        (2, [(3, 3), (5, 5)]),
+        (3, []),
+        (4, [(3, 4), (5, 6)]),
+        (5, []),
+    ]
+    @test mc(m.trophic.iter.index.backward) == [
+        (1, []),
+        (2, [(1, 1)]),
+        (3, [(1, 2), (2, 3), (4, 4)]),
+        (4, []),
+        (5, [(2, 5), (4, 6)]),
+    ]
+    @test c(m.trophic.iter.index.edges_transposed) ==
+          [(1, 2), (1, 3), (2, 3), (2, 5), (4, 3), (4, 5)]
+    @test mc(m.trophic.iter.index.forward_skip) == [
+        (1, [(2, 1), (3, 2)]),
+        (2, [(3, 3), (5, 5)]),
+        (4, [(3, 4), (5, 6)]),
+    ]
+    @test mc(m.trophic.iter.index.backward_skip) == [
+        (2, [(1, 1)]),
+        (3, [(1, 2), (2, 3), (4, 4)]),
+        (5, [(2, 5), (4, 6)]),
+    ]
 
 end
 

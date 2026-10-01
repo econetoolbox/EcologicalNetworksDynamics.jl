@@ -27,25 +27,19 @@ export Topology
 # ==========================================================================================
 # Abstract topology interface.
 
-"""
-Obtain general nodes counts.
-"""
+"Obtain general nodes counts."
 function n_targets end
 function n_sources end
 Base.size(t::Topology) = (n_sources(t), n_targets(t))
 export n_targets, n_sources
 
-"""
-Obtain iterable over target neighbours as (target, edge).
-"""
+"Obtain iterable over target neighbours as (target, edge)."
 function targets end
 target_nodes(g::Topology, s::Int) = I.map(first, targets(g, s))
 target_edges(g::Topology, s::Int) = I.map(last, targets(g, s))
 export targets, target_nodes, target_edges, n_targets
 
-"""
-Obtain iterable over source neighbours as (source, edge).
-"""
+"Obtain iterable over source neighbours as (source, edge)."
 function sources end
 source_nodes(g::Topology, t::Int) = I.map(first, sources(g, t))
 source_edges(g::Topology, t::Int) = I.map(last, sources(g, t))
@@ -58,24 +52,19 @@ assuming they are valid indices.
 function is_edge end
 export is_edge
 
-"""
-Total number of edges in the topology.
-"""
+"Total number of edges in the topology."
 function n_edges end
 Base.length(t::Topology) = n_edges(t)
 export n_edges
 
-"""
-Get edge index, assuming it exists.
-"""
+"Get edge index, assuming it exists."
 function edge end
 export edge
 
-"""
-Obtain an iterable over edges as (source, target), in canonical edge order.
-"""
+"Obtain an iterable over edges as (source, target), in canonical edge order."
 function edges end
 export edges
+
 
 """
 Obtain a nested iterable over edges:
@@ -95,11 +84,18 @@ Raise flag to skip over targets with no sources.
 function backward end
 export backward
 
+"Obtain an iterable over edges as (source, target), in transposed edge order."
+function edges_transposed(t::Topology)
+    I.map(forward(t; skip = true)) do (i, sub)
+        I.map(sub) do (j, _)
+            (i, j)
+        end
+    end |> I.flatten
+end
+
 #-------------------------------------------------------------------------------------------
 # Extend interface for constrained topologies.
-"""
-A 'square' topology within one class, both source and target of the web.
-"""
+"A 'square' topology within one class, both source and target of the web."
 abstract type ReflexiveTopology <: Topology end
 
 """
@@ -108,9 +104,7 @@ if a targets b then b targets a, and this only counts for one edge.
 """
 abstract type SymmetricTopology <: ReflexiveTopology end
 
-"""
-Obtain the number of nodes in the topology.
-"""
+"Obtain the number of nodes in the topology."
 function n_nodes end
 export n_nodes
 
@@ -184,9 +178,7 @@ function SparseForeign(m::AbstractSparseMatrix)
     SparseForeign(forward, backward, n_edges)
 end
 
-"""
-Construct from lit entries in a dense boolean matrix.
-"""
+"Construct from lit entries in a dense boolean matrix."
 function SparseForeign(m::AbstractMatrix{Bool})
     n_sources, n_targets = size(m)
     (forward, backward) = vecmap.((n_sources, n_targets))
@@ -237,9 +229,7 @@ n_nodes(s::S) = length(s.nodes)
 #-------------------------------------------------------------------------------------------
 # Construct.
 
-"""
-Construct from non-empty entries in a sparse matrix (disregarding values).
-"""
+"Construct from non-empty entries in a sparse matrix (disregarding values)."
 function SparseReflexive(m::AbstractSparseMatrix)
     n_nodes = check_square(m)
     (sources, targets, _) = findnz(m)
@@ -259,9 +249,7 @@ function check_square(m)
     n_sources
 end
 
-"""
-Construct from lit entries in a dense boolean matrix.
-"""
+"Construct from lit entries in a dense boolean matrix."
 function SparseReflexive(m::AbstractMatrix{Bool})
     n_nodes = check_square(m)
     nodes = [(Map(), Map()) for _ in 1:n_nodes]

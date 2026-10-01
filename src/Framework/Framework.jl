@@ -89,7 +89,8 @@ This *may* make it useless to ever feature component removal.
 """
 module Framework
 
-using EcologicalNetworksDynamics: I, Option, argerr, Display
+using EcologicalNetworksDynamics:
+    I, Option, argerr, Display, is_identifier_path, collect_path, last_in_path
 using .Display: rept, red, yellow, blue, cyan, black, italics, bold, reset
 
 using OrderedCollections

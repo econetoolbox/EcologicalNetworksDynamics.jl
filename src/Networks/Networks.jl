@@ -92,7 +92,8 @@ Don't produce views into mutable data that could otherwise break the COW-pattern
 
 module Networks
 
-import EcologicalNetworksDynamics: EN, errwrap, Display, Option, SparseMatrix, unimplemented
+import EcologicalNetworksDynamics:
+    EN, I, errwrap, Display, Option, SparseMatrix, unimplemented
 import .Display: join_elided
 const N = Networks
 
