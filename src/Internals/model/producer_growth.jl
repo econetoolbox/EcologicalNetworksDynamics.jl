@@ -88,22 +88,22 @@ function growth(parms::ModelParameters, ::Symbol)
 end
 
 """
-    nutrient_dynamics(model::ModelParameters, B, i_nutrients, n, G)
+    nutrient_dynamics(model::ModelParameters, nutrient_index, n, pop_growth)
 
-Compute the dynamics of the nutrient `i_nutrient` given its abundance `n`,
-the species biomass `B` and the vector of species growths `G` and the model `p`.
+Compute the dynamics of the nutrient `nutrient_index` given its abundance `n` and
+the vector of species growths `pop_growth` and the model `p`.
 
 The nutrient dynamics is applicable only if `p` is of type `NutrientIntake`.
 """
-function nutrient_dynamics(model::ModelParameters, B, i_nutrient, n, G)
+function nutrient_dynamics(model::ModelParameters, nutrient_index, n, pop_growth)
     p = model.producer_growth
-    isp = producers(model.network)
+    producer_indices = producers(model.network)
     if isa(p, LogisticGrowth)
         throw(ArgumentError("Nutrient dynamics cannot be computed for producer growth \
                             of type `$LogisticGrowth`."))
     end
-    d = p.turnover[i_nutrient]
-    s = p.supply[i_nutrient]
-    c = p.concentration[:, i_nutrient]
-    d * (s - n) - sum(c .* G[isp] .* B[isp])
+    d = p.turnover[nutrient_index]
+    s = p.supply[nutrient_index]
+    c = p.concentration[:, nutrient_index]
+    d * (s - n) - sum(c .* pop_growth[producer_indices])
 end

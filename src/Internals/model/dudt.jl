@@ -28,7 +28,7 @@ function dudt!(du, u, p, _)
     # Compute nutrient abundance dynamics.
     for (i_nutrient, i_u) in enumerate(nutrient_indices(params))
         n = u[i_u]
-        du[i_u] = nutrient_dynamics(params, B, i_nutrient, n, growth)
+        du[i_u] = nutrient_dynamics(params, i_nutrient, n, growth)
     end
 
     # Avoid zombie species by forcing extinct biomasses to zero.
