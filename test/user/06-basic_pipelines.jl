@@ -194,3 +194,24 @@ end
     )
 
 end
+
+#-------------------------------------------------------------------------------------------
+@testset "Nutrient Intake." begin
+
+    # With nutrients (instead of logistic growth).
+    m = default_model(Foodweb([2 => 1, 3 => 2]), NutrientIntake(2; concentration = [1 0.5]))
+    B0, N0 = rand(3), rand(2)
+    sol = simulate(m, B0, 500; N0)
+    @test isapprox(
+        sol.u[end],
+        [
+            200.90803257701396,
+            0.18898226681585234,
+            1.9995617667511205,
+            0.0007502022597260874,
+            2.0003751011298525,
+        ];
+        rtol,
+    )
+
+end

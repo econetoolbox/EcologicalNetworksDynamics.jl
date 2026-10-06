@@ -34,8 +34,11 @@ include("./aliasing_dicts.jl")
 include("./multiplex_api.jl")
 include("./graph_data_inputs/runtests.jl")
 
-sep("Test user-facing behaviour.")
+sep("Test user interface.")
 include("./user/runtests.jl")
+
+sep("Test against theoretical expectations.")
+include("./exp/1nutrient1producer.jl")
 
 sep("Run doctests (DEACTIVATED while migrating api from 'Internals').")
 #  include("./doctests.jl")
