@@ -1,5 +1,5 @@
 # When optional arguments get sophisticated structure and connections / dependencies
-# this helper macro defines primitive local to ease their analysis.
+# this helper macro defines local primitives to ease their analysis.
 # The following functions get defined,
 # they work on a local copy of the given kwargs,
 # which gets consumed during the analysis.
@@ -44,7 +44,7 @@
 # TODO: cover with dedicated test instead of relying on use in the package.
 module KwargsHelpers
 
-argerr(mess) = throw(ArgumentError(mess))
+import EcologicalNetworksDynamics: argerr
 
 macro kwargs_helpers(kwargs)
     (
@@ -164,29 +164,27 @@ macro kwargs_helpers(kwargs)
 
     end
 end
-export @kwargs_helpers
 
-# Declare here just to satisfy static code analysis.
-unerr() = throw("Unimplemented kwarg helper. \
-                 Has @kwargs_helpers macro been called in this scope?")
-alias!(first, args...) = unerr()
-given(arg) = unerr()
-miss(arg) = unerr()
-left(arg) = unerr()
-left() = unerr()
-peek(arg, type = nothing) = unerr()
-take!(arg, type = nothing) = unerr()
-take_or!(arg, default, type = nothing) = unerr()
-populate!(; defs...) = unerr()
-no_unused_arguments() = unerr()
+# (reassure JuliaLS)
+function alias! end
+function given end
+function left end
+function miss end
+function no_unused_arguments end
+function peek end
+function populate! end
+function take! end
+function take_or! end
+
+export @kwargs_helpers
 export alias!
 export given
-export miss
 export left
+export miss
+export no_unused_arguments
 export peek
+export populate!
 export take!
 export take_or!
-export populate!
-export no_unused_arguments
 
 end
