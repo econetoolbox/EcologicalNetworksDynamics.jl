@@ -1,6 +1,12 @@
-# v0.3.x
+# v0.3.2
 
 # Bugfixes
+
+- ⚠ __IMPORTANT__ ⚠: nutrient dynamics were wrongly multiplying
+  every growth term by the corresponding producer biomass twice,
+  resulting in inhomogenous calculationg and wrong dynamics.
+  Big thanks to @Xxiao-Li and @ismael-lajaaiti for spotting and fixing that
+  mistake: https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/pull/190.
 
 - Fix world count in Framework `@conflicts` macro with Julia 1.12.
 
