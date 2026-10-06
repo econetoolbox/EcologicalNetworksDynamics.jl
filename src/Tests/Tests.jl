@@ -232,7 +232,7 @@ const bpchecks = (;
 
 @genfailsmacro viewfails EN.NetworkFramework.Views.QueryError (;
     query = nothing, # (redundant with test lhs)
-    typechecked = nothing, # (display implementation detail)
+    short = nothing, # (display implementation detail)
 )
 @genfailsmacro immutfails EN.NetworkFramework.Views.ImmutableError
 

@@ -21,6 +21,11 @@
 
 # ==========================================================================================
 # Scalar conversions.
+
+"Get a static response whether the type *may* be converted."
+can_convert(::Type, ::Type) = false # Unless explicitly marked.
+can_convert(T::Type, input) = can_convert(T, typeof(input))
+
 function allow_convert(Target, Input, f = Target)
     eval(
         quote
@@ -31,6 +36,7 @@ function allow_convert(Target, Input, f = Target)
                     e isa LibError && rethrow(e)
                     converr($Target, v, "(detail down the stacktrace)")
                 end
+            can_convert(::Type{$Target}, ::Type{<:$Input}) = true
         end,
     )
 end
@@ -105,7 +111,7 @@ ac(SparseMatrix{Bool}, BitMatrix)
 # ==========================================================================================
 """
 Try successive conversions until one succeeds,
-applying the corresponding to the result prior to returning it then.
+applying the corresponding function to the result prior to returning it then.
 
 `tries` are:
 

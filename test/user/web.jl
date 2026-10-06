@@ -363,9 +363,8 @@ end
         0 0 1 0 0
         0 0 0 0 1
     ]
-    @test v[k] == v[Bool.(k)] == [1, 0, 1, 0, 1, 0, 1, 0]
-    error("HERE: fix")
-
+    @test v[k] isa SparseVector{Bool}
+    @test v[k] == v[sparse(k)] == v[Bool.(k)] == [1, 0, 1, 0, 1, 0, 1, 0]
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑

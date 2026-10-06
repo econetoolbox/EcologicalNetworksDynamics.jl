@@ -2,7 +2,7 @@
 struct QueryError <: NF.IndexError
     View::Type
     query::Tuple
-    typechecked::Bool # Lower to make sure to display query at the end.
+    short::Bool # Lower to make sure to display query at the end (because it may be large).
     mess::String
 end
 qerr(V::Type, q, t, m, throw = Base.throw) = throw(QueryError(V, q, t, m))
@@ -10,9 +10,9 @@ qerr(v, x...) = qerr(typeof(v), x...)
 
 # Decide whether the error can assume that the query is short to display.
 function short(e::QueryError)
-    (; query, typechecked) = e
+    (; query, short) = e
     length(query) == 0 && return true # Sure if it's empty.
-    typechecked || return false # Not if input type is uncontrolled.
+    short || return false # Not if input type is uncontrolled.
     query isa Tuple{AbstractArray} && return false # Uncertain if size is unbound.
     true # Otherwise okay.
 end

@@ -21,6 +21,8 @@ check_dim(::NodeView, c::CartesianIndex{1}) = c
 check_dim(::EdgeView, c::CartesianIndex{2}) = c
 check_dim(v::AbstractView, c::CartesianIndex{N}) where N = dimerr(v, c, true, N)
 
+check_dim(::EdgeView, ::AbstractMatrix{Bool}) = c
+
 function dimerr(v, q, tck, act)
     d = dispatcher(v)
     l = titlecase(D.level(d))
@@ -83,6 +85,14 @@ function check_value(v::AbstractView, c::CartesianIndex)
     check_value(v, Tuple(c))
     c
 end
+
+# Index 2D edge data with a mask.
+function check_value(v::EdgeMaskView, m::SparseMatrix{Bool})
+    e, a = size.((v, m))
+    e == a && return m
+    referr("There are $e potential edges but the given mask is of size $a.")
+end
+
 #-------------------------------------------------------------------------------------------
 # Check query against the model.
 
@@ -145,6 +155,8 @@ function is_edge(v::EdgeView, (i, j)::Tuple{Ref,Ref})
     N.is_edge(t, i, j)
 end
 
+check_query(::EdgeMaskView, m::SparseMatrix{Bool}) = m # As long as dimensions are ok.
+
 # ==========================================================================================
 # Assuming all checks passed, finally obtain the indexed value(s).
 
@@ -172,7 +184,7 @@ obtain(v::EdgeMaskView, q::Tuple) = is_edge(v, q)
 obtain(v::AbstractView, c::CartesianIndex) = obtain(v, Tuple(c))
 
 # Accept mixtures of ranges and scalars.
-function obtain(v::EdgeMaskView, (i, rj)::Tuple{Ref, UnitRange})
+function obtain(v::EdgeMaskView, (i, rj)::Tuple{Ref,UnitRange})
     res = spzeros(Bool, length(rj))
     for j in rj
         k = j - first(rj) + 1
@@ -180,7 +192,7 @@ function obtain(v::EdgeMaskView, (i, rj)::Tuple{Ref, UnitRange})
     end
     res
 end
-function obtain(v::EdgeMaskView, (ri, j)::Tuple{UnitRange, Ref})
+function obtain(v::EdgeMaskView, (ri, j)::Tuple{UnitRange,Ref})
     res = spzeros(Bool, length(ri))
     for i in ri
         k = i - first(ri) + 1
@@ -188,12 +200,22 @@ function obtain(v::EdgeMaskView, (ri, j)::Tuple{UnitRange, Ref})
     end
     res
 end
-function obtain(v::EdgeMaskView, (ri, rj)::Tuple{UnitRange, UnitRange})
+function obtain(v::EdgeMaskView, (ri, rj)::Tuple{UnitRange,UnitRange})
     res = spzeros(Bool, (length(ri), length(rj)))
     for i in ri, j in rj
         ki = i - first(ri) + 1
         kj = j - first(rj) + 1
         res[ki, kj] = obtain(v, (i, j))
+    end
+    res
+end
+
+# 2D indexing into edges mask.
+function obtain(v::EdgeMaskView, m::SparseMatrix{Bool})
+    is, js, _ = findnz(m)
+    res = spzeros(Bool, length(is))
+    for (r, (i, j)) in enumerate(zip(is, js))
+        res[r] = obtain(v, (i, j))
     end
     res
 end
@@ -214,15 +236,26 @@ function check_all(v::AbstractView, q)
     q
 end
 
+# 2D-mask boolean indexing breaks the above flow: 1 argument for 2 dimensions.
+function check_all(v::EdgeMaskView, (q,)::Tuple{Any})
+    can_convert(SparseMatrix{Bool}, q) || # (hopefully resolved statically)
+        return @invoke check_all(v::AbstractView, (q,))
+    q = convert(SparseMatrix{Bool}, q)
+    q = guard(false, check_value, v, q)
+    q = guard(false, check_query, v, q)
+    q
+end
+
 # Guard with error upgrade.
-guard(typechecked, fn, v, q) =
+guard(short, fn, v, q) =
     try
         fn(v, q)
     catch e
-        e isa RefErr && qerr(v, q, typechecked, e.mess, rethrow)
+        e isa RefErr && qerr(v, q, short, e.mess, rethrow)
         rethrow(e)
     end
 
+# Into julia endpoint.
 function Base.getindex(v::AbstractView, q...)
     q = check_all(v, q)
     obtain(v, q)
