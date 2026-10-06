@@ -34,9 +34,9 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics:
-    EN, N, F, I, Networks, NetworkFramework, Option, Display
+    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix
 import .Display: join_elided, render_input
-import .NetworkFramework: NF, D, Model
+import .NetworkFramework: NF, D, Model, can_convert
 const V = Views
 
 using SparseArrays

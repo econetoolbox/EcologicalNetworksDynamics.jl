@@ -364,7 +364,9 @@ end
         0 0 0 0 1
     ]
     @test v[k] == v[Bool.(k)] == [1, 0, 1, 0, 1, 0, 1, 0]
-    error("HERE: fix")
+    NF.can_convert(SparseMatrix{Bool}, k) # HERE: how come?
+    convert(SparseMatrix{Bool}, k)
+    error("HERE: keep updating")
 
 
     # ======================================================================================
