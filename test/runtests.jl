@@ -1,10 +1,13 @@
 # Pick correct test environment.
-if ["pinned"] == ARGS
+regular = if ["pinned"] == ARGS
     include("../compat/to_pinned.jl")
+    false
 elseif ["lower"] == ARGS
     include("../compat/to_lower.jl")
+    false
 elseif ["latest"] == ARGS || isempty(ARGS)
     # Regular testing with latest compatible versions.
+    true
 else
     error("Invalid test arguments: $ARGS")
 end
@@ -43,8 +46,10 @@ include("./exp/1nutrient1producer.jl")
 sep("Run doctests (DEACTIVATED while migrating api from 'Internals').")
 #  include("./doctests.jl")
 
-sep("Check source code formatting.")
-include("./formatting.jl")
+if regular
+    sep("Check source code formatting.")
+    include("./formatting.jl")
 
-sep("Check compatibility entries.")
-CompatHelperLocal.@check()
+    sep("Check compatibility entries.")
+    CompatHelperLocal.@check()
+end
