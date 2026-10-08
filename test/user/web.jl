@@ -340,6 +340,8 @@ end
     @test v[0x1, 0x2] == true
     @test v[:a, :c] == true
     @test v['a', "d"] == false
+    @test v[1, :b] == true
+    @test v[:b, 1] == false
 
     # Natural markers & ranges.
     @test v[1, end] == false
@@ -378,6 +380,17 @@ end
     @viewfails(v[-5, 2], View, "Integer node references can only be positive")
     @viewfails(v[[0; 1;; 2; 3]], View,
         "Could not interpret as a boolean mask (not only 1's and 0's?)")
+    @viewfails(v[6, 7], View, "The source class (:species) only contains 5 nodes")
+    @viewfails(v[5, 7], View, "The target class (:species) only contains 5 nodes")
+    @viewfails(v[:x, 3], View, "No node in the source class (:species) is labeled :x")
+    @viewfails(v[3, :y], View, "No node in the target class (:species) is labeled :y")
+
+    @viewfails(v[end+1, 2], View, "The source class (:species) only contains 5 nodes")
+    @viewfails(v[2, (end-1):(end+1)], View,
+        "The target class (:species) only contains 5 nodes")
+
+    @viewfails(v[[0; 1;; 1; 0]], View,
+        "There are (5, 5) potential edges but the given mask is of size (2, 2).")
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑

@@ -3,9 +3,6 @@
 
 # Anything accepted as view[q...].
 const Ref = Union{Int,Symbol} # Reference a node eitheir by index or label.
-const NodeMask = AbstractVector{Bool} # Boolean query.
-const EdgeMask = AbstractMatrix{Bool}
-const Query = Union{Ref,UnitRange,CartesianIndex,Colon,NodeMask,EdgeMask}
 
 # ==========================================================================================
 # Checking access, with useful reporting on invalid queries.
@@ -38,7 +35,7 @@ tuplerr(v, q) = qerr(v, q, false, "Cannot index into views with explicit tuples"
 
 # Then dispatch to per-dimension checking.
 check_type(v::AbstractView, q::Tuple) = check_type.((v,), q)
-check_type(::AbstractView, q::Query) = q
+check_type(::AbstractView, q::Union{Ref,UnitRange,CartesianIndex,Colon}) = q
 check_type(::AbstractView, q) =
     referr("Views are queried with indices [::Int] or labels [::Symbol]")
 
@@ -54,11 +51,27 @@ check_type(::AbstractView, q::Unsigned) =
 
 check_type(::AbstractView, q::AbstractArray{<:Integer}) =
     try
-        copyto!(similar(q, Bool), q)
+        to_mask(q)
     catch e
         e isa InexactError || rethrow(e)
         referr("Could not interpret as a boolean mask (not only 1's and 0's?)", rethrow)
     end
+
+function to_mask(q::Union{AbstractArray,BitArray})
+    res = spzeros(Bool, size(q))
+    for (i, r) in enumerate(q)
+        res[i] = Bool(r)
+    end
+    res
+end
+
+function to_mask(q::AbstractSparseArray)
+    res = spzeros(Bool, size(q))
+    for (i, j, r) in zip(findnz(q)...)
+        res[i, j] = Bool(r)
+    end
+    res
+end
 
 #-------------------------------------------------------------------------------------------
 # Check intrinsic query value, per dimension.
@@ -82,7 +95,7 @@ function check_value(v::AbstractView, c::CartesianIndex)
 end
 
 # Index 2D edge data with a mask.
-function check_value(v::EdgeMaskView, m::SparseMatrix{Bool})
+function check_value(v::EdgeMaskView, (m,)::Tuple{SparseMatrix{Bool}})
     e, a = size.((v, m))
     e == a && return m
     referr("There are $e potential edges but the given mask is of size $a.")
@@ -98,17 +111,28 @@ function check_query(v::EdgeView, (i, j)::Tuple)
     check_edge(v, (i, j)) # TODO
 end
 
-function check_query(v::AbstractView, r::Ref, c::Val{class}) where {class}
+function check_query(v::AbstractView, r::Ref, c::Val{class}) where class
     check_value(v, r, c)
     N.is_ref(class(v).index, r) && return r
-    referr(v, r)
+    referr(v, r, Val(class))
 end
 
-referr(::AbstractView, l::Symbol) = referr("No node in this class is labeled $(repr(l))")
-function referr(v::AbstractView, ::Int)
+referr(::NodeView, l::Symbol, ::Val{N.class}) =
+    referr("No node in this class is labeled $(repr(l))")
+function referr(v::NodeView, ::Int, ::Val{N.class})
     n = length(N.class(v))
     s = n == 1 ? "" : "s"
     referr("This class only contains $n node$s")
+end
+
+referr(v::EdgeView, l::Symbol, ::Val{class}) where class =
+    referr("No node in the $class class ($(repr(class(v).name))) is labeled $(repr(l))")
+function referr(v::EdgeView, ::Int, ::Val{class}) where class
+    c = class(v)
+    name = repr(c.name)
+    n = length(c)
+    s = n == 1 ? "" : "s"
+    referr("The $class class ($name) only contains $n node$s")
 end
 
 # Indexing with ranges.
@@ -121,7 +145,7 @@ end
 check_query(::AbstractView, ::Colon, _) = (:)
 
 # Indexing with masks.
-function check_query(v::NodeView, m::NodeMask, ::Val{class}) where {class}
+function check_query(v::NodeView, m::SparseVector{Bool}, ::Val{class}) where {class}
     exp = v |> class |> length
     act = length(m)
     exp == act && return m
@@ -155,9 +179,9 @@ check_query(::EdgeMaskView, m::SparseMatrix{Bool}) = m # As long as dimensions a
 # ==========================================================================================
 # Assuming all checks passed, finally obtain the indexed value(s).
 
-obtain(v::NodeView, (q,)::Tuple{Query}) = obtain(v, q)
+obtain(v::NodeView, (q,)::Tuple{Any}) = obtain(v, q)
 
-function obtain(v::NodeFieldView, q::Query)
+function obtain(v::NodeFieldView, q)
     i = N.to_index(N.class(v).index, q)
     read(N.entry(v)) do data
         data[i]
@@ -170,7 +194,8 @@ obtain(v::NodeMaskView, r::Ref) = N.is_ref(N.class(v).index, r)
 
 obtain(v::NodeTopologyView, u::UnitRange) = [obtain(v, i) for i in u]
 obtain(v::NodeTopologyView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
-obtain(v::NodeTopologyView, m::NodeMask) = [obtain(v, i) for i in 1:length(v) if m[i]]
+obtain(v::NodeTopologyView, m::SparseVector{Bool}) =
+    [obtain(v, i) for i in 1:length(v) if m[i]]
 
 # Edges masks.
 obtain(v::EdgeMaskView, q::Tuple) = is_edge(v, q)
@@ -218,7 +243,7 @@ end
 # ==========================================================================================
 # Assuming all checks passed, finally edit the indexed value(s).
 
-set!(::FieldView, q::Query, rhs) = throw("TODO")
+set!(::FieldView, q, rhs) = throw("TODO")
 
 # ==========================================================================================
 # Exposed interface: whole checking sequence.

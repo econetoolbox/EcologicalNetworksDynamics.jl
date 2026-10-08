@@ -240,8 +240,7 @@ end
         "Index too large to be used with julia arrays (9223372036854775808)")
     @viewfails(v[-5], View, "Integer node references can only be positive")
     @viewfails(v[[0, 1, 2]], View,
-        "Could not interpret as a boolean mask (not only 1's and 0's?)"
-    )
+        "Could not interpret as a boolean mask (not only 1's and 0's?)")
     @viewfails(v[5], View, "This class only contains 3 nodes")
     @viewfails(v[:x], View, "No node in this class is labeled :x")
 
