@@ -104,7 +104,8 @@ end
 #-------------------------------------------------------------------------------------------
 # Check query against the model.
 
-check_query(v::NodeView, (i,)::Tuple) = (check_query(v, i, Val(N.class)),) # TODO: subnodes differ.
+check_query(v::NodeView, (i,)::Tuple) = (check_query(v, i, Val(N.class)),)
+check_query(v::NodeMaskView, (i,)::Tuple) = (check_query(v, i, Val(N.parent)),)
 
 function check_query(v::EdgeView, (i, j)::Tuple)
     check_query.((v,), (i, j), Val.((N.source, N.target)))
@@ -119,21 +120,29 @@ end
 
 referr(::NodeView, l::Symbol, ::Val{N.class}) =
     referr("No node in this class is labeled $(repr(l))")
+referr(::NodeMaskView, l::Symbol, ::Val{N.parent}) =
+    referr("No node in the parent class is labeled $(repr(l))")
+referr(v::EdgeView, l::Symbol, ::Val{class}) where class =
+    referr("No node in the $class class ($(repr(class(v).name))) is labeled $(repr(l))")
+
 function referr(v::NodeView, ::Int, ::Val{N.class})
-    n = length(N.class(v))
-    s = n == 1 ? "" : "s"
+    n, s = ns(length(N.class(v)))
     referr("This class only contains $n node$s")
 end
 
-referr(v::EdgeView, l::Symbol, ::Val{class}) where class =
-    referr("No node in the $class class ($(repr(class(v).name))) is labeled $(repr(l))")
+function referr(v::NodeView, ::Int, ::Val{N.parent})
+    n, s = ns(length(N.parent(v)))
+    referr("The parent class only contains $n node$s")
+end
+
 function referr(v::EdgeView, ::Int, ::Val{class}) where class
     c = class(v)
     name = repr(c.name)
-    n = length(c)
-    s = n == 1 ? "" : "s"
+    n, s = ns(length(c))
     referr("The $class class ($name) only contains $n node$s")
 end
+
+ns(n) = (n, n == 1 ? "" : "s")
 
 # Indexing with ranges.
 function check_query(v::AbstractView, u::UnitRange, c)
@@ -190,7 +199,8 @@ end
 
 # Node names and mask.
 obtain(v::NodeNameView, r::Ref) = N.to_label(N.class(v).index, r)
-obtain(v::NodeMaskView, r::Ref) = N.is_ref(N.class(v).index, r)
+obtain(v::NodeMaskView, r::Symbol) = N.is_ref(N.class(v).index, r)
+obtain(v::NodeMaskView, r::Int) = r in N.class(v).restriction
 
 obtain(v::NodeTopologyView, u::UnitRange) = [obtain(v, i) for i in u]
 obtain(v::NodeTopologyView, ::Colon) = [obtain(v, i) for i in 1:length(v)]

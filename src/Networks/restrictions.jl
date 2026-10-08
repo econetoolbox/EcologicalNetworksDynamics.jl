@@ -8,32 +8,24 @@ export Restriction
 # ==========================================================================================
 # The various kinds of restrictions.
 
-"""
-Root class 'no-restriction', including all nodes in canonical order.
-"""
+"Root class 'no-restriction', including all nodes in canonical order."
 struct Full <: Restriction
     n::Int # Total number of nodes in the network.
 end
 
-"""
-Restrict with a range of nodes.
-"""
+"Restrict with a range of nodes."
 struct Range <: Restriction
     range::UnitRange{Int} # Indices selected from the parent class.
 end
 
-"""
-Restrict with a sparse allow-list of nodes.
-"""
+"Restrict with a sparse allow-list of nodes."
 struct Sparse <: Restriction
     # Indices included from the parent class.
     # Keep sorted for efficient query.
     select::Vector{Int}
 end
 
-"""
-Restrict with a sparse list of ranges.
-"""
+"Restrict with a sparse list of ranges."
 struct SparseRanges <: Restriction
     # Disjoint, sorted and *compact* in that adjacent ranges have been merged together.
     ranges::Vector{UnitRange{Int}}
@@ -44,9 +36,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Query restrictions.
 
-"""
-Number of nodes in the restriction.
-"""
+"Number of nodes in the restriction."
 Base.length(r::Restriction) = unimplemented(length, r)
 Base.length(f::Full) = f.n
 Base.length(r::Range) = length(r.range)
@@ -66,18 +56,14 @@ function Base.in(i::Int, (; ranges)::SparseRanges)
     i in ranges[s]
 end
 
-"""
-Obtain an iterable through all nodes indices in the parent class.
-"""
+"Obtain an iterable through all nodes indices in the parent class."
 indices(r::Restriction) = unimplemented(indices, r)
 indices(f::Full) = 1:f.n
 indices(r::Range) = r.range
 indices(s::Sparse) = s.select
 indices(s::SparseRanges) = I.flatten(s.ranges)
 
-"""
-Convert a local index to a parent index.
-"""
+"Convert a local index to a parent index."
 toparent(i::Int, r::Restriction) = unimplemented(toparent, i, r)
 toparent(i::Int, ::Full) = i
 toparent(i::Int, r::Range) = i + first(r.range) - 1
@@ -90,9 +76,7 @@ toparent(i::Int, s::SparseRanges) =
         r[length(r)-cs[i_range]+i]
     end
 
-"""
-Convert a parent index to a local index, assuming it exists.
-"""
+"Convert a parent index to a local index, assuming it exists."
 tolocal(i::Int, r::Restriction) = unimplemented(tolocal, i, r)
 tolocal(i::Int, ::Full) = i
 tolocal(i::Int, r::Range) = i - first(r.range) + 1
@@ -151,9 +135,7 @@ function Base.:(==)(a::SparseRanges, b::SparseRanges)
 end
 
 #-------------------------------------------------------------------------------------------
-"""
-Expand data to data that are sparse within the parent by reversing the restriction.
-"""
+"Expand data to data that are sparse within the parent by reversing the restriction."
 function expand(T::Type, r::Restriction, parent_size::Int, data)
     res = spzeros(T, parent_size)
     for (i, v) in zip(indices(r), data)
@@ -165,8 +147,6 @@ expand(r::Restriction, size::Int, data::AbstractVector{T}) where {T} =
     expand(T, r, size, data)
 export expand
 
-"""
-Obtain mask within parent class.
-"""
+"Obtain mask within parent class."
 mask(r::Restriction, parent_size::Int) = I.map(i -> i in r, 1:parent_size)
 export mask

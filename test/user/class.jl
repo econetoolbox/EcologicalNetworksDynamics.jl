@@ -166,6 +166,8 @@ end
     @test m.species.index == OrderedDict(:a => 1, :b => 2, :c => 3)
     # Same within the parent class (no parent class for this root example).
     @test m.species.parent_index == OrderedDict(:a => 1, :b => 2, :c => 3)
+    # Corresponding, degenerated mask.
+    @test m.species.mask == [1, 1, 1]
 
     # Types.
     @test m.species.names isa Views.NodeNameView{D.Class(:species)[1]}
@@ -174,22 +176,6 @@ end
     @test m.species.mask isa AbstractVector{Bool}
     @test m.species.index isa OrderedDict{Symbol,Int}
     @test m.species.parent_index isa OrderedDict{Symbol,Int}
-
-    # Mask within the parent class (no parent class with this root example).
-    k = m.species.mask
-    @test k[1] && k[2] && k[3]
-    @test k[:a] && k[:b] && k[:c]
-    @test k == Bool[1, 1, 1]
-    @test k[1:2] == Bool[1, 1]
-    @test k[(end-1):end] == Bool[1, 1]
-    @test_repr(k, "<::species>[1, 1, 1]")
-    @test_disp(k,
-        """
-        NodeMaskView<::species>{Bool} (3/3 values)
-         1
-         1
-         1\
-        """)
 
 end
 
@@ -288,11 +274,6 @@ end
     bp.names[2] = :x
     @test Model(bp).species.names == [:a, :x, :c]
 
-end
-
-@testset "Class component: mask view" begin
-    View = Views.NodeMaskView{d}
-    # HERE: test with :producers so we get interesting information to test.
 end
 
 @testset "Class component: no nodes" begin

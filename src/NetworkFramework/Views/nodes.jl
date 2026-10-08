@@ -96,9 +96,12 @@ function mask_view(d::D.Subclass, m::Model)
     NodeMaskView{d}(m, r)
 end
 let S = NodeMaskView
-    D.parent(s::S) = s |> dispatcher |> D.parent
-    N.parent(s::S) = N.class(N.network(s), D.parent(s))
     N.restriction(s::S) = getfield(s, :restriction)
+    D.parent(s::S) = s |> dispatcher |> D.parent
+    function N.parent(s::S) # Return self-class if no parent.
+        p = D.parent(s)
+        isnothing(p) ? N.class(s) : N.class(N.network(s), p)
+    end
     function Base.size(s::S)
         net = N.network(s)
         p = D.parent(s)
@@ -107,7 +110,7 @@ let S = NodeMaskView
     end
     function V.extract(s::S)
         res = spzeros(Bool, length(s))
-        for i in s |> restriction |> N.indices
+        for i in s |> N.restriction |> N.indices
             res[i] = true
         end
         res
