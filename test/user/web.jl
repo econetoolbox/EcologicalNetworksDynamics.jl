@@ -370,8 +370,14 @@ end
     @viewfails(v[], View, "Edge-level data has 2 dimensions, received 0")
     @viewfails(v[1], View, "Edge-level data has 2 dimensions, received 1")
     @viewfails(v[1, 2, 3], View, "Edge-level data has 2 dimensions, received 3")
-    @viewfails(v[true, false], View, "Views are queried with indices [::Int] or labels [::Symbol]")
+    @viewfails(v[true, false], View,
+        "Views are queried with indices [::Int] or labels [::Symbol]")
     @viewfails(v[(1, 2)], View, "Cannot index into views with explicit tuples")
+    @viewfails(v[0x8000000000000000, 2], View,
+        "Index too large to be used with julia arrays (9223372036854775808)")
+    @viewfails(v[-5, 2], View, "Integer node references can only be positive")
+    @viewfails(v[[0; 1;; 2; 3]], View,
+        "Could not interpret as a boolean mask (not only 1's and 0's?)")
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑

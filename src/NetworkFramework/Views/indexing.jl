@@ -48,18 +48,16 @@ check_type(::AbstractView, q::Unsigned) =
     try
         Int(q)
     catch e
-        e isa InexactError &&
-            referr("Index too large to be used with julia arrays ($q)", rethrow)
-        rethrow(e)
+        e isa InexactError || rethrow(e)
+        referr("Index too large to be used with julia arrays ($q)", rethrow)
     end
 
 check_type(::AbstractView, q::AbstractArray{<:Integer}) =
     try
         copyto!(similar(q, Bool), q)
     catch e
-        e isa InexactError &&
-            referr("Could not interpret as a boolean mask (not only 1's and 0's?)", rethrow)
-        rethrow(e)
+        e isa InexactError || rethrow(e)
+        referr("Could not interpret as a boolean mask (not only 1's and 0's?)", rethrow)
     end
 
 #-------------------------------------------------------------------------------------------
@@ -237,7 +235,7 @@ end
 function check_all(v::EdgeMaskView, (q,)::Tuple{Any})
     can_convert(SparseMatrix{Bool}, q) || # (hopefully resolved statically)
         return @invoke check_all(v::AbstractView, (q,))
-    q = convert(SparseMatrix{Bool}, q)
+    q = guard(false, check_type, v, (q,))
     q = guard(false, check_value, v, q)
     q = guard(false, check_query, v, q)
     q
