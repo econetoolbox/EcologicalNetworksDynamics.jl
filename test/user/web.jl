@@ -305,7 +305,8 @@ end
 
 @testset "Web component: mask view" begin
 
-    m = Model(Species("abcde"), Foodweb([:a => (:b, :c), (:b, :d) => (:c, :e)]))
+    bp = Foodweb([:a => (:b, :c), (:b, :d) => (:c, :e)])
+    m = Model(Species("abcde"), bp)
     v = m.trophic.mask
 
     @test v isa View
@@ -388,36 +389,31 @@ end
     @viewfails(v[end+1, 2], View, "The source class (:species) only contains 5 nodes")
     @viewfails(v[2, (end-1):(end+1)], View,
         "The target class (:species) only contains 5 nodes")
+    @viewfails(v[[0 1 0]], View,
+        "There are (5, 5) potential edges but the given mask is of size (1, 3).")
 
-    @viewfails(v[[0; 1;; 1; 0]], View,
-        "There are (5, 5) potential edges but the given mask is of size (2, 2).")
+    # Immutable, prior to any indexing guard.
+    @immutfails((v[1, 1] = true), View)
+    @immutfails((v[:a, :b] = false), View)
+    @immutfails((v[1:2, 2:end] = false), View)
+    @immutfails((v[] = true), View)
+    @immutfails((v[1, 2, 3] = true), View)
+    @immutfails((v[nothing] = true), View)
+    @immutfails((v[nothing, 1] = true), View)
+    @immutfails((v[1, nothing] = true), View)
+
+    # Although the *blueprint* can be mutated.
+    @test Model(Species("abcde"), bp).trophic.mask[:a, :d] == false
+    push!(bp.A[:a], :d)
+    @test Model(Species("abcde"), bp).trophic.mask[:a, :d] == true
+
+end
+
+@testset "HERE NEXT" begin
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑
     # ======================================================================================
-
-    # Index with either integers or labels.
-    @test v[1, 1] == false
-    @test v[1, 2] == true
-    @test v[:a, :a] == false
-    @test v[:a, :b] == true
-    @test v[1:2, 2:3] == [1 1; 0 0]
-    @test v[2:end, (end-1):end] == [0 0; 1 0]
-
-    # Immutable.
-    @immutfails((v[1, 1] = true), immut)
-    @immutfails((v[:a, :b] = false), immut)
-    @immutfails((v[1:2, 2:end] = false), immut)
-    # This takes priority over indexing semantics.
-    @immutfails((v[] = true), immut)
-    @immutfails((v[1, 2, 3] = true), immut)
-    @immutfails((v[nothing] = true), immut)
-    @immutfails((v[nothing, 1] = true), immut)
-    @immutfails((v[1, nothing] = true), immut)
-
-    # But the *blueprint* can be mutated.
-    bp.A[1, 1] = true
-    @test Model(bp).foodweb.mask == [1 1 1; 1 0 0; 1 1 0]
 
     # Alias to the value inside the blueprint if exact type match.
     input = sparse(Bool[0 0; 0 0])

@@ -118,6 +118,8 @@ let S = AbstractView
     # Forbid any property access.
     Base.getproperty(s::S, ::Symbol) = qerr(s, "no property to access.")
     Base.setproperty!(s::S, ::Symbol) = qerr(s, "no property to access.")
+
+    V.qerr(s::S, x...) = V.qerr(typeof(s), x...)
 end
 
 include("indexing.jl")

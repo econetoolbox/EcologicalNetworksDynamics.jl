@@ -197,7 +197,8 @@ end
 
     View = Views.NodeNameView{d}
 
-    m = Model(Species(:a, :b, :c))
+    bp = Species(:a, :b, :c)
+    m = Model(bp)
     v = m.species.names
 
     @test_repr(v, "<species>[:a, :b, :c]")
@@ -263,7 +264,7 @@ end
         """
     )
 
-    # Typechecked query display.
+    # Short query display.
     @test_err(v[:x],
         """
         View error (nodes names):
@@ -271,21 +272,6 @@ end
         No node in this class is labeled :x.\
         """
     )
-
-end
-
-@testset "Class component: mask view" begin
-    View = Views.NodeMaskView{d}
-    # HERE: test with :producers so we get interesting information to test.
-end
-
-@testset "Class component: immutable" begin
-
-    View = Views.NodeNameView{d}
-
-    bp = Species(:a, :b, :c)
-    m = Model(bp)
-    v = m.species.names
 
     # Immutable.
     @immutfails((v[1] = :u), View)
@@ -298,10 +284,15 @@ end
 
     @test_err((v[1] = :u), "Cannot change <species> nodes names once they have been set.")
 
-    # But the *blueprint* can be mutated.
+    # Although the *blueprint* can be mutated.
     bp.names[2] = :x
     @test Model(bp).species.names == [:a, :x, :c]
 
+end
+
+@testset "Class component: mask view" begin
+    View = Views.NodeMaskView{d}
+    # HERE: test with :producers so we get interesting information to test.
 end
 
 @testset "Class component: no nodes" begin

@@ -6,7 +6,6 @@ struct QueryError <: NF.IndexError
     mess::String
 end
 qerr(V::Type, q, t, m, throw = Base.throw) = throw(QueryError(V, q, t, m))
-qerr(v, x...) = qerr(typeof(v), x...)
 
 # Decide whether the error can assume that the query is short to display.
 function short(e::QueryError)
