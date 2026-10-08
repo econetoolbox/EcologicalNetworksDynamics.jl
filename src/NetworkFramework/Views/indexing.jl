@@ -142,8 +142,6 @@ function referr(v::EdgeView, ::Int, ::Val{class}) where class
     referr("The $class class ($name) only contains $n node$s")
 end
 
-ns(n) = (n, n == 1 ? "" : "s")
-
 # Indexing with ranges.
 function check_query(v::AbstractView, u::UnitRange, c)
     f, l = check_query.((v,), (first(u), last(u)), (c,))

@@ -176,5 +176,3 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodeMaskView)
         print(io, i_parent in r ? '1' : '·')
     end
 end
-
-ns(n) = (n, n > 1 ? "s" : "")

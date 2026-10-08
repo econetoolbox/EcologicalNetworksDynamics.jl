@@ -1,19 +1,21 @@
-"""
-Test all aspects of typical NodeField component, using body mass as an example.
-"""
+"Test all aspects of typical NodeField component, using body mass as an example."
 module NodeFieldTest
 
-# What the end user should have to import.
 using EcologicalNetworksDynamics
 
-# Additional imports only used here for testing purpose.
+using EcologicalNetworksDynamics.NetworkFramework: EN, NF
+using EcologicalNetworksDynamics.Tests: addfails, @bpfails, @viewfails, @writefails
 using Test
-using OrderedCollections
-import EcologicalNetworksDynamics: EN, N, F, Views, NodeField, Map
-import Main: is_repr, is_disp, @inputfails, @viewfails, @writefails, @sysfails, Value
-const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Tested viewtype.
 
 @testset "Typical NodeField component" begin
+
+    @test BodyMass isa EN.Component
+
+    error("STOP HERE")
+
+    # ======================================================================================
+    # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
+    # ======================================================================================
 
     # Blueprints available from component.
     @test BodyMass isa EN.Component
@@ -84,7 +86,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
          6.0\
         """,
     )
-    @sysfails( # Unless the component is missing, as all properties.
+    addfails.@missingrequired( # Unless the component is missing, as all properties.
         Model().body_mass,
         Property(body_mass, "Component $(EN._BodyMass) is required to read this property."),
     )
@@ -144,7 +146,6 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     # The value is still checked.
     @writefails(
         v[2] = -1,
-        body_mass[2] = -1,
         "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :b ([2]):\n\
          Value cannot be negative.\n\
@@ -152,7 +153,6 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     )
     @writefails(
         v[:b] = -10,
-        body_mass[:b] = -10,
         "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :b ([2]):\n\
          Value cannot be negative.\n\
@@ -160,7 +160,6 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     )
     @writefails(
         v .-= 4,
-        body_mass[3] = -1,
         "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :c ([3]):\n\
          Value cannot be negative.\n\
@@ -211,25 +210,25 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     @test m.body_mass == v == [5, 5, 5]
 
     # Checked.
-    @inputfails(
+    @writefails(
         m.body_mass = [6, -1, 4],
         "When attempting to assign to <species:body_mass> node field:\n\
          At node index [2]:\n\
          Value cannot be negative.",
         -1,
     )
-    @inputfails(
+    @writefails(
         m.body_mass = Dict(:a => 2, :x => 5, :c => 7),
         "When attempting to assign to <species:body_mass> node field:\n\
          Not a :species name: :x.",
     )
-    @inputfails(
+    @writefails(
         m.body_mass = -1,
         "When attempting to assign to <species:body_mass> node field:\n\
          Value cannot be negative.",
         -1,
     )
-    @inputfails(
+    @writefails(
         m.body_mass = :what,
         "When attempting to assign to <species:body_mass> node field:\n\
          Cannot convert input to either:\n  \
@@ -242,7 +241,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     # Fail constructing from raw values.
     input = [4, -1, 2]
     for invalid in (() -> BodyMass.Raw(input), () -> BodyMass(input))
-        @inputfails(
+        @writefails(
             invalid(),
             "When constructing <species:body_mass> from raw values:\n\
              At node index [2]:\n\
@@ -261,7 +260,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     # It is (still) ok to break values checking afterwards..
     input[3] *= -1
     # .. but then expansion fails.
-    @sysfails(
+    addfails.@check(
         Model(bp),
         Check(
             early,
@@ -275,7 +274,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
 
     # Fail against system value.
     bp = BodyMass([4, 5, 6])
-    @sysfails(
+    addfails.@check(
         Model(Species(2), bp),
         Check(
             late,
@@ -305,7 +304,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
 
     # Late-check against node names.
     m = Model(Species(m.species.names))
-    @sysfails(
+    addfails.@missingrequired(
         m + BodyMass([:a => 5, :x => 6, :y => 7]),
         Check(
             late,
@@ -314,7 +313,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
              Missing for <species:body_mass>, no value provided for :b and :c.",
         )
     )
-    @sysfails(
+    addfails.@check(
         m + BodyMass([:a => 5, :b => 6, :c => 7, :x => 8, :y => 9]),
         Check(
             late,
@@ -344,7 +343,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     @test m.species.names == [:s1, :s2, :s3] # Default names obtained.
     @test m.body_mass == [4, 5, 6]
     m = Model(Species(m.species.number))
-    @sysfails(
+    addfails.@missingrequired(
         m + BodyMass([1 => 5, 4 => 6, 5 => 7]),
         Check(
             late,
@@ -353,7 +352,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
              Missing for <species:body_mass>, no value provided for nodes 2 and 3.",
         )
     )
-    @sysfails(
+    addfails.@check(
         m + BodyMass([1 => 5, 2 => 6, 3 => 7, 4 => 8, 5 => 9]),
         Check(
             late,
@@ -371,7 +370,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     input[:x] = 15
     @test bp.M == OrderedDict([:a => 4, :b => 5, :c => 6, :x => 15])
     input[:x] *= -1
-    @sysfails(
+    addfails.@check(
         Model(bp),
         Check(
             early,
@@ -384,7 +383,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     )
 
     # Fail constructing from mapped.
-    @inputfails(
+    @bpfails(
         BodyMass.Map([:a => :what]),
         "When constructing <species:body_mass> from map:\n\
          Expected values of type '$Float64', \
@@ -397,7 +396,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     m = Model(Species(5), bp)
     @test m.body_mass == [3, 3, 3, 3, 3]
     bp.M *= -1 # Mutable.
-    @sysfails(
+    addfails.@check(
         Model(Species(5), bp),
         Check(
             early,
@@ -408,10 +407,10 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
         )
     )
     # But then it needs the class.
-    @sysfails(Model(bp), Missing(Species, nothing, [BodyMass.Flat], nothing))
+    addfails.@missingrequired(Model(bp), Missing(Species, nothing, [BodyMass.Flat], nothing))
 
     # Fail constructing from Flat.
-    @inputfails(
+    @bpfails(
         BodyMass.Flat(:what),
         "When constructing <species:body_mass> from a flat value",
         :what,
@@ -420,7 +419,7 @@ const View = Views.NodeFieldView{NodeField(:species, :body_mass),Float64} # Test
     )
 
     # Generic construction failure.
-    @inputfails(
+    @bpfails(
         BodyMass(:what),
         "Cannot convert input to either:\n  \
           - $Float64\n  \

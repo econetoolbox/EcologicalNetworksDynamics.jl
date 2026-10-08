@@ -1,6 +1,4 @@
-"""
-Test all aspects of typical Subclass component, using producers as an example.
-"""
+"Test all aspects of typical Subclass component, using producers as an example."
 module SubclassTest
 
 using EcologicalNetworksDynamics

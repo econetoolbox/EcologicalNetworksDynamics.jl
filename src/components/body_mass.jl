@@ -1,18 +1,13 @@
-# Set or generate body masses for every species in the model.
-
-(false) && (local BodyMass, _BodyMass)
-export BodyMass
-
 module BodyMassDef
 
-using EcologicalNetworksDynamics: EN, F, NF, D, Blueprint, @alias, Foodweb, argerr
+using EcologicalNetworksDynamics: Foodweb, argerr
+using EcologicalNetworksDynamics.NetworkFramework:
+    EN, D, F, NF, Blueprint, @alias
 
-const d = D.NodeField(:species, :body_mass)
-const DT = typeof(d)
-
-D.name_variants(::DT) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
-D.type(::DT) = Float64
-NF.check(::DT, input) = NF.non_negative(Float64, input)
+const d, _D = D.NodeField(:species, :body_mass)
+D.name_variants(::_D) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
+D.type(::_D) = Float64
+NF.intrinsic_check(::_D, mass) = NF.non_negative(Float64, mass)
 
 # One extra blueprint to build from trophic levels.
 mutable struct Z <: Blueprint
@@ -20,11 +15,8 @@ mutable struct Z <: Blueprint
 end
 NF.define_blueprint(Z, "trophic levels"; depends = [Foodweb])
 
-# Codegen + exec.
 NF.define_node_field_component(EN, d; blueprints = [:Z => Z])
-using .EN: BodyMass, _BodyMass
-
-# Community convenience alias.
+local BodyMass, _BodyMass # (reassure JuliaLS)
 @alias M body_mass
 
 # Extra constructor dispatch to the extra blueprint.
@@ -53,3 +45,5 @@ function F.expand!(model, bp::Z)
 end
 
 end
+local BodyMass, _BodyMass # (reassure JuliaLS)
+export BodyMass

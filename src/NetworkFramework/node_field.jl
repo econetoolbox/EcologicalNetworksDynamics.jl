@@ -35,6 +35,7 @@ function define_node_field_component(
     requires = [], # Extra requirements for the component.
 )
 
+    # HERE: fix, using the sandbox setup.
     #---------------------------------------------------------------------------------------
     # Extract particular information for this (class, field) pair.
     nc = D.Class(d)

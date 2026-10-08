@@ -35,7 +35,7 @@ module Views
 
 import EcologicalNetworksDynamics:
     EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix
-import .Display: join_elided, render_input
+import .Display: join_elided, render_input, ns
 import .NetworkFramework: NF, D, Model, can_convert
 const V = Views
 

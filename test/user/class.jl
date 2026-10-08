@@ -1,8 +1,4 @@
-"""
-Test all aspects of typical Class component,
-using species as an example, but without testing anything specific to species.
-Anything specific to species will be tested in a dedicated file.
-"""
+"Test all aspects of typical Class component, using species as an example."
 module ClassTest
 
 using EcologicalNetworksDynamics

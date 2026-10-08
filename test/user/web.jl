@@ -1,6 +1,4 @@
-"""
-Test all aspects of typical Web component, using foodweb as an example.
-"""
+"Test all aspects of typical Web component, using foodweb as an example."
 module WebTest
 
 using EcologicalNetworksDynamics

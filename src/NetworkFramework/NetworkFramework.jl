@@ -171,7 +171,7 @@ const V = Views
 include("./graph_scalar.jl")
 include("./class.jl")
 include("./web.jl")
-#  include("./node_field.jl")
+include("./node_field.jl")
 #  include("./subnode_field.jl")
 #  include("./edge_field.jl")
 
