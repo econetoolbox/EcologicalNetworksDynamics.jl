@@ -7,14 +7,16 @@ using EcologicalNetworksDynamics
 using SparseArrays
 
 using EcologicalNetworksDynamics.Tests:
-    @test_repr, @test_disp, @test_err, @bpfails, addfails, @propfails, @immutfails
+    @test_repr, @test_disp, @test_err, @bpfails, addfails, @propfails, @viewfails,
+    @immutfails
 using EcologicalNetworksDynamics.NetworkFramework:
     EN, D, F, NF, Network, Views, SparseMatrix
 using EcologicalNetworksDynamics.Framework: @PropertySpace
+using Test
 
 const d, _D = D.Web(:trophic)
 const Tr = @PropertySpace(trophic, Network)
-using Test
+const View = Views.EdgeMaskView{d}
 
 @testset "Web component: blueprints" begin
 
@@ -303,11 +305,10 @@ end
 
 @testset "Web component: mask view" begin
 
-    View = Views.EdgeMaskView{d}
-
     m = Model(Species("abcde"), Foodweb([:a => (:b, :c), (:b, :d) => (:c, :e)]))
     v = m.trophic.mask
 
+    @test v isa View
     @test_repr(v, "<trophic>(5×5: 6 edges)")
     @test_disp(v,
         """
@@ -365,6 +366,12 @@ end
     ]
     @test v[k] isa SparseVector{Bool}
     @test v[k] == v[sparse(k)] == v[Bool.(k)] == [1, 0, 1, 0, 1, 0, 1, 0]
+
+    @viewfails(v[], View, "Edge-level data has 2 dimensions, received 0")
+    @viewfails(v[1], View, "Edge-level data has 2 dimensions, received 1")
+    @viewfails(v[1, 2, 3], View, "Edge-level data has 2 dimensions, received 3")
+    @viewfails(v[true, false], View, "Views are queried with indices [::Int] or labels [::Symbol]")
+    @viewfails(v[(1, 2)], View, "Cannot index into views with explicit tuples")
 
     # ======================================================================================
     # ↑ ↑ HERE updating tests ↑ ↑

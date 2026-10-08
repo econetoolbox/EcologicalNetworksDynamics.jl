@@ -21,33 +21,30 @@ check_dim(::NodeView, c::CartesianIndex{1}) = c
 check_dim(::EdgeView, c::CartesianIndex{2}) = c
 check_dim(v::AbstractView, c::CartesianIndex{N}) where N = dimerr(v, c, true, N)
 
-check_dim(::EdgeView, ::AbstractMatrix{Bool}) = c
-
-function dimerr(v, q, tck, act)
+function dimerr(v, q, sh, act)
     d = dispatcher(v)
     l = titlecase(D.level(d))
     exp = D.dim(d)
     s = exp == 1 ? "" : "s"
-    qerr(v, q, tck, "$l-level data has $exp dimension$s, received $act")
+    qerr(v, q, sh, "$l-level data has $exp dimension$s, received $act")
 end
+
+check_dim(v::NodeView, q::Tuple) = tuplerr(v, q)
+check_dim(v::EdgeView, q::Tuple) = tuplerr(v, q)
+tuplerr(v, q) = qerr(v, q, false, "Cannot index into views with explicit tuples")
 
 #-------------------------------------------------------------------------------------------
 # Check query type.
 
 # Then dispatch to per-dimension checking.
-check_type(v::AbstractView, q::Tuple, already_broadcasted = false) =
-    if already_broadcasted
-        referr("Cannot index into views with explicit tuples")
-    else
-        check_type.((v,), q, true)
-    end
-check_type(::AbstractView, q::Query, _ = false) = q
-check_type(::AbstractView, q, _) =
+check_type(v::AbstractView, q::Tuple) = check_type.((v,), q)
+check_type(::AbstractView, q::Query) = q
+check_type(::AbstractView, q) =
     referr("Views are queried with indices [::Int] or labels [::Symbol]")
 
 # Allow for a few implicit conversions.
-check_type(::AbstractView, q::Union{Char,AbstractString}, _) = Symbol(q)
-check_type(::AbstractView, q::Unsigned, _) =
+check_type(::AbstractView, q::Union{Char,AbstractString}) = Symbol(q)
+check_type(::AbstractView, q::Unsigned) =
     try
         Int(q)
     catch e
@@ -56,7 +53,7 @@ check_type(::AbstractView, q::Unsigned, _) =
         rethrow(e)
     end
 
-check_type(::AbstractView, q::AbstractArray{<:Integer}, _) =
+check_type(::AbstractView, q::AbstractArray{<:Integer}) =
     try
         copyto!(similar(q, Bool), q)
     catch e
