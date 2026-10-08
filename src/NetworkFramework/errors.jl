@@ -73,7 +73,7 @@ InputRef(r::InputRef) = r
 """
 Upgrade root cause with a reference to the invalid part of input.
 The framework should fill this automatically unless *you*
-zare implementing the part where this context is available.
+are implementing the part where this context is available.
 In this case, call `checkerr()` with a reference.
 """
 struct RefErr <: LibError

@@ -7,8 +7,8 @@ using EcologicalNetworksDynamics
 using SparseArrays
 
 using EcologicalNetworksDynamics.Tests:
-    @test_repr, @test_disp, @test_err, @bpfails, addfails, @propfails, @viewfails,
-    @immutfails
+    @test_repr, @test_disp, @test_err, @bpfails, @checkfails, addfails, @propfails,
+    @viewfails, @immutfails
 using EcologicalNetworksDynamics.NetworkFramework:
     EN, D, F, NF, Network, Views, SparseMatrix
 using EcologicalNetworksDynamics.Framework: @PropertySpace
@@ -160,6 +160,7 @@ const View = Views.EdgeMaskView{d}
         @test bp.A === input
     end
 
+    # All list parsing errors are reported here.
     @bpfails(Foodweb.Adjacency(:a),
         Foodweb.Adjacency, :construct,
         (nothing, :whole, :list,
@@ -201,6 +202,15 @@ const View = Views.EdgeMaskView{d}
     @test has_component(m, Foodweb)
     @test has_component(m, Species)
     @test m.species.names == [:s1, :s2, :s3, :s4, :s5, :s6]
+
+    # ======================================================================================
+    # Generic construct failure.
+
+    input = [1 => 2 0 1]
+    @checkfails(Foodweb(input), input,
+        "Cannot convert input to either:\n  \
+           - $(SparseMatrix{Bool})\n  \
+           - $(EN.BinAdjacency)")
 
 end
 
@@ -409,107 +419,17 @@ end
 
 end
 
-@testset "HERE NEXT" begin
-
-    # ======================================================================================
-    # ↑ ↑ HERE updating tests ↑ ↑
-    # ======================================================================================
-
-    # Alias to the value inside the blueprint if exact type match.
-    input = sparse(Bool[0 0; 0 0])
-    bp = Foodweb(input)
-    @test bp.A === input
-    input[1, 2] = 1
-    @test bp.A == [0 1; 0 0]
-
-    # Fail construct from matrix.
-    @bpfails(Model(Foodweb([1 0 1; 0 1 0])),
-        early, [Foodweb.Matrix],
-        "The adjacency matrix of size (3, 2) is not squared.\n\
-         Received: 2×3 SparseMatrixCSC{Bool, $Int} with 3 stored entries:\n \
-          1  ⋅  1\n \
-          ⋅  1  ⋅")
-    @bpfails(Model(Species(3), Foodweb([0 1; 0 0])),
-        late, [Foodweb.Matrix],
-        "There are 3 :species nodes but the provided matrix is of size (2, 2).\n\
-         Received: 2×2 SparseMatrixCSC{Bool, $Int} with 1 stored entry:\n \
-          ⋅  1\n \
-          ⋅  ⋅")
-
-    # Construct from adjacency matrix.
-    A = [:a => (:b, :c), (:d, :c) => (:b, :e)]
-    bp = Foodweb.Adjacency(A)
-    @test bp == Foodweb(A) # Directly dispatched from component.
-    @test is_repr(bp, "<Foodweb>:Adjacency(A: {a: {b, c}, d: {b, e}, c: {b, e}})")
-    @test is_disp(
-        bp,
-        """
-        blueprint for <Foodweb>: Adjacency {
-          A: {a: {b, c}, d: {b, e}, c: {b, e}},
-        }\
-        """,
-    )
-    # All list parsing errors are available here.
-    @bpfails(Foodweb.Adjacency([:a => :b => :c]),
-        "The pair at [1][right] \
-         is just considered an iterable in this context, which may be confusing. \
-         Consider grouping with an explicit vector instead like [:b, :c].")
-    m = Model(bp)
-    @test m.species.names == [:a, :b, :c, :d, :e]
-    @test m.trophic.matrix == [
-        0 1 1 0 0
-        0 0 0 0 0
-        0 1 0 0 1
-        0 1 0 0 1
-        0 0 0 0 0
+@testset "Web component: interpolating indices" begin
+    @test Model(Foodweb([:a => :b])).trophic.matrix == [
+        0 1
+        0 0
     ]
-
-    # Same with only indices instead.
-    A = [1 => (2, 3), (4, 3) => (2, 5)]
-    bp = Foodweb.Adjacency(A)
-    @test bp == Foodweb(A) # Directly dispatched from component.
-    @test is_repr(bp, "<Foodweb>:Adjacency(A: {1: {2, 3}, 4: {2, 5}, 3: {2, 5}})")
-    @test is_disp(
-        bp,
-        """
-        blueprint for <Foodweb>: Adjacency {
-          A: {1: {2, 3}, 4: {2, 5}, 3: {2, 5}},
-        }\
-        """,
-    )
-    @bpfails(Foodweb.Adjacency([1 => (2, 2)]),
-        "Duplicated target node reference at [1][right][2]: 2 ::$Int.")
-    m = Model(bp)
-    @test m.species.names == [:s1, :s2, :s3, :s4, :s5]
-    @test m.trophic.mask ==
-          m.trophic.matrix ==
-          [
-              0 1 1 0 0
-              0 0 0 0 0
-              0 1 0 0 1
-              0 1 0 0 1
-              0 0 0 0 0
-          ]
-
-    # Interpolate identifiers if some are missing.
-    @test Model(Foodweb([5 => 3, 6 => 8])).trophic.matrix == [
-        0 0 0 0 0 0 0 0
-        0 0 0 0 0 0 0 0
-        0 0 0 0 0 0 0 0
-        0 0 0 0 0 0 0 0
-        0 0 1 0 0 0 0 0
-        0 0 0 0 0 0 0 1
-        0 0 0 0 0 0 0 0
-        0 0 0 0 0 0 0 0
+    @test Model(Foodweb([1 => 4])).trophic.matrix == [
+        0 0 0 1
+        0 0 0 0
+        0 0 0 0
+        0 0 0 0
     ]
-
-    # Generic construct failure.
-    @bpfails(Foodweb([1 => 2 0 1]),
-        "Cannot convert input to either:\n  \
-           - $(SparseMatrix{Bool})\n  \
-           - $(EN.BinAdjacency)",
-        [1 => 2 0 1])
-
 end
 
 end
