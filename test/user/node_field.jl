@@ -4,7 +4,7 @@ module NodeFieldTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.NetworkFramework: EN, NF
-using EcologicalNetworksDynamics.Tests: addfails, @bpfails, @viewfails, @writefails
+using EcologicalNetworksDynamics.Tests: addfails, @bpfails, @viewfails, @mutfails
 using Test
 
 @testset "Typical NodeField component" begin
@@ -144,21 +144,21 @@ using Test
     @test a == alt.body_mass == [4, 5, 6]
 
     # The value is still checked.
-    @writefails(
+    @mutfails(
         v[2] = -1,
         "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :b ([2]):\n\
          Value cannot be negative.\n\
          Received: -1.0"
     )
-    @writefails(
+    @mutfails(
         v[:b] = -10,
         "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :b ([2]):\n\
          Value cannot be negative.\n\
          Received: -10.0"
     )
-    @writefails(
+    @mutfails(
         v .-= 4,
         "When attempting to mutate <species:body_mass> node field:\n\
          At node with label :c ([3]):\n\
@@ -210,25 +210,25 @@ using Test
     @test m.body_mass == v == [5, 5, 5]
 
     # Checked.
-    @writefails(
+    @mutfails(
         m.body_mass = [6, -1, 4],
         "When attempting to assign to <species:body_mass> node field:\n\
          At node index [2]:\n\
          Value cannot be negative.",
         -1,
     )
-    @writefails(
+    @mutfails(
         m.body_mass = Dict(:a => 2, :x => 5, :c => 7),
         "When attempting to assign to <species:body_mass> node field:\n\
          Not a :species name: :x.",
     )
-    @writefails(
+    @mutfails(
         m.body_mass = -1,
         "When attempting to assign to <species:body_mass> node field:\n\
          Value cannot be negative.",
         -1,
     )
-    @writefails(
+    @mutfails(
         m.body_mass = :what,
         "When attempting to assign to <species:body_mass> node field:\n\
          Cannot convert input to either:\n  \
@@ -241,7 +241,7 @@ using Test
     # Fail constructing from raw values.
     input = [4, -1, 2]
     for invalid in (() -> BodyMass.Raw(input), () -> BodyMass(input))
-        @writefails(
+        @mutfails(
             invalid(),
             "When constructing <species:body_mass> from raw values:\n\
              At node index [2]:\n\

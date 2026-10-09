@@ -31,57 +31,54 @@ Typical setup for a component bringing a new class field to the network.
 function define_node_field_component(
     mod::Module,
     d::D.NodeField;
-    blueprints = [], # Extra blueprints for the component.
-    requires = [], # Extra requirements for the component.
+    blueprints = (), # Extra blueprints for the component.
+    requires = (), # Extra requirements for the component.
 )
 
-    # HERE: fix, using the sandbox setup.
     #---------------------------------------------------------------------------------------
     # Extract particular information for this (class, field) pair.
-    nc = D.Class(d)
-    Class = D.CamelCaseSingular(nc)
+    _D = typeof(d)
+    cl, _ = D.Class(d)
+    Class = D.component(cl)
+    _Class = typeof(Class)
     class, field = D.content(d)
-    value, values, Value, Values, short = D.name_variants(d)
+    singular, plural, Singular, Plural, short = D.name_variants(d)
     T = D.type(d)
 
     # Use it to generate adequate code.
-    Value_ = Symbol(Value, :_) # Blueprints module name.
-    _Value = Symbol(:_, Value) # Component type name.
+    Singular_ = Symbol(Singular, :_) # Blueprints module name.
+    _Singular = Symbol(:_, Singular) # Component type name.
 
     # ======================================================================================
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
-    bpmod = mod.eval((
-        quote
-            module $Value_
-            import EcologicalNetworksDynamics: F, NF, D
-            const nc = $nc
-            const Class = D.component(nc)
-            const _Class = typeof(Class)
-            const d = $d
-            const T = $T
+    bpmod = mod.eval(
+        (
+            quote
+                module $Singular_
+                import EcologicalNetworksDynamics: F, NF, D, @bp_construct
+                const d, T, Class = $d, $T, $Class
+                end
             end
-        end
-    ).args |> last)
+        ).args |> last,
+    )
 
     #---------------------------------------------------------------------------------------
     # From raw values.
+
     bpmod.eval(
         quote
             mutable struct Raw <: NF.NodeFieldRawBlueprint
                 $short::Vector{T}
-                Raw($short) = new(NF.construct(d, Raw, $short))
+                @bp_construct(Raw)
             end
-            NF.data(bp::Raw) = bp.$short
-            F.implied(::Raw) = (Class,)
-            F.implied_blueprint_for(bp::Raw, ::Type{_Class}) =
-                NF.implied_class(d, Class, bp)
-            F.early_check(bp::Raw) = NF._early_check(d, bp)
-            F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
-            F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Raw, "raw values"; depends = [Class])
             export Raw
+            NF.datatype(b::Type{Raw}) = T
+            NF.data(b::Raw) = b.$short
+            NF.register_blueprint(Raw, "raw values";
+                implied = (Class,), # Infer number of class nodes from vector size.
+            )
         end,
     )
 
@@ -92,17 +89,14 @@ function define_node_field_component(
         quote
             mutable struct Map <: NF.NodeFieldMapBlueprint
                 $short::NF.Map{T}
-                Map($short) = new(NF.construct(d, Map, $short))
+                @bp_construct(Map)
             end
-            NF.data(bp::Map) = bp.$short
-            F.implied(::Map) = (Class,)
-            F.implied_blueprint_for(bp::Map, ::Type{_Class}) =
-                NF.implied_class(d, Class, bp)
-            F.early_check(bp::Map) = NF._early_check(d, bp)
-            F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
-            F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
-            NF.define_blueprint(Map, $"[$class => $field] map"; depends = [Class])
             export Map
+            NF.datatype(::Type{Map}) = T
+            NF.data(b::Map) = b.$short
+            NF.define_blueprint(Map, $"[$class => $field] map";
+                implied = (Class,), # Infer class nodes from map keys.
+            )
         end,
     )
 
@@ -113,14 +107,12 @@ function define_node_field_component(
             quote
                 mutable struct Flat <: NF.NodeFieldFlatBlueprint
                     $short::T
-                    Flat($short) = new(NF.construct(d, Flat, $short))
+                    @bp_construct(Flat)
                 end
-                NF.data(bp::Flat) = bp.$short
-                F.early_check(bp::Flat) = NF._early_check(d, bp)
-                F.late_check(model, bp::Flat, data) = NF.late_check(d, model, bp, data)
-                F.expand!(model, bp::Flat, data) = NF.expand!(d, model, bp, data)
-                NF.define_blueprint(Flat, "uniform value"; depends = [Class])
                 export Flat
+                NF.datatype(::Type{Flat}) = T
+                NF.data(bp::Flat) = bp.$short
+                NF.define_blueprint(Flat, "uniform value"; depends = (Class,))
             end,
         )
     end
@@ -128,47 +120,44 @@ function define_node_field_component(
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
-    DT = typeof(d)
-    comp = mod.eval(
+    c = NF.eval(
         quote
-            NF.define_component(
-                $(Meta.quot(Value)),
+            define_component(
+                $(Meta.quot(Singular)),
                 $mod;
-                requires = $requires,
-                blueprints = [$bpmod, $(blueprints...)],
+                requires = (Class, $(requires...)),
+                blueprints = ($bpmod, $(blueprints...)),
             )
         end,
     )
-    C = typeof(comp)
-    mod.eval(quote
-        $D.component(::$DT) = $comp
-        (::$_Value)($short, args...) = $construct($d, $comp, $short, args...)
+    C = typeof(c)
+    NF.eval(quote
+        $D.component(::$_D) = $c
+        (::$C)($short, args...) = $construct($d, $c, $short, args...)
     end)
 
     if may_flat(d)
         R = flat(d) # Receiver type.
-        mod.eval(quote
-            (::$_Value)($short::$R) = $comp.Flat($short)
+        NF.eval(quote
+            (::$C)($short::$R) = $c.Flat($short)
         end)
     end
 
     # Queries.
-    M = Symbol(Values, :_Methods)
-    prop = [value]
+    M = Symbol(Plural, :_Methods)
+    prop = [singular]
     mod.eval(
         (
             quote
                 module $M
                 using EcologicalNetworksDynamics: V, NF, D, Network, Model
-                const d = $d
-                const prop = $prop
-                const C = $C
+                const d, prop, C = $d, $prop, $C
                 D.viewtype(::typeof(d)) = V.NodeFieldView
                 get_value(::Network, m::Model) = V.field_view(d, m)
-                NF.define_method(get_value; read_as = prop, depends = [C])
+                NF.define_method(get_value; read_as = prop, depends = (C,))
                 if !D.readonly(d)
                     set_value!(::Network, m::Model, input) = NF.assign!(d, m, input)
-                    NF.define_method(set_value!; write_as = prop, depends = [C])
+                    NF.define_method(set_value!; write_as = prop, depends = (C,))
                 end
                 end
             end
@@ -176,13 +165,11 @@ function define_node_field_component(
     )
 
     # Display.
-    mod.eval(
-        quote
-            $F.shortline(io::IO, model::Model, ::$C) = $NF.nodes_shortline(io, model, $d)
-        end,
-    )
+    NF.eval(quote
+        F.shortline(io::IO, model::Model, ::$C) = NF.nodes_shortline(io, model, $d)
+    end)
 
-    comp
+    c
 end
 
 # ==========================================================================================
@@ -191,7 +178,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Check data values without model information, against the target type.
 
-check(d::D.AbstractField, value) = inputconvert(D.type(d), value)
+check(d::D.AbstractField, value) = NF.convert(D.type(d), value)
 
 check_with_ref(d::D.AbstractNodeField, value, i::Int) =
     try
@@ -265,7 +252,7 @@ end
 function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldRawBlueprint}, raw)
     T = D.type(d)
     try
-        v = inputconvert(Vector{T}, raw)
+        v = NF.convert(Vector{T}, raw)
         for (i, value) in enumerate(v)
             check_with_ref(d, value, i)
         end
@@ -279,7 +266,7 @@ end
 function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldMapBlueprint}, map)
     T = D.type(d)
     try
-        out = inputconvert(Map{T}, map)
+        out = NF.convert(Map{T}, map)
         for (l, v) in out
             check_with_ref(d, v, l)
         end
@@ -293,7 +280,7 @@ end
 function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldFlatBlueprint}, flat)
     T = D.type(d)
     try
-        val = inputconvert(T, flat)
+        val = NF.convert(T, flat)
         check(d, val)
     catch e
         e isa F.InputError || rethrow(e)
@@ -360,9 +347,6 @@ function core_early_check(d::D.AbstractNodeField, map::Map)
     end
     map
 end
-
-# That intermediate name has to be introduced to avoid ambiguous dispatch.
-early_check(d::D.AbstractField, value) = check(d, value)
 
 #-------------------------------------------------------------------------------------------
 # Late-check: correct type, checked values, model information is now available.

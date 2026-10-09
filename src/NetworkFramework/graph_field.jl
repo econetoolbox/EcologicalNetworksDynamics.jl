@@ -5,7 +5,8 @@ abstract type GraphScalarBlueprint <: Blueprint end
 Typical setup for a component bringing a new graph-level scalar data to the network.
 The data is passed as-is to the internals, so it is enforced to be immutable.
 """
-function define_graph_scalar(mod::Module, d::D.GraphField)
+function define_graph_field(mod::Module, d::D.GraphField)
+    _D = typeof(d)
     shortname, singular, Singular = D.name_variants(d)
     Singular_ = Symbol(Singular, :_)
 
@@ -24,8 +25,7 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
             quote
                 module $Singular_
                 import EcologicalNetworksDynamics.NetworkFramework: NF, @bp_construct
-                const d = $d
-                const T = $T
+                const d, T = $d, $T
 
                 mutable struct Raw <: NF.GraphScalarBlueprint
                     $field::T
@@ -34,7 +34,7 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
                 export Raw
                 NF.datatype(::Type{Raw}) = T
                 NF.data(b::Raw) = b.$field
-                $NF.register_blueprint(Raw, "raw $($("$singular")) value"; d)
+                NF.register_blueprint(Raw, "raw $($("$singular")) value"; d)
 
                 end
             end
@@ -44,17 +44,16 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
     # ======================================================================================
     # The component itself.
 
-    comp = NF.eval(
-        quote
-            define_component($(Meta.quot(Singular)), $mod; blueprints = [$bpmod])
+    c = NF.eval(
+        quote # Need to reach toplevel first to access generated values.
+            define_component($(Meta.quot(Singular)), $mod; blueprints = ($bpmod,))
         end,
     )
-    C = typeof(comp)
-    DT = typeof(d)
+    C = typeof(c)
     NF.eval(
         quote
-            D.component(::$DT) = $comp
-            (::$C)(input) = $comp.Raw(input)
+            D.component(::$_D) = $c
+            (::$C)(input) = $c.Raw(input)
             F.shortline(io::IO, model::Model, ::$C) = graph_scalar_shortline($d, io, model)
         end,
     )
@@ -69,24 +68,22 @@ function define_graph_scalar(mod::Module, d::D.GraphField)
             quote
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework: NF, D, Network, Model
-                const d = $d
-                const props = $props
-                const C = $C
+                const d, C, props = $d, $C, $props
                 get_value(::Network, m::Model) = NF.get_value(m, d)
-                NF.define_method(get_value; read_as = props, depends = [C])
+                NF.define_method(get_value; read_as = props, depends = (C,))
                 if !D.readonly(d)
                     function set_value!(::Network, m::Model, input)
                         low = NF._reassign(m, d, input)
                         NF.reassign!(m, d, low)
                     end
-                    NF.define_method(set_value!; write_as = props, depends = [C])
+                    NF.define_method(set_value!; write_as = props, depends = (C,))
                 end
                 end
             end
         ).args |> last,
     )
 
-    comp
+    c
 
 end
 

@@ -62,12 +62,3 @@ function Base.showerror(io::IO, e::ImmutableError)
     d = dispatcher(View)
     print(io, "Cannot change $d $(type_info(View)) once they have been set.")
 end
-
-"Report invalid attempt to mutate through a view."
-struct WriteError <: NF.LibError
-    View::Type
-    ref::Ref
-    WriteError(v::Type, r::Ref) = new(v, r)
-end
-WriteError(v, r) = WriteError(typeof(v), r)
-# TODO: display. Does it always result from upgrading early/late check errors?

@@ -93,6 +93,9 @@ but every method may be specialized depending on pipeline, data kind or blueprin
       by collecting/transforming data to be passed to `late_check`.
     - Default to running `intrinsic_check` again with no lowering.
 
+  - `imply` responsibilities:
+    - If any blueprint is implied: construct and expand it. Should not fail.
+
   - `late_check` responsibilities:
     - Verify blueprint value against model value,
       now available with all components required for expansion guaranteed inside.
@@ -168,11 +171,11 @@ include("./Views/Views.jl")
 const V = Views
 
 # Templates for typical network blueprint/components.
-include("./graph_scalar.jl")
+include("./graph_field.jl")
 include("./class.jl")
 include("./web.jl")
 include("./node_field.jl")
-#  include("./subnode_field.jl")
+include("./subnode_field.jl")
 #  include("./edge_field.jl")
 
 # Typical allometry-related blueprints.

@@ -1,8 +1,6 @@
 # Open up extension points by providing specialization opportunities.
 
-"""
-If relevant, obtain the data kind provided by the blueprint.
-"""
+"If relevant, obtain the data kind provided by the blueprint."
 dispatcher(B::Type{<:Blueprint}) = unimplemented(dispatcher, B)
 dispatcher(b::Blueprint) = b |> typeof |> dispatcher
 
@@ -126,10 +124,7 @@ lower(m::Model, b::Blueprint, ld) = lower(m, dispatcher(b), ld)
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-"""
-Use `lower` data to finally expand into the desired component.
-Cannot fail.
-"""
+"Use `lower` data to finally expand into the desired component. Cannot fail."
 expand!(m::Model, d::Dispatcher, t) = unimplemented(expand!, m, d, t)
 expand!(m::Model, b::Blueprint, data) = expand!(m, dispatcher(b), data)
 expand!(m::Model, b::Blueprint) = expand!(m, dispatcher(b), data(b))
@@ -140,7 +135,7 @@ expand!(m::Model, b::Blueprint) = expand!(m, dispatcher(b), data(b))
 "Default lowering pipeline from raw input to the data to be reassigned."
 function reassign(m::Model, d::Dispatcher, input)
     T = D.type(d)
-    conv = convert(T, d, input)
+    conv = NF.convert(T, d, input)
     early = early_check(d, conv)
     late = late_check(m, d, early)
     low = lower(m, d, late)
@@ -161,25 +156,41 @@ function _reassign(m::Model, d::Dispatcher, input)
 end
 
 # ==========================================================================================
-"""
-Register a given exotic blueprint into the above.
-"""
-function register_blueprint(B::Type{<:Blueprint}, shortline::String; d = nothing)
-    NF.define_blueprint(B, shortline)
+"Register a given exotic blueprint into the above."
+function register_blueprint(
+    B::Type{<:Blueprint},
+    shortline::String;
+    d = nothing,
+    implied = (),
+    depends = [],
+)
+    NF.define_blueprint(B, shortline; depends)
+    if !isempty(implied) > 0
+        eval(quote
+            F.implied(::$B) = $implied
+        end)
+        for i in implied
+            I = typeof(i)
+            eval(
+                quote
+                    F.implied_blueprint_for(b::$B, ::Type{$I}) =
+                        NF.implied_class($d, $i, b)
+                end,
+            )
+        end
+    end
     eval(quote
-        $F.early_check(b::$B) = $NF._early_check(b)
-        $F.late_check(m::Model, b::$B, data) = $NF._late_check(m, b, data)
-        $F.expand!(m::Model, b::$B, data) = $NF.expand!(m, b, data)
+        F.early_check(b::$B) = $NF._early_check(b)
+        F.late_check(m::Model, b::$B, data) = $NF._late_check(m, b, data)
+        F.expand!(m::Model, b::$B, data) = $NF.expand!(m, b, data)
     end)
     isnothing(d) && return
     eval(quote
-        $NF.dispatcher(::Type{$B}) = $d
+        NF.dispatcher(::Type{$B}) = $d
     end)
 end
 
-"""
-Inject default constructor into a blueprint struct.
-"""
+"Inject default constructor into a blueprint struct."
 macro bp_construct(B)
     quote
         $B(args...; kwargs...) = new($NF._construct($B, args...; kwargs...)...)

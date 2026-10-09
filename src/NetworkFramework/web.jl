@@ -17,15 +17,18 @@ Typical setup for a component bringing a new reflexive web to the network.
 function define_reflexive_web_component(mod::Module, d::D.Web)
     # TODO: have it generic over D.is_sparse(d) the day it's required.
 
+    _D = typeof(d)
     prop, Prop = D.propnames(d)
+    src, _ = D.source(d)
+    Class = D.component(src)
+
     web, Web = D.name_variants(d)
     class, same = D.sidenames(d)
     same == class || argerr("Reflexive webs must match source and target, \
                              here $(repr(class)) != $(repr(same)).")
-    src, _ = D.source(d)
     Web_ = Symbol(Web, :_) # Blueprints module name.
     _Web = Symbol(:_, Web) # Component type name.
-    w, c, p = Meta.quot.((web, class, prop)) # Symbol names.
+    w = Meta.quot(web) # Symbol names.
 
     # ======================================================================================
     # Blueprints for the component.
@@ -37,9 +40,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
                 module $Web_
                 using EcologicalNetworksDynamics.NetworkFramework:
                     F, NF, SparseMatrix, BinAdjacency, Model, @bp_construct
-                const d, src = $d, $src
-                const Class = $(D.component(src))
-                const _Class = typeof(Class)
+                const d, src, Class = $d, $src, $Class
                 end
             end
         ).args |> last,
@@ -53,12 +54,10 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
                 A::SparseMatrix{Bool}
                 @bp_construct Matrix
             end
-            # Infer number of class nodes from matrix size.
-            F.implied(::Matrix) = (Class,)
-            F.implied_blueprint_for(bp::Matrix, ::Type{_Class}) =
-                NF.implied_class(d, Class, bp)
-            NF.register_blueprint(Matrix, "boolean matrix of $($w) links"; d)
             export Matrix
+            NF.register_blueprint(Matrix, "boolean matrix of $($w) links"; d,
+                implied = (Class,), # Infer number of class nodes from matrix size.
+            )
         end,
     )
 
@@ -70,36 +69,40 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
                 A::BinAdjacency
                 @bp_construct Adjacency
             end
-            # Infer number or names of class nodes from the lists.
-            F.implied(::Adjacency) = (Class,)
-            F.implied_blueprint_for(bp::Adjacency, ::Type{_Class}) =
-                NF.implied_class(d, Class, bp)
-            NF.register_blueprint(Adjacency, "adjacency list of $($w) links"; d)
             export Adjacency
+            NF.register_blueprint(Adjacency, "adjacency list of $($w) links"; d,
+                implied = (Class,), # Infer number or names of class nodes from the lists.
+            )
         end,
     )
 
     # ======================================================================================
     # Component and generic constructors.
 
-    DT = typeof(d)
-    Class = D.CamelCasePlural(src)
-    comp = mod.eval(quote
-        NF.define_component($(Meta.quot(Web)), $mod; blueprints = [$bpmod])
-    end)
-    C = typeof(comp)
-    mod.eval(quote
-        $D.component(::$DT) = $comp
-        (::$_Web)(args...; kwargs...) = NF.construct($d, $Web, args...; kwargs...)
+    c = NF.eval(
+        quote
+            define_component(
+                $(Meta.quot(Web)),
+                $mod;
+                requires = ($Class,),
+                blueprints = ($bpmod,),
+            )
+        end,
+    )
+    C = typeof(c)
+    NF.eval(quote
+        $D.component(::$_D) = $c
+        (::$C)(args...; kwargs...) = NF.construct($d, $c, args...; kwargs...)
     end)
 
-    define_web_properties(mod, d; depends = [C])
-    comp
+    define_web_properties(mod, d; depends = (C,))
+    c
 end
 
 # ==========================================================================================
 
-function define_web_properties(mod::Module, d::D.Web; depends = [])
+function define_web_properties(mod::Module, d::D.Web; depends = ())
+    w = D.web(d)
     web, Web = D.name_variants(d)
     prop, Prop = D.propnames(d)
 
@@ -117,8 +120,7 @@ function define_web_properties(mod::Module, d::D.Web; depends = [])
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework:
                     I, N, V, D, Network, Model
-                const d, defmeth = $d, $defmeth
-                const w = D.web(d)
+                const d, defmeth, w = $d, $defmeth, $(Meta.quot(w))
 
                 web(n::Network) = N.web(n, w)
                 topology(n::Network) = web(n).topology

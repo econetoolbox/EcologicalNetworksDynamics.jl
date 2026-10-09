@@ -11,6 +11,7 @@ abstract type ClassNumber <: ClassBlueprint end
 
 "Typical setup for a component bringing a new class to the network."
 function define_class_component(mod::Module, d::D.Class)
+    _D = typeof(d)
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
     Plural_ = Symbol(Plural, :_) # Blueprints module name.
     _Plural = Symbol(:_, Plural) # Component type name.
@@ -56,19 +57,18 @@ function define_class_component(mod::Module, d::D.Class)
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
-    comp = NF.eval(
-        quote # Need to reach toplevel first to access generated values.
-            define_component($(Meta.quot(Plural)), $mod; blueprints = [$bpmod])
+    c = NF.eval(
+        quote
+            define_component($(Meta.quot(Plural)), $mod; blueprints = ($bpmod,))
         end,
     )
-    C = typeof(comp)
+    C = typeof(c)
 
     # Dispatch to correct constructor depending on input given to direct call on component.
-    DT = typeof(d)
     NF.eval(quote
-        D.component(::$DT) = $comp
-        (::$C)(n::Integer) = $comp.Number(n)
-        (::$C)(names...) = $comp.Names(names...)
+        D.component(::$_D) = $c
+        (::$C)(n::Integer) = $c.Number(n)
+        (::$C)(names...) = $c.Names(names...)
     end)
 
     # Display.
@@ -76,13 +76,14 @@ function define_class_component(mod::Module, d::D.Class)
         F.shortline(io::IO, model::Model, ::$C) = class_shortline($d, io, model)
     end)
 
-    define_class_properties(mod, d; depends = [C])
-    comp
+    define_class_properties(mod, d; depends = (C,))
+    c
 end
 
 # ==========================================================================================
 
-function define_class_properties(mod::Module, d::D.Class; depends = [])
+function define_class_properties(mod::Module, d::D.Class; depends = ())
+    cl = D.class(d)
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
 
     NF.define_propspace(plural)
@@ -98,18 +99,16 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework: N, V, D, Network, Model
                 using OrderedCollections
-                const defmeth = $defmeth
-                const d = $d
-                const c = D.class(d)
+                const defmeth, d, cl = $defmeth, $d, $(Meta.quot(cl))
 
                 # Ordered index.
-                ref_index(n::Network) = N.class(n, c).index
+                ref_index(n::Network) = N.class(n, cl).index
                 get_index(n::Network) = deepcopy(ref_index(n).forward)
-                indices(n::Network) = N.node_indices(n, c)
+                indices(n::Network) = N.node_indices(n, cl)
 
                 # Nodes counts and nodes labels.
                 # The 'ref' variant is more efficient but unexposed.
-                get_number(n::Network) = N.n_nodes(n, c)
+                get_number(n::Network) = N.n_nodes(n, cl)
                 ref_names(n::Network) = ref_index(n).reverse
                 get_names(::Network, m::Model) = V.names_view(d, m)
 
@@ -117,7 +116,7 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
                 get_parent_index(n::Network) =
                     OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
                 mask(n::Network, m::Model) =
-                    V.mask_view(D.Subclass(c, N.class(n, c).parent)[1], m)
+                    V.mask_view(D.Subclass(cl, N.class(n, cl).parent)[1], m)
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)

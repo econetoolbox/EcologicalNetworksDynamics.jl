@@ -235,7 +235,6 @@ const bpchecks = (;
     short = nothing, # (display implementation detail)
 )
 @genfailsmacro immutfails EN.NetworkFramework.Views.ImmutableError
-@genfailsmacro writefails EN.NetworkFramework.Views.WriteError
 
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
@@ -268,6 +267,5 @@ macro mutfails end
 macro netfails end
 macro propfails end
 macro viewfails end
-macro writefails end
 
 end

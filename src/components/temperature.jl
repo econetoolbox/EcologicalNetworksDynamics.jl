@@ -12,7 +12,7 @@ NF.intrinsic_check(::_D, T) = NF.non_negative(Float64, T)
 
 # Generate and execute the code to generate blueprints and component.
 # Execute this within toplevel module to still expose the component.
-NF.define_graph_scalar(EN, d)
+NF.define_graph_field(EN, d)
 
 end
 local Temperature, _Temperature # (reassure JuliaLS)
