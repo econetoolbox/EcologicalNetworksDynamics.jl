@@ -268,10 +268,26 @@ function late_check(m::Model, b::NodeFieldRawBlueprint, vec::Vector)
     end
 end
 
-# Map.
-function late_check(m::Model, b::NodeFieldMapBlueprint, map::Map{<:Any,Symbol})
-    late_check_refs(m, dispatcher(b), map; must_be_complete = true)
-    map
+# Map (labels).
+function late_check(md::Model, b::NodeFieldMapBlueprint, map::Map{<:Any,Symbol})
+    # Check references first.
+    late_check_refs(md, dispatcher(b), map; must_be_complete = true)
+    # Then reorder and check values one by one.
+    d = dispatcher(b)
+    nw, c = N.network(md), D.class(d)
+    ix = N.class(nw, c).index
+    [map[l] for l in ix.reverse]
+end
+
+# Map (indices).
+function late_check(md::Model, b::NodeFieldMapBlueprint, map::Map{<:Any,Int})
+    late_check_refs(md, dispatcher(b), map; must_be_complete = true)
+    # Then reorder and check values one by one.
+    d = dispatcher(b)
+    nw, c = N.network(md), D.class(d)
+    cl = N.class(nw, c)
+    n = length(cl)
+    [map[i] for i in 1:n]
 end
 
 # Check without producing returned data.

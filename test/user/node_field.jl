@@ -174,6 +174,18 @@ using Test
     # (inconsistent indices map cannot even get through early check)
 
     #---------------------------------------------------------------------------------------
+    # Expand.
+
+    bp, bpi = BodyMass(l), BodyMass(li)
+    m = Model(bp)
+    mi = Model(bpi)
+    @test has_component(m, BodyMass)
+    @test has_component(mi, BodyMass)
+    # Implied.
+    @test has_component(m, Species)
+    @test has_component(mi, Species)
+    @test m.species.names == [:a, :b, :c]
+    @test mi.species.names == [:s1, :s2, :s3]
 
     error("STOP HERE")
     # ======================================================================================
