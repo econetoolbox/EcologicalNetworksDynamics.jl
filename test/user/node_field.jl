@@ -4,7 +4,9 @@ module NodeFieldTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.NetworkFramework: EN, NF
-using EcologicalNetworksDynamics.Tests: addfails, @bpfails, @viewfails, @mutfails
+using EcologicalNetworksDynamics.Tests:
+    @jl_basic_callfails, @checkfails, addfails, @bpfails, @viewfails, @mutfails
+using OrderedCollections
 using Test
 
 @testset "Typical NodeField component" begin
@@ -30,9 +32,19 @@ using Test
     @test alias === BodyMass.Raw(alias).M
     @test alias === BodyMass(alias).M
 
-    @bpfails(BodyMass.Raw([4, 5, :x]),
+    invalid = [4, 5, :x]
+    @bpfails(BodyMass.Raw(invalid),
         BodyMass.Raw, :construct,
         (nothing, 3, :convert, Float64, :x, "Conversion not implemented."))
+    @checkfails(BodyMass(invalid), invalid,
+        """
+        Cannot convert input to either:
+          - $Float64
+          - $Vector{$Float64}
+          - $OrderedDict{R, $Float64} where R
+        (see attempts down the stacktrace)\
+        """
+    )
 
     error("STOP HERE")
     # ======================================================================================

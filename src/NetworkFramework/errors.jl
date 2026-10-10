@@ -85,6 +85,13 @@ RefErr(src::RefErr, a...) = src # Trust lowest-level during upgrade.
 RefErr(src::RootCause) = RefErr(WholeInput(), src)
 RefErr(src::RootCause, ref) = RefErr(InputRef(ref), src)
 
+# Useful when embedded within `FailedAttempts`.
+function Base.showerror(io::IO, e::RefErr)
+    (; ref, src) = e
+    println(io, "In the provided input at $ref:")
+    showerror(io, src)
+end
+
 """
 Upgrade referenced exception with a reference into model data if available and relevant.
 Same use as `RefErr`, yet only possible within `late_check` and `mutate!` or `reassign!`.

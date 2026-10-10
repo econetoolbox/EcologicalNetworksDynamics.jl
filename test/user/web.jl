@@ -206,9 +206,12 @@ const View = Views.EdgeMaskView{d}
 
     input = [1 => 2 0 1]
     @checkfails(Foodweb(input), input,
-        "Cannot convert input to either:\n  \
-           - $(SparseMatrix{Bool})\n  \
-           - $(EN.BinAdjacency)")
+        """
+        Cannot convert input to either:
+          - $(SparseMatrix{Bool})
+          - $(EN.BinAdjacency)
+        (see attempts down the stacktrace)\
+        """)
 
 end
 

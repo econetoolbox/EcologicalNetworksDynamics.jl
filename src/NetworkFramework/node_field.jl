@@ -122,7 +122,7 @@ function define_node_field_component(
     C = typeof(c)
     NF.eval(quote
         $D.component(::$_D) = $c
-        (::$C)($short, args...) = $construct($d, $c, $short, args...)
+        (::$C)($short, args...) = construct($d, $c, $short, args...)
     end)
 
     if may_flat(d)

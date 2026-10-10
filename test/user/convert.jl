@@ -96,7 +96,7 @@ end
     @test conv(SparseVector{Bool}, BitVector([1, 0]) => s)
     @test conv(SparseVector{Bool}, s => Alias)
 
-    m = [true; false ;; false ; true]
+    m = [true; false;; false; true]
     @test conv(Matrix{Bool}, [1; 0;; 0; 1] => m)
     @test conv(Matrix{Bool}, BitMatrix([1; 0;; 0; 1]) => m)
     @test conv(Matrix{Bool}, m => Alias)
@@ -376,10 +376,12 @@ end
     @checkfails(
         (try_convert(input, Symbol => id, Vector{String} => id)),
         5,
-        "Cannot convert input to either:\n  \
-         - $Symbol\n  \
-         - $(Vector{String})",
-    )
+        """
+        Cannot convert input to either:
+          - $Symbol
+          - $(Vector{String})
+        (see attempts down the stacktrace)\
+        """)
 
     input = [0, 1, 2]
     @convfails(

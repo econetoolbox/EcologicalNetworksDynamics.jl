@@ -72,7 +72,7 @@ function convert(::Type{Vector{T}}, input) where {T}
         r = try
             convert(T, v)
         catch e
-            e isa RootCause || rethrow(e)
+            e isa LibError || rethrow(e)
             upgrade(e, RefErr, i)
         end
         push!(res, r)
@@ -134,7 +134,7 @@ applying the corresponding function to the result prior to returning it then.
 ```
 """
 function try_convert(input, tries...)
-    err = FailedAttempts()
+    attempts = FailedAttempts()
     for t in tries
         (T, then) = try
             a, b = t
@@ -146,7 +146,7 @@ function try_convert(input, tries...)
             convert(T, input)
         catch e
             e isa LibError || rethrow(e)
-            push!(err, "convert input to $T")
+            push!(attempts, "convert input to $T")
             continue
         end
         return then(x)
@@ -162,7 +162,14 @@ function try_convert(input, tries...)
         end
         print(mess, "\n  - $T")
     end
-    checkerr(input, String(Base.take!(mess)))
+    print(mess, "\n(see attempts down the stacktrace)")
+    mess = String(Base.take!(mess))
+    # Raise *both* exceptions for full info.
+    try
+        throw(attempts)
+    catch _
+        checkerr(input, mess)
+    end
 end
 
 """
