@@ -120,10 +120,13 @@ function define_node_field_component(
         end,
     )
     C = typeof(c)
-    NF.eval(quote
-        $D.component(::$_D) = $c
-        (::$C)($short, args...) = construct($d, $c, $short, args...)
-    end)
+    NF.eval(
+        quote
+            $D.component(::$_D) = $c
+            (::$C)($short, args...; kwargs...) =
+                construct($d, $c, $short, args...; kwargs...)
+        end,
+    )
 
     if may_flat(d)
         R = flat(d) # Receiver type.
@@ -171,6 +174,17 @@ datatype(B::Type{<:NodeFieldFlatBlueprint}) = D.type(B)
 #-------------------------------------------------------------------------------------------
 # Construct.
 
+function construct(d::D.AbstractNodeField, Field::Component, input, args...; kwargs...)
+    T = D.type(d)
+    tries = []
+    if may_flat(d)
+        push!(tries, T => x -> Field.Flat(x, args...; kwargs...))
+    end
+    push!(tries, Vector{T} => x -> Field.Raw(x, args...; kwargs...))
+    push!(tries, Map{T} => x -> Field.Mapp(x, args...; kwargs...))
+    try_convert(input, tries...)
+end
+
 # Allow passing values as separate arguments.
 construct(B::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
     first, second, rest...) =
@@ -181,177 +195,7 @@ construct(B::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
 # ==========================================================================================
 
 #-------------------------------------------------------------------------------------------
-# Check data values without model information, against the target type.
-
-check(d::D.AbstractField, value) = NF.convert(D.type(d), value)
-
-check_with_ref(d::D.AbstractNodeField, value, i::Int) =
-    try
-        check(d, value)
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "At node index [$i]")
-    end
-check_with_ref(d::D.AbstractNodeField, value, l::Symbol) =
-    try
-        check(d, value)
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "At node with label $(repr(l))")
-    end
-
-#-------------------------------------------------------------------------------------------
-# Check against a model value, assuming the type and raw value is already correct.
-
-# No check by default.
-check(::D.AbstractField, ::Model, value) = value
-# Contextualized.
-check(d::D.AbstractField, m::Model, value, _index, _label) = check(d, m, value)
-
-#-------------------------------------------------------------------------------------------
-# Check against both the type and then immediately the model (useful for mutating).
-# To this end, wrap the model in the following marker.
-struct WholeCheck
-    model::Model
-end
-get_model(w::WholeCheck) = w.model
-get_model(m::Model) = m
-
-function check(d::D.AbstractField, whole::WholeCheck, value)
-    converted = check(d, value)
-    check(d, whole.model, converted)
-end
-
-# Abstract over either whole check or just-model check.
-function check_with_ref(d::D.AbstractNodeField, against::Model, value, i::Int, l::Symbol)
-    try
-        value = check(d, value)
-        check(d, against, value, i, l)
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "At node with label $(repr(l)) ([$i])")
-    end
-end
-
-# Use the model to automatically infer any reference type from the other one.
-function check_with_ref(d::D.AbstractNodeField, against, value, i::Int)
-    model = get_model(against)
-    network = NF.network(model)
-    class = D.class(d)
-    index = N.index(network, class)
-    l = N.to_label(index, i)
-    check_with_ref(d, model, value, i, l)
-end
-function check_with_ref(d::D.AbstractNodeField, against, value, l::Symbol)
-    model = get_model(against)
-    network = NF.network(model)
-    class = D.class(d)
-    index = N.index(network, class)
-    i = N.to_index(index, l)
-    check_with_ref(d, model, value, i, l)
-end
-
-#-------------------------------------------------------------------------------------------
 # Construct: any input is possible, but we don't know anything about the model yet.
-
-function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldRawBlueprint}, raw)
-    T = D.type(d)
-    try
-        v = NF.convert(Vector{T}, raw)
-        for (i, value) in enumerate(v)
-            check_with_ref(d, value, i)
-        end
-        v
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When constructing $d from raw values")
-    end
-end
-
-function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldMapBlueprint}, map)
-    T = D.type(d)
-    try
-        out = NF.convert(Map{T}, map)
-        for (l, v) in out
-            check_with_ref(d, v, l)
-        end
-        out
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When constructing $d from map")
-    end
-end
-
-function construct(d::D.AbstractNodeField, ::Type{<:NodeFieldFlatBlueprint}, flat)
-    T = D.type(d)
-    try
-        val = NF.convert(T, flat)
-        check(d, val)
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When constructing $d from a flat value")
-    end
-end
-
-function construct(d::D.NodeField, Field::Component, input)
-    parsed = parse(d, input)
-    construct_from_parsed(d, Field, parsed)
-end
-
-construct_from_parsed(::D.NodeField, Field::Component, raw::Vector) = Field.Raw(raw)
-construct_from_parsed(::D.NodeField, Field::Component, map::Map) = Field.Map(map)
-construct_from_parsed(::D.NodeField, Field::Component, scalar) = Field.Flat(scalar)
-
-"""
-Pre-process whatever input into one of the three basic input types for this field.
-"""
-function parse(d::D.AbstractNodeField, input)
-    T = D.type(d)
-    tries = []
-    if may_flat(d)
-        push!(tries, T)
-    end
-    push!(tries, Vector{T})
-    push!(tries, Map{T})
-    try_convert(input, tries...)
-end
-
-#-------------------------------------------------------------------------------------------
-# Early-check: correct type, unchecked values, no model information yet.
-
-function early_check(d::D.AbstractField, bp::Blueprint)
-    data = NF.data(bp)
-    try
-        early_check(d, data)
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When checking $d blueprint data")
-    end
-end
-
-function early_check(d::D.AbstractNodeField, vec::Vector)
-    T = eltype(vec)
-    data = T[]
-    for (i, value) in enumerate(vec)
-        value = check_with_ref(d, value, i)
-        push!(data, value)
-    end
-    data
-end
-
-function early_check(d::D.AbstractNodeField, map::Map)
-    T = valtype(map)
-    map = NF.parse(Map{T}, map) # Re-parse in case the map was mutated.
-    core_early_check(d, map)
-end
-
-# Assumes the input is a valid map.
-function core_early_check(d::D.AbstractNodeField, map::Map)
-    for (label, value) in map
-        map[label] = check_with_ref(d, value, label)
-    end
-    map
-end
 
 #-------------------------------------------------------------------------------------------
 # Late-check: correct type, checked values, model information is now available.

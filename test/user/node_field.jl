@@ -46,6 +46,20 @@ using Test
         """
     )
 
+    #---------------------------------------------------------------------------------------
+    # Intrinsic check.
+
+    @bpfails(BodyMass([4, -5, 6]),
+        BodyMass.Raw, :construct,
+        (nothing, 2, :check, -5.0, "Value cannot be negative."))
+
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
+    alias[3] *= -1
+    addfails.@check(Model(bp), [],
+        (BodyMass.Raw, :early, (nothing, 3, :check, -6.0, "Value cannot be negative.")))
+
     error("STOP HERE")
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
