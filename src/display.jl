@@ -13,8 +13,9 @@ local red, green, blue, cyan, yellow, black, bold, italics, reset # (reassure Ju
 "Report value along with its type."
 rept(x) = "$(repr(x))  ::$(typeof(x))"
 
-"Typical plural."
+"Typical plurals."
 ns(n) = (n, n > 1 ? "s" : "")
+nsa(n) = (ns(n)..., n > 1 ? "are" : "is")
 
 "Write on stderr."
 eprint(args...; kwargs...) = print(stderr, args...; kwargs...)

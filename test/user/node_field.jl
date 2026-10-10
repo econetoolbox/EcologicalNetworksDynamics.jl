@@ -140,7 +140,9 @@ using Test
         (nothing, :a, :check, -5.0, "Value cannot be negative."))
     @bpfails(BodyMass([1 => -5]), BodyMass.Map, :construct,
         (nothing, 1, :check, -5.0, "Value cannot be negative."))
-    BodyMass([2 => 5]) # TODO: that should fail: holes.
+    @bpfails(BodyMass([2 => 5]), BodyMass.Map, :construct,
+        (nothing, 2, :check, 2,
+            "There is only 1 value in the given map so no index can be 2."))
 
     error("STOP HERE")
     # ======================================================================================

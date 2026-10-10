@@ -196,9 +196,14 @@ construct(B::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
 # Default to checking every value independenly.
 # (It has been checked that the compiler is eliding the whole loop
 # in case `intrinsic_check` is defaulting to noop.)
-function intrinsic_check(d::D.AbstractNodeField, data::Union{Vector,Map})
+function intrinsic_check(
+    d::D.AbstractNodeField,
+    data::Union{Vector,Map},
+    checkref = ref -> (),
+)
     for (ref, x) in pairs(data)
         try
+            checkref(ref)
             intrinsic_check(d, x, ref)
         catch e
             e isa LibError || rethrow(e)
@@ -206,6 +211,24 @@ function intrinsic_check(d::D.AbstractNodeField, data::Union{Vector,Map})
         end
     end
     data
+end
+
+# In addition to every value being checked,
+# indices-maps also must be *dense*.
+function intrinsic_check(d::D.AbstractNodeField, map::Map{<:Any,Int})
+    n = length(map)
+    intrinsic_check(
+        d,
+        map,
+        ref -> begin
+            ref <= n && return
+            n, s, are = nsa(n)
+            checkerr(
+                ref,
+                "There $are only $n value$s in the given map \
+                 so no index can be $ref.")
+        end,
+    )
 end
 
 # Extension point.
