@@ -27,6 +27,21 @@ include("./codegen.jl")
 #   (NetworkFramework, NF) -> (FrontEnd, F) 💥
 #   (Dispatcher, D) -> (DataKind, K)
 # ->(Simulation/Code) -> (BackEnd, B)
+# In general:
+#   - one-letter for atomic, immutable values:
+#       - `c`lassname
+#       - `f`ieldname
+#       - `p`parent
+#       - `d`ispatcher
+#       - etc.
+#   - two-letters for wider structs, thick values, not refs:
+#       - `nw`: network
+#       - `cl`: class
+#       - `pa`: parent
+#       - `fd`: field
+#       - `cp`: component
+#       _ `bp`: blueprint
+#   - `x` for data values during lowering, as julian people like.
 
 # Data: parsimonious model memory representation.
 include("Networks/Networks.jl")

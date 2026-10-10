@@ -144,6 +144,37 @@ using Test
         (nothing, 2, :check, 2,
             "There is only 1 value in the given map so no index can be 2."))
 
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
+    bp.M[:b] *= -1
+    bpi.M[2] *= -1
+    addfails.@check(Model(bp), [],
+        (BodyMass.Map, :early, (nothing, :b, :check, -5.0, "Value cannot be negative.")))
+    addfails.@check(Model(bpi), [],
+        (BodyMass.Map, :early, (nothing, 2, :check, -5.0, "Value cannot be negative.")))
+    pop!(bpi.M, 2)
+    addfails.@check(Model(bpi), [],
+        (BodyMass.Map, :early,
+            (nothing, 3, :check, 3,
+                "There are only 2 values in the given map so no index can be 3.")))
+
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
+    addfails.@check(Model(Species("abc"), BodyMass([:a => 1])), [],
+        (BodyMass.Map, :late,
+            (:whole, :whole, :check, OrderedDict([:a => 1.0]),
+                "Missing for <species:body_mass>: no value provided for :b and :c.")))
+    addfails.@check(Model(Species("a"), BodyMass([:a => 1, :x => 2])), [],
+        (BodyMass.Map, :late,
+            (:whole, :whole, :check, OrderedDict([:a => 1.0, :x => 2.0]),
+                "Not a :species name: :x.")))
+
+    # (inconsistent indices map cannot even get through early check)
+
+    #---------------------------------------------------------------------------------------
+
     error("STOP HERE")
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑

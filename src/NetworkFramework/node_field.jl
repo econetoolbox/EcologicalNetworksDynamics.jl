@@ -214,8 +214,9 @@ function intrinsic_check(
 end
 
 # In addition to every value being checked,
-# indices-maps also must be *dense*.
-function intrinsic_check(d::D.AbstractNodeField, map::Map{<:Any,Int})
+# indices-maps also must be *dense* on construction.
+function intrinsic_check(B::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int})
+    d = dispatcher(B)
     n = length(map)
     intrinsic_check(
         d,
@@ -235,10 +236,21 @@ end
 intrinsic_check(d::D.AbstractNodeField, x, ::Ref) = intrinsic_check(d, x)
 
 #-------------------------------------------------------------------------------------------
+# Early check.
+
+# Hmpf.. unfortunate necessary wiring? :\
+early_check(B::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int}) = intrinsic_check(B, map)
+
+#-------------------------------------------------------------------------------------------
 # Late check.
 
+# Extension point, checking individual values against the model.
+# Raise simple `checkerr` on failure, the report will be upgraded anyway.
+late_check(::Model, ::D.AbstractNodeField, x, ::Int, ::Symbol) = x
+
+# Raw.
 function late_check(m::Model, b::NodeFieldRawBlueprint, vec::Vector)
-    # Check number of values first.
+    # Check plain number of provided values.
     d, nw = dispatcher(b), N.network(m)
     cl = D.class(d)
     exp, act = N.n_nodes(nw, cl), length(vec)
@@ -256,9 +268,75 @@ function late_check(m::Model, b::NodeFieldRawBlueprint, vec::Vector)
     end
 end
 
-# Extension point, checking individual values against the model.
-# Raise simple `checkerr` on failure, the report will be upgraded anyway.
-late_check(::Model, ::D.AbstractNodeField, x, ::Int, ::Symbol) = x
+# Map.
+function late_check(m::Model, b::NodeFieldMapBlueprint, map::Map{<:Any,Symbol})
+    late_check_refs(m, dispatcher(b), map; must_be_complete = true)
+    map
+end
+
+# Check without producing returned data.
+function late_check_refs(
+    md::Model,
+    d::D.AbstractNodeField,
+    map::Map{<:Any,Symbol};
+    must_be_complete = true, # Lower for assignment.
+)
+    nw = N.network(md)
+    c = D.class(d)
+    labels = N.node_labels(nw, c)
+    exp = Set(labels)
+    act = Set(keys(map))
+    render(set) = join_elided(
+        sort!(collect(I.map(ref -> "$green$(repr(ref))$reset", set))),
+        ", ", " and "; repr = false)
+    if must_be_complete
+        miss = setdiff(exp, act)
+        isempty(miss) ||
+            checkerr(map, "Missing for $d: no value provided for $(render(miss)).")
+    end
+    unexp = setdiff(act, exp)
+    if !isempty(unexp)
+        a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
+        checkerr(map, "Not$a $cyan$(repr(c))$reset name$s: $(render(unexp)).")
+    end
+    nothing
+end
+
+function late_check_refs(
+    md::Model,
+    d::D.AbstractNodeField,
+    map::Map{<:Any,Int};
+    must_be_complete = true,
+)
+    nw = N.network(md)
+    c = D.class(d)
+    n = N.n_nodes(nw, c)
+    miss = Int[]
+    for exp in 1:n
+        haskey(map, exp) && continue
+        push!(miss, exp)
+    end
+    render(set) = join_elided(
+        I.map(ref -> "$green$(repr(ref))$reset", set),
+        ", ", " and "; repr = false)
+    if must_be_complete && !isempty(miss)
+        s = length(miss) == 1 ? "" : "s"
+        checkerr(map, "Missing for $d: no value provided for node$s $(render(miss)).")
+    end
+    unexp = miss
+    for act in keys(map)
+        act in 1:n && continue
+        push!(unexp, act)
+    end
+    if !isempty(unexp)
+        indices, s = length(unexp) == 1 ? ("index", "") : ("indices", "s")
+        checkerr(
+            map,
+            "Invalid $indices for class $(repr(c)) with $n node$s: $(render(unexp)).",
+        )
+    end
+    nothing
+end
 
 #-------------------------------------------------------------------------------------------
 # Implied class.
@@ -319,68 +397,6 @@ function late_check(d::D.AbstractNodeField, model::Model, map::Map{<:Any,Int})
 end
 
 late_check(d::D.AbstractNodeField, model::Model, value) = check(d, model, value)
-
-# Check without producing returned data.
-function core_late_check(
-    d::D.AbstractNodeField,
-    model::Model,
-    map::Map{<:Any,Symbol};
-    must_be_complete = true, # Lower for assignment.
-)
-    # Check labels first.
-    network = NF.network(model)
-    class = D.class(d)
-    labels = N.node_labels(network, class)
-    exp = Set(labels)
-    act = Set(keys(map))
-    if must_be_complete
-        miss = setdiff(exp, act)
-        if !isempty(miss)
-            miss = EN.join_elided(sort!(collect(miss)), ", ", " and ")
-            conserr("Missing for $d, no value provided for $miss.")
-        end
-    end
-    unexp = setdiff(act, exp)
-    if !isempty(unexp)
-        a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
-        unexp = EN.join_elided(sort!(collect(unexp)), ", ", " and ")
-        conserr("Not$a $(repr(class)) name$s: $unexp.")
-    end
-    nothing
-end
-
-function core_late_check(
-    d::D.AbstractNodeField,
-    model::Model,
-    map::Map{<:Any,Int};
-    must_be_complete = true,
-)
-    # Check indices first.
-    network = NF.network(model)
-    class = D.class(d)
-    n = N.n_nodes(network, class)
-    miss = Int[]
-    for exp in 1:n
-        haskey(map, exp) && continue
-        push!(miss, exp)
-    end
-    if must_be_complete && !isempty(miss)
-        miss = EN.join_elided(miss, ", ", " and ")
-        s = length(miss) == 1 ? "" : "s"
-        conserr("Missing for $d, no value provided for node$s $miss.")
-    end
-    unexp = miss
-    for act in keys(map)
-        act in 1:n && continue
-        push!(unexp, act)
-    end
-    if !isempty(unexp)
-        unexp = EN.join_elided(unexp, ", ", " and ")
-        indices, s = length(unexp) == 1 ? ("index", "") : ("indices", "s")
-        conserr("Invalid $indices for class $(repr(class)) with $n node$s: $unexp.")
-    end
-    nothing
-end
 
 #-------------------------------------------------------------------------------------------
 # Mutation: called when setting through a view.

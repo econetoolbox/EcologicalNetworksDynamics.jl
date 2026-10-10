@@ -86,7 +86,8 @@ intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
 
 "Validate data and take this opportunity to start lowering."
 early_check(d::Dispatcher, data) = intrinsic_check(d, data)
-early_check(b::Blueprint) = early_check(dispatcher(b), data(b))
+early_check(B::Type{<:Blueprint}, data) = early_check(dispatcher(B), data)
+early_check(b::Blueprint) = early_check(typeof(b), data(b))
 
 # Framework entrypoint.
 _early_check(b::Blueprint) =
