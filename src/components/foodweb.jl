@@ -1,5 +1,3 @@
-# First example of a network web.
-
 module FoodwebDef
 using EcologicalNetworksDynamics.NetworkFramework:
     EN, N, F, NF, D, V, Network, Model, @alias, argerr
@@ -22,8 +20,7 @@ D.name_variants(::_D) = (:foodweb, :Foodweb)
 D.propnames(::_D) = (:trophic, :Trophic)
 D.is_symmetric(::_D) = false
 
-NF.define_reflexive_web_component(EN, d)
-const Foodweb, _Foodweb = EN.Foodweb, EN._Foodweb
+const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, d)
 
 # Community consistency aliases.
 @alias foodweb trophic
@@ -75,7 +72,7 @@ function NF.post_expand!(model::Model, d::_D)
     N.add_web!(network, :carnivory, (:species, :species), N.SparseReflexive(mat))
 end
 
-depends = [Foodweb]
+depends = (Foodweb,)
 p, _ = D.Class(:producers)
 c, _ = D.Class(:consumers)
 t, _ = D.Class(:tops)
@@ -129,10 +126,9 @@ function trophic_levels(A::AbstractMatrix{Bool})
 end
 
 # Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
-const l = D.NodeField(:species, :trophic_level)
-const LT = typeof(l)
-D.type(::LT) = Float64
-D.readonly(::LT) = true
+const l, _L = D.NodeField(:species, :trophic_level)
+D.type(::_L) = Float64
+D.readonly(::_L) = true
 level(::Network, m::Model) = V.data_view(l, m)
 level_entry(n::Network) = N.class(n, :species).data[:trophic_level]
 NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
@@ -457,7 +453,8 @@ julia> m.carnivorous_links
  0  0  0  0  0
  0  0  0  0  0
 ```
-""" Foodweb
+"""
+Foodweb
 
 end
 

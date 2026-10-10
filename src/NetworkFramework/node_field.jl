@@ -10,24 +10,16 @@ If raised, provide the argument type for component-call constructor.
 flat(d::D.AbstractField) = D.type(d)
 may_flat(d::D.AbstractField) = !isnothing(flat(d))
 
-"""
-Expand to a class field from a vector of raw values.
-"""
+"Expand to a class field from a vector of raw values."
 abstract type NodeFieldRawBlueprint <: Blueprint end
 
-"""
-Expand to a class field from mapped values.
-"""
+"Expand to a class field from mapped values."
 abstract type NodeFieldMapBlueprint <: Blueprint end
 
-"""
-Expand to a class field from a single value.
-"""
+"Expand to a class field from a single value."
 abstract type NodeFieldFlatBlueprint <: Blueprint end
 
-"""
-Typical setup for a component bringing a new class field to the network.
-"""
+"Typical setup for a component bringing a new class field to the network."
 function define_node_field_component(
     mod::Module,
     d::D.NodeField;
@@ -57,7 +49,7 @@ function define_node_field_component(
         (
             quote
                 module $Singular_
-                import EcologicalNetworksDynamics: F, NF, D, @bp_construct
+                import EcologicalNetworksDynamics.NetworkFramework: F, NF, D, @bp_construct
                 const d, T, Class = $d, $T, $Class
                 end
             end
@@ -71,7 +63,7 @@ function define_node_field_component(
         quote
             mutable struct Raw <: NF.NodeFieldRawBlueprint
                 $short::Vector{T}
-                @bp_construct(Raw)
+                @bp_construct Raw
             end
             export Raw
             NF.datatype(b::Type{Raw}) = T
@@ -89,12 +81,12 @@ function define_node_field_component(
         quote
             mutable struct Map <: NF.NodeFieldMapBlueprint
                 $short::NF.Map{T}
-                @bp_construct(Map)
+                @bp_construct Map
             end
             export Map
             NF.datatype(::Type{Map}) = T
             NF.data(b::Map) = b.$short
-            NF.define_blueprint(Map, $"[$class => $field] map";
+            NF.register_blueprint(Map, $"[$class => $field] map";
                 implied = (Class,), # Infer class nodes from map keys.
             )
         end,
@@ -107,12 +99,12 @@ function define_node_field_component(
             quote
                 mutable struct Flat <: NF.NodeFieldFlatBlueprint
                     $short::T
-                    @bp_construct(Flat)
+                    @bp_construct Flat
                 end
                 export Flat
                 NF.datatype(::Type{Flat}) = T
                 NF.data(bp::Flat) = bp.$short
-                NF.define_blueprint(Flat, "uniform value"; depends = (Class,))
+                NF.register_blueprint(Flat, "uniform value"; depends = (Class,))
             end,
         )
     end
@@ -125,7 +117,7 @@ function define_node_field_component(
             define_component(
                 $(Meta.quot(Singular)),
                 $mod;
-                requires = (Class, $(requires...)),
+                requires = ($Class, $(requires...)),
                 blueprints = ($bpmod, $(blueprints...)),
             )
         end,
@@ -150,7 +142,7 @@ function define_node_field_component(
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics: V, NF, D, Network, Model
+                using EcologicalNetworksDynamics.NetworkFramework: V, NF, D, Network, Model
                 const d, prop, C = $d, $prop, $C
                 D.viewtype(::typeof(d)) = V.NodeFieldView
                 get_value(::Network, m::Model) = V.field_view(d, m)
@@ -169,7 +161,7 @@ function define_node_field_component(
         F.shortline(io::IO, model::Model, ::$C) = NF.nodes_shortline(io, model, $d)
     end)
 
-    c
+    (c, C)
 end
 
 # ==========================================================================================

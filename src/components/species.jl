@@ -1,13 +1,10 @@
-# First example of a network class.
-
 module SpeciesDef
 using EcologicalNetworksDynamics.NetworkFramework: EN, D, NF, @alias
 
 const d, _D = D.Class(:species)
 D.name_variants(::_D) = (:s, :species, :species, :Species, :Species)
 
-NF.define_class_component(EN, d)
-local Species # (reassure JuliaLS)
+const Species, _Species = NF.define_class_component(EN, d)
 
 # Extra aliases used by the community.
 @alias S species.number
@@ -73,7 +70,8 @@ OrderedCollections.OrderedDict{Symbol, Int64} with 3 entries:
   :fox   => 2
   :snake => 3
 ```
-""" Species
+"""
+Species
 
 end
 local Species, _Species # Reassure JuliaLS.

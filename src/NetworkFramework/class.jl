@@ -77,7 +77,8 @@ function define_class_component(mod::Module, d::D.Class)
     end)
 
     define_class_properties(mod, d; depends = (C,))
-    c
+
+    (c, C)
 end
 
 # ==========================================================================================

@@ -4,6 +4,7 @@ abstract type GraphScalarBlueprint <: Blueprint end
 """
 Typical setup for a component bringing a new graph-level scalar data to the network.
 The data is passed as-is to the internals, so it is enforced to be immutable.
+Returns the defined component and its type.
 """
 function define_graph_field(mod::Module, d::D.GraphField)
     _D = typeof(d)
@@ -29,7 +30,7 @@ function define_graph_field(mod::Module, d::D.GraphField)
 
                 mutable struct Raw <: NF.GraphScalarBlueprint
                     $field::T
-                    @bp_construct(Raw)
+                    @bp_construct Raw
                 end
                 export Raw
                 NF.datatype(::Type{Raw}) = T
@@ -83,7 +84,7 @@ function define_graph_field(mod::Module, d::D.GraphField)
         ).args |> last,
     )
 
-    c
+    (c, C)
 
 end
 

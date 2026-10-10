@@ -9,32 +9,13 @@ using Test
 
 @testset "Typical NodeField component" begin
 
-    @test BodyMass isa EN.Component
+    @test BodyMass isa Component # Etc.
+    @test BodyMass.Z <: Blueprint # Extension point for extra BP worked, but test Z later.
 
     error("STOP HERE")
-
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
     # ======================================================================================
-
-    # Blueprints available from component.
-    @test BodyMass isa EN.Component
-    @test is_repr(BodyMass, "BodyMass")
-    @test is_disp(
-        BodyMass,
-        """
-        BodyMass (component for $(N.Network), expandable from:
-          Raw: raw values,
-          Map: [species => body_mass] map,
-          Flat: uniform value,
-          Z: trophic levels,
-        )\
-        """,
-    )
-    @test BodyMass.Raw <: EN.Blueprint
-    @test BodyMass.Map <: EN.Blueprint
-    @test BodyMass.Flat <: EN.Blueprint
-    @test BodyMass.Z <: EN.Blueprint # So the extension point worked, but test Z elsewhere.
 
     # Construct from raw values, regardless of input type.
     bp = BodyMass.Raw([4.0, 5.0, 6.0])

@@ -1,19 +1,13 @@
 "Expand into a new edges web."
 abstract type WebBlueprint <: Blueprint end
 
-"""
-Expand into a new reflexive web from a sparse boolean matrix.
-"""
+"Expand into a new reflexive web from a sparse boolean matrix."
 abstract type ReflexiveWebMatrixBlueprint <: WebBlueprint end
 
-"""
-Expand into a new reflexive web from an adjacency list.
-"""
+"Expand into a new reflexive web from an adjacency list."
 abstract type ReflexiveWebAdjacencyBlueprint <: WebBlueprint end
 
-"""
-Typical setup for a component bringing a new reflexive web to the network.
-"""
+"Typical setup for a component bringing a new reflexive web to the network."
 function define_reflexive_web_component(mod::Module, d::D.Web)
     # TODO: have it generic over D.is_sparse(d) the day it's required.
 
@@ -96,7 +90,8 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
     end)
 
     define_web_properties(mod, d; depends = (C,))
-    c
+
+    (c, C)
 end
 
 # ==========================================================================================

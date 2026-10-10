@@ -1,5 +1,3 @@
-# First example of a single network-level scalar.
-
 # Namespace intermediate constants within the module to avoid cross-component clashes.
 module TemperatureDef
 using EcologicalNetworksDynamics.NetworkFramework: EN, NF, D

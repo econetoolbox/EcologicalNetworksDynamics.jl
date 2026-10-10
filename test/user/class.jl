@@ -6,7 +6,7 @@ using EcologicalNetworksDynamics
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
     @viewfails, @immutfails, @propfails, addfails
-using EcologicalNetworksDynamics.NetworkFramework: EN, D, Network, Views
+using EcologicalNetworksDynamics.NetworkFramework: D, Network, Views
 using EcologicalNetworksDynamics.Framework: F, @PropertySpace
 using OrderedCollections
 using Test
@@ -18,7 +18,7 @@ const Sp = @PropertySpace(species, Network)
 @testset "Class component: blueprints" begin
 
     # Blueprints available from component.
-    @test Species isa EN.Component
+    @test Species isa Component
     @test_disp(typeof(Species), "<Species> (component type for $Network)")
     @test_disp(Species,
         """
@@ -27,8 +27,8 @@ const Sp = @PropertySpace(species, Network)
           Number: number of species,
         )\
         """)
-    @test Species.Names <: EN.Blueprint
-    @test Species.Number <: EN.Blueprint
+    @test Species.Names <: Blueprint
+    @test Species.Number <: Blueprint
 
     # ======================================================================================
     # From names.
