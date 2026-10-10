@@ -42,12 +42,13 @@ const Sp = @PropertySpace(species, Network)
     @test bp == Species.Names(["a", "b", "c"]) # ::String
     @test bp == Species.Names(split("a b c")) # ::SubString etc.
     @test bp == Species.Names(:a, 'b', "c") # Allow input as separate arguments.
+    @test bp == Species.Names("abc") # Split into single-char names.
     # Implicit constructor.
     @test bp == Species([:a, :b, :c])
     @test bp == Species(['a', 'b', 'c'])
     @test bp == Species(["a", "b", "c"])
     @test bp == Species(split("a b c"))
-    @test bp == Species(:a, 'b', "c")
+    @test bp == Species("abc")
     @test_repr(bp, "<Species>:Names(names: [:a, :b, :c])")
     @test_disp(bp,
         """
@@ -63,10 +64,22 @@ const Sp = @PropertySpace(species, Network)
     input[2] = :x
     @test bp.names == [:a, :x, :c]
 
-    @bpfails(Species(:a),
+    @bpfails(Species.Names(:a),
         Species.Names, :construct,
         (nothing, :whole, :convert, Vector{Symbol}, :a, "Input is not iterable."))
-    @jl_basic_callfails(Species(5; a = 5))
+    @jl_basic_callfails(Species(:a)) # Preserve forward compatibility.
+
+    @bpfails(Species([:a, :b, nothing]),
+        Species.Names, :construct,
+        (nothing, 3, :convert, Symbol, nothing, "Conversion not implemented."))
+    @test_err(Species([:a, :b, nothing]), # First time with a 1D index.
+        """
+        While constructing blueprint Species.Names:
+        In the provided value at [3]:
+        Cannot convert input to `$Symbol`:
+        Conversion not implemented.
+        Received: nothing ::$Nothing\
+        """)
 
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
@@ -74,14 +87,6 @@ const Sp = @PropertySpace(species, Network)
     @bpfails(Species([:a, :b, :b]),
         Species.Names, :construct,
         (nothing, 3, :check, :b, "Species 2 and 3 would both be named :b."))
-
-    @test_err(Species([:a, :b, :b]), # First time with a 1D index.
-        """
-        While constructing blueprint Species.Names:
-        In the provided value at [3]:
-        Species 2 and 3 would both be named :b.
-        Received: :b ::Symbol\
-        """)
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -152,7 +157,7 @@ end
         Component <Species> is required to read this property.\
         """)
 
-    m = Model(Species(:a, :b, :c))
+    m = Model(Species([:a, :b, :c]))
 
     # Names view (tested further below).
     @test m.species.names == [:a, :b, :c]
@@ -179,7 +184,7 @@ end
 
     View = Views.NodeNameView{d}
 
-    bp = Species(:a, :b, :c)
+    bp = Species([:a, :b, :c])
     m = Model(bp)
     v = m.species.names
 
@@ -211,7 +216,7 @@ end
     @test v[end] == :c
     @test v[end-1] == :b
     @test v[1:2] == [:a, :b]
-    @test v[end-1:end] == [:b, :c]
+    @test v[(end-1):end] == [:b, :c]
     @test v[[false, true, false]] == v[[0, 1, 0]] == [:b]
 
     @viewfails(v[], View, "Node-level data has 1 dimension, received 0")

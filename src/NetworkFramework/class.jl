@@ -68,7 +68,8 @@ function define_class_component(mod::Module, d::D.Class)
     NF.eval(quote
         D.component(::$_D) = $c
         (::$C)(n::Integer) = $c.Number(n)
-        (::$C)(names...) = $c.Names(names...)
+        (::$C)(names::AbstractVector) = $c.Names(names)
+        (::$C)(names::String) = $c.Names(names)
     end)
 
     # Display.

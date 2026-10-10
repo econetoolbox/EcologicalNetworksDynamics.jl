@@ -19,29 +19,25 @@ using Test
     # Construct.
 
     bp = BodyMass.Raw([4.0, 5.0, 6.0])
+    @test bp == BodyMass.Raw([4, 5, 6])
+    @test bp == BodyMass([4.0, 5.0, 6.0])
+    @test bp == BodyMass([4, 5, 6])
+    @test BodyMass.Raw(Bool[1, 0, 1]) == BodyMass.Raw([1.0, 0.0, 1.0])
+    @test BodyMass(Bool[1, 0, 1]) == BodyMass([1.0, 0.0, 1.0])
+    @test bp == BodyMass.Raw(4, 5.0, 6)
+
+    alias = bp.M
+    @test alias === BodyMass.Raw(alias).M
+    @test alias === BodyMass(alias).M
+
+    @bpfails(BodyMass.Raw([4, 5, :x]),
+        BodyMass.Raw, :construct,
+        (nothing, 3, :convert, Float64, :x, "Conversion not implemented."))
 
     error("STOP HERE")
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
     # ======================================================================================
-
-    # Construct from raw values, regardless of input type.
-    bp = BodyMass.Raw([4.0, 5.0, 6.0])
-    @test bp == BodyMass.Raw([4, 5, 6])
-    @test BodyMass.Raw(Bool[1, 0, 1]) == BodyMass.Raw([1.0, 0.0, 1.0])
-    # Implicit constructor.
-    @test bp == BodyMass([4.0, 5.0, 6.0])
-    @test bp == BodyMass([4, 5, 6])
-    @test BodyMass(Bool[1, 0, 1]) == BodyMass([1.0, 0.0, 1.0])
-    @test is_repr(bp, "<BodyMass>:Raw(M: [4.0, 5.0, 6.0])")
-    @test is_disp(
-        bp,
-        """
-        blueprint for <BodyMass>: Raw {
-          M: [4.0, 5.0, 6.0],
-        }\
-        """,
-    )
 
     # Expand into a field component.
     m = Model(bp)
@@ -91,7 +87,7 @@ using Test
     # Index with either integers or labels.
     @test v[1] == 4
     @test v[1:2] == [4, 5]
-    @test v[end-1:end] == [5, 6]
+    @test v[(end-1):end] == [5, 6]
     @test v[:b] == 5
     @viewfails(
         v[nothing],
@@ -124,7 +120,7 @@ using Test
 
     # Support various mutating operations like regular julia arrays.
     v[1:2] .= 8
-    v[end-1:end] .*= 100
+    v[(end-1):end] .*= 100
     @test v == w == m.body_mass == [8, 800, 600]
     @test a == alt.body_mass == [4, 5, 6]
 
@@ -173,7 +169,7 @@ using Test
     @viewfails(v[] = 1, View, "Cannot index into nodes with 0 dimensions: [].")
     @viewfails(v[1, 2] = 1, View, "Cannot index into nodes with 2 dimensions: [1, 2].")
     # Plus this mimick one.
-    for invalid_set in (() -> v[1:2] = 8, () -> v[end:end-1] *= 10)
+    for invalid_set in (() -> v[1:2] = 8, () -> v[end:(end-1)] *= 10)
         @viewfails(
             invalid_set(),
             View,
@@ -396,7 +392,10 @@ using Test
         )
     )
     # But then it needs the class.
-    addfails.@missingrequired(Model(bp), Missing(Species, nothing, [BodyMass.Flat], nothing))
+    addfails.@missingrequired(
+        Model(bp),
+        Missing(Species, nothing, [BodyMass.Flat], nothing)
+    )
 
     # Fail constructing from Flat.
     @bpfails(

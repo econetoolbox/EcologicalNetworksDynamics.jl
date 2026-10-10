@@ -67,7 +67,17 @@ ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 function convert(::Type{Vector{T}}, input) where {T}
     hasmethod(iterate, Tuple{typeof(input)}) ||
         converr(Vector{T}, input, "Input is not iterable.")
-    T[convert(T, v) for v in input]
+    res = T[]
+    for (i, v) in enumerate(input)
+        r = try
+            convert(T, v)
+        catch e
+            e isa RootCause || rethrow(e)
+            upgrade(e, RefErr, i)
+        end
+        push!(res, r)
+    end
+    res
 end
 
 # No custom conversion function for sparse arrays
