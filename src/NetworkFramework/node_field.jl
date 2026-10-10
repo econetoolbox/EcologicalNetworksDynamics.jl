@@ -190,38 +190,35 @@ construct(B::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
     first, second, rest...) =
     @invoke construct(B::Type{<:Blueprint}, (first, second, rest...))
 
+#-------------------------------------------------------------------------------------------
+# Late check.
+
+function late_check(m::Model, b::NodeFieldRawBlueprint, vec::Vector)
+    # Check number of values first.
+    d, nw = dispatcher(b), N.network(m)
+    cl = D.class(d)
+    exp, act = N.n_nodes(nw, cl), length(vec)
+    exp == act ||
+        checkerr(vec, "Wrong number of values received for $d: expected $exp, got $act.")
+    # Then check values one by one.
+    labels = N.node_labels(nw, cl)
+    map(enumerate(zip(labels, vec))) do (i, (label, x))
+        try
+            late_check(m, d, x, i, label)
+        catch e
+            e isa LibError || rethrow(e)
+            upgrade(e, ModelRefErr, i)
+        end
+    end
+end
+
+# Extension point, checking individual values against the model.
+# Raise simple `checkerr` on failure, the report will be upgraded anyway.
+late_check(::Model, ::D.AbstractNodeField, x, ::Int, ::Symbol) = x
+
 # ==========================================================================================
 # ↑ ↑ HERE update impl ↑ ↑
 # ==========================================================================================
-
-#-------------------------------------------------------------------------------------------
-# Construct: any input is possible, but we don't know anything about the model yet.
-
-#-------------------------------------------------------------------------------------------
-# Late-check: correct type, checked values, model information is now available.
-
-function late_check(d::D.AbstractField, model::Model, ::Blueprint, early_data)
-    try
-        late_check(d, model, early_data)
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When checking $d blueprint against model")
-    end
-end
-
-function late_check(d::D.AbstractNodeField, model::Model, vec::Vector)
-    # Check number of values first.
-    network = NF.network(model)
-    class = D.class(d)
-    n = N.n_nodes(network, class)
-    l = length(vec)
-    n == l || conserr("Wrong number of values received for $d: expected $n, got $l.")
-    labels = N.node_labels(network, class)
-    # Then check values one by one, with context to produce useful reports.
-    map(enumerate(zip(labels, vec))) do (i, (label, value))
-        check_with_ref(d, model, value, i, label)
-    end
-end
 
 function late_check(d::D.AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
     core_late_check(d, model, map)

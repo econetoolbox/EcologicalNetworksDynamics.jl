@@ -60,6 +60,15 @@ using Test
     addfails.@check(Model(bp), [],
         (BodyMass.Raw, :early, (nothing, 3, :check, -6.0, "Value cannot be negative.")))
 
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
+    addfails.@check(Model(Species("abc"), BodyMass([1, 2])), [],
+        (BodyMass.Raw, :late,
+            (:whole, :whole, :check, [1.0, 2.0],
+                "Wrong number of values received for <species:body_mass>: \
+                 expected 3, got 2.")))
+
     error("STOP HERE")
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
