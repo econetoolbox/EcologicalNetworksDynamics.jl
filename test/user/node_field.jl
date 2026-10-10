@@ -12,6 +12,14 @@ using Test
     @test BodyMass isa Component # Etc.
     @test BodyMass.Z <: Blueprint # Extension point for extra BP worked, but test Z later.
 
+    # ======================================================================================
+    # From raw values.
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
+
+    bp = BodyMass.Raw([4.0, 5.0, 6.0])
+
     error("STOP HERE")
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑

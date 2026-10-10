@@ -27,9 +27,16 @@ convert(T::Type, b::Blueprint, input) = convert(T, dispatcher(b), input)
 #-------------------------------------------------------------------------------------------
 # Construct.
 
-"Determine main blueprint data type if any (expect *static* answer)."
+"Determine main blueprint data value and data type if any (expect *static* answer)."
+# TODO: default to first field type?
 datatype(B::Type{<:Blueprint}) = unimplemented(datatype, B)
 datatype(bp::Blueprint) = typeof(data(bp))
+
+# Get the core corresponding field type.
+D.type(B::Type{<:Blueprint}) = D.type(dispatcher(B))
+
+"Extract main blueprint data if any (expect *static* answer)."
+data(b::Blueprint) = unimplemented(data, b) # TODO: default to first field?
 
 """
 Transform raw input into blueprint data.
@@ -74,11 +81,16 @@ intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
 intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
 intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
 
+# Collections: default to checking every value independenly.
+function intrinsic_check(d::Dispatcher, data::AbstractArray)
+    for v in data
+        intrinsic_check(d, v)
+    end
+    data
+end
+
 #-------------------------------------------------------------------------------------------
 # Early check.
-
-"Extract main blueprint data if any (expect *static* answer)."
-data(b::Blueprint) = unimplemented(data, b)
 
 "Validate data and take this opportunity to start lowering."
 early_check(d::Dispatcher, data) = intrinsic_check(d, data)

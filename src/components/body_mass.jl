@@ -7,7 +7,7 @@ using EcologicalNetworksDynamics.NetworkFramework:
 const d, _D = D.NodeField(:species, :body_mass)
 D.name_variants(::_D) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
 D.type(::_D) = Float64
-NF.intrinsic_check(::_D, mass) = NF.non_negative(Float64, mass)
+NF.intrinsic_check(::_D, mass::Real) = NF.non_negative(Float64, mass)
 
 # ==========================================================================================
 # One extra blueprint to build from trophic levels.
@@ -16,7 +16,7 @@ mutable struct Z <: Blueprint
     Z::Float64
     @bp_construct Z
 end
-NF.register_blueprint(Z, "trophic levels"; depends = (Foodweb,))
+NF.register_blueprint(Z, "trophic levels"; d, depends = (Foodweb,))
 
 function NF.early_check(bp::Z)
     (; Z) = bp

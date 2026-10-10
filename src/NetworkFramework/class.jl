@@ -146,7 +146,7 @@ data(b::ClassNumber) = b.n
 
 # Allow passing names as separate arguments.
 construct(B::Type{<:ClassNames}, first, second, rest...) =
-    @invoke(construct(B::Type{<:Blueprint}, (first, second, rest...)))
+    @invoke construct(B::Type{<:Blueprint}, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
 # Intrinsic check.

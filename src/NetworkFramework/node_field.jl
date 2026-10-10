@@ -66,9 +66,8 @@ function define_node_field_component(
                 @bp_construct Raw
             end
             export Raw
-            NF.datatype(b::Type{Raw}) = T
             NF.data(b::Raw) = b.$short
-            NF.register_blueprint(Raw, "raw values";
+            NF.register_blueprint(Raw, "raw values"; d,
                 implied = (Class,), # Infer number of class nodes from vector size.
             )
         end,
@@ -84,9 +83,8 @@ function define_node_field_component(
                 @bp_construct Map
             end
             export Map
-            NF.datatype(::Type{Map}) = T
             NF.data(b::Map) = b.$short
-            NF.register_blueprint(Map, $"[$class => $field] map";
+            NF.register_blueprint(Map, $"[$class => $field] map"; d,
                 implied = (Class,), # Infer class nodes from map keys.
             )
         end,
@@ -102,9 +100,8 @@ function define_node_field_component(
                     @bp_construct Flat
                 end
                 export Flat
-                NF.datatype(::Type{Flat}) = T
                 NF.data(bp::Flat) = bp.$short
-                NF.register_blueprint(Flat, "uniform value"; depends = (Class,))
+                NF.register_blueprint(Flat, "uniform value"; d, depends = (Class,))
             end,
         )
     end
@@ -165,7 +162,23 @@ function define_node_field_component(
 end
 
 # ==========================================================================================
-# Implementation detail and extension points.
+# Specialization.
+
+datatype(B::Type{<:NodeFieldRawBlueprint}) = Vector{D.type(B)}
+datatype(B::Type{<:NodeFieldMapBlueprint}) = Map{D.type(B)}
+datatype(B::Type{<:NodeFieldFlatBlueprint}) = D.type(B)
+
+#-------------------------------------------------------------------------------------------
+# Construct.
+
+# Allow passing values as separate arguments.
+construct(B::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
+    first, second, rest...) =
+    @invoke construct(B::Type{<:Blueprint}, (first, second, rest...))
+
+# ==========================================================================================
+# ↑ ↑ HERE update impl ↑ ↑
+# ==========================================================================================
 
 #-------------------------------------------------------------------------------------------
 # Check data values without model information, against the target type.
