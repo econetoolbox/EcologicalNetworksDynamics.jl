@@ -81,21 +81,6 @@ intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
 intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
 intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
 
-# Collections: default to checking every value independenly.
-# (It has been checked that the compiler is eliding the whole loop
-# in case `intrinsic_check` is defaulting to noop.)
-function intrinsic_check(d::Dispatcher, data::AbstractArray)
-    for (i, v) in pairs(data)
-        try
-            intrinsic_check(d, v)
-        catch e
-            e isa LibError || rethrow(e)
-            upgrade(e, RefErr, i)
-        end
-    end
-    data
-end
-
 #-------------------------------------------------------------------------------------------
 # Early check.
 

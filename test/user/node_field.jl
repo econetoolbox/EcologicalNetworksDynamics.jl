@@ -82,6 +82,7 @@ using Test
     #---------------------------------------------------------------------------------------
     # Expand.
 
+    bp = BodyMass([4, 5, 6])
     m = Model(bp)
     @test has_component(m, BodyMass)
     @test has_component(m, Species) # Implied.
@@ -101,6 +102,9 @@ using Test
 
     l = [:a => 4.0, :b => 5.0, :c => 6.0]
     li = [2 => 5.0, 3 => 6.0, 1 => 4.0]
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
 
     bp = BodyMass.Map(l)
     bpi = BodyMass.Map(li)
@@ -128,6 +132,15 @@ using Test
         (nothing, :whole, :list,
             "Expected values of type 'Float64', \
              received instead at [1][right]: [5, 8]  ::$Vector{$Int}."))
+
+    #---------------------------------------------------------------------------------------
+    # Intrinsic check.
+
+    @bpfails(BodyMass([:a => -5]), BodyMass.Map, :construct,
+        (nothing, :a, :check, -5.0, "Value cannot be negative."))
+    @bpfails(BodyMass([1 => -5]), BodyMass.Map, :construct,
+        (nothing, 1, :check, -5.0, "Value cannot be negative."))
+    BodyMass([2 => 5]) # TODO: that should fail: holes.
 
     error("STOP HERE")
     # ======================================================================================

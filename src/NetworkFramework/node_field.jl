@@ -191,6 +191,27 @@ construct(B::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
     @invoke construct(B::Type{<:Blueprint}, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
+# Intrinsic check.
+
+# Default to checking every value independenly.
+# (It has been checked that the compiler is eliding the whole loop
+# in case `intrinsic_check` is defaulting to noop.)
+function intrinsic_check(d::D.AbstractNodeField, data::Union{Vector,Map})
+    for (ref, x) in pairs(data)
+        try
+            intrinsic_check(d, x, ref)
+        catch e
+            e isa LibError || rethrow(e)
+            upgrade(e, RefErr, ref)
+        end
+    end
+    data
+end
+
+# Extension point.
+intrinsic_check(d::D.AbstractNodeField, x, ::Ref) = intrinsic_check(d, x)
+
+#-------------------------------------------------------------------------------------------
 # Late check.
 
 function late_check(m::Model, b::NodeFieldRawBlueprint, vec::Vector)
