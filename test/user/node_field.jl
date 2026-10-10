@@ -189,6 +189,18 @@ using Test
     @test has_component(mi, Species)
     @test m.species.names == [:a, :b, :c]
     @test mi.species.names == [:s1, :s2, :s3]
+    @test_disp(m,
+        """
+        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+          - Species: 3 (:a, :b, :c)
+          - BodyMass: [4.0, 5.0, 6.0]\
+        """)
+    @test_disp(mi,
+        """
+        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+          - Species: 3 (:s1, :s2, :s3)
+          - BodyMass: [4.0, 5.0, 6.0]\
+        """)
 
     # ======================================================================================
     # From a flat scalar.
@@ -219,6 +231,39 @@ using Test
     @bpfails(BodyMass.Flat(:a), BodyMass.Flat, :construct,
         (nothing, :whole, :convert, Float64, :a, "Conversion not implemented."))
 
+    #---------------------------------------------------------------------------------------
+    # Intrinsic check.
+
+    @bpfails(BodyMass(-5), BodyMass.Flat, :construct,
+        (nothing, :whole, :check, -5.0, "Value cannot be negative."))
+
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
+    m = Model(Species("abc"))
+
+    bp.M *= -1
+    addfails.@check(m + bp, [],
+        (BodyMass.Flat, :early,
+            (nothing, :whole, :check, -5.0, "Value cannot be negative.")))
+
+    #---------------------------------------------------------------------------------------
+    # Expand.
+
+    bp = BodyMass(5)
+    m += bp
+    @test has_component(m, BodyMass)
+    @test_disp(m,
+        """
+        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+          - Species: 3 (:a, :b, :c)
+          - BodyMass: [5.0, 5.0, 5.0]\
+        """)
+
+    # HERE: expansion is roughly checked here
+    # without getting into the detail of views checking.
+    # Once views are checked, test that expansion also works as expected
+    # for every blueprint type, also in GraphField, Class & Web.
     error("STOP HERE")
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
