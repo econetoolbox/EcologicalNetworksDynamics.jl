@@ -10,6 +10,7 @@ using EcologicalNetworksDynamics.Tests:
 using EcologicalNetworksDynamics.NetworkFramework:
     EN, D, F, NF, Network, Views, SparseMatrix
 using EcologicalNetworksDynamics.Framework: @PropertySpace
+using OrderedCollections
 using Test
 
 const d, _D = D.Web(:trophic)
@@ -31,21 +32,24 @@ const View = Views.EdgeMaskView{d}
     # ======================================================================================
     # From a matrix.
 
-    A = Bool[
+    A = sparse(Bool[
         0 0 1
         1 0 1
         0 0 0
-    ]
+    ])
 
     #---------------------------------------------------------------------------------------
     # Construct.
 
     # Various input types.
     bp = Foodweb.Matrix(A)
+    @test bp.A isa SparseMatrix{Bool}
+    @test bp == Foodweb.Matrix(collect(A))
     @test bp == Foodweb.Matrix(Int.(A))
     @test bp == Foodweb.Matrix(BitMatrix(A))
     # Implicit constructor.
     @test bp == Foodweb(A)
+    @test bp == Foodweb(collect(A))
     @test bp == Foodweb(Int.(A))
     @test bp == Foodweb(BitMatrix(A))
     @test bp == Foodweb(sparse(A))
@@ -122,6 +126,8 @@ const View = Views.EdgeMaskView{d}
 
     bp = Foodweb.Adjacency(A)
     bpi = Foodweb.Adjacency(Ai)
+    @test bp.A isa OrderedDict{Symbol,OrderedSet{Symbol}}
+    @test bpi.A isa OrderedDict{Int,OrderedSet{Int}}
     @test bp == Foodweb.Adjacency(['a' => ["b", "c"], ['b', :d] => "e"])
     @test bpi == Foodweb.Adjacency(Iterators.map(identity, [6 => [4, 2], ([4, 1], 3)]))
     # Implicit constructor.

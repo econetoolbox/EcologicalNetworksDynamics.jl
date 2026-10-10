@@ -36,6 +36,7 @@ using Test
 
     # Construct from raw values, regardless of input type.
     bp = Temperature.Raw(215.0)
+    @test bp.T isa Float64
     @test bp == Temperature.Raw(215)
     @test bp == Temperature(215) # Component as constructor.
 

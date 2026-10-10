@@ -22,6 +22,7 @@ using Test
     # Construct.
 
     bp = BodyMass.Raw([4.0, 5.0, 6.0])
+    @test bp.M isa Vector{Float64}
     @test bp == BodyMass.Raw([4, 5, 6])
     @test bp == BodyMass([4.0, 5.0, 6.0])
     @test bp == BodyMass([4, 5, 6])
@@ -108,6 +109,8 @@ using Test
 
     bp = BodyMass.Map(l)
     bpi = BodyMass.Map(li)
+    @test bp.M isa OrderedDict{Symbol,Float64}
+    @test bpi.M isa OrderedDict{Int,Float64}
     @test bp == BodyMass.Map(['a' => 4, ("b", 0x5), [first(split("c")), 6//1]])
     @test bpi == BodyMass.Map([2 => 5, (3, 0x6), Any[1, 4//1]])
     @test bp == BodyMass(l)
@@ -186,6 +189,35 @@ using Test
     @test has_component(mi, Species)
     @test m.species.names == [:a, :b, :c]
     @test mi.species.names == [:s1, :s2, :s3]
+
+    # ======================================================================================
+    # From a flat scalar.
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
+
+    bp = BodyMass.Flat(5.0)
+    @test bp.M isa Float64
+    @test bp == BodyMass.Flat(5)
+    @test bp == BodyMass.Flat(0x5)
+    @test bp == BodyMass.Flat(5//1)
+    @test bp == BodyMass(5)
+    @test bp == BodyMass(0x5)
+    @test bp == BodyMass(5//1)
+    @test BodyMass.Flat(1.0) == BodyMass.Flat(true)
+    @test BodyMass(1.0) == BodyMass(true)
+    @test_repr(bp, "<BodyMass>:Flat(M: 5.0)")
+    @test_disp(
+        bp,
+        """
+        blueprint for <BodyMass>: Flat {
+          M: 5.0,
+        }\
+        """
+    )
+
+    @bpfails(BodyMass.Flat(:a), BodyMass.Flat, :construct,
+        (nothing, :whole, :convert, Float64, :a, "Conversion not implemented."))
 
     error("STOP HERE")
     # ======================================================================================

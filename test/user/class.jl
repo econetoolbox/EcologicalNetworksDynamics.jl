@@ -38,6 +38,7 @@ const Sp = @PropertySpace(species, Network)
 
     # Various input types.
     bp = Species.Names([:a, :b, :c])
+    @test bp.names isa Vector{Symbol}
     @test bp == Species.Names(['a', 'b', 'c']) # ::Char
     @test bp == Species.Names(["a", "b", "c"]) # ::String
     @test bp == Species.Names(split("a b c")) # ::SubString etc.
@@ -113,6 +114,7 @@ const Sp = @PropertySpace(species, Network)
     # From a number, generating short distinct names.
 
     bp = Species.Number(5)
+    @test bp.n isa Int
     @test bp == Species(5) # Directly dispatched from component.
     @test_repr(bp, "<Species>:Number(n: 5)")
     @test_disp(bp,
