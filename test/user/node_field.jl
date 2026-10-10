@@ -5,7 +5,8 @@ using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF
 using EcologicalNetworksDynamics.Tests:
-    @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails, @viewfails, @mutfails
+    @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
+    @viewfails, @mutfails
 using OrderedCollections
 using Test
 
@@ -27,6 +28,15 @@ using Test
     @test BodyMass.Raw(Bool[1, 0, 1]) == BodyMass.Raw([1.0, 0.0, 1.0])
     @test BodyMass(Bool[1, 0, 1]) == BodyMass([1.0, 0.0, 1.0])
     @test bp == BodyMass.Raw(4, 5.0, 6)
+    @test_repr(bp, "<BodyMass>:Raw(M: [4.0, 5.0, 6.0])")
+    @test_disp(
+        bp,
+        """
+        blueprint for <BodyMass>: Raw {
+          M: [4.0, 5.0, 6.0],
+        }\
+        """
+    )
 
     alias = bp.M
     @test alias === BodyMass.Raw(alias).M
@@ -83,28 +93,46 @@ using Test
           - BodyMass: [4.0, 5.0, 6.0]\
         """)
 
+    # Would not override existing species names though.
+    @test Model(Species("abc"), bp).species.names == [:a, :b, :c]
+
+    # ======================================================================================
+    # From mapped values.
+
+    l = [:a => 4.0, :b => 5.0, :c => 6.0]
+    li = [2 => 5.0, 3 => 6.0, 1 => 4.0]
+
+    bp = BodyMass.Map(l)
+    bpi = BodyMass.Map(li)
+    @test bp == BodyMass.Map(['a' => 4, ("b", 0x5), [first(split("c")), 6//1]])
+    @test bpi == BodyMass.Map([2 => 5, (3, 0x6), Any[1, 4//1]])
+    @test bp == BodyMass(l)
+    @test bpi == BodyMass(li)
+    @test bp == BodyMass(Iterators.map(identity, l))
+    @test bpi == BodyMass(Iterators.map(identity, li))
+    @test_repr(bp, "<BodyMass>:Map(M: {a: 4.0, b: 5.0, c: 6.0})")
+    @test_disp(
+        bp,
+        """
+        blueprint for <BodyMass>: Map {
+          M: {a: 4.0, b: 5.0, c: 6.0},
+        }\
+        """
+    )
+
+    for alias in (bp.M, bpi.M)
+        @test BodyMass(alias).M === alias
+    end
+
+    @bpfails(BodyMass.Map([:a => [5, 8]]), BodyMass.Map, :construct,
+        (nothing, :whole, :list,
+            "Expected values of type 'Float64', \
+             received instead at [1][right]: [5, 8]  ::$Vector{$Int}."))
+
     error("STOP HERE")
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
     # ======================================================================================
-
-    # Expand into a field component.
-    m = Model(bp)
-    @test is_disp(
-        m,
-        """
-        Model (alias for $(F.System){$(N.Network)}) with 2 components:
-          - Species: 3 (:s1, :s2, :s3)
-          - BodyMass: [4.0, 5.0, 6.0]\
-        """,
-    )
-
-    # Brings dummy node class names if not specified.
-    @test m.species.names == [:s1, :s2, :s3]
-
-    # Or else we do specify during expansion.
-    m = Model(Species([:a, :b, :c]), bp)
-    @test m.species.names == [:a, :b, :c]
 
     # The values become available as a view.
     v = m.body_mass
@@ -270,52 +298,6 @@ using Test
           - $(Vector{Float64})\n  \
           - $(Map{Float64})",
         :what,
-    )
-
-    # Fail constructing from raw values.
-    input = [4, -1, 2]
-    for invalid in (() -> BodyMass.Raw(input), () -> BodyMass(input))
-        @mutfails(
-            invalid(),
-            "When constructing <species:body_mass> from raw values:\n\
-             At node index [2]:\n\
-             Value cannot be negative.",
-            -1,
-        )
-    end
-
-    # Alias to the value inside the blueprint if exact type match.
-    input = Float64[1, 2, 3]
-    bp = BodyMass(input)
-    @test bp.M === input
-    input[2] *= 10
-    @test bp.M == [1, 20, 3]
-
-    # It is (still) ok to break values checking afterwards..
-    input[3] *= -1
-    # .. but then expansion fails.
-    addfails.@check(
-        Model(bp),
-        Check(
-            early,
-            [BodyMass.Raw],
-            "When checking <species:body_mass> blueprint data:\n\
-             At node index [3]:\n\
-             Value cannot be negative.\n\
-             Received: -3.0",
-        )
-    )
-
-    # Fail against system value.
-    bp = BodyMass([4, 5, 6])
-    addfails.@check(
-        Model(Species(2), bp),
-        Check(
-            late,
-            [BodyMass.Raw],
-            "When checking <species:body_mass> blueprint against model:\n\
-             Wrong number of values received for <species:body_mass>: expected 2, got 3.",
-        )
     )
 
     # Construct from mapped values.

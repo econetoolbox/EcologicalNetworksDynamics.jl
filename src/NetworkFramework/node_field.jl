@@ -181,7 +181,7 @@ function construct(d::D.AbstractNodeField, Field::Component, input, args...; kwa
         push!(tries, T => x -> Field.Flat(x, args...; kwargs...))
     end
     push!(tries, Vector{T} => x -> Field.Raw(x, args...; kwargs...))
-    push!(tries, Map{T} => x -> Field.Mapp(x, args...; kwargs...))
+    push!(tries, Map{T} => x -> Field.Map(x, args...; kwargs...))
     try_convert(input, tries...)
 end
 
