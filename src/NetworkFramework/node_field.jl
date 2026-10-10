@@ -216,6 +216,48 @@ end
 # Raise simple `checkerr` on failure, the report will be upgraded anyway.
 late_check(::Model, ::D.AbstractNodeField, x, ::Int, ::Symbol) = x
 
+#-------------------------------------------------------------------------------------------
+# Implied class.
+
+function implied_class(::D.NodeField, Class, bp::NodeFieldRawBlueprint)
+    raw = data(bp)
+    n = length(raw)
+    Class.Number(n)
+end
+
+implied_class(d::D.NodeField, Class, bp::NodeFieldMapBlueprint) =
+    implied_class(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
+
+function implied_class(::D.NodeField, Class, map::Map{<:Any,Symbol})
+    refs = NF.keys(map)
+    Class.Names(collect(refs))
+end
+
+function implied_class(::D.NodeField, Class, map::Map{<:Any,Int})
+    n = length(map) # (assuming no hole) TODO: how is that enforced?
+    Class.Number(n)
+end
+
+#-------------------------------------------------------------------------------------------
+# Expand.
+
+# Flat.
+function expand!(m::Model, b::NodeFieldFlatBlueprint, low)
+    d = dispatcher(b)
+    nw, cl = N.network(m), D.class(d)
+    n = N.n_nodes(nw, cl)
+    vec = fill(low, n)
+    expand!(m, d, vec)
+end
+
+function expand!(m::Model, d::D.AbstractNodeField, low::Vector)
+    # Even with the .Raw blueprint,
+    # late-checking guarantees that lowered data is fresh = not aliased by user.
+    nw, (c, f) = (N.network(m), D.content(d))
+    class = N.class(nw, c)
+    N.add_field!(class, f, low)
+end
+
 # ==========================================================================================
 # ↑ ↑ HERE update impl ↑ ↑
 # ==========================================================================================
@@ -297,55 +339,6 @@ function core_late_check(
 end
 
 #-------------------------------------------------------------------------------------------
-# Implied class blueprint.
-
-function implied_class(::D.NodeField, Class, bp::NodeFieldRawBlueprint)
-    raw = data(bp)
-    n = length(raw)
-    Class.Number(n)
-end
-
-implied_class(d::D.NodeField, Class, bp::NodeFieldMapBlueprint) =
-    implied_class(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
-
-function implied_class(::D.NodeField, Class, map::Map{<:Any,Symbol})
-    refs = NF.keys(map)
-    Class.Names(collect(refs))
-end
-
-function implied_class(::D.NodeField, Class, map::Map{<:Any,Int})
-    n = length(map) # (assuming no hole) TODO: how is that enforced?
-    Class.Number(n)
-end
-
-#-------------------------------------------------------------------------------------------
-# Expansion: input is completely trusted, just fill the inner network from late data.
-
-expand!(
-    d::D.AbstractNodeField,
-    model::Model,
-    # The two provide the same `late_data` after late checking.
-    ::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint},
-    late_data::Vector,
-) = expand!(d, model, late_data)
-
-# Special case flat-blueprint.
-function expand!(d::D.AbstractNodeField, model::Model, ::NodeFieldFlatBlueprint, late_data)
-    network = NF.network(model)
-    class = D.class(d)
-    n = N.n_nodes(network, class)
-    vec = fill(late_data, n)
-    expand!(d, model, vec)
-end
-
-function expand!(d::D.AbstractNodeField, model::Model, data::Vector)
-    network = NF.network(model)
-    (classname, fieldname) = D.content(d)
-    class = N.class(network, classname)
-    N.add_field!(class, fieldname, data)
-end
-
-#-------------------------------------------------------------------------------------------
 # Mutation: called when setting through a view.
 # Input may be anything,
 # but the underlying model value and the reference can be assumed to be correct.
@@ -419,13 +412,13 @@ end
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function nodes_shortline(io::IO, model::Model, d::D.NodeField)
+function nodes_shortline(io::IO, m::Model, d::D.NodeField)
     Field = D.CamelCaseSingular(d)
     c, f = D.content(d)
-    network = NF.network(model)
-    class = N.class(network, c)
-    entry = class.data[f]
+    nw = N.network(m)
+    cl = N.class(nw, c)
+    entry = cl.data[f]
     N.read(entry) do data
-        print(io, "$Field: [$(EN.join_elided(data, ", "))]")
+        print(io, "$Field: [$(join_elided(data, ", "))]")
     end
 end

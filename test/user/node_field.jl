@@ -3,9 +3,9 @@ module NodeFieldTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.NetworkFramework: EN, NF
+using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF
 using EcologicalNetworksDynamics.Tests:
-    @jl_basic_callfails, @checkfails, addfails, @bpfails, @viewfails, @mutfails
+    @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails, @viewfails, @mutfails
 using OrderedCollections
 using Test
 
@@ -68,6 +68,20 @@ using Test
             (:whole, :whole, :check, [1.0, 2.0],
                 "Wrong number of values received for <species:body_mass>: \
                  expected 3, got 2.")))
+
+    #---------------------------------------------------------------------------------------
+    # Expand.
+
+    m = Model(bp)
+    @test has_component(m, BodyMass)
+    @test has_component(m, Species) # Implied.
+    @test m.species.names == [:s1, :s2, :s3]
+    @test_disp(m,
+        """
+        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+          - Species: 3 (:s1, :s2, :s3)
+          - BodyMass: [4.0, 5.0, 6.0]\
+        """)
 
     error("STOP HERE")
     # ======================================================================================
