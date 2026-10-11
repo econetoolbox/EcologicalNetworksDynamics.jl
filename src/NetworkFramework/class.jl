@@ -195,9 +195,11 @@ end
 # Display.
 
 function class_shortline(d::D.Class, io::IO, m::Model)
+    cc, fc, rs = F.component_color, F.field_color, reset
     class = D.snake_case_plural(d)
     Class = D.CamelCaseSingular(d)
     names = getproperty(m, class)._names
     n = length(names)
-    print(io, "$Class: $n ($(join_elided(names, ", ")))")
+    names = join_elided(I.map(n -> "$green$(repr(n))$reset", names), ", "; repr = false)
+    print(io, "$cc$Class$rs: $fc$n$rs ($names)")
 end

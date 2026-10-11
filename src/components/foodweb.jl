@@ -2,6 +2,7 @@ module FoodwebDef
 using EcologicalNetworksDynamics.NetworkFramework:
     EN, N, F, NF, D, V, Network, Model, @alias, argerr
 using EcologicalNetworksDynamics.KwargsHelpers
+using EcologicalNetworksDynamics.Display: reset
 
 using Distributions
 using LinearAlgebra
@@ -226,6 +227,7 @@ end
 
 # Display.
 function F.shortline(io::IO, model::Model, ::_Foodweb)
+    cc, fc, rs = F.component_color, F.field_color, reset
     l = model.trophic.n_links
     p = model.producers.number
     c = model.consumers.number
@@ -235,11 +237,11 @@ function F.shortline(io::IO, model::Model, ::_Foodweb)
     s(n) = n > 1 ? "s" : ""
     print(
         io,
-        "Foodweb: $(n(l)) link$(s(l)), \
-         $(n(p)) producer$(s(p)), \
-         $(n(c)) consumer$(s(c)), \
-         $(n(r)) prey$(s(r)), \
-         $(n(t)) top$(s(t)).",
+        "$(cc)Foodweb$rs: $fc$(n(l))$rs link$(s(l)), \
+         $fc$(n(p))$rs producer$(s(p)), \
+         $fc$(n(c))$rs consumer$(s(c)), \
+         $fc$(n(r))$rs prey$(s(r)), \
+         $fc$(n(t))$rs top$(s(t)).",
     )
 end
 

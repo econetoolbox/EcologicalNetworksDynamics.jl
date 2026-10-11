@@ -24,28 +24,30 @@ function inline_info(v::NodeMaskView)
     "<$parent:$class>"
 end
 
+const fc, rs = F.field_color, reset
+
 function display_info(v::NodeFieldView)
     T = eltype(v)
     info = inline_info(v)
-    "NodeFieldView$info{$T}"
+    "NodeFieldView$fc$info$rs{$T}"
 end
 
 function display_info(v::SubnodeFieldView)
     T = eltype(v)
     info = inline_info(v)
-    "SubnodesFieldView$info{$T}"
+    "SubnodesFieldView$fc$info$rs{$T}"
 end
 
 function display_info(v::NodeNameView)
     T = eltype(v)
     info = inline_info(v)
-    "NodeNameView$info{$T}"
+    "NodeNameView$fc$info$rs{$T}"
 end
 
 function display_info(v::NodeMaskView)
     T = eltype(v)
     info = inline_info(v)
-    "NodeMaskView$info{$T}"
+    "NodeMaskView$fc$info$rs{$T}"
 end
 
 type_info(::Type{<:NodeFieldView}) = "nodes"

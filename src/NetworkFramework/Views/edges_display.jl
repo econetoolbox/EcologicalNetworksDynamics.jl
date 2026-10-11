@@ -1,7 +1,3 @@
-(false) && begin # (fix JuliaLS missing refs)
-    using EcologicalNetworksDynamics.Networks
-end
-
 function inline_info(v::EdgeFieldView)
     web = D.web(v)
     field = D.field(v)
@@ -16,13 +12,13 @@ end
 function display_info(v::EdgeFieldView)
     T = eltype(v)
     info = inline_info(v)
-    "EdgesFieldView$info{$T}"
+    "EdgesFieldView$fc$info$rs{$T}"
 end
 
 function display_info(v::EdgeMaskView)
     T = eltype(v)
     info = inline_info(v)
-    "EdgesMaskView$info{$T}"
+    "EdgesMaskView$fc$info$rs{$T}"
 end
 
 type_info(::Type{<:EdgeFieldView}) = "edges"

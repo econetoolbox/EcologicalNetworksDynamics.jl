@@ -489,12 +489,13 @@ end
 # Display.
 
 function nodes_shortline(io::IO, m::Model, d::D.NodeField)
+    cc, fc, rs = F.component_color, F.field_color, reset
     Field = D.CamelCaseSingular(d)
     c, f = D.content(d)
     nw = N.network(m)
     cl = N.class(nw, c)
     entry = cl.data[f]
     N.read(entry) do data
-        print(io, "$Field: [$(join_elided(data, ", "))]")
+        print(io, "$cc$Field$rs: $fc[$(join_elided(data, ", "))]$rs")
     end
 end
