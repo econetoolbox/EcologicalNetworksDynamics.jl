@@ -3,14 +3,17 @@ module NodeFieldTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF
+using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF, D, V
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
     @viewfails, @mutfails
 using OrderedCollections
 using Test
 
-@testset "Typical NodeField component" begin
+const d, _D = D.NodeField(:species, :body_mass)
+const View = V.NodeFieldView{d, Float64}
+
+@testset "NodeField component: blueprints" begin
 
     @test BodyMass isa Component # Etc.
     @test BodyMass.Z <: Blueprint # Extension point for extra BP worked, but test Z later.
@@ -259,6 +262,64 @@ using Test
           - Species: 3 (:a, :b, :c)
           - BodyMass: [5.0, 5.0, 5.0]\
         """)
+end
+
+@testset "NodeField component: view" begin
+
+    # Test like class views.
+
+    m = Model(Species("abc"), BodyMass([4, 5, 6]))
+    v = m.body_mass
+    @test v isa View
+    @test v isa AbstractVector{Float64}
+    @test v == collect(v) == [4, 5, 6] == [i for i in v]
+
+    @test_repr(v, "<species:body_mass>[4.0, 5.0, 6.0]")
+    @test_disp(v,
+        """
+        NodeFieldView<species:body_mass>{Float64} (3 values)
+         4.0
+         5.0
+         6.0\
+        """)
+
+
+    e = extract(v)
+    @test e isa Vector{Float64}
+    @test e == v
+
+    @test v[1] == 4
+    @test v[0x2] == 5
+    @test v[:c] == 6
+    @test v['a'] == 4
+    @test v["b"] == 5
+    @test v[split("c")...] == 6
+
+    @test v[end] == 6
+    @test v[end-1] == 5
+    @test v[1:2] == [4, 5]
+    @test v[(end-1):end] == [5, 6]
+    @test v[[true, false, true]] == v[[1, 0, 1]] == [4, 6]
+
+    @viewfails(v[], View, "Node-level data has 1 dimension, received 0")
+    @viewfails(v[1, 2], View, "Node-level data has 1 dimension, received 2")
+    @viewfails(v[1, 2, 3], View, "Node-level data has 1 dimension, received 3")
+    @viewfails(v[true], View, "Views are queried with indices [::Int] or labels [::Symbol]")
+    @viewfails(v[(1,)], View, "Cannot index into views with explicit tuples")
+    @viewfails(v[0x8000000000000000], View,
+        "Index too large to be used with julia arrays (9223372036854775808)")
+    @viewfails(v[-5], View, "Integer node references can only be positive")
+    @viewfails(v[[0, 1, 2]], View,
+        "Could not interpret as a boolean mask (not only 1's and 0's?)")
+    @viewfails(v[5], View, "This class only contains 3 nodes")
+    @viewfails(v[:x], View, "No node in this class is labeled :x")
+
+    @viewfails(v[end+1], View, "This class only contains 3 nodes")
+    @viewfails(v[(end-1):(end+1)], View, "This class only contains 3 nodes")
+    @viewfails(v[[0, 1]], View,
+        "The given mask is of size 2 but there are 3 nodes in the class")
+    @viewfails(Model(BodyMass([5])).body_mass[[0, 1]], View,
+        "The given mask is of size 2 but there is 1 node in the class")
 
     error("STOP HERE")
     # ======================================================================================

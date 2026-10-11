@@ -188,7 +188,7 @@ check_query(::EdgeMaskView, m::SparseMatrix{Bool}) = m # As long as dimensions a
 
 obtain(v::NodeView, (q,)::Tuple{Any}) = obtain(v, q)
 
-function obtain(v::NodeFieldView, q)
+function obtain(v::NodeFieldView, q::Ref)
     i = N.to_index(N.class(v).index, q)
     read(N.entry(v)) do data
         data[i]
@@ -200,9 +200,9 @@ obtain(v::NodeNameView, r::Ref) = N.to_label(N.class(v).index, r)
 obtain(v::NodeMaskView, r::Symbol) = N.is_ref(N.class(v).index, r)
 obtain(v::NodeMaskView, r::Int) = r in N.class(v).restriction
 
-obtain(v::NodeTopologyView, u::UnitRange) = [obtain(v, i) for i in u]
-obtain(v::NodeTopologyView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
-obtain(v::NodeTopologyView, m::SparseVector{Bool}) =
+obtain(v::NodeView, u::UnitRange) = [obtain(v, i) for i in u]
+obtain(v::NodeView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
+obtain(v::NodeView, m::SparseVector{Bool}) =
     [obtain(v, i) for i in 1:length(v) if m[i]]
 
 # Edges masks.
