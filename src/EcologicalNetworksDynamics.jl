@@ -41,6 +41,7 @@ include("./codegen.jl")
 #       - `fd`: field
 #       - `cp`: component
 #       _ `bp`: blueprint
+#       _ `md`: model
 #   - `x` for data values during lowering, as julian people like.
 
 # Data: parsimonious model memory representation.

@@ -279,20 +279,28 @@ end
 
 end
 
-@testset "Class component: no nodes" begin
+@testset "Class component: expansion semantics" begin
 
-    m = Model(Species(0))
-    @test_disp(m,
-        """
-        Model (alias for $(F.System){$Network}) with 1 component:
-          - Species: 0 ()\
-        """)
+    # This was indirectly checked above (from display and views).
+    # Check it explicitly now that the views are proven to work.
+    @test Model(Species("abc")).species.names == [:a, :b, :c]
+    @test Model(Species(3)).species.names == [:s1, :s2, :s3]
 
-    @test m.species.names == []
-    @test m.species.number == 0
-    @test m.species.index == OrderedDict()
-    @test m.species.parent_index == OrderedDict()
-    @test m.species.mask == []
+    # Degenerate class with no nodes.
+    function empty(m)
+        @test_disp(m,
+            """
+            Model (alias for $(F.System){$Network}) with 1 component:
+              - Species: 0 ()\
+            """)
+        @test m.species.names == []
+        @test m.species.number == 0
+        @test m.species.index == OrderedDict()
+        @test m.species.parent_index == OrderedDict()
+        @test m.species.mask == []
+    end
+    empty(Model(Species([])))
+    empty(Model(Species(0)))
 
 end
 

@@ -426,17 +426,34 @@ end
 
 end
 
-@testset "Web component: interpolating indices" begin
-    @test Model(Foodweb([:a => :b])).trophic.matrix == [
+@testset "Web component: expansion semantics" begin
+
+    # Same matrix.
+    @test Model(Foodweb([0; 1;; 0; 0])).trophic.matrix == [0; 1;; 0; 0]
+
+    # Matrix ordering matches the parsed nodes ordering.
+    md = Model(Foodweb([:a => :b]))
+    @test md.species.names == [:a, :b]
+    @test md.trophic.matrix == [
         0 1
         0 0
     ]
+    md = Model(Foodweb([2 => 1]))
+    @test md.species.names == [:s1, :s2]
+    @test md.trophic.matrix == [
+        0 0
+        1 0
+    ]
+
+
+    # Missing nodes are interpolated as isolated.
     @test Model(Foodweb([1 => 4])).trophic.matrix == [
         0 0 0 1
         0 0 0 0
         0 0 0 0
         0 0 0 0
     ]
+
 end
 
 end

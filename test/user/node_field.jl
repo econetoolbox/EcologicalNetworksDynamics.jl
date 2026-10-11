@@ -260,10 +260,6 @@ using Test
           - BodyMass: [5.0, 5.0, 5.0]\
         """)
 
-    # HERE: expansion is roughly checked here
-    # without getting into the detail of views checking.
-    # Once views are checked, test that expansion also works as expected
-    # for every blueprint type, also in GraphField, Class & Web.
     error("STOP HERE")
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
