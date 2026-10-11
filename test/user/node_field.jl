@@ -6,12 +6,12 @@ using EcologicalNetworksDynamics
 using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF, D, V
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
-    @viewfails, @mutfails
+    @propfails, @viewfails, @mutfails
 using OrderedCollections
 using Test
 
 const d, _D = D.NodeField(:species, :body_mass)
-const View = V.NodeFieldView{d, Float64}
+const View = V.NodeFieldView{d,Float64}
 
 @testset "NodeField component: blueprints" begin
 
@@ -283,6 +283,8 @@ end
          6.0\
         """)
 
+    @propfails(Model().body_mass, Model, :body_mass,
+        "Component <BodyMass> is required to read this property.")
 
     e = extract(v)
     @test e isa Vector{Float64}
@@ -321,60 +323,6 @@ end
     @viewfails(Model(BodyMass([5])).body_mass[[0, 1]], View,
         "The given mask is of size 2 but there is 1 node in the class")
 
-    error("STOP HERE")
-    # ======================================================================================
-    # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
-    # ======================================================================================
-
-    # The values become available as a view.
-    v = m.body_mass
-    @test v isa View
-    @test v isa AbstractVector{Float64}
-    @test is_repr(v, "<species:body_mass>[4.0, 5.0, 6.0]")
-    @test is_disp(
-        v,
-        """
-        NodeFieldView<species:body_mass>{Float64} (3 values)
-         4.0
-         5.0
-         6.0\
-        """,
-    )
-    addfails.@missingrequired( # Unless the component is missing, as all properties.
-        Model().body_mass,
-        Property(body_mass, "Component $(EN._BodyMass) is required to read this property."),
-    )
-
-    # The view has some basic vector-like interface.
-    @test v == collect(v) == [4, 5, 6] == [i for i in v]
-
-    # The view may be extracted into a regular vector.
-    e = extract(v)
-    @test e isa Vector{Float64}
-    @test e == v
-
-    # Index with either integers or labels.
-    @test v[1] == 4
-    @test v[1:2] == [4, 5]
-    @test v[(end-1):end] == [5, 6]
-    @test v[:b] == 5
-    @viewfails(
-        v[nothing],
-        View,
-        "Views are indexed with indices (::Int) or labels (::Symbol). \
-         Cannot index with: nothing ::Nothing."
-    )
-    @viewfails(v[0], View, "Cannot index with [0] into a class with 3 :species nodes.")
-    @viewfails(v[4], View, "Cannot index with [4] into a class with 3 :species nodes.")
-    @viewfails(
-        v[:x],
-        View,
-        "Label does not refer to a node in :species class: :x.\n\
-         Valid labels: [:a, :b, :c]."
-    )
-    @viewfails(v[], View, "Cannot index into nodes with 0 dimensions: [].")
-    @viewfails(v[1, 2], View, "Cannot index into nodes with 2 dimensions: [1, 2].")
-
     # The field is *mutable* through the view.
     w = m.body_mass # Alternate view to the same model.
     alt = copy(m) # Forked model.
@@ -382,10 +330,15 @@ end
     @test a == w == [4, 5, 6] # All synced (same underlying storage).
 
     # Mutate, invoking COW.
-    v[1] *= 10
+    v[1] *= 10 # HERE: need a better design for dispatching and reports upgrades.
     v[:b] += 100
     @test v == w == m.body_mass == [40, 105, 6] # All views to model impacted, old and new.
     @test a == alt.body_mass == [4, 5, 6] # Forked model unchanged, or any view to it.
+
+    error("STOP HERE")
+    # ======================================================================================
+    # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
+    # ======================================================================================
 
     # Support various mutating operations like regular julia arrays.
     v[1:2] .= 8
