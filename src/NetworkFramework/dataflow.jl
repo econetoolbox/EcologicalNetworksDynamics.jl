@@ -1,4 +1,6 @@
-# Open up extension points by providing specialization opportunities.
+# Gather all default implementations for the dataflow pipelines,
+# with correct reports upgrades on failure,
+# and open up extension points for particular component.
 
 "If relevant, obtain the data kind provided by the blueprint."
 dispatcher(B::Type{<:Blueprint}) = unimplemented(dispatcher, B)
@@ -17,7 +19,7 @@ or maps and adjacency lists.
 Following julia's behaviour:
 *alias* instead of converting if the input type is already the one desired.
 """
-convert(T::Type, input) = converr(T, input, "Conversion not implemented.")
+convert(T::Type, input) = checkerr(input, "Conversion to `$T` not implemented.")
 convert(::Type{T}, input::T) where {T} = input # Alias exact type.
 # Extension points (specialize).
 convert(T::Type, ::Dispatcher, input) = convert(T, input)
@@ -158,6 +160,45 @@ function _reassign(m::Model, d::Dispatcher, input)
         e isa LibError || rethrow(e)
         upgrade(e, MutationError, (WholeInput(),), d, :assign, m)
     end
+end
+
+# ==========================================================================================
+"Entrypoints from the `Blueprint` perspective: bringing new data into the model."
+module blueprint
+# HERE: use this namespace for the entrypoints instead of `_<name>`.
+# But first pen&paper check how/whether that all fits together.
+function convert end
+function construct end # ?
+function intrinsic_check end
+function early_check end
+function late_check end
+function expand end
+struct Error end # XXX: actually BlueprintError, but defined here.
+end
+
+module convert
+# HERE: how does *that* fits with the rest? Just as a sophisticated set of default impls?
+end
+
+module query
+# HERE: This is pretty much what './Views/indexing.jl` already is, right?
+# Although possibly it could be all defined here in terms of `Dispatcher`s, not `View`s.
+# And maybe the QueryError could somehow inherit/resemble/become CheckError but on a query?
+end
+
+# ==========================================================================================
+"""
+Entrypoints from the `mutate!` perspective: modify data within the model.
+Only invoqued after the query has been checked
+so that the tuple (uref, mref) is available to all calls.
+Works for either `setindex![mref]` or `set_property![WholeData()]`
+"""
+module mutate
+function convert end # (rhs)
+function early_check end
+function late_check end
+function mutate! end
+struct Error end # XXX: actually MutationError, but defined here.
 end
 
 # ==========================================================================================
