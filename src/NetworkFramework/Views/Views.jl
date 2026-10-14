@@ -117,8 +117,6 @@ let S = AbstractView
     # Forbid any property access.
     Base.setproperty!(s::S, y::Symbol) = getproperty(s, y)
     Base.getproperty(::S, ::Symbol) = errwith("No property to access on views.")
-
-    V.qerr(s::S, x...) = V.qerr(typeof(s), x...)
 end
 
 #-------------------------------------------------------------------------------------------

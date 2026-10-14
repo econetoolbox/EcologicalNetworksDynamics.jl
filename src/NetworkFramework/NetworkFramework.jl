@@ -173,12 +173,14 @@ include("query.jl")
 include("./Views/Views.jl")
 const V = Views
 
-# Templates for typical network blueprint/components.
-include("./graph_field.jl")
-include("./class.jl")
-include("./web.jl")
-include("./node_field.jl")
-include("./subnode_field.jl")
+# With all this set up, components can now be authored.
+# But most of them look very much alike,
+# so gather default implementation for typical ones.
+#  include("./graph_field.jl")
+#  include("./class.jl")
+#  include("./web.jl")
+#  include("./node_field.jl")
+#  include("./subnode_field.jl")
 #  include("./edge_field.jl")
 
 # Typical allometry-related blueprints.

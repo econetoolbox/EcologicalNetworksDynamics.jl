@@ -2,7 +2,7 @@
 module Query
 
 using EcologicalNetworksDynamics.NetworkFramework:
-    D, N, V, NF, Dispatcher, dispatcher, CheckError, checkerr, SparseMatrix, SparseVector,
+    D, N, NF, Dispatcher, dispatcher, CheckError, checkerr, SparseMatrix, SparseVector,
     Ref
 using EcologicalNetworksDynamics.Display: join_elided, render_input, ns
 
@@ -232,7 +232,7 @@ end
 function Base.showerror(io::IO, e::Error)
     (; View, query, src) = e
     d = dispatcher(View)
-    println(io, "View error ($(V.type_info(View))):")
+    println(io, "View error ($(NF.Views.type_info(View))):")
     report() = NF.render(io, src; what = "query", display_input = false)
     # Report either before or after depending on the query size.
     if length(repr(query)) <= 20

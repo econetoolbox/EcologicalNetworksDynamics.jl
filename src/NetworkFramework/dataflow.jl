@@ -27,6 +27,18 @@ convert(T::Type, B::Type{<:Blueprint}, input) = convert(T, dispatcher(B), input)
 convert(T::Type, b::Blueprint, input) = convert(T, typeof(b), input)
 
 #-------------------------------------------------------------------------------------------
+# Intrinsic check.
+
+"""
+Assuming input data already has the right type,
+check that the value is consistent with expectations.
+Return the passed data aliased and unchanged.
+"""
+intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
+intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
+intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
+
+#-------------------------------------------------------------------------------------------
 # Construct.
 
 "Determine main blueprint data value and data type if any (expect *static* answer)."
@@ -39,15 +51,6 @@ D.type(B::Type{<:Blueprint}) = D.type(dispatcher(B))
 
 "Extract main blueprint data if any (expect *static* answer)."
 data(b::Blueprint) = unimplemented(data, b) # TODO: default to first field?
-
-"""
-Assuming input data already has the right type,
-check that the value is consistent with expectations.
-Return the passed data aliased and unchanged.
-"""
-intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
-intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
-intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
 
 """
 Guarded entrypoint into blueprint construction.
@@ -80,18 +83,6 @@ bp_construct(B::Type{<:Blueprint}, args...; kwargs...) =
         e.d = dispatcher(B)
         rethrow(BlueprintError(B, :construct, e))
     end
-
-#-------------------------------------------------------------------------------------------
-# Intrinsic check.
-
-"""
-Assuming input data already has the right type,
-check that the value is consistent with expectations.
-Return the passed data aliased and unchanged.
-"""
-intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
-intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
-intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
 
 #-------------------------------------------------------------------------------------------
 # Early check.
@@ -155,7 +146,7 @@ expand!(m::Model, b::Blueprint, low) = expand!(m, dispatcher(b), low)
 obtain(m::Model, d::Dispatcher, mref) = unimplemented(obtain, m, d, mref)
 
 # Redirect cartesian index like the underlying tuple.
-obtain(v::V.AbstractView, c::CartesianIndex) = obtain(v, Tuple(c))
+obtain(m::Model, d::Dispatcher, c::CartesianIndex) = obtain(m, d, Tuple(c))
 
 # ==========================================================================================
 # Mutate/Reassign.

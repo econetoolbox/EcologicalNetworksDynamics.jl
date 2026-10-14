@@ -16,16 +16,16 @@
 # as later comments build upon earlier ones.
 
 # First example graph-level data.
-include("./temperature.jl")
+#  include("./temperature.jl")
 
 # First example of a nodes class.
-include("./species.jl")
+#  include("./species.jl")
 
 # First example of an edges web.
-include("./foodweb.jl")
+#  include("./foodweb.jl")
 
 # First example of nodes data.
-include("./body_mass.jl")
+#  include("./body_mass.jl")
 
 # Non-numeric nodes data, that require checking against model values.
 #  include("./metabolic_class.jl")

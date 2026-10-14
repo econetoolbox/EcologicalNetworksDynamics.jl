@@ -134,66 +134,10 @@ module addfails
 end
 
 #-------------------------------------------------------------------------------------------
-raw"""
-Exposed library errors.
-These are sophisticated, nested error types.
-Only macros testing toplevel reports are generated.
-Here is how to use them:
+# Exposed library errors.
 
-  @bpfails(     <- Expect NF.BlueprintError.
-    xp,         <- The expression tested.
-    B, step, m, <- The regular exception fields.
-    (           <- Recurse into nested exceptions. No need to test their (fixed) types.
-      mref,     <- Expected subfield.
-      ref,      <- Expected sub-subfield, although no need to nest more!
-      :root,    <- Target expectetdj NF.RootCause type with a short name.
-      ...       <- Subsequent fields are those of the rootcause type.
-    ),
-  )
-
-"""
-function test_mref(exp, act::NF.ModelRefErr)
-    exp isa Tuple ||
-        errwith("Not a tuple to compare against nested error:", rethrow) do io
-            render_input(io, exp)
-        end
-    if length(exp) < 3
-        errwith("Not enough expected nested fields values to test:", rethrow) do io
-            showcompare(io, "(mref, ref, root, root_fields...)", exp)
-        end
-    end
-    a, b, c, d... = exp
-    exp = (; mref = a, ref = b, root = c, fields = d)
-    withcontext(WrongField, compare_refs, exp.mref, act.mref) do io
-        println(io, "Reported model reference $(black).mref$reset:")
-    end
-    withcontext(WrongField, compare_refs, exp.ref, act.src.ref) do io
-        println(io, "Reported input reference $(black).ref$reset:")
-    end
-    withcontext(WrongField, FieldsCompare.type, :root, exp.root) do io
-        println(io, "Reported root cause type:")
-    end
-    # Translate to expected root error type.
-    dict = (; check = NF.CheckError, convert = NF.ConvertError, list = NF.ListParseError)
-    RootCauseType = if haskey(dict, exp.root)
-        dict[exp.root]
-    else
-        errwith("Unknown possible root cause type:", rethrow) do io
-            showcompare(io, "one among: $(keys(dict))", exp.root)
-        end
-    end
-    T.test_errsource(act.src.src, RootCauseType, exp.fields, (; mess))
-end
-
-const Ref = NF.Ref
-"Test `$(NF.InputRef)` value, using `:whole` to expect `$(NF.WholeInput)`."
-compare_refs(::Nothing, ::Nothing) = @test true
-compare_refs(exp, act::NF.InputRef) = FieldsCompare.default(exp, act)
-compare_refs(exp::Ref, act::NF.Ref1D) = FieldsCompare.default(exp, act.i)
-compare_refs((i,)::Tuple{Ref}, act::NF.Ref1D) = FieldsCompare.default(i, act.i)
-compare_refs(exp::Tuple{Ref,Ref}, act::NF.Ref2D) =
-    FieldsCompare.default.(exp, (act.i, act.j))
-compare_refs(exp::Symbol, ::NF.WholeInput) =
+"Test report ref values, using `:whole` to expect `$(NF.WholeData)`."
+compare_refs(exp::Symbol, ::NF._WholeData) =
     if exp == :whole
         @test true
     else
@@ -215,32 +159,21 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     FieldsCompare.value(exp, D.content(act))
 
 @genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess)
-@genfailsmacro convfails EN.NetworkFramework.ConvertError (; mess)
-@genfailsmacro listfails EN.NetworkFramework.ListParseError (; mess)
-@genfailsmacro mutfails EN.NetworkFramework.MutationError (;
-    d = test_datakind,
-    src = test_mref,
-)
+@genfailsmacro mutfails EN.NetworkFramework.MutationError
 
 # This one is sometimes yielded as toplevel,
 # and sometimes as a *cause* during addfails.check.
-const bpchecks = (;
-    model = nothing,
-    src = test_mref,
-)
-@genfailsmacro bpfails EN.NetworkFramework.BlueprintError bpchecks
+@genfailsmacro bpfails EN.NetworkFramework.BlueprintError
 
-@genfailsmacro viewfails EN.NetworkFramework.Views.QueryError (;
-    query = nothing, # (redundant with test lhs)
-    short = nothing, # (display implementation detail)
-)
+@genfailsmacro viewfails EN.NetworkFramework.Query.Error (; query = nothing)
+#                                                           ^^^^^ (redundant with test lhs)
 
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
-T.test_errsource(err, E::Type{NF.BlueprintError}, fields, checks = (;)) =
-    @invoke T.test_errsource(err, E::Type, fields, (; bpchecks..., checks...))
-T.test_errsource(err, E::Type{NF.MutationError}, fields, checks = (;)) =
-    @invoke T.test_errsource(err, E::Type, fields, (; bpchecks..., checks...))
+T.test_errsource(err, E::Type{NF.CheckError}, fields, checks = (;)) =
+    @invoke T.test_errsource(
+        err, E::Type, fields,
+        (; uref = compare_refs, mref = compare_refs, checks...))
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)
@@ -253,13 +186,11 @@ macro callfails end
 macro checkfails end
 macro compfails end
 macro conflfails end
-macro convfails end
 macro errfails end
 macro jl_basic_callfails end
 macro jl_callfails end
 macro jl_deffails end
 macro labelfails end
-macro listfails end
 macro methfails end
 macro mutfails end
 macro netfails end

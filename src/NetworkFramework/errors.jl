@@ -19,22 +19,15 @@ The last stage of upgrading is wrapping the report within a contextualized error
 """
 mutable struct CheckError <: LibError
     """
-    The problematic value to be reported.
-    Either directly taken from user input or from lowered data.
-    """
-    value::Any
-    """
-    Root cause.
-    Should be focused and simple to write by component authors,
-    trusting that external context will be filled up by the framework,
-    unless they are hooking higher in the usual call chain.
-    """
-    mess::String
-    """
     The kind of data being reported.
     Unknown when emitted from an independent default impl.
     """
     d::Option{Dispatcher}
+    """
+    The problematic value to be reported.
+    Either directly taken from user input or from lowered data.
+    """
+    value::Any
     "User input reference: Locate the value within total user input."
     uref::Any
     """
@@ -46,6 +39,13 @@ mutable struct CheckError <: LibError
     , the 2nd user input value actually corresponds to the 5th model data value.
     """
     mref::Option{Any}
+    """
+    Root cause.
+    Should be focused and simple to write by component authors,
+    trusting that external context will be filled up by the framework,
+    unless they are hooking higher in the usual call chain.
+    """
+    mess::String
 end
 
 "Exposed entrypoint to issue a bubbling report"
@@ -57,7 +57,28 @@ checkerr(
     uref = WholeData,
     mref = nothing,
 ) =
-    throw(CheckError(value, mess, d, uref, mref))
+    throw(CheckError(d, value, uref, mref, mess))
+
+#-------------------------------------------------------------------------------------------
+# User/model input references.
+
+"The invalid value is the whole data."
+struct _WholeData end
+const WholeData = _WholeData()
+
+"Abstract over indices and labels."
+const URef = Union{Int,Symbol}
+print_uref(uref) = sprint(print_uref, uref)
+print_uref(io::IO, (i,)::Tuple{URef}) = print(io, "[$(repr(i))]")
+print_uref(io::IO, (i, j)::Tuple{R,R}) where R<:URef =
+    print(io, "[$(repr(i)), $(repr(j))]")
+
+"Refer to *both* node index and label."
+const MRef = Tuple{Int,Symbol}
+print_mref(mref) = sprint(print_mref, mref)
+print_mref(io::IO, ((i, a),)::Tuple{MRef}) = print(io, "[$i] ($(repr(a)))")
+print_mref(io::IO, ((i, a), (j, b))::Tuple{MRef,MRef}) =
+    print(io, "[$i, $j] ($(repr(a)), $(repr(b)))")
 
 #-------------------------------------------------------------------------------------------
 # Display.
@@ -103,27 +124,6 @@ function modelvalue(d::D.AbstractField, mref)
     "model $(repr(name)) $level value $(repr(field)) $mr"
 end
 
-#-------------------------------------------------------------------------------------------
-# User/model input references.
-
-"The invalid value is the whole data."
-struct _WholeData end
-const WholeData = _WholeData()
-
-"Abstract over indices and labels."
-const URef = Union{Int,Symbol}
-print_uref(uref) = sprint(print_uref, uref)
-print_uref(io::IO, (i,)::Tuple{URef}) = print(io, "[$(repr(i))]")
-print_uref(io::IO, (i, j)::Tuple{R,R}) where R<:URef =
-    print(io, "[$(repr(i)), $(repr(j))]")
-
-"Refer to *both* node index and label."
-const MRef = Tuple{Int,Symbol}
-print_mref(mref) = sprint(print_mref, mref)
-print_mref(io::IO, ((i, a),)::Tuple{MRef}) = print(io, "[$i] ($(repr(a)))")
-print_mref(io::IO, ((i, a), (j, b))::Tuple{MRef,MRef}) =
-    print(io, "[$i, $j] ($(repr(a)), $(repr(b)))")
-
 # ==========================================================================================
 
 "Contextualize failure within the pipeline bringing new data to the model."
@@ -150,51 +150,6 @@ function Base.showerror(io::IO, e::BlueprintError)
     end
     println(io, "While $doing:")
     showerror(io, src)
-end
-
-# ==========================================================================================
-
-"Contextualize failure within input meant to *query* data within the model."
-mutable struct QueryError <: LibError
-    "The total, initial query *e.g.* typical arguments to julia indexing syntax `[...]`."
-    query::Tuple
-    "For now, all queries are made through `views`. This is the corresponding view type."
-    View::Type # (Note: this would move to a super-error if querying exists without views.)
-    "Underlying report."
-    src::CheckError
-end
-
-function Base.showerror(io::IO, e::QueryError)
-    (; View, query, src) = e
-    d = dispatcher(View)
-    println(io, "View error ($(V.type_info(View))):")
-    report() = NF.render(io, src; what = "query", display_input = false)
-    # Report either before or after depending on the query size.
-    if length(repr(query)) <= 20
-        # Easier to understand before..
-        q = "[" * join_elided(query, ", ") * "]"
-        println(io, "Cannot index with $q into $d:")
-        report()
-    else
-        # .. unless the query would flood the report.
-        report()
-        if src.value != query
-            println(io, "Cannot index into $d with: [")
-            for q in query
-                render_input(
-                    io,
-                    q,
-                    (short, Q) -> "  $short ::$Q,\n",
-                    (long, Q) -> begin
-                        print(io, "  ")
-                        long()
-                        print(io, "  ::$Q,\n")
-                    end,
-                )
-            end
-        end
-        print(io, "]")
-    end
 end
 
 # ==========================================================================================
