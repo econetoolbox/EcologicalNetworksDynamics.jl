@@ -2,15 +2,20 @@
 General exception type for components lib authors and users.
 Inherits from `F.InputError` so as to be correctly caught and upgraded
 by the component system during `add!`.
+Upgrades should be done by the framework by default,
+so that component authors should not have to worry about it
+unless they write very singular components.
 """
 abstract type LibError <: F.InputError end
 
+#-------------------------------------------------------------------------------------------
+
 """
-Generic report content.
+Report problematic value within user input,
+either meant to become *data* within the model or to *query* it.
 "Upgrading" the report with additional context
-first referst to filling out the later fields if meaningful as the exception bubbles up.
-The last stage of upgrading is wrapping the report within a dedicated error type.
-As in: the report should *not* bubble up to the REPL on its own.
+first refers to filling out the later fields if meaningful as the exception bubbles up.
+The last stage of upgrading is wrapping the report within a contextualized error type.
 """
 mutable struct CheckError <: LibError
     """
@@ -32,7 +37,9 @@ mutable struct CheckError <: LibError
     """
     Model reference: if relevant, locate the associated value within the focal model.
     Similar to user input reference, but actually orthogonal because *e.g.* in
-    value[4:6] = [1, 2, 3]
+
+        value[4:6] = [1, 2, 3]
+
     , the 2nd user input value actually corresponds to the 5th model data value.
     """
     mref::Option{Any}
@@ -43,6 +50,50 @@ end
 "Exposed entrypoint to component authors, to issue a bubbling report"
 checkerr(d::Dispatcher, value, mess::String, throw = Base.throw) =
     throw(CheckError(mess, value, d))
+
+#-------------------------------------------------------------------------------------------
+# Display.
+
+Base.showerror(io::IO, e::CheckError) = render(io, e)
+function render(io::IO, e::CheckError; what = "input", display_input = true)
+    (; mess, value, d, uref, mref) = e
+    print(io, "In the provided $what")
+    if !(uref isa WholeData)
+        print(io, " at ")
+        print_uref(io, uref)
+    end
+    irrelevant_mref = if isnothing(mref)
+        true
+    elseif uref isa WholeData
+        mref isa WholeData
+    elseif uref isa Tuple{Vararg{Int}}
+        uref == getindex.(mref, 1)
+    elseif uref isa Tuple{Vararg{Symbol}}
+        uref == getindex.(mref, 2)
+    else
+        true
+    end
+    if irrelevant_mref
+        print(io, ":\n")
+    else
+        mv = modelvalue(d, mref)
+        print(io, isnothing(uref) ? " " : "\n")
+        print(io, "referring to inner $mv:\n")
+    end
+    print(io, mess)
+    if display_input
+        render_input(io, value)
+    end
+end
+
+modelvalue(d::D.GraphField, ::WholeData) = "model $d value for the network"
+modelvalue(d::D.Class, mref) = "model $d name for node " * print_mref(mref)
+modelvalue(d::D.Web, mref) = "model $d topology for edge " * print_mref(mref)
+function modelvalue(d::D.AbstractField, mref)
+    (name, field), level = D.content(d), D.level(d)
+    mr = print_mref(mref)
+    "model $(repr(name)) $level value $(repr(field)) $mr"
+end
 
 #-------------------------------------------------------------------------------------------
 # User/model input references.
@@ -64,43 +115,15 @@ print_mref(io::IO, ((i, a),)::Tuple{MRef}) = print(io, "[$i] ($(repr(a)))")
 print_mref(io::IO, ((i, a), (j, b))::Tuple{MRef,MRef}) =
     print(io, "[$i, $j] ($(repr(a)), $(repr(b)))")
 
-#-------------------------------------------------------------------------------------------
-# Display.
-
-function Base.showerror(io::IO, e::CheckError)
-    (; mess, value, d, uref, mref) = e
-    print(io, "In the provided input")
-    if !(uref isa WholeData)
-        print(io, " at ")
-        print_uref(io, uref)
-    end
-    if isnothing(mref)
-        print(io, ":\n")
-    else
-        mv = modelvalue(d, mref)
-        print(io, isnothing(uref) ? " " : "\n")
-        print(io, "which would become $mv:\n")
-    end
-    print(io, mess)
-    render_input(io, value)
-end
-
-modelvalue(d::D.GraphField, ::WholeData) = "model $d value for the network"
-modelvalue(d::D.Class, mref) = "model $d name for node " * print_mref(mref)
-modelvalue(d::D.Web, mref) = "model $d topology for edge " * print_mref(mref)
-modelvalue(d::D.NodeField, mref) =
-    "model $d node value " * String(D.field(d)) * print_mref(mref)
-modelvalue(d::D.EdgeField, mref) =
-    "model $d edge value " * String(D.field(d)) * print_mref(mref)
-
 # ==========================================================================================
-"""
-Final upgrade of model-referenced exception into a blueprint failure report.
-This should be done automatically by the framework without component authors noticing.
-"""
+
+"Contextualize failure within the pipeline bringing new data to the model."
 struct BlueprintError <: LibError
+    "Data is appended using blueprints. This is the associated blueprint type."
     B::Type{<:Blueprint}
-    step::Symbol # Failed operation (exposed pipeline step).
+    "Failed pipeline step, among (:construct, :early, :late)."
+    step::Symbol
+    "Underlying report."
     src::CheckError
 end
 
@@ -121,38 +144,59 @@ function Base.showerror(io::IO, e::BlueprintError)
 end
 
 # ==========================================================================================
-"""
-Raise if we cannot interpret raw input as an index into model data.
-Not supposed to be raised by component authors because index checking is implemented here.
-"""
-abstract type IndexError <: LibError end
+
+"Contextualize failure within input meant to *query* data within the model."
+mutable struct QueryError <: LibError
+    "The total, initial query *e.g.* typical arguments to julia indexing syntax `[...]`."
+    query::Tuple
+    "For now, all queries are made through `views`. This is the corresponding view type."
+    View::Type # (Note: this would move to a super-error if querying exists without views.)
+    "Underlying report."
+    src::CheckError
+end
+
+function Base.showerror(io::IO, e::QueryError)
+    (; View, query, src) = e
+    d = dispatcher(View)
+    println(io, "View error ($(V.type_info(View))):")
+    report() = NF.render(io, src; what = "query", display_input = false)
+    # Report either before or after depending on the query size.
+    if length(repr(query)) <= 20
+        # Easier to understand before..
+        q = "[" * join_elided(query, ", ") * "]"
+        println(io, "Cannot index with $q into $d:")
+        report()
+    else
+        # .. unless the query would flood the report.
+        report()
+        if src.value != query
+            println(io, "Cannot index into $d with: [")
+            for q in query
+                render_input(
+                    io,
+                    q,
+                    (short, Q) -> "  $short ::$Q,\n",
+                    (long, Q) -> begin
+                        print(io, "  ")
+                        long()
+                        print(io, "  ::$Q,\n")
+                    end,
+                )
+            end
+        end
+        print(io, "]")
+    end
+end
 
 # ==========================================================================================
-"""
-Final upgrade of model-referenced exception into a mutation failure report.
-This should be done automatically by the framework without component authors noticing.
-"""
+
+"Contextualize failure within the pipeline modifying the model data."
 struct MutationError <: LibError
-    d::D.AbstractField
-    step::Symbol # Failed operation (:mutate or :assign).
     src::CheckError
 end
 
 function Base.showerror(io::IO, e::MutationError)
-    (; d, step, model, src) = e
-    (; mref, src) = src
-    (; ref, src) = src
-    changing = if step == :mutate
-        "mutating"
-    elseif step == :assign
-        "assigning to"
-    else
-        "<performing $(repr(step)) $black(display bug, please report)$reset>"
-    end
-    mv = modelvalue(d, mref)
-    println(io, "While $changing $mv:")
-    if !(ref isa WholeData)
-        print(io, "In the provided value at $ref:")
-    end
+    (; src) = e
+    println(io, "While mutating model:")
     showerror(io, src)
 end

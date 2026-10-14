@@ -1,7 +1,5 @@
-"""
-Direct dense view into nodes field data.
-"""
-struct NodeFieldView{d,T} <: AbstractVector{T} # d::D.Class
+"Direct dense view into nodes field data."
+struct NodeFieldView{d,T} <: AbstractVector{T} # d::D.NodeField
     model::Model
     view::N.NodeView{T}
 end
@@ -17,7 +15,7 @@ View into nodes data of a subclass
 from the perspective of a superclass,
 resulting in incomplete / sparse data view.
 """
-struct SubnodeFieldView{d,T} <: AbstractSparseVector{T,Int} # d::D.Subclass
+struct SubnodeFieldView{d,T} <: AbstractSparseVector{T,Int} # d::D.SubnodeField
     model::Model
     view::N.NodeView{T}
 end
@@ -66,9 +64,7 @@ end
 # ==========================================================================================
 # Views into topology-related data, read-only.
 
-"""
-View into network class label names, read-only.
-"""
+"View into network class label names, read-only."
 struct NodeNameView{d} <: AbstractVector{Symbol} # d::D.Class
     model::Model
     index::N.Index # Cache an alias to underlying class index.
@@ -84,9 +80,7 @@ let S = NodeNameView
 end
 
 #-------------------------------------------------------------------------------------------
-"""
-View into network class restriction mask, read-only.
-"""
+"View into network class restriction mask, read-only."
 struct NodeMaskView{d} <: AbstractVector{Bool} # d::D.Subclass
     model::Model
     restriction::N.Restriction # Cache an alias to underlying restriction.

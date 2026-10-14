@@ -34,9 +34,9 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics:
-    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix
+    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith
 import .Display: join_elided, render_input, ns, reset
-import .NetworkFramework: NF, D, Model, can_convert
+import .NetworkFramework: NF, D, Model, can_convert, CheckError, checkerr, QueryError
 const V = Views
 
 using SparseArrays
@@ -85,7 +85,18 @@ Obtain underlying view dispatcher.
 """
 function dispatcher end
 
-include("errors.jl")
+"Report attempt to mutate through a view into immutable data."
+struct ImmutableError <: NF.LibError
+    View::Type
+    ImmutableError(v::Type) = new(v)
+end
+ImmutableError(v) = ImmutableError(typeof(v))
+function Base.showerror(io::IO, e::ImmutableError)
+    (; View) = e
+    d = dispatcher(View)
+    print(io, "Cannot change $d $(type_info(View)) once they have been set.")
+end
+
 include("nodes.jl")
 include("edges.jl")
 include("nodes_display.jl")
@@ -116,11 +127,14 @@ let S = AbstractView
     N.network(s::S) = s |> NF.model |> N.network
 
     # Forbid any property access.
-    Base.getproperty(s::S, ::Symbol) = qerr(s, "no property to access.")
-    Base.setproperty!(s::S, ::Symbol) = qerr(s, "no property to access.")
+    Base.setproperty!(s::S, y::Symbol) = getproperty(s, y)
+    Base.getproperty(::S, ::Symbol) = errwith("No property to access on views.")
 
     V.qerr(s::S, x...) = V.qerr(typeof(s), x...)
 end
+
+# Extract dispatcher from view when reporting.
+checkerr(v::AbstractView, args...; kwargs...) = checkerr(dispatcher(v), args...; kwargs...)
 
 include("indexing.jl")
 
