@@ -19,6 +19,11 @@ The last stage of upgrading is wrapping the report within a contextualized error
 """
 mutable struct CheckError <: LibError
     """
+    The problematic value to be reported.
+    Either directly taken from user input or from lowered data.
+    """
+    value::Any
+    """
     Root cause.
     Should be focused and simple to write by component authors,
     trusting that external context will be filled up by the framework,
@@ -26,12 +31,10 @@ mutable struct CheckError <: LibError
     """
     mess::String
     """
-    The problematic value to be reported.
-    Either directly taken from user input or from lowered data.
+    The kind of data being reported.
+    Unknown when emitted from an independent default impl.
     """
-    value::Any
-    "The kind of data being reported."
-    d::Dispatcher
+    d::Option{Dispatcher}
     "User input reference: Locate the value within total user input."
     uref::Any
     """
@@ -43,13 +46,18 @@ mutable struct CheckError <: LibError
     , the 2nd user input value actually corresponds to the 5th model data value.
     """
     mref::Option{Any}
-    CheckError(mess::String, value, d::Dispatcher) =
-        CheckError(mess, value, d, WholeData(), nothing)
 end
 
-"Exposed entrypoint to component authors, to issue a bubbling report"
-checkerr(d::Dispatcher, value, mess::String, throw = Base.throw) =
-    throw(CheckError(mess, value, d))
+"Exposed entrypoint to issue a bubbling report"
+checkerr(
+    value,
+    mess::String,
+    throw = Base.throw;
+    d = nothing,
+    uref = WholeData,
+    mref = nothing,
+) =
+    throw(CheckError(value, mess, d, uref, mref))
 
 #-------------------------------------------------------------------------------------------
 # Display.
@@ -58,14 +66,14 @@ Base.showerror(io::IO, e::CheckError) = render(io, e)
 function render(io::IO, e::CheckError; what = "input", display_input = true)
     (; mess, value, d, uref, mref) = e
     print(io, "In the provided $what")
-    if !(uref isa WholeData)
+    if !(uref === WholeData)
         print(io, " at ")
         print_uref(io, uref)
     end
     irrelevant_mref = if isnothing(mref)
         true
-    elseif uref isa WholeData
-        mref isa WholeData
+    elseif uref === WholeData
+        mref === WholeData
     elseif uref isa Tuple{Vararg{Int}}
         uref == getindex.(mref, 1)
     elseif uref isa Tuple{Vararg{Symbol}}
@@ -86,7 +94,7 @@ function render(io::IO, e::CheckError; what = "input", display_input = true)
     end
 end
 
-modelvalue(d::D.GraphField, ::WholeData) = "model $d value for the network"
+modelvalue(d::D.GraphField, ::_WholeData) = "model $d value for the network"
 modelvalue(d::D.Class, mref) = "model $d name for node " * print_mref(mref)
 modelvalue(d::D.Web, mref) = "model $d topology for edge " * print_mref(mref)
 function modelvalue(d::D.AbstractField, mref)
@@ -99,7 +107,8 @@ end
 # User/model input references.
 
 "The invalid value is the whole data."
-struct WholeData end
+struct _WholeData end
+const WholeData = _WholeData()
 
 "Abstract over indices and labels."
 const URef = Union{Int,Symbol}

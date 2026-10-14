@@ -34,7 +34,7 @@ function allow_convert(Target, Input, f = Target)
                     $f(v)
                 catch e
                     e isa LibError && rethrow(e)
-                    converr($Target, v, "(detail down the stacktrace)")
+                    checkerr(v, "(detail down the stacktrace)")
                 end
             can_convert(::Type{$Target}, ::Type{<:$Input}) = true
         end,
@@ -66,14 +66,15 @@ ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 # From iterators.
 function convert(::Type{Vector{T}}, input) where {T}
     hasmethod(iterate, Tuple{typeof(input)}) ||
-        converr(Vector{T}, input, "Input is not iterable.")
+        checkerr(input, "Input is not iterable.")
     res = T[]
     for (i, v) in enumerate(input)
         r = try
             convert(T, v)
         catch e
-            e isa LibError || rethrow(e)
-            upgrade(e, RefErr, i)
+            e isa CheckError || rethrow(e)
+            e.uref = (i,)
+            rethrow(e)
         end
         push!(res, r)
     end
@@ -145,7 +146,7 @@ function try_convert(input, tries...)
         x = try
             convert(T, input)
         catch e
-            e isa LibError || rethrow(e)
+            e isa CheckError || rethrow(e)
             push!(attempts, "convert input to $T")
             continue
         end

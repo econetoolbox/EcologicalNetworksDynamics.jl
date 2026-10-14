@@ -3,6 +3,10 @@
 # Anything accepted as view[q...].
 const Ref = Union{Int,Symbol} # Reference a node eitheir by index or label.
 
+# Extract dispatcher from view when reporting.
+checkerr(args...; kwargs..., v = missing) =
+    checkerr(args...; kwargs..., d = dispatcher(v))
+
 # ==========================================================================================
 # Checking access, with useful reporting on invalid queries.
 
@@ -22,12 +26,12 @@ function dimerr(v, q, sh, act)
     l = titlecase(D.level(d))
     exp = D.dim(d)
     s = exp == 1 ? "" : "s"
-    checkerr(v, q, sh, "$l-level data has $exp dimension$s, received $act")
+    checkerr(q, sh, "$l-level data has $exp dimension$s, received $act"; v)
 end
 
 check_dim(v::NodeView, q::Tuple) = tuplerr(v, q)
 check_dim(v::EdgeView, q::Tuple) = tuplerr(v, q)
-tuplerr(v, q) = checkerr(v, q, false, "Cannot index into views with explicit tuples")
+tuplerr(v, q) = checkerr(q, false, "Cannot index into views with explicit tuples"; v)
 
 #-------------------------------------------------------------------------------------------
 # Check query type.
@@ -36,7 +40,7 @@ tuplerr(v, q) = checkerr(v, q, false, "Cannot index into views with explicit tup
 check_type(v::AbstractView, q::Tuple) = check_type.((v,), q)
 check_type(::AbstractView, q::Union{Ref,UnitRange,CartesianIndex,Colon}) = q
 check_type(v::AbstractView, q) =
-    checkerr(v, q, "Views are queried with indices [::Int] or labels [::Symbol]")
+    checkerr(q, "Views are queried with indices [::Int] or labels [::Symbol]"; v)
 
 # Allow for a few implicit conversions.
 check_type(::AbstractView, q::Union{Char,AbstractString}) = Symbol(q)
@@ -45,7 +49,7 @@ check_type(v::AbstractView, q::Unsigned) =
         Int(q)
     catch e
         e isa InexactError || rethrow(e)
-        checkerr(v, q, "Index too large to be used with julia arrays ($q)", rethrow)
+        checkerr(q, "Index too large to be used with julia arrays ($q)", rethrow; v)
     end
 
 check_type(v::AbstractView, q::AbstractArray{<:Integer}) =
@@ -53,9 +57,9 @@ check_type(v::AbstractView, q::AbstractArray{<:Integer}) =
         to_mask(q)
     catch e
         e isa InexactError || rethrow(e)
-        checkerr(v, q,
+        checkerr(q,
             "Could not interpret as a boolean mask (not only 1's and 0's?)",
-            rethrow)
+            rethrow; v)
     end
 
 function to_mask(q::Union{AbstractArray,BitArray})
@@ -86,7 +90,7 @@ check_value(v::EdgeView, (i, j)::Tuple) =
 
 function check_value(v::AbstractView, i::Int, _)
     i > 0 && return i
-    checkerr(v, i, "Integer node references can only be positive")
+    checkerr(i, "Integer node references can only be positive"; v)
 end
 
 # Cartesian is checked like the underlying tuple.
@@ -99,7 +103,7 @@ end
 function check_value(v::EdgeMaskView, (m,)::Tuple{SparseMatrix{Bool}})
     e, a = size.((v, m))
     e == a && return m
-    checkerr(v, m, "There are $e potential edges but the given mask is of size $a.")
+    checkerr(m, "There are $e potential edges but the given mask is of size $a."; v)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -120,28 +124,28 @@ function check_query(v::AbstractView, r::Ref, c::Val{class}) where class
 end
 
 referr(v::NodeView, l::Symbol, ::Val{N.class}) =
-    checkerr(v, l, "No node in this class is labeled $(repr(l))")
+    checkerr(l, "No node in this class is labeled $(repr(l))"; v)
 referr(v::NodeMaskView, l::Symbol, ::Val{N.parent}) =
-    checkerr(v, l, "No node in the parent class is labeled $(repr(l))")
+    checkerr(l, "No node in the parent class is labeled $(repr(l))"; v)
 referr(v::EdgeView, l::Symbol, ::Val{class}) where class =
-    checkerr(v, l,
-        "No node in the $class class ($(repr(class(v).name))) is labeled $(repr(l))")
+    checkerr(l,
+        "No node in the $class class ($(repr(class(v).name))) is labeled $(repr(l))"; v)
 
 function referr(v::NodeView, i::Int, ::Val{N.class})
     n, s = ns(length(N.class(v)))
-    checkerr(v, i, "This class only contains $n node$s")
+    checkerr(i, "This class only contains $n node$s"; v)
 end
 
 function referr(v::NodeView, i::Int, ::Val{N.parent})
     n, s = ns(length(N.parent(v)))
-    checkerr(v, i, "The parent class only contains $n node$s")
+    checkerr(i, "The parent class only contains $n node$s"; v)
 end
 
 function referr(v::EdgeView, i::Int, ::Val{class}) where class
     c = class(v)
     name = repr(c.name)
     n, s = ns(length(c))
-    checkerr(v, i, "The $class class ($name) only contains $n node$s")
+    checkerr(i, "The $class class ($name) only contains $n node$s"; v)
 end
 
 # Indexing with ranges.
@@ -159,7 +163,7 @@ function check_query(v::NodeView, m::SparseVector{Bool}, ::Val{class}) where {cl
     act = length(m)
     exp == act && return m
     are, s = exp == 1 ? ("is", "") : ("are", "s")
-    checkerr(v, m, "The given mask is of size $act but there $are $exp node$s in the class")
+    checkerr(m, "The given mask is of size $act but there $are $exp node$s in the class"; v)
 end
 
 # Cartesian is checked like the underlying tuple.
@@ -171,7 +175,7 @@ end
 # Edges.
 check_edge(::EdgeMaskView, q) = q # Ok if marginal indices are ok.
 function check_edge(v::EdgeFieldView, (i, j)::Tuple{Ref,Ref})
-    is_edge(v, (i, j)) || checkerr(v, (i, j), "Not an edge")
+    is_edge(v, (i, j)) || checkerr((i, j), "Not an edge"; v)
     (i, j)
 end
 

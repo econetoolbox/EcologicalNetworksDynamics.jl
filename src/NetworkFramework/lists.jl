@@ -128,28 +128,24 @@ iter(a::Adjacency) = I.map(a) do (src, targets)
 end |> I.flatten
 
 #-------------------------------------------------------------------------------------------
-# Exception handling .
+# Exception handling here predates 'CheckError' harmonization,
+# so it is only loosely integrated with the rest.
 
-"Dedicated root cause when parsing lists."
-struct ListParseError <: RootCause
-    mess::String
-end
-Base.showerror(io::IO, e::ListParseError) = print(io, e.mess)
-
-# Tag thrown exceptions with a symbol
-# to decide which to report in case of multiple 'forgiveness'es.
+"""
+Tag thrown exceptions with a symbol
+to decide which to report in case of multiple 'forgiveness'es.
+"""
 struct Forgiveness <: Exception
     tag::Symbol
     mess::String
 end
 forgerr(tag, mess, throw = Base.throw) = throw(Forgiveness(tag, mess))
 # Upgrade if bubbling up to user call.
-forgive(f, parser) =
+forgive(f, input, parser) =
     try
         f()
     catch e
-        isnothing(parser) && e isa Forgiveness && rethrow(ListParseError(e.mess))
-        # TODO: Upgrade `path` into an `InputRef` to fill it in? Not required?
+        isnothing(parser) && e isa Forgiveness && checkerr(input, e.mess, rethrow)
         rethrow(e)
     end
 
@@ -497,7 +493,7 @@ function parse(
     parser = nothing,
     what = (; whole = "binary map", ref = "node"),
 )
-    forgive(parser) do
+    forgive(input, parser) do
 
         p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
         it = parse_iterable(p, input, what.whole)
@@ -533,7 +529,7 @@ function parse(
     parser = nothing,
     what = (; whole = "binary map"),
 )
-    forgive(parser) do
+    forgive(input, parser) do
         # .. although the context is much different:
         # only indices can be retrieved or even *expected* from this kind of input.
         check_boolean_input(
@@ -593,7 +589,7 @@ function parse(
     parser = nothing,
     what = (; whole = "map", pair = "reference(s) => value", ref = "node"),
 ) where {T}
-    forgive(parser) do
+    forgive(input, parser) do
 
         p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{T,R}) : parser
         it = parse_iterable(p, input, what.whole)
@@ -643,7 +639,7 @@ function parse(
     ExpectedRefType = nothing,
     parser = nothing,
 )
-    forgive(parser) do
+    forgive(input, parser) do
 
         p =
             isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) :
@@ -715,7 +711,7 @@ function parse(
     parser = nothing,
     what = (; whole = "binary adjacency list"),
 )
-    forgive(parser) do
+    forgive(input, parser) do
         check_boolean_input(
             ExpectedRefType,
             input,
@@ -761,7 +757,7 @@ function parse(
     ExpectedRefType = nothing,
     parser = nothing,
 ) where {T}
-    forgive(parser) do
+    forgive(input, parser) do
 
         p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{T,R}) : parser
         it = parse_iterable(p, input, "adjacency map")

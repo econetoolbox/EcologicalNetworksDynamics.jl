@@ -134,7 +134,8 @@ let S = AbstractView
 end
 
 # Extract dispatcher from view when reporting.
-checkerr(v::AbstractView, args...; kwargs...) = checkerr(dispatcher(v), args...; kwargs...)
+checkerr(v::AbstractView, args...; kwargs...) =
+    checkerr(args...; kwargs..., d = dispatcher(v))
 
 include("indexing.jl")
 
