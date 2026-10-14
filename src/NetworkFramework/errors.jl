@@ -46,18 +46,18 @@ mutable struct CheckError <: LibError
     unless they are hooking higher in the usual call chain.
     """
     mess::String
+    CheckError(
+        value,
+        mess::String;
+        d = nothing,
+        uref = WholeData,
+        mref = nothing,
+    ) = new(d, value, uref, mref, mess)
 end
 
 "Exposed entrypoint to issue a bubbling report"
-checkerr(
-    value,
-    mess::String,
-    throw = Base.throw;
-    d = nothing,
-    uref = WholeData,
-    mref = nothing,
-) =
-    throw(CheckError(d, value, uref, mref, mess))
+checkerr(value, mess::String, throw = Base.throw; kwargs...) =
+    throw(CheckError(value, mess; kwargs...))
 
 #-------------------------------------------------------------------------------------------
 # User/model input references.

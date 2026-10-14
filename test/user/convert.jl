@@ -4,7 +4,7 @@ using EcologicalNetworksDynamics.NetworkFramework:
     NF, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency, convert, try_convert
 # /!\ `convert !== Base.convert` in this module.
 
-using EcologicalNetworksDynamics.Tests: @checkfails
+using EcologicalNetworksDynamics.Tests: @checkfails, @convfails
 
 using Test
 using SparseArrays
@@ -383,8 +383,8 @@ end
         """)
 
     input = [0, 1, 2]
-    @checkfails(convert(Vector{Bool}, input),
-        nothing, 2, (3,), nothing,
+    @convfails(convert(Vector{Bool}, input),
+        Bool, 2, (3,),
         "(detail down the stacktrace)",
     )
 
@@ -395,51 +395,47 @@ end
     cv(type, input) = convert(type, input)
     cv(type, input, ExpectedRefType) = convert(type, input; ExpectedRefType)
 
-    error("STOP HERE") # HERE: Fix tests below: upgrade list error to check error.
-    # Possibly also upgrade above contextless 'convert' error into CheckError,
-    # to avoid having to repeat 'nothing' dispatcher and 'nothing' mref.
-
     # Binary maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @checkfails( #  :not_iterable
+    @convfails( #  :not_iterable
         cv(BinMap, Type),
         "Input for binary map needs to be iterable.\n\
          Received: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :pair_as_iterable
+    @convfails( #  :pair_as_iterable
         cv(BinMap, :a => :b),
         "The pair at [] is just considered an iterable in this context, \
          which may be confusing. \
          Consider grouping with an explicit vector instead like [:a, :b]."
     )
 
-    @checkfails( #  :not_a_ref
+    @convfails( #  :not_a_ref
         cv(BinMap, [Type]),
         "Cannot interpret node reference as integer index or symbol label: \
          received at [1]: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :invalid_index
+    @convfails( #  :invalid_index
         cv(BinMap, [-1]),
         "Integer reference must be a positive index. \
          Received at [1]: -1  ::$Int.",
     )
 
-    @checkfails( #  :unexpected_ref_type
+    @convfails( #  :unexpected_ref_type
         cv(BinMap, [5], Symbol),
         "Invalid node reference type. \
          Expected Symbol (or convertible). \
          Received instead at [1]: 5  ::$Int."
     )
 
-    @checkfails( #  :unexpected_ref_type
+    @convfails( #  :unexpected_ref_type
         cv(BinMap, [:label], Int),
         "Invalid node reference type. \
          Expected $Int (or convertible). \
          Received instead at [1]: :label  ::Symbol."
     )
 
-    @checkfails( #  :inconsistent_ref_type
+    @convfails( #  :inconsistent_ref_type
         cv(BinMap, [5, :a]),
         "The node reference type for this input \
          was first inferred to be an index ($Int) based on the received '5', \
@@ -447,10 +443,10 @@ end
     )
 
     # :duplicate_node
-    @checkfails(cv(BinMap, [5, 5]), "Duplicated node reference at [2]: 5  ::$Int.")
+    @convfails(cv(BinMap, [5, 5]), "Duplicated node reference at [2]: 5  ::$Int.")
 
     # (from boolean masks)
-    @checkfails( # :boolean_label
+    @convfails( # :boolean_label
         cv(BinMap, Bool[0, 0, 1, 0, 1], Symbol),
         "A label-indexed binary map cannot be produced from boolean vectors."
     )
@@ -460,94 +456,94 @@ end
     # Maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     M = Map{Float64}
 
-    @checkfails( #  :not_iterable
+    @convfails( #  :not_iterable
         cv(M, Type),
         "Input for map needs to be iterable.\nReceived: Type  ::UnionAll.",
     )
 
     #  :not_a_pair
-    @checkfails(cv(M, [5]), "Not a 'reference(s) => value' pair at [1]: 5  ::$Int.")
-    @checkfails(cv(M, "abc"), "Not a 'reference(s) => value' pair at [1]: 'a'  ::Char.")
+    @convfails(cv(M, [5]), "Not a 'reference(s) => value' pair at [1]: 5  ::$Int.")
+    @convfails(cv(M, "abc"), "Not a 'reference(s) => value' pair at [1]: 'a'  ::Char.")
 
-    @checkfails( #  :not_a_ref (plain)
+    @convfails( #  :not_a_ref (plain)
         cv(M, [(Type, "a")]),
         "Cannot interpret node reference as integer index or symbol label: \
          received at [1][left]: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :invalid_index (plain)
+    @convfails( #  :invalid_index (plain)
         cv(M, [(-1, "a")]),
         "Integer reference must be a positive index. \
          Received at [1][left]: -1  ::$Int.",
     )
 
-    @checkfails( #  :unexpected_ref_type (plain)
+    @convfails( #  :unexpected_ref_type (plain)
         cv(M, [(5, "a")], Symbol),
         "Invalid node reference type. \
          Expected Symbol (or convertible). \
          Received instead at [1][left]: 5  ::$Int.",
     )
 
-    @checkfails( #  :unexpected_ref_type (plain)
+    @convfails( #  :unexpected_ref_type (plain)
         cv(M, [(:label, "a")], Int),
         "Invalid node reference type. \
          Expected $Int (or convertible). \
          Received instead at [1][left]: :label  ::Symbol.",
     )
 
-    @checkfails( #  :inconsistent_ref_type (plain)
+    @convfails( #  :inconsistent_ref_type (plain)
         cv(M, [(5, 8), (:a, 5)]),
         "The node reference type for this input \
          was first inferred to be an index ($Int) based on the received '5', \
          but a label (Symbol) is now found at [2][left]: :a  ::Symbol."
     )
 
-    @checkfails( #  :inconsistent_ref_type (plain)
+    @convfails( #  :inconsistent_ref_type (plain)
         cv(M, [(:a, 5), (8, 5)]),
         "The node reference type for this input \
          was first inferred to be a label (Symbol) based on the received ':a', \
          but an index ($Int) is now found at [2][left]: 8  ::$Int."
     )
 
-    @checkfails( #  :not_a_ref (grouped)
+    @convfails( #  :not_a_ref (grouped)
         cv(M, [[:a, Type] => 5]),
         "Cannot interpret node reference as integer index or symbol label: \
          received at [1][left][2]: Type  ::UnionAll."
     )
 
-    @checkfails( #  :invalid_index (grouped)
+    @convfails( #  :invalid_index (grouped)
         cv(M, [[:a, -1] => 5]),
         "Integer reference must be a positive index. \
          Received at [1][left][2]: -1  ::$Int."
     )
 
-    @checkfails( #  :unexpected_ref_type (grouped)
+    @convfails( #  :unexpected_ref_type (grouped)
         cv(M, [[5, :b] => 8], Symbol),
         "Invalid node reference type. \
          Expected Symbol (or convertible). \
          Received instead at [1][left][1]: 5  ::$Int."
     )
 
-    @checkfails( #  :inconsistent_ref_type (grouped)
+    @convfails( #  :inconsistent_ref_type (grouped)
         cv(M, [:a => 5, [:b, 3] => 8]),
         "The node reference type for this input \
          was first inferred to be a label (Symbol) based on the received ':a', \
          but an index ($Int) is now found at [2][left][2]: 3  ::$Int."
     )
 
-    @checkfails( #  :duplicate_node (grouped)
+    @convfails( #  :duplicate_node (grouped)
         cv(M, [[:a, :b, :a] => 5]),
         "Duplicated node reference at [1][left][3]: :a  ::Symbol."
     )
 
-    @checkfails( #  :boolean_label
+    @convfails( #  :boolean_label
         cv(M, [:a => 5, Bool[0, 1, 1] => 8], Symbol),
         "A label-indexed group of nodes \
          cannot be produced from boolean vectors \
          at [2][left]: Bool[0, 1, 1]  ::Vector{Bool}."
     )
 
-    @checkfails( #  :inconsistent_ref_type (bool)
+    @convfails( #  :inconsistent_ref_type (bool)
         cv(M, [:a => 5, Bool[0, 1, 1] => 8]),
         "The group of nodes reference type for this input \
          was first inferred to be a label (Symbol) based on the received ':a', \
@@ -555,13 +551,13 @@ end
          is now found at [2][left]: Bool[0, 1, 1]  ::Vector{Bool}."
     )
 
-    @checkfails( #  :not_a_value
+    @convfails( #  :not_a_value
         cv(M, [(5, "a")]),
         "Expected values of type 'Float64', \
          received instead at [1][right]: \"a\"  ::String.",
     )
 
-    @checkfails( #  :duplicate_node
+    @convfails( #  :duplicate_node
         cv(M, [[:a, :b] => 5, [:c, :a] => 8]),
         "Duplicated node reference :\n\
          Received before: a => 5.0\n\
@@ -570,153 +566,153 @@ end
 
     # Binary adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    @checkfails( #  :not_iterable
+    @convfails( #  :not_iterable
         cv(BinAdjacency, Type),
         "Input for binary adjacency map needs to be iterable.\n\
          Received: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :not_a_pair
+    @convfails( #  :not_a_pair
         cv(BinAdjacency, [Type]),
         "Not a 'source(s) => target(s)' pair at [1]: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :not_a_ref (plain source)
+    @convfails( #  :not_a_ref (plain source)
         cv(BinAdjacency, [Type => 5]),
         "Cannot interpret source node reference as integer index or symbol label: \
          received at [1][left]: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :invalid_index (plain source)
+    @convfails( #  :invalid_index (plain source)
         cv(BinAdjacency, [-1 => 5]),
         "Integer reference must be a positive index. \
          Received at [1][left]: -1  ::$Int.",
     )
 
-    @checkfails( #  :not_a_ref (plain target)
+    @convfails( #  :not_a_ref (plain target)
         cv(BinAdjacency, [5 => Type]),
         "Cannot interpret target node reference as integer index or symbol label: \
          received at [1][right]: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :invalid_index (plain target)
+    @convfails( #  :invalid_index (plain target)
         cv(BinAdjacency, [5 => -1]),
         "Integer reference must be a positive index. \
          Received at [1][right]: -1  ::$Int.",
     )
 
-    @checkfails( #  :unexpected_ref_type (plain source)
+    @convfails( #  :unexpected_ref_type (plain source)
         cv(BinAdjacency, [:a => :b], Int),
         "Invalid source node reference type. \
          Expected $Int (or convertible). \
          Received instead at [1][left]: :a  ::Symbol.",
     )
 
-    @checkfails( #  :unexpected_ref_type (plain target)
+    @convfails( #  :unexpected_ref_type (plain target)
         cv(BinAdjacency, [1 => 2], Symbol),
         "Invalid source node reference type. \
          Expected Symbol (or convertible). \
          Received instead at [1][left]: 1  ::$Int.",
     )
 
-    @checkfails( #  :inconsistent_ref_type (plain source)
+    @convfails( #  :inconsistent_ref_type (plain source)
         cv(BinAdjacency, [:a => :b, 2 => :c]),
         "The source node reference type for this input \
          was first inferred to be a label (Symbol) based on the received ':a', \
          but an index ($Int) is now found at [2][left]: 2  ::$Int.",
     )
 
-    @checkfails( #  :inconsistent_ref_type (plain target)
+    @convfails( #  :inconsistent_ref_type (plain target)
         cv(BinAdjacency, [1 => :b]),
         "The target node reference type for this input \
          was first inferred to be an index ($Int) based on the received '1', \
          but a label (Symbol) is now found at [1][right]: :b  ::Symbol.",
     )
 
-    @checkfails( #  :not_a_ref (grouped sources)
+    @convfails( #  :not_a_ref (grouped sources)
         cv(BinAdjacency, [2 => 5, [1, Type] => 3]),
         "Cannot interpret source node reference as integer index or symbol label: \
          received at [2][left][2]: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :invalid_index (grouped sources)
+    @convfails( #  :invalid_index (grouped sources)
         cv(BinAdjacency, [2 => 5, [1, -1] => 3]),
         "Integer reference must be a positive index. \
          Received at [2][left][2]: -1  ::$Int.",
     )
 
-    @checkfails( #  :not_a_ref (grouped targets)
+    @convfails( #  :not_a_ref (grouped targets)
         cv(BinAdjacency, [2 => 5, 1 => [3, Type]]),
         "Cannot interpret target node reference as integer index or symbol label: \
          received at [2][right][2]: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :invalid_index (grouped targets)
+    @convfails( #  :invalid_index (grouped targets)
         cv(BinAdjacency, [2 => 5, 1 => [3, -1]]),
         "Integer reference must be a positive index. \
          Received at [2][right][2]: -1  ::$Int.",
     )
 
-    @checkfails( #  :unexpected_ref_type (grouped sources)
+    @convfails( #  :unexpected_ref_type (grouped sources)
         cv(BinAdjacency, [[:a] => 5], Int),
         "Invalid source node reference type. \
          Expected $Int (or convertible). \
          Received instead at [1][left][1]: :a  ::Symbol.",
     )
 
-    @checkfails( #  :unexpected_ref_type (grouped targets)
+    @convfails( #  :unexpected_ref_type (grouped targets)
         cv(BinAdjacency, [:a => [:b, :c, 4]], Symbol),
         "Invalid target node reference type. \
          Expected Symbol (or convertible). \
          Received instead at [1][right][3]: 4  ::$Int.",
     )
 
-    @checkfails( #   :pair_as_iterable (grouped sources)
+    @convfails( #   :pair_as_iterable (grouped sources)
         cv(BinAdjacency, [(:a => :b) => :c], Symbol),
         "The pair at [1][left] is just considered an iterable in this context, \
          which may be confusing. \
          Consider grouping with an explicit vector instead like [:a, :b].",
     )
 
-    @checkfails( #   :pair_as_iterable (grouped targets)
+    @convfails( #   :pair_as_iterable (grouped targets)
         cv(BinAdjacency, [:a => :b => :c], Symbol),
         "The pair at [1][right] is just considered an iterable in this context, \
          which may be confusing. \
          Consider grouping with an explicit vector instead like [:b, :c].",
     )
 
-    @checkfails( #  :inconsistent_ref_type (grouped sources)
+    @convfails( #  :inconsistent_ref_type (grouped sources)
         cv(BinAdjacency, [[1, :b, 3] => 4]),
         "The source node reference type for this input \
          was first inferred to be an index ($Int) based on the received '1', \
          but a label (Symbol) is now found at [1][left][2]: :b  ::Symbol.",
     )
 
-    @checkfails( #  :inconsistent_ref_type (grouped targets)
+    @convfails( #  :inconsistent_ref_type (grouped targets)
         cv(BinAdjacency, [:a => [:b, :c, 4]]),
         "The target node reference type for this input \
          was first inferred to be a label (Symbol) based on the received ':a', \
          but an index ($Int) is now found at [1][right][3]: 4  ::$Int.",
     )
 
-    @checkfails( #  :duplicate_node (grouped sources)
+    @convfails( #  :duplicate_node (grouped sources)
         cv(BinAdjacency, [:a => :b, :a => :c, [:b, :c, 'b'] => :a]),
         "Duplicated source node reference at [3][left][3]: 'b'  ::Char.",
     )
 
-    @checkfails( #  :boolean_label (sources)
+    @convfails( #  :boolean_label (sources)
         cv(BinAdjacency, [:a => :b, Bool[1, 1, 0] => :c], Symbol),
         "A label-indexed group of source nodes cannot be produced from boolean vectors \
          at [2][left]: Bool[1, 1, 0]  ::Vector{Bool}.",
     )
 
-    @checkfails( #  :boolean_label (targets)
+    @convfails( #  :boolean_label (targets)
         cv(BinAdjacency, [:a => :b, :c => Bool[1, 1, 0]], Symbol),
         "A label-indexed group of target nodes cannot be produced from boolean vectors \
          at [2][right]: Bool[1, 1, 0]  ::Vector{Bool}.",
     )
 
-    @checkfails( #  :inconsistent_ref_type (bool sources)
+    @convfails( #  :inconsistent_ref_type (bool sources)
         cv(BinAdjacency, [:a => :b, Bool[1, 1, 0] => :c]),
         "The group of source nodes reference type for this input \
          was first inferred to be a label (Symbol) based on the received ':a', \
@@ -724,7 +720,7 @@ end
          at [2][left]: Bool[1, 1, 0]  ::Vector{Bool}.",
     )
 
-    @checkfails( #  :inconsistent_ref_type (bool targets)
+    @convfails( #  :inconsistent_ref_type (bool targets)
         cv(BinAdjacency, [:a => :b, :c => Bool[1, 1, 0]]),
         "The group of target nodes reference type for this input \
          was first inferred to be a label (Symbol) based on the received ':a', \
@@ -732,32 +728,32 @@ end
          at [2][right]: Bool[1, 1, 0]  ::Vector{Bool}.",
     )
 
-    @checkfails( #  :duplicate_edge
+    @convfails( #  :duplicate_edge
         cv(BinAdjacency, [5 => [8], 4 + 1 => [4 * 2]]),
         "Duplicate edge specification 5 → 8 at [2][right][1]: 8  ::$Int."
     )
 
-    @checkfails( #  :duplicate_edge
+    @convfails( #  :duplicate_edge
         cv(BinAdjacency, [[:a, :b] => [:b], :a => [:c, :b]]),
         "Duplicate edge specification :a → :b at [2][right][2]: :b  ::Symbol."
     )
 
-    @checkfails( #  :no_targets
+    @convfails( #  :no_targets
         cv(BinAdjacency, [[1, 2] => []]),
         "No target provided for source 1 at [1][right]."
     )
 
-    @checkfails( #  :no_targets
+    @convfails( #  :no_targets
         cv(BinAdjacency, [:a => [:b], :c => ()]),
         "No target provided for source :c at [2][right]."
     )
 
-    @checkfails( #  :no_sources
+    @convfails( #  :no_sources
         cv(BinAdjacency, [[] => [1, 2]]),
         "No sources provided at [1][left].",
     )
 
-    @checkfails( #  :boolean_label
+    @convfails( #  :boolean_label
         cv(BinAdjacency, Bool[1 0 1], Symbol),
         "A label-indexed binary adjacency list cannot be produced from boolean matrices.",
     )
@@ -765,70 +761,70 @@ end
     # Adjacency lists. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     A = Adjacency{Float64}
 
-    @checkfails( #  :not_iterable
+    @convfails( #  :not_iterable
         cv(A, Type),
         "Input for adjacency map needs to be iterable.\n\
          Received: Type  ::UnionAll.",
     )
 
-    @checkfails( #  :not_a_pair
+    @convfails( #  :not_a_pair
         cv(A, [Type]),
         "Not a 'source(s) => target(s)' pair at [1]: Type  ::UnionAll.",
     )
 
 
-    @checkfails( #  :not_a_pair (plain sources) : pick :not_a_ref
+    @convfails( #  :not_a_pair (plain sources) : pick :not_a_ref
         cv(A, [Type => 5]),
         "Cannot interpret source reference as integer index or symbol label: \
          received at [1][left]: $Type  ::$UnionAll.",
     )
 
-    @checkfails( #  :not_a_pair (plain sources) : pick :invalid_index
+    @convfails( #  :not_a_pair (plain sources) : pick :invalid_index
         cv(A, [-1 => 5]),
         "Integer reference must be a positive index. \
          Received at [1][left]: -1  ::$Int.",
     )
 
-    @checkfails( #  :unexpected_ref_type (plain source)
+    @convfails( #  :unexpected_ref_type (plain source)
         cv(A, [:a => 5], Int),
         "Invalid source reference type. \
          Expected $Int (or convertible). \
          Received instead at [1][left]: :a  ::Symbol.",
     )
 
-    @checkfails( # :inconsistent_ref_type (plain source)
+    @convfails( # :inconsistent_ref_type (plain source)
         cv(A, [(:a => 5) => :b, (1 => 8) => :c]),
         "The source reference type for this input \
          was first inferred to be a label ($Symbol) based on the received ':a', \
          but an index ($Int) is now found at [2][left][left]: 1  ::$Int.",
     )
 
-    @checkfails( # :not_a_value (plain source)
+    @convfails( # :not_a_value (plain source)
         cv(A, [(:a => 5im) => :b]),
         "Expected values of type '$Float64', \
          received instead at [1][left][right]: 0 + 5im  ::$Complex{$Int}.",
     )
 
-    @checkfails( # :not_a_pair (map source) : pick :not_a_ref
+    @convfails( # :not_a_pair (map source) : pick :not_a_ref
         cv(A, [[Type] => 5]),
         "Cannot interpret source reference as integer index or symbol label: \
          received at [1][left][1]: $Type  ::$UnionAll.",
     )
 
-    @checkfails( # :not_a_pair (map source) : pick :invalid_index
+    @convfails( # :not_a_pair (map source) : pick :invalid_index
         cv(A, [[-1] => 5]),
         "Integer reference must be a positive index. \
          Received at [1][left][1]: -1  ::$Int.",
     )
 
-    @checkfails( # :unexpected_ref_type (map source)
+    @convfails( # :unexpected_ref_type (map source)
         cv(A, [[5] => 8], Symbol),
         "Invalid source reference type. \
          Expected $Symbol (or convertible). \
          Received instead at [1][left][1]: 5  ::$Int.",
     )
 
-    @checkfails( # :inconsistent_ref_type (map source)
+    @convfails( # :inconsistent_ref_type (map source)
         cv(A, [[5, :a] => 8]),
         "The source reference type for this input \
          was first inferred to be an index ($Int) \
@@ -836,30 +832,30 @@ end
          but a label ($Symbol) is now found at [1][left][2]: :a  ::$Symbol.",
     )
 
-    @checkfails( # :duplicate_node (map source)
+    @convfails( # :duplicate_node (map source)
         cv(A, [[:a => 5, :a => 8] => :b]),
         "Duplicated source reference :\n\
          Received before: a => 5.0\n\
          Received now   : a => 8 ::$Int at [1][left][2][left][1]: :a  ::$Symbol.",
     )
 
-    @checkfails( # :duplicate_node (map source)
+    @convfails( # :duplicate_node (map source)
         cv(A, [[:a => 5, [:b, :b] => 8] => :c]),
         "Duplicated source reference at [1][left][2][left][2]: :b  ::$Symbol.",
     )
 
-    @checkfails( # :duplicate_node (map source)
+    @convfails( # :duplicate_node (map source)
         cv(A, [[:a, :a] => 8]),
         "Duplicated source reference at [1][left][2]: :a  ::$Symbol.",
     )
 
-    @checkfails( # :boolean_label (map source)
+    @convfails( # :boolean_label (map source)
         cv(A, [Bool[0, 1, 1, 0] => (2 => 10)], Symbol),
         "A label-indexed group of sources cannot be produced from boolean vectors \
          at [1][left]: $Bool[0, 1, 1, 0]  ::$Vector{$Bool}.",
     )
 
-    @checkfails( # :inconsistent_ref_type (map source)
+    @convfails( # :inconsistent_ref_type (map source)
         cv(A, [:a => (:b => 5), Bool[0, 1, 1, 0] => (2 => 10)]),
         "The group of sources reference type for this input \
          was first inferred to be a label ($Symbol) based on the received ':a', \
@@ -867,7 +863,7 @@ end
          is now found at [2][left]: $Bool[0, 1, 1, 0]  ::$Vector{$Bool}.",
     )
 
-    @checkfails( # :not_a_value (plain source)
+    @convfails( # :not_a_value (plain source)
         cv(A, [[:a => 5im] => :b]),
         "Expected values of type '$Float64', \
          received instead at [1][left][1][right]: 0 + 5im  ::$Complex{$Int}.",
@@ -875,7 +871,7 @@ end
 
     # TODO: better explain that the duplication comes from the boolean?
     # (although this really is a weird input)
-    @checkfails( # :duplicate_node (map source)
+    @convfails( # :duplicate_node (map source)
         cv(A, [[1 => 5, 2 => 8, Bool[0, 1, 1] => 9] => 3]),
         "Duplicated source reference :\n\
          Received before: 2 => 8.0\n\
@@ -886,69 +882,69 @@ end
     # TODO: I am having a hard time making sure that all error paths are covered.
     # Design a more systematic way?
 
-    @checkfails( #  :not_a_pair (plain targets) : pick :not_a_ref
+    @convfails( #  :not_a_pair (plain targets) : pick :not_a_ref
         cv(A, [5 => Type]),
         "Cannot interpret target reference as integer index or symbol label: \
          received at [1][right]: $Type  ::$UnionAll.",
     )
-    @checkfails( #  :not_a_pair (plain targets) : pick :invalid_index
+    @convfails( #  :not_a_pair (plain targets) : pick :invalid_index
         cv(A, [5 => -1]),
         "Integer reference must be a positive index. \
          Received at [1][right]: -1  ::$Int.",
     )
 
-    @checkfails( #  :unexpected_ref_type (plain target)
+    @convfails( #  :unexpected_ref_type (plain target)
         cv(A, [1 => (:a => 5)], Int),
         "Invalid target reference type. \
          Expected $Int (or convertible). \
          Received instead at [1][right][left]: :a  ::Symbol.",
     )
 
-    @checkfails( # :inconsistent_ref_type (plain target)
+    @convfails( # :inconsistent_ref_type (plain target)
         cv(A, [:a => (:b => 5), :c => (3 => 8)]),
         "The target reference type for this input \
          was first inferred to be a label ($Symbol) based on the received ':a', \
          but an index ($Int) is now found at [2][right][left]: 3  ::$Int.",
     )
 
-    @checkfails( # :not_a_value (plain target)
+    @convfails( # :not_a_value (plain target)
         cv(A, [:a => (:b => 5im)]),
         "Expected values of type '$Float64', \
          received instead at [1][right][right]: 0 + 5im  ::$Complex{$Int}.",
     )
 
-    @checkfails( # :not_a_pair (map target) : pick :not_a_ref
+    @convfails( # :not_a_pair (map target) : pick :not_a_ref
         cv(A, [5 => [Type]]),
         "Cannot interpret target reference as integer index or symbol label: \
          received at [1][right][1]: $Type  ::$UnionAll.",
     )
 
-    @checkfails( # :not_a_pair (map target) : pick :invalid_index
+    @convfails( # :not_a_pair (map target) : pick :invalid_index
         cv(A, [5 => [-1]]),
         "Integer reference must be a positive index. \
          Received at [1][right][1]: -1  ::$Int.",
     )
 
-    @checkfails( # :unexpected_ref_type (map target)
+    @convfails( # :unexpected_ref_type (map target)
         cv(A, [:a => [2]], Symbol),
         "Invalid target reference type. \
          Expected $Symbol (or convertible). \
          Received instead at [1][right][1]: 2  ::$Int.",
     )
 
-    @checkfails( # :duplicate_node (map target)
+    @convfails( # :duplicate_node (map target)
         cv(A, [:a => [:b => 5, :b => 8]]),
         "Duplicated target reference :\n\
          Received before: b => 5.0\n\
          Received now   : b => 8 ::$Int at [1][right][2][left][1]: :b  ::$Symbol.",
     )
 
-    @checkfails( # :duplicate_node (map target)
+    @convfails( # :duplicate_node (map target)
         cv(A, [:a => [:b => 5, [:c, :c] => 8]]),
         "Duplicated target reference at [1][right][2][left][2]: :c  ::$Symbol.",
     )
 
-    @checkfails( # :not_a_value (plain target)
+    @convfails( # :not_a_value (plain target)
         cv(A, [:a => [:b => 5im]]),
         "Expected values of type '$Float64', \
          received instead at [1][right][1][right]: 0 + 5im  ::$Complex{$Int}.",
@@ -956,33 +952,33 @@ end
 
     # # # Specific to Adjacency maps # # #
 
-    @checkfails( # :two_values
+    @convfails( # :two_values
         cv(A, [(:a => 5) => [:b => 8]]),
         "Cannot associate values to both source and target ends of edges at [1]:\n\
          Received LHS: ((:a, 5.0),)\n\
          Received RHS: $OrderedDict(:b => 8.0).",
     )
 
-    @checkfails( # :no_value
+    @convfails( # :no_value
         cv(A, [:a => [:b, :c]]),
         "No values found for either source or target end of edges at [1]:\n\
          Received LHS: (:a,)\n\
          Received RHS: $OrderedSet{$Symbol}([:b, :c])."
     )
 
-    @checkfails( # :duplicate_edge
+    @convfails( # :duplicate_edge
         cv(A, [:a => [:b => 5, :c => 8], [:a => 13] => [:c, :d]]),
         "Duplicate edge specification:\n\
          Previously received: :a → :c (8.0)\n\
          Now received:        :a → :c (13.0) at [2][right][1]: :c  ::$Symbol."
     )
 
-    @checkfails( # :no_targets
+    @convfails( # :no_targets
         cv(A, [:a => []]),
         "No target provided for `target => value` pair at [1][left][1].",
     )
 
-    @checkfails( # :no_sources
+    @convfails( # :no_sources
         cv(A, [[] => :b]),
         "No sources provided at [1][left][0].",
     )

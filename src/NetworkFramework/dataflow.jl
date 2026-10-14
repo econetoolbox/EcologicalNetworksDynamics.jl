@@ -19,7 +19,7 @@ or maps and adjacency lists.
 Following julia's behaviour:
 *alias* instead of converting if the input type is already the one desired.
 """
-convert(T::Type, input) = checkerr(input, "Conversion to `$T` not implemented.")
+convert(T::Type, input) = converr(T, input, "Conversion not implemented.")
 # Extension points (specialize).
 convert(T::Type, ::Dispatcher, input) = convert(T, input)
 convert(T::Type, B::Type{<:Blueprint}, input) = convert(T, dispatcher(B), input)
@@ -78,8 +78,12 @@ bp_construct(B::Type{<:Blueprint}, args...; kwargs...) =
     try
         construct(B, args...; kwargs...)
     catch e
+        d = dispatcher(B)
+        if e isa ConvertError
+            e = CheckError(e)
+        end
         e isa CheckError || rethrow(e)
-        e.d = dispatcher(B)
+        e.d = d
         rethrow(BlueprintError(B, :construct, e))
     end
 
@@ -172,6 +176,9 @@ function mut_set!(m::Model, d::Dispatcher, query, rhs)
     low = try
         mut_lower(m, d, mref, rhs)
     catch e
+        if e isa ConvertError
+            e = CheckError(e)
+        end
         e isa CheckError || rethrow(e)
         e.d = d
         if isnothing(e.uref)

@@ -159,8 +159,10 @@ test_datakind(exp, ::D.Dispatcher) =
 test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     FieldsCompare.value(exp, D.content(act))
 
-const checkrefs = (; uref = compare_refs, mref = compare_refs)
-@genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess, checkrefs...)
+const uref = compare_refs
+const mref = compare_refs
+@genfailsmacro convfails EN.NetworkFramework.ConvertError (; mess, uref)
+@genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess, uref, mref)
 @genfailsmacro mutfails EN.NetworkFramework.MutationError
 
 # This one is sometimes yielded as toplevel,
@@ -173,7 +175,7 @@ const checkrefs = (; uref = compare_refs, mref = compare_refs)
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
 T.test_errsource(err, E::Type{NF.CheckError}, fields, checks = (;)) =
-    @invoke T.test_errsource(err, E::Type, fields, (; checkrefs, checks...))
+    @invoke T.test_errsource(err, E::Type, fields, (; uref, mref, checks...))
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)
@@ -186,6 +188,7 @@ macro callfails end
 macro checkfails end
 macro compfails end
 macro conflfails end
+macro convfails end
 macro errfails end
 macro jl_basic_callfails end
 macro jl_callfails end

@@ -34,7 +34,7 @@ function allow_convert(Target, Input, f = Target)
                     $f(v)
                 catch e
                     e isa LibError && rethrow(e)
-                    checkerr(v, "(detail down the stacktrace)")
+                    converr($Target, v, "(detail down the stacktrace)")
                 end
             can_convert(::Type{$Target}, ::Type{<:$Input}) = true
         end,
@@ -63,12 +63,12 @@ ac(Float64, Real)
 # From iterators.
 function convert(::Type{Vector{T}}, input) where {T}
     hasmethod(iterate, Tuple{typeof(input)}) ||
-        checkerr(input, "Input is not iterable.")
+        converr(Vector{T}, input, "Input is not iterable.")
     T[
         try
             convert(T, x)
         catch e
-            e isa CheckError || rethrow(e)
+            e isa ConvertError || rethrow(e)
             e.uref = (i,)
             rethrow(e)
         end
@@ -102,7 +102,7 @@ to_sparse(Target) =
             res[i] = try
                 Target(x)
             catch e
-                checkerr(x, sprint(showerror, e); uref = (i,))
+                converr(typeof(res), x, sprint(showerror, e); uref = (i,))
             end
         end
         res
@@ -161,7 +161,7 @@ function try_convert(input, tries...)
         x = try
             convert(T, input)
         catch e
-            e isa CheckError || rethrow(e)
+            e isa ConvertError || rethrow(e)
             push!(attempts, "convert input to $T")
             continue
         end
@@ -206,4 +206,28 @@ function from_name(input, tries...)
         push!(expected, attempt)
     end
     checkerr(input, "Expected one of [$(EN.join_elided(expected, ", ", " or "))].")
+end
+
+# ==========================================================================================
+
+"Report input problem during conversion, to be possibly later upgraded into `CheckError`."
+mutable struct ConvertError <: LibError
+    Target::Type
+    value::Any
+    uref::Any
+    mess::String
+end
+converr(T::Type, value, mess::String, throw = Base.throw; uref = WholeData) =
+    throw(ConvertError(T, value, uref, mess))
+
+function CheckError(e::ConvertError)
+    (; Target, value, uref, mess) = e
+    mess = "Cannot convert to `$Target`:\n" * mess
+    CheckError(value, mess; uref)
+end
+
+function Base.showerror(io::IO, e::ConvertError)
+    # Impl *should* be standalone, but reuse CheckError code for now just because it works.
+    e = CheckError(e)
+    showerror(io, e)
 end
