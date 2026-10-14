@@ -77,6 +77,7 @@ bp_construct(B::Type{<:Blueprint}, args...; kwargs...) =
         construct(B, args...; kwargs...)
     catch e
         e isa CheckError || rethrow(e)
+        e.d = dispatcher(B)
         rethrow(BlueprintError(B, :construct, e))
     end
 
@@ -107,22 +108,9 @@ bp_early_check(b::Blueprint) =
     catch e
         e isa CheckError || rethrow(e)
         B = typeof(b)
+        e.d = dispatcher(b)
         rethrow(BlueprintError(B, :early, e))
     end
-
-"Guarded entrypoint for the mutation pipeline."
-function mut_early_check(d::Dispatcher, data, uref, mref)
-    T = D.type(d)
-    try
-        conv = convert(T, d, data)
-        early_check(d, conv)
-    catch e
-        e isa CheckError || rethrow(e)
-        e.uref = uref
-        e.mref = mref
-        rethrow(MutationError(e))
-    end
-end
 
 #-------------------------------------------------------------------------------------------
 # Late check.
@@ -139,17 +127,6 @@ bp_late_check(m::Model, b::Blueprint, low) =
         e isa CheckError || rethrow(e)
         B = typeof(b)
         rethrow(BlueprintError(B, :late, e))
-    end
-
-"Guarded entrypoint for the mutation pipeline."
-mut_late_check(d::Dispatcher, data, low, uref, mref) =
-    try
-        late_check(d, data, low)
-    catch e
-        e isa CheckError || rethrow(e)
-        e.uref = uref
-        e.mref = mref
-        rethrow(MutationError(e))
     end
 
 #-------------------------------------------------------------------------------------------
@@ -172,37 +149,22 @@ expand!(m::Model, d::Dispatcher, low) = unimplemented(expand!, m, d, low)
 expand!(m::Model, b::Blueprint, low) = expand!(m, dispatcher(b), low)
 
 # ==========================================================================================
+# Query values.
+
+"Given a checked reference to inner model data, obtain a copy of it."
+obtain(m::Model, d::Dispatcher, mref) = unimplemented(obtain, m, d, mref)
+
+# Redirect cartesian index like the underlying tuple.
+obtain(v::V.AbstractView, c::CartesianIndex) = obtain(v, Tuple(c))
+
+# ==========================================================================================
 # Mutate/Reassign.
-
-"Default lowering pipeline from raw input to the data to be reassigned."
-function reassign(m::Model, d::Dispatcher, input)
-    T = D.type(d)
-    conv = convert(T, d, input)
-    early = early_check(d, conv)
-    late = late_check(m, d, early)
-    low = lower(m, d, late)
-    low
-end
-
-"Actually perform the reassignment, assuming lowered data."
-reassign!(m::Model, d::Dispatcher, low) = unimplemented(reassign!, m, d, low)
-
-"Guarded entrypoint for the mutation pipeline."
-mut_reassign(m::Model, d::Dispatcher, input) =
-    try
-        reassign(m, d, input)
-    catch e
-        e isa CheckError || rethrow(e)
-        e.uref = WholeData
-        e.mref = WholeData
-        rethrow(MutationError(e))
-    end
 
 """
 Default lowering pipeline from raw input to the data to be modified.
 The query is assumed to have been checked.
 """
-function mutate(m::Model, d::Dispatcher, mref, rhs)
+function mut_lower(m::Model, d::Dispatcher, _mref, rhs)
     T = D.type(d)
     conv = convert(T, d, rhs)
     early = early_check(d, conv)
@@ -215,12 +177,20 @@ end
 mutate!(m::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, m, d, mref, low)
 
 "Guarded entrypoint for the mutation pipeline."
-function mut_mutate(m::Model, d::Dispatcher, query, rhs)
-    mref = check_query(m, d, query)
+function mut_set!(m::Model, d::Dispatcher, query, rhs)
+    mref = Query.check(m, d, query)
     low = try
-        mutate(m, d, mref, rhs)
+        mut_lower(m, d, mref, rhs)
     catch e
         e isa CheckError || rethrow(e)
+        e.d = d
+        if isnothing(e.uref)
+            e.uref = query
+        end
+        if isnothing(e.mref)
+            e.mref = mref
+        end
+        rethrow(MutationError(e))
     end
     mutate!(m, d, mref, low)
 end

@@ -36,7 +36,7 @@ module Views
 import EcologicalNetworksDynamics:
     EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith
 import .Display: join_elided, render_input, ns, reset
-import .NetworkFramework: NF, D, Model, can_convert, CheckError, checkerr, QueryError
+import .NetworkFramework: NF, D, Model, can_convert, CheckError, checkerr, Query
 const V = Views
 
 using SparseArrays
@@ -85,18 +85,6 @@ Obtain underlying view dispatcher.
 """
 function dispatcher end
 
-"Report attempt to mutate through a view into immutable data."
-struct ImmutableError <: NF.LibError
-    View::Type
-    ImmutableError(v::Type) = new(v)
-end
-ImmutableError(v) = ImmutableError(typeof(v))
-function Base.showerror(io::IO, e::ImmutableError)
-    (; View) = e
-    d = dispatcher(View)
-    print(io, "Cannot change $d $(type_info(View)) once they have been set.")
-end
-
 include("nodes.jl")
 include("edges.jl")
 include("nodes_display.jl")
@@ -133,10 +121,24 @@ let S = AbstractView
     V.qerr(s::S, x...) = V.qerr(typeof(s), x...)
 end
 
-# Extract dispatcher from view when reporting.
-checkerr(v::AbstractView, args...; kwargs...) =
-    checkerr(args...; kwargs..., d = dispatcher(v))
+#-------------------------------------------------------------------------------------------
+# Wire julia endpoints.
 
-include("indexing.jl")
+function Base.getindex(vw::AbstractView, query...)
+    md, d = NF.model(vw), dispatcher(vw)
+    mref = Query.check(md, d, query)
+    NF.obtain(md, d, mref)
+end
+
+function Base.setindex!(vw::FieldView, rhs, query...)
+    md, d = NF.model(vw), dispatcher(vw)
+    NF.mut_set!(md, d, query, rhs)
+end
+
+function Base.setindex!(vw::TopologyView, _...)
+    d = dispatcher(vw)
+    i = type_info(vw)
+    errwith("Cannot change $d $i once they have been set.")
+end
 
 end

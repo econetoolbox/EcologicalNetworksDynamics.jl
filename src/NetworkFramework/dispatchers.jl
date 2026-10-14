@@ -241,11 +241,6 @@ function Base.show(io::IO, s::S)
     print(io, "$cyan<$parent:$class:$field>$reset")
 end
 
-#-------------------------------------------------------------------------------------------
-# Abstract over either node field category.
-const AbstractNodeField{class,field} =
-    Union{NodeField{class,field},SubnodeField{class,field}}
-
 # ==========================================================================================
 # Web field.
 
@@ -274,6 +269,11 @@ function Base.show(io::IO, s::S)
 end
 
 # ==========================================================================================
+# Abstract over either node field category.
+const AbstractNodeField{class,field} =
+    Union{NodeField{class,field},SubnodeField{class,field}}
+
+# ==========================================================================================
 # Abstract over either field category.
 const AbstractField{field} =
     Union{GraphField{field},<:AbstractNodeField{<:Any,field},<:EdgeField{<:Any,field}}
@@ -296,6 +296,10 @@ snake_case_plural(s::S) = name_variants(s)[2]
 CamelCaseSingular(s::S) = name_variants(s)[3]
 CamelCasePlural(s::S) = name_variants(s)[4]
 short_field_name(s::S) = name_variants(s)[5]
+
+# ==========================================================================================
+# Abstract over topology-related data.
+const Topology = Union{Class,Subclass,Web}
 
 # ==========================================================================================
 # Abstract over levels.

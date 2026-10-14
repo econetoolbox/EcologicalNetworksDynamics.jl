@@ -396,6 +396,16 @@ function expand!(m::Model, d::D.AbstractNodeField, low::Vector)
     N.add_field!(class, f, low)
 end
 
+#-------------------------------------------------------------------------------------------
+# Obtain.
+
+function obtain(v::V.NodeFieldView, q::Ref)
+    i = N.to_index(N.class(v).index, q)
+    read(N.entry(v)) do data
+        data[i]
+    end
+end
+
 # ==========================================================================================
 # ↑ ↑ HERE update impl ↑ ↑
 # ==========================================================================================

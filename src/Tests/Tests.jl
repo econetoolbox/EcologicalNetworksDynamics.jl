@@ -234,7 +234,6 @@ const bpchecks = (;
     query = nothing, # (redundant with test lhs)
     short = nothing, # (display implementation detail)
 )
-@genfailsmacro immutfails EN.NetworkFramework.Views.ImmutableError
 
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
@@ -256,7 +255,6 @@ macro compfails end
 macro conflfails end
 macro convfails end
 macro errfails end
-macro immutfails end
 macro jl_basic_callfails end
 macro jl_callfails end
 macro jl_deffails end

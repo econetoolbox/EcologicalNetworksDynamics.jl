@@ -139,7 +139,7 @@ module NetworkFramework
 using EcologicalNetworksDynamics:
     EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD,
     FailedAttempts, Display, errwith, unimplemented, paste_paths
-using .Display: render_input, green, cyan, black, reset, join_elided, rept, nsa
+using .Display: render_input, green, cyan, black, reset, join_elided, rept, ns, nsa
 using .Networks: Topology
 using .Framework: bpdisplay, bpcol
 
@@ -166,7 +166,10 @@ include("./dataflow.jl")
 include("./convert.jl")
 include("./lists.jl")
 
-# Views and the `index` logic.
+# Querying the model for particular data.
+include("query.jl")
+
+# View types.
 include("./Views/Views.jl")
 const V = Views
 

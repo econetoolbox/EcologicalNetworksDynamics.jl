@@ -320,6 +320,50 @@ end
 # Extension point.
 post_expand!(::Model, ::D.Web) = nothing
 
+#-------------------------------------------------------------------------------------------
+# Obtain.
+
+obtain(v::V.EdgeMaskView, q::Tuple) = Query.is_edge(dispatcher(v), q)
+
+# Accept mixtures of ranges and scalars.
+function obtain(v::V.EdgeMaskView, (i, rj)::Tuple{Ref,UnitRange})
+    res = spzeros(Bool, length(rj))
+    for j in rj
+        k = j - first(rj) + 1
+        res[k] = obtain(v, (i, j))
+    end
+    res
+end
+
+function obtain(v::V.EdgeMaskView, (ri, j)::Tuple{UnitRange,Ref})
+    res = spzeros(Bool, length(ri))
+    for i in ri
+        k = i - first(ri) + 1
+        res[k] = obtain(v, (i, j))
+    end
+    res
+end
+
+function obtain(v::V.EdgeMaskView, (ri, rj)::Tuple{UnitRange,UnitRange})
+    res = spzeros(Bool, (length(ri), length(rj)))
+    for i in ri, j in rj
+        ki = i - first(ri) + 1
+        kj = j - first(rj) + 1
+        res[ki, kj] = obtain(v, (i, j))
+    end
+    res
+end
+
+# 2D indexing into edges mask.
+function obtain(v::V.EdgeMaskView, m::SparseMatrix{Bool})
+    is, js, _ = findnz(m)
+    res = spzeros(Bool, length(is))
+    for (r, (i, j)) in enumerate(zip(is, js))
+        res[r] = obtain(v, (i, j))
+    end
+    res
+end
+
 # ==========================================================================================
 # Display.
 

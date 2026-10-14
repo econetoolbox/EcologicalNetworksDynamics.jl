@@ -192,6 +192,20 @@ function expand!(m::Model, b::ClassNumber, n)
 end
 
 #-------------------------------------------------------------------------------------------
+# Query.
+
+NF.obtain(v::V.NodeView, (q,)::Tuple{Any}) = obtain(v, q)
+
+obtain(v::V.NodeNameView, r::Ref) = N.to_label(N.class(v).index, r)
+obtain(v::V.NodeMaskView, r::Symbol) = N.is_ref(N.class(v).index, r)
+obtain(v::V.NodeMaskView, r::Int) = r in N.class(v).restriction
+
+obtain(v::V.NodeView, u::UnitRange) = [obtain(v, i) for i in u]
+obtain(v::V.NodeView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
+obtain(v::V.NodeView, m::SparseVector{Bool}) =
+    [obtain(v, i) for i in 1:length(v) if m[i]]
+
+#-------------------------------------------------------------------------------------------
 # Display.
 
 function class_shortline(d::D.Class, io::IO, m::Model)
