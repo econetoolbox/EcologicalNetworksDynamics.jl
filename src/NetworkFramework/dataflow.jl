@@ -24,7 +24,7 @@ convert(::Type{T}, input::T) where {T} = input # Alias exact type.
 # Extension points (specialize).
 convert(T::Type, ::Dispatcher, input) = convert(T, input)
 convert(T::Type, B::Type{<:Blueprint}, input) = convert(T, dispatcher(B), input)
-convert(T::Type, b::Blueprint, input) = convert(T, dispatcher(b), input)
+convert(T::Type, b::Blueprint, input) = convert(T, typeof(b), input)
 
 #-------------------------------------------------------------------------------------------
 # Construct.
@@ -41,8 +41,17 @@ D.type(B::Type{<:Blueprint}) = D.type(dispatcher(B))
 data(b::Blueprint) = unimplemented(data, b) # TODO: default to first field?
 
 """
-Transform raw input into blueprint data.
-Return a *tuple* to be passed to new(...).
+Assuming input data already has the right type,
+check that the value is consistent with expectations.
+Return the passed data aliased and unchanged.
+"""
+intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
+intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
+intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
+
+"""
+Guarded entrypoint into blueprint construction.
+Transform raw input into blueprint data. Return a *tuple* to be passed to new(...).
 """
 function construct(B::Type{<:Blueprint}, args...; kwargs...)
     # Not sure how to guard against that with dispatching
@@ -62,13 +71,13 @@ function construct(B::Type{<:Blueprint}, args...; kwargs...)
     (intrinsic_check(B, data),)
 end
 
-# Actual framework entrypoint to inject error handling.
-_construct(B::Type{<:Blueprint}, args...; kwargs...) =
+"Guarded framework entrypoint for correct error upgrade."
+bp_construct(B::Type{<:Blueprint}, args...; kwargs...) =
     try
         construct(B, args...; kwargs...)
     catch e
-        e isa LibError || rethrow(e)
-        upgrade(e, BlueprintError, (nothing,), B, :construct, nothing)
+        e isa CheckError || rethrow(e)
+        rethrow(BlueprintError(B, :construct, e))
     end
 
 #-------------------------------------------------------------------------------------------
@@ -91,29 +100,56 @@ early_check(d::Dispatcher, data) = intrinsic_check(d, data)
 early_check(B::Type{<:Blueprint}, data) = early_check(dispatcher(B), data)
 early_check(b::Blueprint) = early_check(typeof(b), data(b))
 
-# Framework entrypoint.
-_early_check(b::Blueprint) =
+"Guarded entrypoint for the blueprint pipeline."
+bp_early_check(b::Blueprint) =
     try
         early_check(b)
     catch e
-        e isa LibError || rethrow(e)
-        upgrade(e, BlueprintError, (nothing,), typeof(b), :early, nothing)
+        e isa CheckError || rethrow(e)
+        B = typeof(b)
+        rethrow(BlueprintError(B, :early, e))
     end
+
+"Guarded entrypoint for the mutation pipeline."
+function mut_early_check(d::Dispatcher, data, uref, mref)
+    T = D.type(d)
+    try
+        conv = convert(T, d, data)
+        early_check(d, conv)
+    catch e
+        e isa CheckError || rethrow(e)
+        e.uref = uref
+        e.mref = mref
+        rethrow(MutationError(e))
+    end
+end
 
 #-------------------------------------------------------------------------------------------
 # Late check.
 
 "Use perform checks against an actual model value, continuing lowering."
-late_check(::Model, ::Dispatcher, early_data) = early_data # Nothing checked by default.
-late_check(m::Model, b::Blueprint, ed) = late_check(m, dispatcher(b), ed)
+late_check(::Model, ::Dispatcher, low) = low # Nothing checked by default.
+late_check(m::Model, b::Blueprint, low) = late_check(m, dispatcher(b), low)
 
-# Framework entrypoint.
-_late_check(m::Model, b::Blueprint, data) =
+"Guarded entrypoint for the blueprint pipeline."
+bp_late_check(m::Model, b::Blueprint, low) =
     try
-        late_check(m, b, data)
+        late_check(m, b, low)
     catch e
-        e isa LibError || rethrow(e)
-        upgrade(e, BlueprintError, (WholeInput(),), typeof(b), :late, m)
+        e isa CheckError || rethrow(e)
+        B = typeof(b)
+        rethrow(BlueprintError(B, :late, e))
+    end
+
+"Guarded entrypoint for the mutation pipeline."
+mut_late_check(d::Dispatcher, data, low, uref, mref) =
+    try
+        late_check(d, data, low)
+    catch e
+        e isa CheckError || rethrow(e)
+        e.uref = uref
+        e.mref = mref
+        rethrow(MutationError(e))
     end
 
 #-------------------------------------------------------------------------------------------
@@ -123,7 +159,7 @@ _late_check(m::Model, b::Blueprint, data) =
 Final lowering stage, transforming data
 into something compatible with internal storage for `expand!`.
 Defaults to aliasing because lowering may have started before,
-but be careful not to output data possibly referenced by user.
+but be careful not to output data possibly still referenced by user.
 """
 lower(::Model, ::Dispatcher, late_data) = late_data
 lower(m::Model, b::Blueprint, ld) = lower(m, dispatcher(b), ld)
@@ -131,18 +167,17 @@ lower(m::Model, b::Blueprint, ld) = lower(m, dispatcher(b), ld)
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-"Use `lower` data to finally expand into the desired component. Cannot fail."
-expand!(m::Model, d::Dispatcher, t) = unimplemented(expand!, m, d, t)
-expand!(m::Model, b::Blueprint, data) = expand!(m, dispatcher(b), data)
-expand!(m::Model, b::Blueprint) = expand!(m, dispatcher(b), data(b))
+"Use `lower`ed data to finally expand into the desired component. Cannot fail."
+expand!(m::Model, d::Dispatcher, low) = unimplemented(expand!, m, d, low)
+expand!(m::Model, b::Blueprint, low) = expand!(m, dispatcher(b), low)
 
-#-------------------------------------------------------------------------------------------
-# Reassign.
+# ==========================================================================================
+# Mutate/Reassign.
 
 "Default lowering pipeline from raw input to the data to be reassigned."
 function reassign(m::Model, d::Dispatcher, input)
     T = D.type(d)
-    conv = NF.convert(T, d, input)
+    conv = convert(T, d, input)
     early = early_check(d, conv)
     late = late_check(m, d, early)
     low = lower(m, d, late)
@@ -150,55 +185,44 @@ function reassign(m::Model, d::Dispatcher, input)
 end
 
 "Actually perform the reassignment, assuming lowered data."
-reassign!(m::Model, d::Dispatcher, t) = unimplemented(reassign!, m, d, t)
+reassign!(m::Model, d::Dispatcher, low) = unimplemented(reassign!, m, d, low)
 
-# Entrypoint from generated code.
-function _reassign(m::Model, d::Dispatcher, input)
+"Guarded entrypoint for the mutation pipeline."
+mut_reassign(m::Model, d::Dispatcher, input) =
     try
         reassign(m, d, input)
     catch e
-        e isa LibError || rethrow(e)
-        upgrade(e, MutationError, (WholeInput(),), d, :assign, m)
+        e isa CheckError || rethrow(e)
+        e.uref = WholeData
+        e.mref = WholeData
+        rethrow(MutationError(e))
     end
-end
 
-# ==========================================================================================
-"Entrypoints from the `Blueprint` perspective: bringing new data into the model."
-module blueprint
-# HERE: use this namespace for the entrypoints instead of `_<name>`.
-# But first pen&paper check how/whether that all fits together.
-function convert end
-function construct end # ?
-function intrinsic_check end
-function early_check end
-function late_check end
-function expand end
-struct Error end # XXX: actually BlueprintError, but defined here.
-end
-
-module convert
-# HERE: how does *that* fits with the rest? Just as a sophisticated set of default impls?
-end
-
-module query
-# HERE: This is pretty much what './Views/indexing.jl` already is, right?
-# Although possibly it could be all defined here in terms of `Dispatcher`s, not `View`s.
-# And maybe the QueryError could somehow inherit/resemble/become CheckError but on a query?
-end
-
-# ==========================================================================================
 """
-Entrypoints from the `mutate!` perspective: modify data within the model.
-Only invoqued after the query has been checked
-so that the tuple (uref, mref) is available to all calls.
-Works for either `setindex![mref]` or `set_property![WholeData()]`
+Default lowering pipeline from raw input to the data to be modified.
+The query is assumed to have been checked.
 """
-module mutate
-function convert end # (rhs)
-function early_check end
-function late_check end
-function mutate! end
-struct Error end # XXX: actually MutationError, but defined here.
+function mutate(m::Model, d::Dispatcher, mref, rhs)
+    T = D.type(d)
+    conv = convert(T, d, rhs)
+    early = early_check(d, conv)
+    late = late_check(m, d, early)
+    low = lower(m, d, late)
+    low
+end
+
+"Actually perform mutation, assuming checked model reference (query) and lowered data."
+mutate!(m::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, m, d, mref, low)
+
+"Guarded entrypoint for the mutation pipeline."
+function mut_mutate(m::Model, d::Dispatcher, query, rhs)
+    mref = check_query(m, d, query)
+    low = try
+        mutate(m, d, mref, rhs)
+    catch e
+        e isa CheckError || rethrow(e)
+    end
+    mutate!(m, d, mref, low)
 end
 
 # ==========================================================================================
@@ -210,7 +234,7 @@ function register_blueprint(
     implied = (),
     depends = [],
 )
-    NF.define_blueprint(B, shortline; depends)
+    F.define_blueprint(B, shortline; depends)
     if !isempty(implied) > 0
         eval(quote
             F.implied(::$B) = $implied
@@ -226,9 +250,9 @@ function register_blueprint(
         end
     end
     eval(quote
-        F.early_check(b::$B) = $NF._early_check(b)
-        F.late_check(m::Model, b::$B, data) = $NF._late_check(m, b, data)
-        F.expand!(m::Model, b::$B, data) = $NF.expand!(m, b, data)
+        F.early_check(b::$B) = NF.bp_early_check(b)
+        F.late_check(m::Model, b::$B, data) = NF.bp_late_check(m, b, data)
+        F.expand!(m::Model, b::$B, data) = NF.expand!(m, b, data)
     end)
     isnothing(d) && return
     eval(quote
@@ -238,7 +262,8 @@ end
 
 "Inject default constructor into a blueprint struct."
 macro bp_construct(B)
+    B = esc(B)
     quote
-        $B(args...; kwargs...) = new($NF._construct($B, args...; kwargs...)...)
-    end |> esc
+        $B(args...; kwargs...) = new($NF.bp_construct($B, args...; kwargs...)...)
+    end
 end
