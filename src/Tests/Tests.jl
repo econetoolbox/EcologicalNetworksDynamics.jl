@@ -137,6 +137,7 @@ end
 # Exposed library errors.
 
 "Test report ref values, using `:whole` to expect `$(NF.WholeData)`."
+compare_refs(exp, act) = FieldsCompare.default(exp, act)
 compare_refs(exp::Symbol, ::NF._WholeData) =
     if exp == :whole
         @test true
@@ -158,7 +159,8 @@ test_datakind(exp, ::D.Dispatcher) =
 test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     FieldsCompare.value(exp, D.content(act))
 
-@genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess)
+const checkrefs = (; uref = compare_refs, mref = compare_refs)
+@genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess, checkrefs...)
 @genfailsmacro mutfails EN.NetworkFramework.MutationError
 
 # This one is sometimes yielded as toplevel,
@@ -171,9 +173,7 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
 T.test_errsource(err, E::Type{NF.CheckError}, fields, checks = (;)) =
-    @invoke T.test_errsource(
-        err, E::Type, fields,
-        (; uref = compare_refs, mref = compare_refs, checks...))
+    @invoke T.test_errsource(err, E::Type, fields, (; checkrefs, checks...))
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)

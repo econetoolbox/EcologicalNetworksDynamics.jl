@@ -11,7 +11,7 @@ end
 local red, green, blue, cyan, yellow, black, bold, italics, reset # (reassure JuliaLS)
 
 "Report value along with its type."
-rept(x) = "$(repr(x))  ::$(typeof(x))"
+rept(x) = "$cyan$(repr(x))$reset  ::$(typeof(x))"
 
 "Typical plurals."
 ns(n) = (n, n > 1 ? "s" : "")
@@ -59,7 +59,7 @@ the 'bottom' being defined by anything we would like to render in-'between'.
 function render_input(
     io,
     input,
-    if_short::Function = (short, type) -> "Received: $short ::$type",
+    if_short::Function = (short, type) -> "Received: $cyan$short$reset  ::$type",
     if_long::Function = (long, type) -> begin
         print(io, "Received: ")
         long()

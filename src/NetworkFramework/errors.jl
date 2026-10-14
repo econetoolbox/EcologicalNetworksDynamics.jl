@@ -111,6 +111,7 @@ function render(io::IO, e::CheckError; what = "input", display_input = true)
     end
     print(io, mess)
     if display_input
+        println(io)
         render_input(io, value)
     end
 end

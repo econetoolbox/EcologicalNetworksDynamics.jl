@@ -42,56 +42,71 @@ function allow_convert(Target, Input, f = Target)
 end
 ac = allow_convert
 
+# If the type is already correct, then an alias should be returned.
+can_convert(::Type{T}, ::T) where T = true
+convert(::Type{T}, input::T) where T = input
+
+# ==========================================================================================
+# Accepted implicit scalar conversions.
+
+ac(String, Symbol)
+ac(String, Char, c -> "$c")
+ac(Symbol, Char)
+ac(Symbol, AbstractString)
+ac(Bool, Integer)
+ac(Int, Integer)
+ac(Float64, Real)
+
 # ==========================================================================================
 # Simple collections conversions.
-
-to_dense(f) = array -> [f(e) for e in array]
-function ac_dense(Target, pairs...) # (Input, convert_function)...
-    for (Input, f) in pairs
-        ac(Target, Input, f)
-        ac(Vector{Target}, Vector{<:Input}, to_dense(f))
-        ac(Matrix{Target}, Matrix{<:Input}, to_dense(f))
-    end
-
-    # Don't shadow the identity case, which should return an alias of the input.
-    ac(Target, Target, identity)
-    ac(Vector{Target}, Vector{Target}, identity)
-    ac(Matrix{Target}, Matrix{Target}, identity)
-end
-
-# Textual values have no julia `zero` and don't make sense in sparse structures.
-ac_dense(String, (Symbol, String), (Char, c -> "$c"))
-ac_dense(Symbol, (AbstractString, Symbol), (Char, Symbol))
 
 # From iterators.
 function convert(::Type{Vector{T}}, input) where {T}
     hasmethod(iterate, Tuple{typeof(input)}) ||
         checkerr(input, "Input is not iterable.")
-    res = T[]
-    for (i, v) in enumerate(input)
-        r = try
-            convert(T, v)
+    T[
+        try
+            convert(T, x)
         catch e
             e isa CheckError || rethrow(e)
             e.uref = (i,)
             rethrow(e)
         end
-        push!(res, r)
-    end
-    res
+        for (i, x) in pairs(input)
+    ]
 end
+
+to_dense(T) = array -> @invoke convert(Vector{T}, array::Any)
+function ac_dense(Target, inputs)
+    for Input in inputs
+        ac(Vector{Target}, Vector{<:Input}, to_dense(Target))
+        ac(Matrix{Target}, Matrix{<:Input}, to_dense(Target))
+    end
+    # Don't shadow the alias/identity case.
+    ac(Vector{Target}, Vector{Target}, identity)
+    ac(Matrix{Target}, Matrix{Target}, identity)
+end
+
+# Textual values have no julia `zero` and don't make sense in sparse structures.
+ac_dense(String, (Symbol, Char))
+ac_dense(Symbol, (AbstractString, Char))
 
 # No custom conversion function for sparse arrays
 # because it does not necessarily translate in term of julia's `iszero`,
 # required for sparse structures.
-to_sparse(Target) = array -> begin
-    res = spzeros(Target, size(array))
-    for (i, e) in enumerate(array)
-        iszero(e) && continue
-        res[i] = Target(e)
+to_sparse(Target) =
+    array -> begin
+        res = spzeros(Target, size(array))
+        for (i, x) in pairs(array)
+            iszero(x) && continue
+            res[i] = try
+                Target(x)
+            catch e
+                checkerr(x, sprint(showerror, e); uref = (i,))
+            end
+        end
+        res
     end
-    res
-end
 function ac_sparse(Target, Input)
     ac(SparseVector{Target}, SparseVector{<:Input}, SparseVector{Target})
     ac(SparseMatrix{Target}, SparseMatrix{<:Input}, SparseMatrix{Target})
@@ -99,7 +114,7 @@ function ac_sparse(Target, Input)
     ac(SparseVector{Target}, Vector{<:Input}, to_sparse(Target))
     ac(SparseMatrix{Target}, Matrix{<:Input}, to_sparse(Target))
 
-    # Don't shadow the identity case, which should return an alias of the input.
+    # Don't shadow the alias/identity case.
     ac(SparseVector{Target}, SparseVector{Target}, identity)
     ac(SparseMatrix{Target}, SparseMatrix{Target}, identity)
 end
@@ -110,8 +125,8 @@ function ac_all(Target, Input)
 end
 
 ac_all(Float64, Real)
-ac_all(Int, Union{Integer,Unsigned})
-ac_all(Bool, Union{Integer,Unsigned})
+ac_all(Int, Integer)
+ac_all(Bool, Integer)
 
 # Special-case bitarrays.
 ac(Vector{Bool}, BitVector)

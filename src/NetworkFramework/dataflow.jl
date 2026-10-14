@@ -20,7 +20,6 @@ Following julia's behaviour:
 *alias* instead of converting if the input type is already the one desired.
 """
 convert(T::Type, input) = checkerr(input, "Conversion to `$T` not implemented.")
-convert(::Type{T}, input::T) where {T} = input # Alias exact type.
 # Extension points (specialize).
 convert(T::Type, ::Dispatcher, input) = convert(T, input)
 convert(T::Type, B::Type{<:Blueprint}, input) = convert(T, dispatcher(B), input)
