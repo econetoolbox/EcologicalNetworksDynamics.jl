@@ -54,6 +54,8 @@ mutable struct CheckError <: LibError
         mref = nothing,
     ) = new(d, value, uref, mref, mess)
 end
+"Upgrade underlying errors."
+CheckError(e::CheckError) = e
 
 "Exposed entrypoint to issue a bubbling report"
 checkerr(value, mess::String, throw = Base.throw; kwargs...) =
@@ -86,11 +88,7 @@ print_mref(io::IO, ((i, a), (j, b))::Tuple{MRef,MRef}) =
 Base.showerror(io::IO, e::CheckError) = render(io, e)
 function render(io::IO, e::CheckError; what = "input", display_input = true)
     (; mess, value, d, uref, mref) = e
-    print(io, "In the provided $what")
-    if !(uref === WholeData)
-        print(io, " at ")
-        print_uref(io, uref)
-    end
+    whole_input = uref === WholeData
     irrelevant_mref = if isnothing(mref)
         true
     elseif uref === WholeData
@@ -102,12 +100,20 @@ function render(io::IO, e::CheckError; what = "input", display_input = true)
     else
         true
     end
+    if !(whole_input && irrelevant_mref)
+        print(io, "In the provided $what")
+    end
+    if !whole_input
+        print(io, " at ")
+        print_uref(io, uref)
+    end
     if irrelevant_mref
-        print(io, ":\n")
+        if !whole_input
+            println(io, ":")
+        end
     else
         mv = modelvalue(d, mref)
-        print(io, isnothing(uref) ? " " : "\n")
-        print(io, "referring to inner $mv:\n")
+        print(io, " referring to inner $mv:\n")
     end
     print(io, mess)
     if display_input

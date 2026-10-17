@@ -101,8 +101,8 @@ to_sparse(Target) =
             iszero(x) && continue
             res[i] = try
                 Target(x)
-            catch e
-                converr(typeof(res), x, sprint(showerror, e); uref = (i,))
+            catch _
+                converr(typeof(res), x, "(detail down the stacktrace)"; uref = (i,))
             end
         end
         res

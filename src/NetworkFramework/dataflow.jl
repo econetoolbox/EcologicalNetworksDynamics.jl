@@ -78,12 +78,9 @@ bp_construct(B::Type{<:Blueprint}, args...; kwargs...) =
     try
         construct(B, args...; kwargs...)
     catch e
-        d = dispatcher(B)
-        if e isa ConvertError
-            e = CheckError(e)
-        end
-        e isa CheckError || rethrow(e)
-        e.d = d
+        e isa LibError || rethrow(e)
+        e = CheckError(e)
+        e.d = dispatcher(B)
         rethrow(BlueprintError(B, :construct, e))
     end
 
@@ -176,10 +173,8 @@ function mut_set!(m::Model, d::Dispatcher, query, rhs)
     low = try
         mut_lower(m, d, mref, rhs)
     catch e
-        if e isa ConvertError
-            e = CheckError(e)
-        end
-        e isa CheckError || rethrow(e)
+        e isa LibError || rethrow(e)
+        e = CheckError(e)
         e.d = d
         if isnothing(e.uref)
             e.uref = query

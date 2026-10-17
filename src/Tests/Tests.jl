@@ -162,6 +162,8 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
 const uref = compare_refs
 const mref = compare_refs
 @genfailsmacro convfails EN.NetworkFramework.ConvertError (; mess, uref)
+@genfailsmacro listfails EN.NetworkFramework.ListError (;
+    mess, tag = nothing, path = FieldsCompare.value)
 @genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess, uref, mref)
 @genfailsmacro mutfails EN.NetworkFramework.MutationError
 
@@ -194,6 +196,7 @@ macro jl_basic_callfails end
 macro jl_callfails end
 macro jl_deffails end
 macro labelfails end
+macro listfails end
 macro methfails end
 macro mutfails end
 macro netfails end

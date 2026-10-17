@@ -128,32 +128,35 @@ iter(a::Adjacency) = I.map(a) do (src, targets)
 end |> I.flatten
 
 #-------------------------------------------------------------------------------------------
-# Exception handling here predates 'CheckError' harmonization,
-# so it is only loosely integrated with the rest.
+# Exception handling: there are a lot of possible exceptions
+# and the adopted 'ask forgiveness' strategy requires choosing the exception to report
+# among several underlying failures.
+# Also, pointing to a value within user input is not trivial
+# because it is expected to be nested by nature. Use a "path" within input as a 'uref'.
+
+const Path = Vector{Union{Int,Symbol}}
+print_uref(io::IO, path::Path) = print(io, "[$(join(path, "]["))]")
 
 """
 Tag thrown exceptions with a symbol
 to decide which to report in case of multiple 'forgiveness'es.
 """
-struct Forgiveness <: Exception
+struct ListError <: Exception
     tag::Symbol
+    value::Any
+    path::Path
     mess::String
 end
-forgerr(tag, mess, throw = Base.throw) = throw(Forgiveness(tag, mess))
-# Upgrade if bubbling up to user call.
-forgive(f, input, parser) =
-    try
-        f()
-    catch e
-        isnothing(parser) && e isa Forgiveness && checkerr(input, e.mess, rethrow)
-        rethrow(e)
-    end
-
+listerr(tag, value, path, mess, throw = Base.throw) =
+    throw(ListError(tag, value, isnothing(path) ? [] : deepcopy(path), mess))
+CheckError(e::ListError) =
+    CheckError(e.value, e.mess; uref = isempty(e.path) ? WholeData : e.path)
+Base.showerror(io::IO, e::ListError) = showerror(io, CheckError(e))
 
 # Pick the report with highest priority,
 # with subtle special-cased tweaks in case of ex-aequo.
 # The first given error is found while parsing a plain item, the other a grouped item.
-pick(plain::Forgiveness, group::Forgiveness, priorities::Dict{Symbol,Int64}) =
+pick(plain::ListError, group::ListError, priorities::Dict{Symbol,Int64}) =
     try
         pp, pg = priorities[plain.tag], priorities[group.tag]
         if pp == pg
@@ -193,7 +196,7 @@ mutable struct Parser
     first_ref::Option{Any}
 
     # Locate currently parsed piece of input like [1, :left, 2, :right]..
-    path::Vector{Union{Int,Symbol}}
+    path::Path
 
     # Only fill after checking for consistency, duplications etc.
     result::Union{Nothing,Map,BinMap,Adjacency,BinAdjacency}
@@ -212,6 +215,9 @@ mutable struct Parser
     )
 end
 fork(p::Parser, target_type) = Parser(p, target_type)
+
+listerr(tag, value, p::Parser, args...; kwargs...) =
+    listerr(tag, value, p.path, args...; kwargs...)
 
 # Commit to successful fork.
 function merge!(a::Parser, b::Parser)
@@ -239,15 +245,6 @@ Base.append!(p::Parser, values) = append!(p.path, values)
 Base.pop!(p::Parser) = pop!(p.path)
 update!(p::Parser, ref) = p.path[end] = ref
 bump!(p::Parser) = p.path[end] += 1
-path(p::Parser) = "[$(join(p.path, "]["))]"
-
-report(p::Parser) = isempty(p.path) ? "" : " at $(path(p))"
-# /!\ possibly long: only include at the end of messages.
-function report(p::Parser, input)
-    at = report(p)
-    "$at: " * rept(input)
-end
-report(::Nothing, _) = ""
 
 # Reference type cannot be inferred if input is empty.
 # Default to labels because they are stable in case of nodes deletions.
@@ -281,35 +278,26 @@ parse_value(p::Parser, input) =
     try
         convert(p.T, input)
     catch
-        forgerr(
-            :not_a_value,
-            "Expected values of type '$(p.T)', received instead$(report(p, input)).",
-            rethrow,
-        )
+        listerr(:not_a_value, input, p,
+            "Expected values of type '$(p.T)'.", rethrow)
     end
 
 parse_iterable(p::Parser, input, what) =
     try
         iterate(input)
     catch e
-        e isa MethodError && forgerr(
-            :not_iterable,
-            "Input for $what needs to be iterable.\n\
-             Received$(report(p, input)).",
-            rethrow,
-        )
+        e isa MethodError && listerr(:not_iterable, input, p,
+            "Input for $what needs to be iterable.", rethrow)
         rethrow(e)
     end
 # Forbid pairs as iterables to alleviate
 # https://github.com/econetoolbox/EcologicalNetworksDynamics.jl/issues/182
 function parse_iterable(p::Parser, input::Pair, _)
     a, b = input
-    forgerr(
-        :pair_as_iterable,
-        "The pair at $(path(p)) is just considered an iterable in this context, \
+    listerr(:pair_as_iterable, input, p,
+        "This pair is just considered an iterable in this context, \
          which may be confusing. \
-         Consider grouping with an explicit vector instead like [$(repr(a)), $(repr(b))].",
-    )
+         Consider grouping with an explicit vector instead like [$(repr(a)), $(repr(b))].")
 end
 
 parse_pair(p::Parser, input, what) =
@@ -324,7 +312,7 @@ parse_pair(p::Parser, input, what) =
         end
         return lhs, rhs
     catch _
-        forgerr(:not_a_pair, "Not a '$what' pair$(report(p, input)).", rethrow)
+        listerr(:not_a_pair, input, p, "Not a '$what' pair.", rethrow)
     end
 struct TripleWorks end
 
@@ -338,17 +326,10 @@ function parse_plain_ref!(p::Parser, input, what)
             (nothing, false)
         end
     end
-    ok || forgerr(
-        :not_a_ref,
-        "Cannot interpret $what reference \
-         as integer index or symbol label: \
-         received$(report(p, input)).",
-    )
-    (ref isa Int && ref <= 0) && forgerr(
-        :invalid_index,
-        "Integer reference must be a positive index. \
-         Received$(report(p, input)).",
-    )
+    ok || listerr(:not_a_ref, input, p,
+        "Cannot interpret $what reference as integer index or symbol label.")
+    (ref isa Int && ref <= 0) && listerr(
+        :invalid_index, input, p, "Integer reference must be a positive index.")
     R = typeof(ref)
     if !isnothing(p.expected_R)
         R == p.expected_R || unexpected_reftype(what, p, input)
@@ -356,21 +337,15 @@ function parse_plain_ref!(p::Parser, input, what)
     set_if_first!(p, ref)
     fR = typeof(first_ref(p))
     if R != fR
-        forgerr(
-            :inconsistent_ref_type,
-            "$(inferred_ref(what, p)), but $(a_ref(R)) is now found$(report(p, ref)).",
-        )
+        listerr(:inconsistent_ref_type, ref, p,
+            "$(inferred_ref(what, p)), but $(a_ref(R)) is now found.")
     end
     ref
 end
 # Reused later.
-unexpected_reftype(what, p, input) = forgerr(
-    :unexpected_ref_type,
-    "Invalid $what reference type. \
-     Expected $(repr(p.expected_R)) \
-     (or convertible). \
-     Received instead$(report(p, input)).",
-)
+unexpected_reftype(what, p, input) = listerr(
+    :unexpected_ref_type, input, p,
+    "Invalid $what reference type. Expected $(repr(p.expected_R)) (or convertible).")
 a_ref(R) = "$(R == Symbol ? "a label" : "an index") ($R)"
 inferred_ref(what, p) = "The $what reference type for this input \
                          was first inferred to be $(a_ref(typeof(first_ref(p)))) \
@@ -397,7 +372,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
         ref = parse_plain_ref!(p, input, refwhat)
         ((ref,), true)
     catch plain_error
-        plain_error isa Forgiveness || rethrow(plain_error) # (not to miss bugs)
+        plain_error isa ListError || rethrow(plain_error) # (not to miss bugs)
         try
             f = fork(p, R -> BinMap{R})
             refs = parse(
@@ -410,7 +385,7 @@ function parse_grouped_refs!(p::Parser, input, refwhat; ExpectedRefType = nothin
             merge!(p, f)
             (refs, true)
         catch group_error
-            group_error isa Forgiveness || rethrow(group_error)
+            group_error isa ListError || rethrow(group_error)
             (pick(plain_error, group_error, parse_grouped_refs_priorities), false)
         end
     end
@@ -441,7 +416,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
         pair = parse_plain_pair!(p, input, refwhat)
         ((pair,), true)
     catch plain_error
-        plain_error isa Forgiveness || rethrow(plain_error)
+        plain_error isa ListError || rethrow(plain_error)
         try
             f = fork(p, R -> Map{p.T,R})
             pairs = parse(
@@ -457,7 +432,7 @@ function parse_grouped_pairs!(p::Parser, input, refwhat = "node")
             merge!(p, f)
             (pairs, true)
         catch group_error
-            group_error isa Forgiveness || rethrow(group_error)
+            group_error isa ListError || rethrow(group_error)
             (pick(plain_error, group_error, parse_grouped_pairs_priorities), false)
         end
     end
@@ -493,31 +468,25 @@ function parse(
     parser = nothing,
     what = (; whole = "binary map", ref = "node"),
 )
-    forgive(input, parser) do
+    p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
+    it = parse_iterable(p, input, what.whole)
+    isnothing(it) && return empty_result(p)
 
-        p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
-        it = parse_iterable(p, input, what.whole)
-        isnothing(it) && return empty_result(p)
+    push!(p, 0)
+    while !isnothing(it)
+        bump!(p)
+        raw_ref, it = it
 
-        push!(p, 0)
-        while !isnothing(it)
-            bump!(p)
-            raw_ref, it = it
+        ref = parse_plain_ref!(p, raw_ref, what.ref)
+        res = result!(p)
+        ref in res && listerr(:duplicate_node, raw_ref, p,
+            "Duplicated $(what.ref) reference.")
+        push!(res, ref)
 
-            ref = parse_plain_ref!(p, raw_ref, what.ref)
-            res = result!(p)
-            ref in res && forgerr(
-                :duplicate_node,
-                "Duplicated $(what.ref) reference$(report(p, raw_ref)).",
-            )
-            push!(res, ref)
-
-            it = iterate(input, it)
-        end
-
-        result!(p)
-
+        it = iterate(input, it)
     end
+
+    result!(p)
 end
 
 # The binary case *can* accept boolean masks.
@@ -529,35 +498,30 @@ function parse(
     parser = nothing,
     what = (; whole = "binary map"),
 )
-    forgive(input, parser) do
-        # .. although the context is much different:
-        # only indices can be retrieved or even *expected* from this kind of input.
-        check_boolean_input(
-            ExpectedRefType,
-            input,
-            parser,
-            (; whole = what.whole, input = (plur) -> "boolean vector" * ("s"^plur)),
-        )
-        from_boolean_mask(input)
-    end
+    # .. although the context is much different:
+    # only indices can be retrieved or even *expected* from this kind of input.
+    check_boolean_input(
+        ExpectedRefType,
+        input,
+        parser,
+        (; whole = what.whole, input = (plur) -> "boolean vector" * ("s"^plur)),
+    )
+    from_boolean_mask(input)
 end
 
 function check_boolean_input(ExpectedRefType, input, parser, what)
-    (!isnothing(ExpectedRefType) && ExpectedRefType != Int) && forgerr(
-        :boolean_label,
-        "A label-indexed $(what.whole) \
-         cannot be produced from $(what.input(true))$(report(parser, input)).",
-    )
+    (!isnothing(ExpectedRefType) && ExpectedRefType != Int) && listerr(
+        :boolean_label, input, parser,
+        "A label-indexed $(what.whole) cannot be produced from $(what.input(true)).")
     if !isnothing(parser)
         if isnothing(parser.expected_R)
             parser.expected_R = Int
         end
         if parser.found_first_ref
-            parser.first_ref isa Int || forgerr(
-                :inconsistent_ref_type,
+            parser.first_ref isa Int || listerr(
+                :inconsistent_ref_type, input, parser,
                 "$(inferred_ref(what.whole, parser)), \
-                 but a $(what.input(false)) (only yielding indices) \
-                 is now found$(report(parser, input)).",
+                 but a $(what.input(false)) (only yielding indices) is now found.",
             )
         end
     end
@@ -589,45 +553,39 @@ function parse(
     parser = nothing,
     what = (; whole = "map", pair = "reference(s) => value", ref = "node"),
 ) where {T}
-    forgive(input, parser) do
+    p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{T,R}) : parser
+    it = parse_iterable(p, input, what.whole)
+    isnothing(it) && return empty_result(p)
 
-        p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{T,R}) : parser
-        it = parse_iterable(p, input, what.whole)
-        isnothing(it) && return empty_result(p)
+    push!(p, 0)
+    while !isnothing(it)
+        bump!(p)
+        pair, it = it
 
+        refs, raw_value = parse_pair(p, pair, what.pair)
+        push!(p, :left) # Start left because :right errors may be much uglier.
+        refs = parse_grouped_refs!(p, refs, what.ref; ExpectedRefType)
+        update!(p, :right)
+        value = parse_value(p, raw_value)
+        update!(p, :left)
+        res = result!(p)
         push!(p, 0)
-        while !isnothing(it)
+        for ref in refs
             bump!(p)
-            pair, it = it
-
-            refs, raw_value = parse_pair(p, pair, what.pair)
-            push!(p, :left) # Start left because :right errors may be much uglier.
-            refs = parse_grouped_refs!(p, refs, what.ref; ExpectedRefType)
-            update!(p, :right)
-            value = parse_value(p, raw_value)
-            update!(p, :left)
-            res = result!(p)
-            push!(p, 0)
-            for ref in refs
-                bump!(p)
-                haskey(res, ref) && forgerr(
-                    :duplicate_node,
-                    "Duplicated $(what.ref) reference :\n\
-                     Received before: $ref => $(res[ref])\n\
-                     Received now   : $ref => $(repr(raw_value)) ::$(typeof(raw_value))\
-                     $(report(p, ref)).",
-                )
-                res[ref] = value
-            end
-            pop!(p)
-            pop!(p)
-
-            it = iterate(input, it)
+            haskey(res, ref) && listerr(
+                :duplicate_node, ref, p,
+                "Duplicated $(what.ref) reference :\n\
+                 Collected before: $ref => $(res[ref])\n\
+                 Collecting now  : $ref => $(rept(raw_value)).")
+            res[ref] = value
         end
+        pop!(p)
+        pop!(p)
 
-        result!(p)
-
+        it = iterate(input, it)
     end
+
+    result!(p)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -639,68 +597,61 @@ function parse(
     ExpectedRefType = nothing,
     parser = nothing,
 )
-    forgive(input, parser) do
+    p =
+        isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) :
+        parser
+    it = parse_iterable(p, input, "binary adjacency map")
+    isnothing(it) && return empty_result(p)
 
-        p =
-            isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) :
-            parser
-        it = parse_iterable(p, input, "binary adjacency map")
-        isnothing(it) && return empty_result(p)
+    push!(p, 1)
+    while !isnothing(it)
+        pair, it = it
 
-        push!(p, 1)
-        while !isnothing(it)
-            pair, it = it
-
-            raw_sources, raw_targets = parse_pair(p, pair, "source(s) => target(s)")
-            push!(p, :left)
-            sources = parse_grouped_refs!(p, raw_sources, "source node"; ExpectedRefType)
-            update!(p, :right)
-            targets = parse_grouped_refs!(p, raw_targets, "target node"; ExpectedRefType)
-            res = result!(p)
-            update!(p, :left)
-            push!(p, 0)
-            pend = (length(p.path)-1):length(p.path)
-            any_source = false
-            any_target = false
-            for src in sources
-                bump!(p)
-                sub = if haskey(res, src)
-                    res[src]
-                else
-                    res[src] = OrderedSet{get_R(p)}()
-                end
-                safe = p.path[pend]
-                p.path[pend] .= (:right, 0)
-                for tgt in targets
-                    bump!(p)
-                    tgt in sub && forgerr(
-                        :duplicate_edge,
-                        "Duplicate edge specification \
-                         $(repr(src)) → $(repr(tgt))$(report(p, tgt)).",
-                    )
-                    push!(sub, tgt)
-                    any_target = true
-                end
-                pop!(p.path)
-                any_target || forgerr(
-                    :no_targets,
-                    "No target provided for source $(repr(src))$(report(p)).",
-                )
-                pop!(p.path)
-                append!(p, safe)
-                any_source = true
-            end
-            pop!(p)
-            any_source || forgerr(:no_sources, "No sources provided$(report(p)).")
-            pop!(p)
-
-            it = iterate(input, it)
+        raw_sources, raw_targets = parse_pair(p, pair, "source(s) => target(s)")
+        push!(p, :left)
+        sources = parse_grouped_refs!(p, raw_sources, "source node"; ExpectedRefType)
+        update!(p, :right)
+        targets = parse_grouped_refs!(p, raw_targets, "target node"; ExpectedRefType)
+        res = result!(p)
+        update!(p, :left)
+        push!(p, 0)
+        pend = (length(p.path)-1):length(p.path)
+        any_source = false
+        any_target = false
+        for src in sources
             bump!(p)
+            sub = if haskey(res, src)
+                res[src]
+            else
+                res[src] = OrderedSet{get_R(p)}()
+            end
+            safe = p.path[pend]
+            p.path[pend] .= (:right, 0)
+            for tgt in targets
+                bump!(p)
+                tgt in sub && listerr(
+                    :duplicate_edge, tgt, p,
+                    "Duplicate edge specification $(repr(src)) → $(repr(tgt)).")
+                push!(sub, tgt)
+                any_target = true
+            end
+            pop!(p.path)
+            any_target || listerr(
+                :no_targets, raw_targets, p,
+                "No target provided for source $(repr(src)).")
+            pop!(p.path)
+            append!(p, safe)
+            any_source = true
         end
+        pop!(p)
+        any_source || listerr(:no_sources, raw_sources, p, "No sources provided.")
+        pop!(p)
 
-        result!(p)
-
+        it = iterate(input, it)
+        bump!(p)
     end
+
+    result!(p)
 end
 
 # The binary case *can* accept boolean matrices.
@@ -711,18 +662,16 @@ function parse(
     parser = nothing,
     what = (; whole = "binary adjacency list"),
 )
-    forgive(input, parser) do
-        check_boolean_input(
-            ExpectedRefType,
-            input,
-            parser,
-            (;
-                whole = what.whole,
-                input = (plur) -> "boolean matri" * (plur ? "ces" : "x"),
-            ),
-        )
-        from_boolean_matrix(input)
-    end
+    check_boolean_input(
+        ExpectedRefType,
+        input,
+        parser,
+        (;
+            whole = what.whole,
+            input = (plur) -> "boolean matri" * (plur ? "ces" : "x"),
+        ),
+    )
+    from_boolean_matrix(input)
 end
 
 function from_boolean_matrix(input)
@@ -757,103 +706,92 @@ function parse(
     ExpectedRefType = nothing,
     parser = nothing,
 ) where {T}
-    forgive(input, parser) do
+    p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{T,R}) : parser
+    it = parse_iterable(p, input, "adjacency map")
+    isnothing(it) && return empty_result(p)
 
-        p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{T,R}) : parser
-        it = parse_iterable(p, input, "adjacency map")
-        isnothing(it) && return empty_result(p)
+    push!(p, 0)
+    while !isnothing(it)
+        bump!(p)
+        pair, it = it
 
-        push!(p, 0)
-        while !isnothing(it)
-            bump!(p)
-            pair, it = it
-
-            lhs, rhs = parse_pair(p, pair, "source(s) => target(s)")
-            (lhs, lhs_has_values), (rhs, rhs_has_values) = map((
-                (lhs, :left, "source"),
-                (rhs, :right, "target"),
-            )) do (side, step, refwhat)
-                push!(p, step)
-                (group, has_values, ok) = try
-                    (parse_grouped_pairs!(p, side, refwhat), true, true)
-                catch e_pairs
-                    e_pairs isa Forgiveness || rethrow(e_pairs)
-                    try
-                        (parse_grouped_refs!(p, side, refwhat; ExpectedRefType), false, true)
-                    catch e_refs
-                        e_refs isa Forgiveness || rethrow(e_refs)
-                        (pick(e_pairs, e_refs, adjacency_map_priorities), nothing, false)
-                    end
-                end
-                ok || throw(group)
-                pop!(p)
-                (group, has_values)
-            end
-
-            (lhs_has_values && rhs_has_values) && forgerr(
-                :two_values,
-                "Cannot associate values to both source and target ends \
-                 of edges at $(path(p)):\n\
-                 Received LHS: $lhs\n\
-                 Received RHS: $rhs.",
-            )
-            !(lhs_has_values || rhs_has_values) && forgerr(
-                :no_value,
-                "No values found for either source or target end of edges at $(path(p)):\n\
-                 Received LHS: $lhs\n\
-                 Received RHS: $rhs.",
-            )
-
-            res = result!(p)
-
-            push!(p, :left)
-            push!(p, 0)
-            pend = (length(p.path)-1):length(p.path)
-            any = false
-            for i in lhs # Values are either collected here..
-                bump!(p)
-                any = true
-                (src, value) = lhs_has_values ? i : (i, missing)
-                sub = if haskey(res, src)
-                    res[src]
-                else
-                    res[src] = OrderedDict{get_R(p),T}()
-                end
-                safe = p.path[pend]
-                p.path[pend] .= (:right, 0)
-                for j in rhs # .. or there.
-                    bump!(p)
-                    (tgt, value) = rhs_has_values ? j : (j, value)
-                    haskey(sub, tgt) && forgerr(
-                        :duplicate_edge,
-                        "Duplicate edge specification:\n\
-                         Previously received: \
-                         $(repr(src)) → $(repr(tgt)) ($(sub[tgt]))\n\
-                         Now received:        \
-                         $(repr(src)) → $(repr(tgt)) ($value)\
-                         $(report(p, tgt)).",
-                    )
-                    sub[tgt] = value
-                end
-                p.path[pend] .= safe
-                if isempty(sub)
-                    e = lhs_has_values ? "source" : "target"
-                    forgerr(
-                        :no_targets,
-                        "No target provided for `$e => value` pair$(report(p)).",
-                    )
+        raw_lhs, raw_rhs = parse_pair(p, pair, "source(s) => target(s)")
+        (lhs, lhs_has_values), (rhs, rhs_has_values) = map((
+            (raw_lhs, :left, "source"),
+            (raw_rhs, :right, "target"),
+        )) do (side, step, refwhat)
+            push!(p, step)
+            (group, has_values, ok) = try
+                (parse_grouped_pairs!(p, side, refwhat), true, true)
+            catch e_pairs
+                e_pairs isa ListError || rethrow(e_pairs)
+                try
+                    (parse_grouped_refs!(p, side, refwhat; ExpectedRefType), false, true)
+                catch e_refs
+                    e_refs isa ListError || rethrow(e_refs)
+                    (pick(e_pairs, e_refs, adjacency_map_priorities), nothing, false)
                 end
             end
-            any || forgerr(:no_sources, "No sources provided$(report(p)).")
+            ok || throw(group)
             pop!(p)
-            pop!(p)
-
-            it = iterate(input, it)
+            (group, has_values)
         end
 
-        result!(p)
+        (lhs_has_values && rhs_has_values) && listerr(
+            :two_values, pair, p,
+            "Cannot associate values to both source and target ends of edges:\n\
+             Left : $(rept(raw_lhs))\n\
+             Right: $(rept(raw_rhs))")
+        !(lhs_has_values || rhs_has_values) && listerr(
+            :no_value, pair, p,
+            "No values found for either source or target end of edges:\n\
+             Left : $(rept(raw_lhs))\n\
+             Right: $(rept(raw_rhs))")
 
+        res = result!(p)
+
+        push!(p, :left)
+        push!(p, 0)
+        pend = (length(p.path)-1):length(p.path)
+        any = false
+        for i in lhs # Values are either collected here..
+            bump!(p)
+            any = true
+            (src, value) = lhs_has_values ? i : (i, missing)
+            sub = if haskey(res, src)
+                res[src]
+            else
+                res[src] = OrderedDict{get_R(p),T}()
+            end
+            safe = p.path[pend]
+            p.path[pend] .= (:right, 0)
+            for j in rhs # .. or there.
+                bump!(p)
+                (tgt, value) = rhs_has_values ? j : (j, value)
+                haskey(sub, tgt) && listerr(
+                    :duplicate_edge, tgt, p,
+                    "Duplicate edge specification:\n\
+                     Collected before: \
+                     $(repr(src)) → $(repr(tgt)) ($(sub[tgt]))\n\
+                     Collecting now  : \
+                     $(repr(src)) → $(repr(tgt)) ($value).")
+                sub[tgt] = value
+            end
+            p.path[pend] .= safe
+            if isempty(sub)
+                e = lhs_has_values ? "source" : "target"
+                listerr(:no_targets, (), p,
+                    "No target provided for `$e => value` pair.")
+            end
+        end
+        any || listerr(:no_sources, raw_lhs, p, "No sources provided.")
+        pop!(p)
+        pop!(p)
+
+        it = iterate(input, it)
     end
+
+    result!(p)
 end
 adjacency_map_priorities = priorities([
     :unexpected_ref_type,

@@ -6,6 +6,7 @@ include("./symbols.jl")
 
 # Input checking.
 include("./convert.jl")
+include("./lists.jl")
 
 # Typical network compartments.
 #  include("graph_field.jl")
