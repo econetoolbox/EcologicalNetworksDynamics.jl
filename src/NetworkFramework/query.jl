@@ -3,7 +3,7 @@ module Query
 
 using EcologicalNetworksDynamics.NetworkFramework:
     D, N, NF, Dispatcher, dispatcher, CheckError, checkerr, SparseMatrix, SparseVector,
-    Ref
+    Ref, _WholeData, Model
 using EcologicalNetworksDynamics.Display: join_elided, render_input, ns
 
 using SparseArrays
@@ -107,115 +107,124 @@ end
 # ==========================================================================================
 # Check query against the model.
 
-late_check(d::D.NodeLevel, (i,)::Tuple) = (late_check(d, i, Val(N.class)),)
-late_check(d::D.Subclass, (i,)::Tuple) = (late_check(d, i, Val(N.parent)),)
+late_check(d::D.NodeLevel, md::Model, (i,)::Tuple) = (late_check(d, md, i, Val(N.class)),)
+late_check(d::D.Subclass, md::Model, (i,)::Tuple) = (late_check(d, md, i, Val(N.parent)),)
 
-function late_check(d::D.EdgeLevel, (i, j)::Tuple)
-    late_check.((d,), (i, j), Val.((N.source, N.target)))
-    check_edge(d, (i, j)) # TODO
+function late_check(d::D.EdgeLevel, md::Model, (i, j)::Tuple)
+    late_check.((d,), (md,), (i, j), Val.((N.source, N.target)))
+    check_edge(d, md, (i, j)) # TODO
 end
 
-function late_check(d::Dispatcher, r::Ref, c::Val{class}) where class
+function late_check(d::Dispatcher, md::Model, r::Ref, c::Val{class}) where class
     early_check(d, r, c)
-    N.is_ref(class(d).index, r) && return r
-    referr(d, r, Val(class))
+    ix = class(d, md).index
+    N.is_ref(ix, r) && return r
+    referr(d, md, r, Val(class))
 end
 
-referr(d::D.NodeLevel, l::Symbol, ::Val{N.class}) =
+referr(d::D.NodeLevel, ::Model, l::Symbol, ::Val{N.class}) =
     checkerr(l, "No node in this class is labeled $(repr(l))"; d)
-referr(d::D.Subclass, l::Symbol, ::Val{N.parent}) =
+referr(d::D.Subclass, ::Model, l::Symbol, ::Val{N.parent}) =
     checkerr(l, "No node in the parent class is labeled $(repr(l))"; d)
-referr(d::D.EdgeLevel, l::Symbol, ::Val{class}) where class =
+referr(d::D.EdgeLevel, md::Model, l::Symbol, ::Val{class}) where class =
     checkerr(l,
-        "No node in the $class class ($(repr(class(d).name))) is labeled $(repr(l))"; d)
+        "No node in the $class class ($(repr(class(d, md).name))) is labeled $(repr(l))"; d)
 
-function referr(d::D.NodeLevel, i::Int, ::Val{N.class})
-    n, s = ns(length(N.class(d)))
+function referr(d::D.NodeLevel, md::Model, i::Int, ::Val{N.class})
+    n, s = ns(length(N.class(md, d)))
     checkerr(i, "This class only contains $n node$s"; d)
 end
 
-function referr(d::D.NodeLevel, i::Int, ::Val{N.parent})
-    n, s = ns(length(N.parent(d)))
+function referr(d::D.NodeLevel, md::Model, i::Int, ::Val{N.parent})
+    n, s = ns(length(N.parent(md, d)))
     checkerr(i, "The parent class only contains $n node$s"; d)
 end
 
-function referr(d::D.EdgeLevel, i::Int, ::Val{class}) where class
-    c = class(d)
+function referr(d::D.EdgeLevel, md::Model, i::Int, ::Val{class}) where class
+    c = class(d, md)
     name = repr(c.name)
     n, s = ns(length(c))
     checkerr(i, "The $class class ($name) only contains $n node$s"; d)
 end
 
 # Indexing with ranges.
-function late_check(d::Dispatcher, u::UnitRange, c)
-    f, l = late_check.((d,), (first(u), last(u)), (c,))
+function late_check(d::Dispatcher, md::Model, u::UnitRange, c)
+    f, l = late_check.((d,), (md,), (first(u), last(u)), (c,))
     f:l
 end
 
 # Indexing with colon, meaning 'all'. Always valid.
-late_check(::Dispatcher, ::Colon, _) = (:)
+late_check(::Dispatcher, ::Model, ::Colon, _) = (:)
 
 # Indexing with masks.
-function late_check(d::D.NodeLevel, m::SparseVector{Bool}, ::Val{class}) where {class}
-    exp = d |> class |> length
-    act = length(m)
-    exp == act && return m
+function late_check(
+    d::D.NodeLevel,
+    md::Model,
+    k::SparseVector{Bool},
+    ::Val{class},
+) where {class}
+    exp = length(N.class(md, d))
+    act = length(k)
+    exp == act && return k
     are, s = exp == 1 ? ("is", "") : ("are", "s")
-    checkerr(m, "The given mask is of size $act but there $are $exp node$s in the class"; d)
+    checkerr(k, "The given mask is of size $act but there $are $exp node$s in the class"; d)
 end
 
 # Cartesian is checked like the underlying tuple.
-function late_check(d::Dispatcher, c::CartesianIndex)
+function late_check(d::Dispatcher, ::Model, c::CartesianIndex)
     early_check(d, Tuple(c))
     c
 end
 
 # Edges.
-check_edge(::D.Web, q) = q # Ok if marginal indices are ok.
-function check_edge(d::D.EdgeField, (i, j)::Tuple{Ref,Ref})
-    is_edge(d, (i, j)) || checkerr((i, j), "Not an edge"; d)
+check_edge(::D.Web, ::Model, q) = q # Ok if marginal indices are ok.
+function check_edge(d::D.EdgeField, md::Model, (i, j)::Tuple{Ref,Ref})
+    is_edge(d, md, (i, j)) || checkerr((i, j), "Not an edge"; d)
     (i, j)
 end
 
-function is_edge(d::D.EdgeLevel, (i, j)::Tuple{Ref,Ref})
-    w = N.web(d)
-    s, t = N.source(d), N.target(d)
-    t, x, y = w.topology, s.index, t.index
+function is_edge(d::D.EdgeLevel, md::Model, (i, j)::Tuple{Ref,Ref})
+    web = N.web(md, d)
+    src, tgt = N.source(web), N.target(web)
+    t, x, y = web.topology, src.index, tgt.index
     i, j = N.to_index.((x, y), (i, j))
     N.is_edge(t, i, j)
 end
 
-late_check(::D.Web, m::SparseMatrix{Bool}) = m # As long as dimensions are ok.
+late_check(::D.Web, ::Model, m::SparseMatrix{Bool}) = m # As long as dimensions are ok.
 
 # ==========================================================================================
 # Exposed interface: whole checking sequence.
 
-function check(d::Dispatcher, q)
-    q = dim_check(d, q...)
-    q = guard(type_check, d, q)
-    q = guard(early_check, d, q)
-    q = guard(late_check, d, q)
-    q
-end
-
-# 2D-mask boolean indexing breaks the above flow: 1 argument for 2 dimensions.
-function check(d::D.Web, (q,)::Tuple{Any})
-    NF.can_convert(SparseMatrix{Bool}, q) || # (hopefully resolved statically)
-        return @invoke check(d::Dispatcher, (q,))
-    q = guard(type_check, d, (q,))
-    q = guard(early_check, d, q)
-    q = guard(late_check, d, q)
-    q
-end
-
-# Guard with error upgrade.
-guard(fn, d, q) =
+check(d::Dispatcher, md::Model, q) =
     try
-        fn(d, q)
+        q = dim_check(d, q...)
+        q = type_check(d, q)
+        q = early_check(d, q)
+        q = late_check(d, md, q)
+        q
     catch e
         e isa CheckError || rethrow(e)
-        rethrow(Query.Error(q, typeof(d), e))
+        rethrow(Query.Error(q, d, e))
     end
+
+# 2D-mask boolean indexing breaks the above flow: 1 argument for 2 dimensions.
+function check(d::D.Web, md::Model, (q,)::Tuple{Any})
+    NF.can_convert(SparseMatrix{Bool}, q) || # (hopefully resolved statically)
+        return @invoke check(d::Dispatcher, md, (q,))
+    try
+        q = type_check(d, (q,))
+        q = early_check(d, q)
+        q = late_check(d, md, q)
+        q
+    catch e
+        e isa CheckError || rethrow(e)
+        rethrow(Query.Error(q, d, e))
+    end
+end
+
+# Trivial, internal query analysis, invoked on 'reassign'.
+check(::Dispatcher, ::Model, w::_WholeData) = w
 
 # ==========================================================================================
 
@@ -223,16 +232,14 @@ guard(fn, d, q) =
 mutable struct Error <: NF.LibError
     "The total, initial query *e.g.* typical arguments to julia indexing syntax `[...]`."
     query::Tuple
-    "For now, all queries are made through `views`. This is the corresponding view type."
-    View::Type # (Note: this would move to a super-error if querying exists without views.)
+    "The queried data."
+    d::Dispatcher
     "Underlying report."
     src::CheckError
 end
 
 function Base.showerror(io::IO, e::Error)
-    (; View, query, src) = e
-    d = dispatcher(View)
-    println(io, "View error ($(NF.Views.type_info(View))):")
+    (; d, query, src) = e
     report() = NF.render(io, src; what = "query", display_input = false)
     # Report either before or after depending on the query size.
     if length(repr(query)) <= 20

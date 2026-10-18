@@ -8,9 +8,12 @@ module GraphField
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    EN, N, F, @jl_basic_callfails, @test_repr, @test_disp, @test_err, @bpfails, @mutfails,
+    EN, N, D, F, @jl_basic_callfails, @test_repr, @test_disp, @test_err, @bpfails,
+    @mutfails,
     addfails
 using Test
+
+const d, _D = D.GraphField(:temperature)
 
 @testset "Typical GraphScalar component" begin
 
@@ -45,25 +48,19 @@ using Test
     @jl_basic_callfails(Temperature(5; a = 8))
     @bpfails(Temperature(-1),
         Temperature.Raw, :construct,
-        (nothing, :whole, :check, -1.0, "Value cannot be negative."))
+        (d, -1.0, :whole, nothing, "Value cannot be negative."))
     @test_err(Temperature(-1), # First time we test with @bpfails: check the actual report.
         """
         While constructing blueprint Temperature.Raw:
+        In the provided input for <temperature>:
         Value cannot be negative.
-        Received: -1.0 ::Float64\
+        Received: -1.0  ::Float64\
         """
     )
     @bpfails(Temperature(:a),
         Temperature.Raw, :construct,
-        (nothing, :whole, :convert, Float64, :a, "Conversion not implemented."))
-    @test_err(Temperature(:a), # First time combined with :convert root cause.
-        """
-        While constructing blueprint Temperature.Raw:
-        Cannot convert input to `Float64`:
-        Conversion not implemented.
-        Received: :a ::Symbol\
-        """
-    )
+        (d, :a, :whole, nothing,
+            "Cannot convert to `$Float64`:\nConversion not implemented."))
 
     # Expand into a field component.
     m = Model(bp)
@@ -92,27 +89,26 @@ using Test
     @test m.T == 244 # Current model updated.
 
     # Value is still checked.
-    noneg = "Value cannot be negative."
-    @mutfails(m.T = -1,
-        (:temperature,), :assign, m,
-        (:whole, :whole, :check, -1.0, noneg))
+    @mutfails(m.T = -1, (d, -1.0, :whole, :whole, "Value cannot be negative."))
     @test_err(m.T = -1, # First time with @mutfails.
         """
-        While assigning to model <temperature> value for the network:
-        $noneg
-        Received: -1.0 ::Float64\
+        While mutating model:
+        In the provided input for <temperature>:
+        Value cannot be negative.
+        Received: -1.0  ::Float64\
         """
     )
 
     bp.T = -1 # Even after blueprint corruption.
     addfails.@check(Model(bp), [],
-        (Temperature.Raw, :early, (nothing, :whole, :check, -1.0, noneg)))
+        (Temperature.Raw, :early, (d, -1.0, :whole, nothing, "Value cannot be negative.")))
     @test_err(Model(bp), # First time nested within @check.
         """
         Blueprint value cannot be expanded:
         While verifying blueprint:
-        $noneg
-        Received: -1.0 ::Float64
+        In the provided input for <temperature>:
+        Value cannot be negative.
+        Received: -1.0  ::Float64
         in Temperature.Raw\
         """
     )

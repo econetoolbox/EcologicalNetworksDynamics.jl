@@ -8,6 +8,7 @@ by specializing implementations for their particular component.
 module Dispatchers
 
 using EcologicalNetworksDynamics: N, Networks, Display, unimplemented
+using EcologicalNetworksDynamics.NetworkFramework: Model
 using .Display: cyan, reset
 const D = Dispatchers
 
@@ -312,5 +313,15 @@ dim(::EdgeLevel) = 2
 level(::GraphField) = "graph"
 level(::NodeLevel) = "node"
 level(::EdgeLevel) = "edge"
+
+# ==========================================================================================
+# Use dispatcher as static index into underlying data.
+
+N.class(md::Model, d::NodeLevel) = N.class(N.network(md), class(d))
+N.parent(md::Model, d::Subclass) = N.parent(N.network(md), class(d))
+N.web(md::Model, d::Web) = N.web(N.network(md), web(d))
+N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
+N.entry(md::Model, d::NodeField) = N.class(d, md).data[field(d)]
+N.entry(md::Model, d::EdgeField) = N.web(d, md).data[field(d)]
 
 end

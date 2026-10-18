@@ -169,7 +169,7 @@ mutate!(m::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, m, d, mref,
 
 "Guarded entrypoint for the mutation pipeline."
 function mut_set!(m::Model, d::Dispatcher, query, rhs)
-    mref = Query.check(m, d, query)
+    mref = Query.check(d, m, query)
     low = try
         mut_lower(m, d, mref, rhs)
     catch e
@@ -224,8 +224,8 @@ end
 
 "Inject default constructor into a blueprint struct."
 macro bp_construct(B)
-    B = esc(B)
+    B, new = esc.((B, :new))
     quote
-        $B(args...; kwargs...) = new($NF.bp_construct($B, args...; kwargs...)...)
+        $B(args...; kwargs...) = $new($NF.bp_construct($B, args...; kwargs...)...)
     end
 end

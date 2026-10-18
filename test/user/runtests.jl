@@ -9,7 +9,7 @@ include("./convert.jl")
 include("./lists.jl")
 
 # Typical network compartments.
-#  include("graph_field.jl")
+include("graph_field.jl")
 #  include("class.jl")
 #  include("web.jl")
 #  include("subclass.jl")

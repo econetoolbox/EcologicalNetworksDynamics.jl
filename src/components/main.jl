@@ -16,7 +16,7 @@
 # as later comments build upon earlier ones.
 
 # First example graph-level data.
-#  include("./temperature.jl")
+include("./temperature.jl")
 
 # First example of a nodes class.
 #  include("./species.jl")

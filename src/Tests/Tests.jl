@@ -161,23 +161,23 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
 
 const uref = compare_refs
 const mref = compare_refs
-@genfailsmacro convfails EN.NetworkFramework.ConvertError (; mess, uref)
-@genfailsmacro listfails EN.NetworkFramework.ListError (;
+@genfailsmacro convfails NF.ConvertError (; mess, uref)
+@genfailsmacro listfails NF.ListError (;
     mess, tag = nothing, path = FieldsCompare.value)
-@genfailsmacro checkfails EN.NetworkFramework.CheckError (; mess, uref, mref)
-@genfailsmacro mutfails EN.NetworkFramework.MutationError
+@genfailsmacro checkfails NF.CheckError (; mess, uref, mref)
+@genfailsmacro bpfails NF.BlueprintError (; src = T.errfield(NF.CheckError))
+@genfailsmacro mutfails NF.MutationError (; src = T.errfield(NF.CheckError))
 
-# This one is sometimes yielded as toplevel,
-# and sometimes as a *cause* during addfails.check.
-@genfailsmacro bpfails EN.NetworkFramework.BlueprintError
-
-@genfailsmacro viewfails EN.NetworkFramework.Query.Error (; query = nothing)
-#                                                           ^^^^^ (redundant with test lhs)
+@genfailsmacro viewfails NF.Query.Error (; query = nothing)
+#                                          ^^^^^ (redundant with test lhs)
 
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
 T.test_errsource(err, E::Type{NF.CheckError}, fields, checks = (;)) =
     @invoke T.test_errsource(err, E::Type, fields, (; uref, mref, checks...))
+T.test_errsource(err, E::Type{NF.BlueprintError}, fields, checks = (;)) =
+    @invoke T.test_errsource(err, E::Type, fields,
+        (; src = T.errfield(NF.CheckError), checks...))
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)

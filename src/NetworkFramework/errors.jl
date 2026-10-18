@@ -100,20 +100,28 @@ function render(io::IO, e::CheckError; what = "input", display_input = true)
     else
         true
     end
-    if !(whole_input && irrelevant_mref)
-        print(io, "In the provided $what")
-    end
-    if !whole_input
-        print(io, " at ")
+    openline = if whole_input
+        if !isnothing(d)
+            print(io, "In the provided $what for $d")
+            true
+        else
+            false
+        end
+    else
+        print(io, "In the provided $what at ")
         print_uref(io, uref)
+        true
     end
     if irrelevant_mref
-        if !whole_input
+        if openline
             println(io, ":")
         end
     else
+        if !openline
+            print(io, "In the provided $what")
+        end
         mv = modelvalue(d, mref)
-        print(io, " referring to inner $mv:\n")
+        println(io, " referring to inner $mv:")
     end
     print(io, mess)
     if display_input
@@ -122,7 +130,7 @@ function render(io::IO, e::CheckError; what = "input", display_input = true)
     end
 end
 
-modelvalue(d::D.GraphField, ::_WholeData) = "model $d value for the network"
+modelvalue(d::D.GraphField, ::_WholeData) = "model $d value"
 modelvalue(d::D.Class, mref) = "model $d name for node " * print_mref(mref)
 modelvalue(d::D.Web, mref) = "model $d topology for edge " * print_mref(mref)
 function modelvalue(d::D.AbstractField, mref)

@@ -9,7 +9,7 @@ using EcologicalNetworksDynamics.NetworkFramework: Network
 using EcologicalNetworksDynamics.Tests: @test_repr, @test_disp
 using Test
 
-@testset "Universal symbols." begin
+@testset "General symbols." begin
     # Nothing fancy for these ones (used to be).
     @test_repr(Component, "$Component")
     @test_repr(Blueprint, "$Blueprint")

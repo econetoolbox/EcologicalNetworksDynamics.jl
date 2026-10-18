@@ -34,7 +34,7 @@ function define_graph_field(mod::Module, d::D.GraphField)
                 end
                 export Raw
                 NF.datatype(::Type{Raw}) = T
-                NF.data(b::Raw) = b.$field
+                NF.data(bp::Raw) = bp.$field
                 NF.register_blueprint(Raw, "raw $($("$singular")) value"; d)
 
                 end
@@ -45,17 +45,17 @@ function define_graph_field(mod::Module, d::D.GraphField)
     # ======================================================================================
     # The component itself.
 
-    c = NF.eval(
+    cp = NF.eval(
         quote # Need to reach toplevel first to access generated values.
             define_component($(Meta.quot(Singular)), $mod; blueprints = ($bpmod,))
         end,
     )
-    C = typeof(c)
+    CP = typeof(cp)
     NF.eval(
         quote
-            D.component(::$_D) = $c
-            (::$C)(input) = $c.Raw(input)
-            F.shortline(io::IO, model::Model, ::$C) = graph_scalar_shortline($d, io, model)
+            D.component(::$_D) = $cp
+            (::$CP)(input) = $cp.Raw(input)
+            F.shortline(io::IO, md::Model, ::$CP) = graph_scalar_shortline($d, io, md)
         end,
     )
 
@@ -68,23 +68,22 @@ function define_graph_field(mod::Module, d::D.GraphField)
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework: NF, D, Network, Model
-                const d, C, props = $d, $C, $props
-                get_value(::Network, m::Model) = NF.get_value(m, d)
-                NF.define_method(get_value; read_as = props, depends = (C,))
+                using EcologicalNetworksDynamics.NetworkFramework:
+                    NF, D, Network, Model, WholeData
+                const d, CP, props = $d, $CP, $props
+                get_value(::Network, md::Model) = NF.get_value(md, d)
+                NF.define_method(get_value; read_as = props, depends = (CP,))
                 if !D.readonly(d)
-                    function set_value!(::Network, m::Model, input)
-                        low = NF._reassign(m, d, input)
-                        NF.reassign!(m, d, low)
-                    end
-                    NF.define_method(set_value!; write_as = props, depends = (C,))
+                    set_value!(::Network, md::Model, input) =
+                        NF.mut_set!(md, d, WholeData, input)
+                    NF.define_method(set_value!; write_as = props, depends = (CP,))
                 end
                 end
             end
         ).args |> last,
     )
 
-    (c, C)
+    (cp, CP)
 
 end
 
@@ -93,35 +92,31 @@ end
 # The data may be aliased throughout the default lowering pipeline,
 # because it has been checked for immutability anyway.
 
-function expand!(m::Model, d::D.GraphField, low)
-    field, n = D.field(d), N.network(m)
-    N.add_field!(n, field, low)
+function expand!(md::Model, d::D.GraphField, low)
+    nw, f = N.network(md), D.field(d)
+    N.add_field!(nw, f, low)
 end
 
-function get_value(m::Model, d::D.GraphField)
-    field, n = D.field(d), N.network(m)
-    entry = n.data[field]
+function get_value(md::Model, d::D.GraphField)
+    entry = N.entry(md, d)
     N.read(entry) do value
         value # Just leak it: immutable.
     end
 end
 
-function reassign!(m::Model, d::D.GraphField, low)
-    field, n = D.field(d), N.network(m)
-    entry = n.data[field]
+function mutate!(md::Model, d::D.GraphField, ::_WholeData, low)
+    entry = N.entry(md, d)
     N.reassign!(entry, low)
 end
 
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function graph_scalar_shortline(d::D.GraphField, io, m::Model)
+function graph_scalar_shortline(d::D.GraphField, io, md::Model)
     cc = F.component_color
     fc = F.field_color
-    field = D.field(d)
     Field = D.CamelCaseSingular(d)
-    net = N.network(m)
-    entry = net.data[field]
+    entry = N.entry(md, d)
     read(entry) do value
         print(io, "$cc$Field$reset: $fc$(repr(value))$reset")
     end

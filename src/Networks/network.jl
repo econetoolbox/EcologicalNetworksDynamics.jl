@@ -25,14 +25,10 @@ mutable struct Network
 end
 export Network
 
-"""
-Construct empty network.
-"""
+"Construct empty network."
 Network() = finalizer(drop!, Network(Entry(Index()), Dict(), Dict(), Dict(), Dict()))
 
-"""
-Fork the network to obtain a cheap COW-py.
-"""
+"Fork the network to obtain a cheap COW-py."
 function fork(n::Network)
     (; index, classes, webs, data, restrictions) = n
     index, classes, webs, data = fork.((index, classes, webs, data))
@@ -63,9 +59,7 @@ end
 # ==========================================================================================
 # Query.
 
-"""
-Extract web, class or their components.
-"""
+"Extract web, class or their components."
 class(n::Network, name::Symbol) = n.classes[name]
 web(n::Network, name::Symbol) = n.webs[name]
 index(n::Network, class::Symbol) = N.class(n, class).index
@@ -76,9 +70,7 @@ source_index(n::Network, web::Symbol) = N.source(n, web).index
 target_index(n::Network, web::Symbol) = N.target(n, web).index
 export class, web, index, restriction, topology, parent_index, source_index, target_index
 
-"""
-Extract related classes.
-"""
+"Extract related classes."
 parent(n::Network, class::Symbol) = N.class(n, N.class(n, class).parent)
 source(n::Network, web::Symbol) = N.class(n, N.web(n, web).source)
 target(n::Network, web::Symbol) = N.class(n, N.web(n, web).target)
@@ -101,9 +93,7 @@ n_edges(n::Network) = sum(n_edges(web.topology) for web in values(n.webs); init 
 n_edges(n::Network, web::Symbol) = n_edges(N.web(n, web).topology)
 export n_edges
 
-"""
-Total number of fields in the network.
-"""
+"Total number of fields in the network."
 n_fields(n::Network) =
     sum(n_fields(c) for c in values(n.classes); init = 0) +
     sum(n_fields(w) for w in values(n.webs); init = 0) +

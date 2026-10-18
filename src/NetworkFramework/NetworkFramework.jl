@@ -176,7 +176,7 @@ const V = Views
 # With all this set up, components can now be authored.
 # But most of them look very much alike,
 # so gather default implementation for typical ones.
-#  include("./graph_field.jl")
+include("./graph_field.jl")
 #  include("./class.jl")
 #  include("./web.jl")
 #  include("./node_field.jl")
