@@ -34,9 +34,9 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics:
-    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith
+    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix
 import .Display: join_elided, render_input, ns, reset
-import .NetworkFramework: NF, D, Model, can_convert, CheckError, checkerr, Query
+import .NetworkFramework: NF, D, Model, can_convert, CheckError, checkerr, Query, LibError
 const V = Views
 
 using SparseArrays
@@ -87,8 +87,6 @@ function dispatcher end
 
 include("nodes.jl")
 include("edges.jl")
-include("nodes_display.jl")
-include("edges_display.jl")
 
 # Common to all topology-related = immutable views.
 const TopologyView{d} = Union{NodeTopologyView{d},EdgeMaskView{d}}
@@ -119,13 +117,16 @@ let S = AbstractView
     Base.getproperty(::S, ::Symbol) = errwith("No property to access on views.")
 end
 
+include("nodes_display.jl")
+include("edges_display.jl")
+
 #-------------------------------------------------------------------------------------------
 # Wire julia endpoints.
 
 function Base.getindex(vw::AbstractView, query...)
     md, d = NF.model(vw), dispatcher(vw)
     mref = Query.check(md, d, query)
-    NF.obtain(md, d, mref)
+    NF.obtain(vw, mref)
 end
 
 function Base.setindex!(vw::FieldView, rhs, query...)
@@ -133,10 +134,17 @@ function Base.setindex!(vw::FieldView, rhs, query...)
     NF.mut_set!(md, d, query, rhs)
 end
 
-function Base.setindex!(vw::TopologyView, _...)
-    d = dispatcher(vw)
-    i = type_info(vw)
-    errwith("Cannot change $d $i once they have been set.")
+Base.setindex!(vw::TopologyView, _...) = throw(ImmutableError(typeof(vw)))
+
+struct ImmutableError <: LibError
+    V::Type{<:AbstractView}
+end
+
+function Base.showerror(io::IO, e::ImmutableError)
+    (; V) = e
+    i = type_info(V)
+    d = dispatcher(V)
+    print(io, "Cannot change $d $i once they have been set.")
 end
 
 end

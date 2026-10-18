@@ -165,16 +165,19 @@ const mref = compare_refs
 @genfailsmacro listfails NF.ListError (;
     mess, tag = nothing, path = FieldsCompare.value)
 @genfailsmacro checkfails NF.CheckError (; mess, uref, mref)
-@genfailsmacro bpfails NF.BlueprintError (; src = T.errfield(NF.CheckError))
-@genfailsmacro mutfails NF.MutationError (; src = T.errfield(NF.CheckError))
 
-@genfailsmacro viewfails NF.Query.Error (; query = nothing)
-#                                          ^^^^^ (redundant with test lhs)
+const src = T.errfield(NF.CheckError)
+@genfailsmacro bpfails NF.BlueprintError (; src)
+@genfailsmacro mutfails NF.MutationError (; src)
+
+@genfailsmacro viewfails NF.Query.Error (; src, query = nothing)
+#                                               ^^^^^ (redundant with test lhs)
+@genfailsmacro immutfails NF.Views.ImmutableError
 
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
 T.test_errsource(err, E::Type{NF.CheckError}, fields, checks = (;)) =
-    @invoke T.test_errsource(err, E::Type, fields, (; uref, mref, checks...))
+    @invoke T.test_errsource(err, E::Type, fields, (; mess, uref, mref, checks...))
 T.test_errsource(err, E::Type{NF.BlueprintError}, fields, checks = (;)) =
     @invoke T.test_errsource(err, E::Type, fields,
         (; src = T.errfield(NF.CheckError), checks...))
@@ -192,6 +195,7 @@ macro compfails end
 macro conflfails end
 macro convfails end
 macro errfails end
+macro immutfails end
 macro jl_basic_callfails end
 macro jl_callfails end
 macro jl_deffails end

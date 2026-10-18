@@ -1,5 +1,7 @@
 # Specialize display for Model = System{Network}.
 
+F.short(io::IO, ::Type{Model}) = print(io, "Model")
+
 Base.show(io::IO, ::MIME"text/plain", ::Type{Model}) =
     print(io, "$(green)Model$reset $(black)(alias for $(F.System){$Network})$reset")
 

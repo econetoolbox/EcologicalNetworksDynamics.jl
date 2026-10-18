@@ -124,8 +124,10 @@ syserr(V, m) = throw(SystemError(V, m))
 # Display.
 function Base.show(io::IO, sys::System)
     n = length(concrete(sys))
-    print(io, "$(typeof(sys)) with $n component$(s(n)).")
+    print(io, "$(short(typeof(sys))) with $n component$(s(n)).")
 end
+short(io::IO, S::Type{<:System}) = print(io, S)
+short(S::Type{<:System}) = sprint(short, S)
 
 function Base.show(io::IO, ::MIME"text/plain", sys::System)
     n = length(concrete(sys))

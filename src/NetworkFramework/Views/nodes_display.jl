@@ -54,6 +54,7 @@ type_info(::Type{<:NodeFieldView}) = "nodes"
 type_info(::Type{<:SubnodeFieldView}) = "sub-nodes"
 type_info(::Type{<:NodeNameView}) = "nodes names"
 type_info(::Type{<:NodeMaskView}) = "nodes mask"
+type_info(v::AbstractView) = type_info(typeof(v))
 
 function Base.show(io::IO, v::NodeFieldView)
     print(io, inline_info(v))

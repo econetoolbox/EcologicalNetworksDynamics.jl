@@ -3,8 +3,8 @@
 # and open up extension points for particular component.
 
 "If relevant, obtain the data kind provided by the blueprint."
-dispatcher(B::Type{<:Blueprint}) = unimplemented(dispatcher, B)
-dispatcher(b::Blueprint) = b |> typeof |> dispatcher
+dispatcher(BP::Type{<:Blueprint}) = unimplemented(dispatcher, BP)
+dispatcher(bp::Blueprint) = bp |> typeof |> dispatcher
 
 #-------------------------------------------------------------------------------------------
 # Convert.
@@ -22,8 +22,8 @@ Following julia's behaviour:
 convert(T::Type, input) = converr(T, input, "Conversion not implemented.")
 # Extension points (specialize).
 convert(T::Type, ::Dispatcher, input) = convert(T, input)
-convert(T::Type, B::Type{<:Blueprint}, input) = convert(T, dispatcher(B), input)
-convert(T::Type, b::Blueprint, input) = convert(T, typeof(b), input)
+convert(T::Type, BP::Type{<:Blueprint}, input) = convert(T, dispatcher(BP), input)
+convert(T::Type, bp::Blueprint, input) = convert(T, typeof(bp), input)
 
 #-------------------------------------------------------------------------------------------
 # Intrinsic check.
@@ -34,54 +34,54 @@ check that the value is consistent with expectations.
 Return the passed data aliased and unchanged.
 """
 intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
-intrinsic_check(B::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(B), data)
-intrinsic_check(b::Blueprint) = intrinsic_check(typeof(b), data(b))
+intrinsic_check(BP::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(BP), data)
+intrinsic_check(bp::Blueprint) = intrinsic_check(typeof(bp), data(bp))
 
 #-------------------------------------------------------------------------------------------
 # Construct.
 
 "Determine main blueprint data value and data type if any (expect *static* answer)."
 # TODO: default to first field type?
-datatype(B::Type{<:Blueprint}) = unimplemented(datatype, B)
+datatype(BP::Type{<:Blueprint}) = unimplemented(datatype, BP)
 datatype(bp::Blueprint) = typeof(data(bp))
 
 # Get the core corresponding field type.
-D.type(B::Type{<:Blueprint}) = D.type(dispatcher(B))
+D.type(BP::Type{<:Blueprint}) = D.type(dispatcher(BP))
 
 "Extract main blueprint data if any (expect *static* answer)."
-data(b::Blueprint) = unimplemented(data, b) # TODO: default to first field?
+data(bp::Blueprint) = unimplemented(data, bp) # TODO: default to first field?
 
 """
 Guarded entrypoint into blueprint construction.
 Transform raw input into blueprint data. Return a *tuple* to be passed to new(...).
 """
-function construct(B::Type{<:Blueprint}, args...; kwargs...)
+function construct(BP::Type{<:Blueprint}, args...; kwargs...)
     # Not sure how to guard against that with dispatching
     # without breaking per-blueprint specialization.
     input, rest... = args
     err(unexp) = io -> begin
         print(io, "in ")
-        bpcol(io, B)
+        bpcol(io, BP)
         print(io, ":")
         render_input(io, unexp)
     end
     isempty(rest) || errwith(err(rest), "Unexpected arguments to blueprint constructor:")
     isempty(kwargs) ||
         errwith(err(kwargs), "Unexpected keyword arguments to blueprint constructor:")
-    T = datatype(B)
-    data = convert(T, B, input)
-    (intrinsic_check(B, data),)
+    T = datatype(BP)
+    data = convert(T, BP, input)
+    (intrinsic_check(BP, data),)
 end
 
 "Guarded framework entrypoint for correct error upgrade."
-bp_construct(B::Type{<:Blueprint}, args...; kwargs...) =
+bp_construct(BP::Type{<:Blueprint}, args...; kwargs...) =
     try
-        construct(B, args...; kwargs...)
+        construct(BP, args...; kwargs...)
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
-        e.d = dispatcher(B)
-        rethrow(BlueprintError(B, :construct, e))
+        e.d = dispatcher(BP)
+        rethrow(BlueprintError(BP, :construct, e))
     end
 
 #-------------------------------------------------------------------------------------------
@@ -89,17 +89,17 @@ bp_construct(B::Type{<:Blueprint}, args...; kwargs...) =
 
 "Validate data and take this opportunity to start lowering."
 early_check(d::Dispatcher, data) = intrinsic_check(d, data)
-early_check(B::Type{<:Blueprint}, data) = early_check(dispatcher(B), data)
-early_check(b::Blueprint) = early_check(typeof(b), data(b))
+early_check(BP::Type{<:Blueprint}, data) = early_check(dispatcher(BP), data)
+early_check(bp::Blueprint) = early_check(typeof(bp), data(bp))
 
 "Guarded entrypoint for the blueprint pipeline."
-bp_early_check(b::Blueprint) =
+bp_early_check(bp::Blueprint) =
     try
-        early_check(b)
+        early_check(bp)
     catch e
         e isa CheckError || rethrow(e)
-        B = typeof(b)
-        e.d = dispatcher(b)
+        B = typeof(bp)
+        e.d = dispatcher(bp)
         rethrow(BlueprintError(B, :early, e))
     end
 
@@ -108,15 +108,15 @@ bp_early_check(b::Blueprint) =
 
 "Use perform checks against an actual model value, continuing lowering."
 late_check(::Model, ::Dispatcher, low) = low # Nothing checked by default.
-late_check(m::Model, b::Blueprint, low) = late_check(m, dispatcher(b), low)
+late_check(md::Model, bp::Blueprint, low) = late_check(md, dispatcher(bp), low)
 
 "Guarded entrypoint for the blueprint pipeline."
-bp_late_check(m::Model, b::Blueprint, low) =
+bp_late_check(md::Model, bp::Blueprint, low) =
     try
-        late_check(m, b, low)
+        late_check(md, bp, low)
     catch e
         e isa CheckError || rethrow(e)
-        B = typeof(b)
+        B = typeof(bp)
         rethrow(BlueprintError(B, :late, e))
     end
 
@@ -130,23 +130,23 @@ Defaults to aliasing because lowering may have started before,
 but be careful not to output data possibly still referenced by user.
 """
 lower(::Model, ::Dispatcher, late_data) = late_data
-lower(m::Model, b::Blueprint, ld) = lower(m, dispatcher(b), ld)
+lower(md::Model, bp::Blueprint, ld) = lower(md, dispatcher(bp), ld)
 
 #-------------------------------------------------------------------------------------------
 # Expand.
 
 "Use `lower`ed data to finally expand into the desired component. Cannot fail."
-expand!(m::Model, d::Dispatcher, low) = unimplemented(expand!, m, d, low)
-expand!(m::Model, b::Blueprint, low) = expand!(m, dispatcher(b), low)
+expand!(md::Model, d::Dispatcher, low) = unimplemented(expand!, md, d, low)
+expand!(md::Model, bd::Blueprint, low) = expand!(md, dispatcher(bd), low)
 
 # ==========================================================================================
 # Query values.
 
 "Given a checked reference to inner model data, obtain a copy of it."
-obtain(m::Model, d::Dispatcher, mref) = unimplemented(obtain, m, d, mref)
+obtain(md::Model, d::Dispatcher, mref) = unimplemented(obtain, md, d, mref)
 
 # Redirect cartesian index like the underlying tuple.
-obtain(m::Model, d::Dispatcher, c::CartesianIndex) = obtain(m, d, Tuple(c))
+obtain(md::Model, d::Dispatcher, c::CartesianIndex) = obtain(md, d, Tuple(c))
 
 # ==========================================================================================
 # Mutate/Reassign.
@@ -155,23 +155,23 @@ obtain(m::Model, d::Dispatcher, c::CartesianIndex) = obtain(m, d, Tuple(c))
 Default lowering pipeline from raw input to the data to be modified.
 The query is assumed to have been checked.
 """
-function mut_lower(m::Model, d::Dispatcher, _mref, rhs)
+function mut_lower(md::Model, d::Dispatcher, _mref, rhs)
     T = D.type(d)
     conv = convert(T, d, rhs)
     early = early_check(d, conv)
-    late = late_check(m, d, early)
-    low = lower(m, d, late)
+    late = late_check(md, d, early)
+    low = lower(md, d, late)
     low
 end
 
 "Actually perform mutation, assuming checked model reference (query) and lowered data."
-mutate!(m::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, m, d, mref, low)
+mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mref, low)
 
 "Guarded entrypoint for the mutation pipeline."
-function mut_set!(m::Model, d::Dispatcher, query, rhs)
-    mref = Query.check(d, m, query)
+function mut_set!(md::Model, d::Dispatcher, query, rhs)
+    mref = Query.check(md, d, query)
     low = try
-        mut_lower(m, d, mref, rhs)
+        mut_lower(md, d, mref, rhs)
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
@@ -184,48 +184,48 @@ function mut_set!(m::Model, d::Dispatcher, query, rhs)
         end
         rethrow(MutationError(e))
     end
-    mutate!(m, d, mref, low)
+    mutate!(md, d, mref, low)
 end
 
 # ==========================================================================================
 "Register a given exotic blueprint into the above."
 function register_blueprint(
-    B::Type{<:Blueprint},
+    BP::Type{<:Blueprint},
     shortline::String;
     d = nothing,
     implied = (),
     depends = [],
 )
-    F.define_blueprint(B, shortline; depends)
+    F.define_blueprint(BP, shortline; depends)
     if !isempty(implied) > 0
         eval(quote
-            F.implied(::$B) = $implied
+            F.implied(::$BP) = $implied
         end)
         for i in implied
             I = typeof(i)
             eval(
                 quote
-                    F.implied_blueprint_for(b::$B, ::Type{$I}) =
+                    F.implied_blueprint_for(b::$BP, ::Type{$I}) =
                         NF.implied_class($d, $i, b)
                 end,
             )
         end
     end
     eval(quote
-        F.early_check(b::$B) = NF.bp_early_check(b)
-        F.late_check(m::Model, b::$B, data) = NF.bp_late_check(m, b, data)
-        F.expand!(m::Model, b::$B, data) = NF.expand!(m, b, data)
+        F.early_check(b::$BP) = NF.bp_early_check(b)
+        F.late_check(m::Model, b::$BP, data) = NF.bp_late_check(m, b, data)
+        F.expand!(m::Model, b::$BP, data) = NF.expand!(m, b, data)
     end)
     isnothing(d) && return
     eval(quote
-        NF.dispatcher(::Type{$B}) = $d
+        NF.dispatcher(::Type{$BP}) = $d
     end)
 end
 
 "Inject default constructor into a blueprint struct."
-macro bp_construct(B)
-    B, new = esc.((B, :new))
+macro bp_construct(BP)
+    BP, new = esc.((BP, :new))
     quote
-        $B(args...; kwargs...) = $new($NF.bp_construct($B, args...; kwargs...)...)
+        $BP(args...; kwargs...) = $new($NF.bp_construct($BP, args...; kwargs...)...)
     end
 end

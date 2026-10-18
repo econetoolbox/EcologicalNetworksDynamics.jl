@@ -5,7 +5,7 @@ using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
-    @viewfails, @immutfails, @propfails, addfails
+    @viewfails, @propfails, addfails, @immutfails
 using EcologicalNetworksDynamics.NetworkFramework: D, Network, Views
 using EcologicalNetworksDynamics.Framework: F, @PropertySpace
 using OrderedCollections
@@ -67,27 +67,29 @@ const Sp = @PropertySpace(species, Network)
 
     @bpfails(Species.Names(:a),
         Species.Names, :construct,
-        (nothing, :whole, :convert, Vector{Symbol}, :a, "Input is not iterable."))
+        (d, :a, :whole, nothing,
+            "Cannot convert to `$Vector{$Symbol}`:\nInput is not iterable."))
     @jl_basic_callfails(Species(:a)) # Preserve forward compatibility.
 
     @bpfails(Species([:a, :b, nothing]),
         Species.Names, :construct,
-        (nothing, 3, :convert, Symbol, nothing, "Conversion not implemented."))
-    @test_err(Species([:a, :b, nothing]), # First time with a 1D index.
+        (d, nothing, (3,), nothing,
+            "Cannot convert to `$Symbol`:\nConversion not implemented."))
+    @test_err(Species([:a, :b, nothing]), # First time with a 1D uref.
         """
         While constructing blueprint Species.Names:
-        In the provided value at [3]:
-        Cannot convert input to `$Symbol`:
+        In the provided input at [3]:
+        Cannot convert to `$Symbol`:
         Conversion not implemented.
-        Received: nothing ::$Nothing\
+        Received: nothing  ::$Nothing\
         """)
 
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
 
-    @bpfails(Species([:a, :b, :b]),
+    @bpfails(Species([:a, :b, 'b']), # TODO: confusingly reports `Received: :b`.. fix?
         Species.Names, :construct,
-        (nothing, 3, :check, :b, "Species 2 and 3 would both be named :b."))
+        (d, :b, (3,), nothing, "Species 2 and 3 would both be named :b."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -97,7 +99,7 @@ const Sp = @PropertySpace(species, Network)
     # .. but then expansion fails.
     addfails.@check(Model(bp), [],
         (Species.Names, :early,
-            (nothing, 3, :check, :x, "Species 2 and 3 would both be named :x.")))
+            (d, :x, (3,), nothing, "Species 2 and 3 would both be named :x.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -127,14 +129,13 @@ const Sp = @PropertySpace(species, Network)
     # Intrinsic check.
     @bpfails(Species(-1),
         Species.Number, :construct,
-        (nothing, :whole, :check, -1,
-            "Cannot construct a negative number of species nodes."))
+        (d, -1, :whole, nothing, "Cannot construct a negative number of species nodes."))
 
     # Early check.
     bp.n = -3
     addfails.@check(Model(bp), [],
         (Species.Number, :early,
-            (nothing, :whole, :check, -3,
+            (d, -3, :whole, nothing,
                 "Cannot construct a negative number of species nodes.")))
 
     # Expand.
@@ -221,25 +222,43 @@ end
     @test v[(end-1):end] == [:b, :c]
     @test v[[false, true, false]] == v[[0, 1, 0]] == [:b]
 
-    @viewfails(v[], View, "Node-level data has 1 dimension, received 0")
-    @viewfails(v[1, 2], View, "Node-level data has 1 dimension, received 2")
-    @viewfails(v[1, 2, 3], View, "Node-level data has 1 dimension, received 3")
-    @viewfails(v[true], View, "Views are queried with indices [::Int] or labels [::Symbol]")
-    @viewfails(v[(1,)], View, "Cannot index into views with explicit tuples")
-    @viewfails(v[0x8000000000000000], View,
-        "Index too large to be used with julia arrays (9223372036854775808)")
-    @viewfails(v[-5], View, "Integer node references can only be positive")
-    @viewfails(v[[0, 1, 2]], View,
-        "Could not interpret as a boolean mask (not only 1's and 0's?)")
-    @viewfails(v[5], View, "This class only contains 3 nodes")
-    @viewfails(v[:x], View, "No node in this class is labeled :x")
+    @viewfails(
+        v[],
+        (d, (), :whole, nothing, "Node-level data has 1 dimension, received 0.")
+    )
+    @viewfails(v[1, 2],
+        (d, (1, 2), :whole, nothing, "Node-level data has 1 dimension, received 2."))
+    @viewfails(v[1, 2, 3],
+        (d, (1, 2, 3), :whole, nothing, "Node-level data has 1 dimension, received 3."))
+    @viewfails(v[true],
+        (d, true, :whole, nothing,
+            "Views are queried with indices [::Int] or labels [::Symbol]."))
+    @viewfails(v[(1,)],
+        (d, "Cannot index into views with explicit tuples."))
 
-    @viewfails(v[end+1], View, "This class only contains 3 nodes")
-    @viewfails(v[(end-1):(end+1)], View, "This class only contains 3 nodes")
-    @viewfails(v[[0, 1]], View,
-        "The given mask is of size 2 but there are 3 nodes in the class")
-    @viewfails(Model(Species(1)).species.names[[0, 1]], View,
-        "The given mask is of size 2 but there is 1 node in the class")
+    @viewfails(v[0x8000000000000000],
+        (d, "Index too large to be used with julia arrays (9223372036854775808)."))
+    @viewfails(v[-5],
+        (d, "Integer node references can only be positive."))
+
+    @viewfails(v[[0, 1, 2]],
+        (d, "Could not interpret as a boolean mask (not only 1's and 0's?)."))
+    @viewfails(v[5],
+        (d, "This class only contains 3 nodes."))
+    @viewfails(v[:x],
+        (d, "No node in this class is labeled :x."))
+
+    @viewfails(v[end+1],
+        (d, "This class only contains 3 nodes."))
+    @viewfails(v[(end-1):(end+1)],
+        (d, "This class only contains 3 nodes."))
+
+    @viewfails(v[[0, 1]],
+        (d, "The given mask is of size 2 but there are 3 nodes in the class."))
+
+    @viewfails(
+        Model(Species(1)).species.names[[0, 1]],
+        (d, "The given mask is of size 2 but there is 1 node in the class."))
 
     # Possibly large query display.
     @test_err(v[true, 2],

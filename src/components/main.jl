@@ -19,7 +19,7 @@
 include("./temperature.jl")
 
 # First example of a nodes class.
-#  include("./species.jl")
+include("./species.jl")
 
 # First example of an edges web.
 #  include("./foodweb.jl")

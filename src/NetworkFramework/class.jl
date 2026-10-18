@@ -57,35 +57,35 @@ function define_class_component(mod::Module, d::D.Class)
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
-    c = NF.eval(
+    cp = NF.eval(
         quote
             define_component($(Meta.quot(Plural)), $mod; blueprints = ($bpmod,))
         end,
     )
-    C = typeof(c)
+    CP = typeof(cp)
 
     # Dispatch to correct constructor depending on input given to direct call on component.
     NF.eval(quote
-        D.component(::$_D) = $c
-        (::$C)(n::Integer) = $c.Number(n)
-        (::$C)(names::AbstractVector) = $c.Names(names)
-        (::$C)(names::String) = $c.Names(names)
+        D.component(::$_D) = $cp
+        (::$CP)(n::Integer) = $cp.Number(n)
+        (::$CP)(names::AbstractVector) = $cp.Names(names)
+        (::$CP)(names::String) = $cp.Names(names)
     end)
 
     # Display.
     NF.eval(quote
-        F.shortline(io::IO, model::Model, ::$C) = class_shortline($d, io, model)
+        F.shortline(io::IO, model::Model, ::$CP) = class_shortline($d, io, model)
     end)
 
-    define_class_properties(mod, d; depends = (C,))
+    define_class_properties(mod, d; depends = (CP,))
 
-    (c, C)
+    (cp, CP)
 end
 
 # ==========================================================================================
 
 function define_class_properties(mod::Module, d::D.Class; depends = ())
-    cl = D.class(d)
+    c = D.class(d)
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
 
     NF.define_propspace(plural)
@@ -101,24 +101,24 @@ function define_class_properties(mod::Module, d::D.Class; depends = ())
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework: N, V, D, Network, Model
                 using OrderedCollections
-                const defmeth, d, cl = $defmeth, $d, $(Meta.quot(cl))
+                const defmeth, d, c = $defmeth, $d, $(Meta.quot(c))
 
                 # Ordered index.
-                ref_index(n::Network) = N.class(n, cl).index
-                get_index(n::Network) = deepcopy(ref_index(n).forward)
-                indices(n::Network) = N.node_indices(n, cl)
+                ref_index(nw::Network) = N.class(nw, c).index
+                get_index(nw::Network) = deepcopy(ref_index(nw).forward)
+                indices(nw::Network) = N.node_indices(nw, c)
 
                 # Nodes counts and nodes labels.
                 # The 'ref' variant is more efficient but unexposed.
-                get_number(n::Network) = N.n_nodes(n, cl)
-                ref_names(n::Network) = ref_index(n).reverse
-                get_names(::Network, m::Model) = V.names_view(d, m)
+                get_number(nw::Network) = N.n_nodes(nw, c)
+                ref_names(nw::Network) = ref_index(nw).reverse
+                get_names(::Network, md::Model) = V.names_view(d, md)
 
                 # Mask within parent class.
-                get_parent_index(n::Network) =
-                    OrderedDict(l => i for (l, i) in zip(ref_names(n), indices(n)))
-                mask(n::Network, m::Model) =
-                    V.mask_view(D.Subclass(cl, N.class(n, cl).parent)[1], m)
+                get_parent_index(nw::Network) =
+                    OrderedDict(l => i for (l, i) in zip(ref_names(nw), indices(nw)))
+                mask(nw::Network, md::Model) =
+                    V.mask_view(D.Subclass(c, N.class(nw, c).parent)[1], md)
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)
@@ -139,15 +139,15 @@ end
 
 datatype(::Type{<:ClassNames}) = Vector{Symbol}
 datatype(::Type{<:ClassNumber}) = Int
-data(b::ClassNames) = b.names
-data(b::ClassNumber) = b.n
+data(bp::ClassNames) = bp.names
+data(bp::ClassNumber) = bp.n
 
 #-------------------------------------------------------------------------------------------
 # Construct.
 
 # Allow passing names as separate arguments.
-construct(B::Type{<:ClassNames}, first, second, rest...) =
-    @invoke construct(B::Type{<:Blueprint}, (first, second, rest...))
+construct(BP::Type{<:ClassNames}, first, second, rest...) =
+    @invoke construct(BP::Type{<:Blueprint}, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
 # Intrinsic check.
@@ -159,7 +159,9 @@ function intrinsic_check(d::D.Class, names::Vector{Symbol})
         if haskey(already, name)
             Class = D.CamelCaseSingular(d)
             j = already[name]
-            checkerr(i, name, "$Class $j and $i would both be named $(repr(name)).")
+            checkerr(name,
+                "$Class $j and $i would both be named $cyan$(repr(name))$reset.";
+                uref = (i,))
         end
         already[name] = i
     end
@@ -177,18 +179,18 @@ end
 # Expand.
 
 # From names.
-function expand!(m::Model, d::D.Class, names)
-    class = d |> D.class
-    network = N.network(m)
-    N.add_class!(network, class, names)
+function expand!(md::Model, d::D.Class, names)
+    c = D.class(d)
+    nw = N.network(md)
+    N.add_class!(nw, c, names)
 end
 
 # From number (generate names).
-function expand!(m::Model, b::ClassNumber, n)
+function expand!(md::Model, b::ClassNumber, n)
     d = dispatcher(b)
     prefix = D.short_prefix(d)
     names = (Symbol(prefix, i) for i in 1:n)
-    expand!(m, d, names)
+    expand!(md, d, names)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -208,11 +210,11 @@ obtain(v::V.NodeView, m::SparseVector{Bool}) =
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function class_shortline(d::D.Class, io::IO, m::Model)
+function class_shortline(d::D.Class, io::IO, md::Model)
     cc, fc, rs = F.component_color, F.field_color, reset
     class = D.snake_case_plural(d)
     Class = D.CamelCaseSingular(d)
-    names = getproperty(m, class)._names
+    names = getproperty(md, class)._names
     n = length(names)
     names = join_elided(I.map(n -> "$green$(repr(n))$reset", names), ", "; repr = false)
     print(io, "$cc$Class$rs: $fc$n$rs ($names)")
