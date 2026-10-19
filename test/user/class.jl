@@ -6,9 +6,10 @@ using EcologicalNetworksDynamics
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
     @viewfails, @propfails, addfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework: D, Network, Views
+using EcologicalNetworksDynamics.NetworkFramework: D, NF, Network, Views
 using EcologicalNetworksDynamics.Framework: F, @PropertySpace
 using OrderedCollections
+using SparseArrays
 using Test
 
 # The data kind, view type and property spaces tested here.
@@ -222,6 +223,8 @@ end
     @test v[(end-1):end] == [:b, :c]
     @test v[[false, true, false]] == v[[0, 1, 0]] == [:b]
 
+    # TODO: either the reports tested here provide too much information (to be tested)
+    # or that information should be better exploited to produce better report.
     @viewfails(
         v[],
         (d, (), :whole, nothing, "Node-level data has 1 dimension, received 0.")
@@ -231,53 +234,67 @@ end
     @viewfails(v[1, 2, 3],
         (d, (1, 2, 3), :whole, nothing, "Node-level data has 1 dimension, received 3."))
     @viewfails(v[true],
-        (d, true, :whole, nothing,
-            "Views are queried with indices [::Int] or labels [::Symbol]."))
-    @viewfails(v[(1,)],
-        (d, "Cannot index into views with explicit tuples."))
-
+        (d, true, (1,), nothing,
+            "Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`."))
+    @viewfails(v[(3,)],
+        (d, (3,), (1,), nothing, "Cannot index into views with explicit tuples."))
     @viewfails(v[0x8000000000000000],
-        (d, "Index too large to be used with julia arrays (9223372036854775808)."))
+        (d, 0x8000000000000000, (1,), nothing,
+            "Index too large to be used with julia arrays (9223372036854775808)."))
     @viewfails(v[-5],
-        (d, "Integer node references can only be positive."))
-
-    @viewfails(v[[0, 1, 2]],
-        (d, "Could not interpret as a boolean mask (not only 1's and 0's?)."))
+        (d, -5, (1,), nothing, "Integer node references can only be positive."))
+    @viewfails(v[[0, 1, 2]], # TODO: avoid bubbling up this *textual* way?
+        (d, 2, (1, (3,)), nothing,
+            """
+            Could not interpret as a boolean mask:
+            Cannot convert to `$(NF.SparseVector){$Bool, $Int}`:
+            (detail down the stacktrace)\
+            """,
+        ))
     @viewfails(v[5],
-        (d, "This class only contains 3 nodes."))
+        (d, 5, (1,), nothing, "This class only contains 3 nodes."))
     @viewfails(v[:x],
-        (d, "No node in this class is labeled :x."))
+        (d, :x, (1,), nothing, "No node in this class is labeled :x."))
 
     @viewfails(v[end+1],
-        (d, "This class only contains 3 nodes."))
+        (d, 4, (1,), nothing, "This class only contains 3 nodes."))
     @viewfails(v[(end-1):(end+1)],
-        (d, "This class only contains 3 nodes."))
-
+        (d, 4, (1,), nothing, "This class only contains 3 nodes."))
     @viewfails(v[[0, 1]],
-        (d, "The given mask is of size 2 but there are 3 nodes in the class."))
+        (d, sparse(Bool[0, 1]), (1,), nothing,
+            "The given mask is of size 2 but there are 3 nodes in the class."))
 
-    @viewfails(
-        Model(Species(1)).species.names[[0, 1]],
-        (d, "The given mask is of size 2 but there is 1 node in the class."))
-
-    # Possibly large query display.
-    @test_err(v[true, 2],
-        """
-        View error (nodes names):
-        Node-level data has 1 dimension, received 2:
-        Cannot index into <species> with: [
-          true ::$Bool,
-          2 ::$Int,
-        ]\
-        """
-    )
+    @viewfails(Model(Species(1)).species.names[[0, 1]],
+        (d, sparse(Bool[0, 1]), (1,), nothing,
+            "The given mask is of size 2 but there is 1 node in the class."))
 
     # Short query display.
     @test_err(v[:x],
         """
-        View error (nodes names):
-        Cannot index with [:x] into <species>:
+        Cannot index into <species> with [:x]:
         No node in this class is labeled :x.\
+        """)
+
+    # Large query display.
+    @test_err(v[true, collect(1:5)],
+        """
+        Node-level data has 1 dimension, received 2.
+        Cannot index into <species> with: [
+          true  ::Bool,
+          [1, 2, 3, 4, 5]  ::$Vector{$Int},
+        ]\
+        """
+    )
+
+    # Large dimension display.
+    @test_err(v[true, collect(1:20)],
+        """
+        Node-level data has 1 dimension, received 2.
+        Cannot index into <species> with: [
+          true  ::Bool,
+          20-element $Vector{$Int}:\n$(join(map(i -> lpad(i, 3), 1:20),"\n"))  \
+            ::$Vector{$Int},
+        ]\
         """
     )
 

@@ -85,11 +85,39 @@ print_mref(io::IO, ((i, a), (j, b))::Tuple{MRef,MRef}) =
 #-------------------------------------------------------------------------------------------
 # Display.
 
-Base.showerror(io::IO, e::CheckError) = render(io, e)
-function render(io::IO, e::CheckError; what = "input", display_input = true)
+function Base.showerror(io::IO, e::CheckError)
     (; mess, value, d, uref, mref) = e
-    whole_input = uref === WholeData
-    irrelevant_mref = if isnothing(mref)
+    Inthat = "In the provided input"
+    openline = if uref == WholeData
+        if !isnothing(d)
+            print(io, "$Inthat for $d")
+            true
+        else
+            false
+        end
+    else
+        print(io, "$Inthat at ")
+        print_uref(io, uref)
+        true
+    end
+    if irrelevant_mref(mref, uref)
+        if openline
+            println(io, ":")
+        end
+    else
+        if !openline
+            print(io, Inthat)
+        end
+        mv = modelvalue(d, mref)
+        println(io, " referring to inner $mv:")
+    end
+    println(io, mess)
+    render_input(io, value)
+end
+
+"True if printing `mref` does not bring more information w.r.t `uref`."
+irrelevant_mref(mref, uref) =
+    if isnothing(mref)
         true
     elseif uref === WholeData
         mref === WholeData
@@ -100,35 +128,6 @@ function render(io::IO, e::CheckError; what = "input", display_input = true)
     else
         true
     end
-    openline = if whole_input
-        if !isnothing(d)
-            print(io, "In the provided $what for $d")
-            true
-        else
-            false
-        end
-    else
-        print(io, "In the provided $what at ")
-        print_uref(io, uref)
-        true
-    end
-    if irrelevant_mref
-        if openline
-            println(io, ":")
-        end
-    else
-        if !openline
-            print(io, "In the provided $what")
-        end
-        mv = modelvalue(d, mref)
-        println(io, " referring to inner $mv:")
-    end
-    print(io, mess)
-    if display_input
-        println(io)
-        render_input(io, value)
-    end
-end
 
 modelvalue(d::D.GraphField, ::_WholeData) = "model $d value"
 modelvalue(d::D.Class, mref) = "model $d name for node " * print_mref(mref)

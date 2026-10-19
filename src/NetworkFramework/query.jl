@@ -3,8 +3,8 @@ module Query
 
 using EcologicalNetworksDynamics.NetworkFramework:
     I, D, N, NF, Dispatcher, dispatcher, CheckError, checkerr, SparseMatrix, SparseVector,
-    Ref, WholeData, _WholeData, Model
-using EcologicalNetworksDynamics.Display: join_elided, render_input, ns
+    Ref, WholeData, _WholeData, Model, LibError
+using EcologicalNetworksDynamics.Display: join_elided, render_input, ns, cyan, reset
 
 using SparseArrays
 
@@ -28,17 +28,22 @@ end
 
 dim_check(d::D.NodeLevel, q::Tuple) = tuplerr(d, q)
 dim_check(d::D.EdgeLevel, q::Tuple) = tuplerr(d, q)
-tuplerr(d, q) = checkerr(q, false, "Cannot index into views with explicit tuples."; d)
+tuplerr(d, q) = checkerr(q,
+    "Cannot index into views with explicit tuples.";
+    d, uref = dimuref(1, WholeData))
 
 # ==========================================================================================
 # Check query type.
 
 # Then dispatch to per-dimension checking.
-type_check(d::Dispatcher, q::Tuple) = type_check.((d,), q, I.map(i -> (i,), 1:length(q)))
+type_check(d::Dispatcher, q::Tuple) = Tuple(dimguard(i) do
+    type_check(d, q)
+end for (i, q) in enumerate(q))
+
 type_check(::Dispatcher, q::Union{Ref,UnitRange,CartesianIndex,Colon}) = q
-type_check(d::Dispatcher, q, uref = WholeData) =
+type_check(d::Dispatcher, q) =
     checkerr(q, "Views are queried with indices [::Int] or labels [::Symbol], \
-                 not `$(typeof(q))`."; d, uref)
+                 not `$(typeof(q))`."; d)
 
 # Allow for a few implicit conversions.
 type_check(::Dispatcher, q::Union{Char,AbstractString}) = Symbol(q)
@@ -52,29 +57,14 @@ type_check(d::Dispatcher, q::Unsigned) =
 
 type_check(d::Dispatcher, q::AbstractArray{<:Integer}) =
     try
-        to_mask(q)
+        NF.convert(SparseVector{Bool}, q)
     catch e
-        e isa InexactError || rethrow(e)
-        checkerr(q,
-            "Could not interpret as a boolean mask (not only 1's and 0's?).",
-            rethrow; d)
+        e isa LibError || rethrow(e)
+        e = CheckError(e)
+        e.d = d
+        e.mess = "Could not interpret as a boolean mask:\n" * e.mess
+        rethrow(e)
     end
-
-function to_mask(q::Union{AbstractArray,BitArray})
-    res = spzeros(Bool, size(q))
-    for (i, r) in enumerate(q)
-        res[i] = Bool(r)
-    end
-    res
-end
-
-function to_mask(q::AbstractSparseArray)
-    res = spzeros(Bool, size(q))
-    for (i, j, r) in zip(findnz(q)...)
-        res[i, j] = Bool(r)
-    end
-    res
-end
 
 # ==========================================================================================
 # Check intrinsic query value, per dimension.
@@ -82,9 +72,13 @@ end
 early_check(::Dispatcher, q, _) = q
 
 # Then dispatch to per-dimension checking.
-early_check(d::D.NodeLevel, (i,)::Tuple) = (early_check(d, i, Val(N.class)),)
-early_check(d::D.EdgeLevel, (i, j)::Tuple) =
-    early_check.((d,), (i, j), Val.((N.source, N.target)))
+early_check(d::D.NodeLevel, (i,)::Tuple) = dimguard(1) do
+    (early_check(d, i, Val(N.class)),)
+end
+early_check(d::D.EdgeLevel, (i, j)::Tuple) = Tuple(
+    dimguard(dim) do
+        early_check(d, i, Val(class))
+    end for (dim, (i, class)) in enumerate(zip((i, j), (N.source, N.target))))
 
 function early_check(d::Dispatcher, i::Int, _)
     i > 0 && return i
@@ -107,13 +101,18 @@ end
 # ==========================================================================================
 # Check query against the model.
 
-late_check(md::Model, d::D.NodeLevel, (i,)::Tuple) = (late_check(md, d, i, Val(N.class)),)
-late_check(md::Model, d::D.Subclass, (i,)::Tuple) = (late_check(md, d, i, Val(N.parent)),)
-
-function late_check(md::Model, d::D.EdgeLevel, (i, j)::Tuple)
-    late_check.((md,), (d,), (i, j), Val.((N.source, N.target)))
-    check_edge(md, d, (i, j)) # TODO
+late_check(md::Model, d::D.NodeLevel, (dim,)::Tuple) = dimguard(1) do
+    (late_check(md, d, dim, Val(N.class)),)
 end
+late_check(md::Model, d::D.Subclass, (dim,)::Tuple) = dimguard(1) do
+    (late_check(md, d, dim, Val(N.parent)),)
+end
+
+late_check(md::Model, d::D.EdgeLevel, (i, j)::Tuple) = Tuple(
+    dimguard(dim) do
+        late_check(md, d, i, Val(class))
+        check_edge(md, d, i)
+    end for (dim, (i, class)) in enumerate(zip((i, j), (N.source, N.target))))
 
 function late_check(md::Model, d::Dispatcher, r::Ref, c::Val{class}) where class
     early_check(d, r, c)
@@ -226,6 +225,16 @@ function check(md::Model, d::D.Web, (q,)::Tuple{Any})
         rethrow(Query.Error(q, e))
     end
 end
+dimuref(n, uref) = (n, uref)
+dimuref(n, ::_WholeData) = (n,)
+dimguard(fn::Function, dim::Int) =
+    try
+        fn()
+    catch e
+        e isa CheckError || rethrow(e)
+        e.uref = dimuref(dim, e.uref)
+        rethrow(e)
+    end
 
 # Trivial, internal query analysis, invoked on 'reassign'.
 check(::Model, ::Dispatcher, w::_WholeData) = w
@@ -242,27 +251,71 @@ end
 
 function Base.showerror(io::IO, e::Error)
     (; query, src) = e
-    report() = NF.render(io, src; what = "query", display_input = false)
+    (; mess, value, d, uref, mref) = src
+    function report() # Return true if value was displayed.
+        openline = if uref === WholeData
+            false
+        else
+            if irrelevant_uref(query, uref)
+                false
+            else
+                # Uref is always expected to at least start with the index dimension here.
+                dim, rest = uref
+                opendim = if !(query isa Tuple{Any})
+                    print(io, "On dimension $dim")
+                    true
+                else
+                    false
+                end
+                if !isempty(rest)
+                    if opendim
+                        print(io, ", in element ")
+                    else
+                        print(io, "In element ")
+                    end
+                    NF.print_uref(io, rest)
+                    print(io, " within the index")
+                end
+                true
+            end
+        end
+        if NF.irrelevant_mref(mref, uref)
+            if openline
+                println(io, ":")
+            end
+        else
+            mv = NF.modelvalue(d, mref)
+            println(io, " referring to inner $mv:")
+        end
+        print(io, mess)
+        if !irrelevant_uref(query, uref)
+            println(io)
+            render_input(io, value)
+            true
+        else
+            false
+        end
+    end
     # Report either before or after depending on the query size.
+    Cantwith = "Cannot index into $d with"
     if length(repr(query)) <= 20
         # Easier to understand before..
         q = "[" * join_elided(query, ", ") * "]"
-        println(io, "Cannot index with $q:")
+        println(io, "$Cantwith $q:")
         report()
     else
         # .. unless the query would flood the report.
-        report()
-        if src.value != query
-            println(io, "Cannot index with: [")
+        if !report()
+            println(io, "\n$Cantwith: [")
             for q in query
                 render_input(
                     io,
                     q,
-                    (short, Q) -> "  $short ::$Q,\n",
+                    (short, Q) -> "  $cyan$short$reset  ::$Q,\n",
                     (long, Q) -> begin
-                        print(io, "  ")
+                        print(io, "  $cyan")
                         long()
-                        print(io, "  ::$Q,\n")
+                        print(io, "$reset  ::$Q,\n")
                     end,
                 )
             end
@@ -270,5 +323,12 @@ function Base.showerror(io::IO, e::Error)
         print(io, "]")
     end
 end
+
+"""
+Raise if locating problematic input within the index is trivial,
+resulting in the report being too noisy.
+"""
+irrelevant_uref(query, uref) =
+    uref isa _WholeData || query isa Tuple{Any} && uref == (1,)
 
 end
