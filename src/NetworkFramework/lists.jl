@@ -141,7 +141,7 @@ print_uref(io::IO, path::Path) = print(io, "[$(join(path, "]["))]")
 Tag thrown exceptions with a symbol
 to decide which to report in case of multiple 'forgiveness'es.
 """
-struct ListError <: Exception
+struct ListError <: LibError
     tag::Symbol
     value::Any
     path::Path

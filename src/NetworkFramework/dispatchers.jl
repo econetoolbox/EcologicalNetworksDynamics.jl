@@ -320,8 +320,12 @@ level(::EdgeLevel) = "edge"
 N.class(md::Model, d::NodeLevel) = N.class(N.network(md), class(d))
 N.parent(md::Model, d::Subclass) = N.parent(N.network(md), class(d))
 N.web(md::Model, d::Web) = N.web(N.network(md), web(d))
+N.sides(md::Model, d::Web) = N.sides(N.network(md), web(d))
+N.source(md::Model, d::Web) = N.source(N.network(md), web(d))
+N.target(md::Model, d::Web) = N.target(N.network(md), web(d))
 N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
 N.entry(md::Model, d::NodeField) = N.class(d, md).data[field(d)]
 N.entry(md::Model, d::EdgeField) = N.web(d, md).data[field(d)]
+
 
 end

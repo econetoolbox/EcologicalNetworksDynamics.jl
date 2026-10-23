@@ -178,7 +178,7 @@ const V = Views
 # so gather default implementation for typical ones.
 include("./graph_field.jl")
 include("./class.jl")
-#  include("./web.jl")
+include("./web.jl")
 #  include("./node_field.jl")
 #  include("./subnode_field.jl")
 #  include("./edge_field.jl")

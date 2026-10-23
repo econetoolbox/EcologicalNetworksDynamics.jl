@@ -130,8 +130,8 @@ end
 const l, _L = D.NodeField(:species, :trophic_level)
 D.type(::_L) = Float64
 D.readonly(::_L) = true
-level(::Network, m::Model) = V.data_view(l, m)
-level_entry(n::Network) = N.class(n, :species).data[:trophic_level]
+level(::Network, md::Model) = V.data_view(l, md)
+level_entry(nw::Network) = N.class(nw, :species).data[:trophic_level]
 NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
 NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])
 

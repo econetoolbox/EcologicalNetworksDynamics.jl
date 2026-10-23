@@ -117,6 +117,9 @@ bp_late_check(md::Model, bp::Blueprint, low) =
     catch e
         e isa CheckError || rethrow(e)
         B = typeof(bp)
+        if isnothing(e.d)
+            e.d = dispatcher(bp)
+        end
         rethrow(BlueprintError(B, :late, e))
     end
 

@@ -72,14 +72,16 @@ const View = Views.EdgeMaskView{d}
 
     @bpfails(Foodweb.Matrix(:a),
         Foodweb.Matrix, :construct,
-        (nothing, :whole, :convert, SparseMatrix{Bool}, :a, "Conversion not implemented."))
+        (d, :a, :whole, nothing,
+            "Cannot convert to `$(NF.SparseMatrix{Bool})`:\n\
+             Conversion not implemented."))
 
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
 
     @bpfails(Foodweb(zeros(Bool, 2, 3)),
         Foodweb.Matrix, :construct,
-        (nothing, :whole, :check, spzeros(Bool, (2, 3)),
+        (d, spzeros(Bool, 2, 3), :whole, nothing,
             "The adjacency matrix of size (3, 2) is not squared."))
 
     #---------------------------------------------------------------------------------------
@@ -88,14 +90,15 @@ const View = Views.EdgeMaskView{d}
     m = Model(Species(3))
     addfails.@check(m + Foodweb(zeros(Bool, 2, 2)), [],
         (Foodweb.Matrix, :late,
-            (:whole, :whole, :check, spzeros(Bool, 2, 2),
+            (d, spzeros(Bool, 2, 2), :whole, nothing,
                 "There are 3 :species nodes but the provided matrix is of size (2, 2).")))
     @test_err(m + Foodweb(zeros(Bool, 2, 2)), # First time with a :late error.
         """
         Blueprint cannot expand against current system value:
         While verifying blueprint against model:
+        In the provided input for <trophic>:
         There are 3 :species nodes but the provided matrix is of size (2, 2).
-        Received: sparse(Int64[], Int64[], Bool[], 2, 2) ::$(SparseMatrix{Bool})
+        Received: sparse(Int64[], Int64[], Bool[], 2, 2)  ::$(SparseMatrix{Bool})
         Not all blueprints have been expanded.
         This means that the system consistency is still guaranteed, \
         but some components have not been added.
@@ -167,27 +170,39 @@ const View = Views.EdgeMaskView{d}
     # All list parsing errors are reported here.
     @bpfails(Foodweb.Adjacency(:a),
         Foodweb.Adjacency, :construct,
-        (nothing, :whole, :list,
-            "Input for binary adjacency map needs to be iterable.\n\
-             Received: :a  ::$Symbol."))
+        (d, :a, :whole, nothing,
+            "Input for binary adjacency map needs to be iterable."))
     @test_err(Foodweb.Adjacency(:a), # First test with :list.
         """
         While constructing blueprint Foodweb.Adjacency:
+        In the provided input for <trophic>:
         Input for binary adjacency map needs to be iterable.
-        Received: :a  ::Symbol.\
-        """
-    )
+        Received: :a  ::Symbol\
+        """)
 
     #---------------------------------------------------------------------------------------
     # Late check.
 
     addfails.@check(Model(Species("axy"), Foodweb(A)), [],
         (Foodweb.Adjacency, :late,
-            (:whole, :whole, :check, :b, "Not a target label among :species.")))
+            (d, :b, [1, :right, 1], nothing, "Not a target label among :species.")))
     addfails.@check(Model(Species("xyz"), Foodweb(Ai)), [],
         (Foodweb.Adjacency, :late,
-            (:whole, :whole, :check, 6, "Not a valid source :species index among 3 nodes."),
+            (d, 6, [1, :left], nothing, "Not a valid source :species index among 3 nodes."),
         ))
+
+    @test_err(Model(Species("axy"), Foodweb(A)), # First time with path-within-list.
+        """
+        Blueprint cannot expand against current system value:
+        While verifying blueprint against model:
+        In the provided input at [1][right][1]:
+        Not a target label among :species.
+        Received: :b  ::Symbol
+        Not all blueprints have been expanded.
+        This means that the system consistency is still guaranteed, \
+        but some components have not been added.
+        in Foodweb.Adjacency\
+        """)
 
     #---------------------------------------------------------------------------------------
     # Expand, implying underlying class.
@@ -211,7 +226,7 @@ const View = Views.EdgeMaskView{d}
     # Generic construct failure.
 
     input = [1 => 2 0 1]
-    @checkfails(Foodweb(input), input,
+    @checkfails(Foodweb(input), d, input, :whole, nothing,
         """
         Cannot convert input to either:
           - $(SparseMatrix{Bool})
@@ -387,27 +402,58 @@ end
     @test v[k] isa SparseVector{Bool}
     @test v[k] == v[sparse(k)] == v[Bool.(k)] == [1, 0, 1, 0, 1, 0, 1, 0]
 
-    @viewfails(v[], View, "Edge-level data has 2 dimensions, received 0")
-    @viewfails(v[1], View, "Edge-level data has 2 dimensions, received 1")
-    @viewfails(v[1, 2, 3], View, "Edge-level data has 2 dimensions, received 3")
-    @viewfails(v[true, false], View,
-        "Views are queried with indices [::Int] or labels [::Symbol]")
-    @viewfails(v[(1, 2)], View, "Cannot index into views with explicit tuples")
-    @viewfails(v[0x8000000000000000, 2], View,
-        "Index too large to be used with julia arrays (9223372036854775808)")
-    @viewfails(v[-5, 2], View, "Integer node references can only be positive")
-    @viewfails(v[[0; 1;; 2; 3]], View,
-        "Could not interpret as a boolean mask (not only 1's and 0's?)")
-    @viewfails(v[6, 7], View, "The source class (:species) only contains 5 nodes")
-    @viewfails(v[5, 7], View, "The target class (:species) only contains 5 nodes")
-    @viewfails(v[:x, 3], View, "No node in the source class (:species) is labeled :x")
-    @viewfails(v[3, :y], View, "No node in the target class (:species) is labeled :y")
+    @viewfails(v[],
+        (d, (), :whole, nothing, "Edge-level data has 2 dimensions, received 0."))
+    @viewfails(v[1],
+        (d, (1,), :whole, nothing, "Edge-level data has 2 dimensions, received 1."))
+    @viewfails(v[1, 2, 3],
+        (d, (1, 2, 3), :whole, nothing, "Edge-level data has 2 dimensions, received 3."))
+    @viewfails(v[true, false],
+        (d, true, (1,), nothing,
+            "Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`."))
+    @viewfails(v[(1, 2)],
+        (d, (1, 2), (1,), nothing, "Cannot index into views with explicit tuples."))
+    @viewfails(v[0x8000000000000000, 2],
+        (d, 0x8000000000000000, (1,), nothing,
+            "Index too large to be used with julia arrays (9223372036854775808)."))
+    @viewfails(v[-5, 2],
+        (d, -5, (1,), nothing, "Integer node references can only be positive."))
+    @viewfails(v[[0 1; 2 3]],
+        (d, 2, (1, (2, 1)), nothing,
+            "Could not interpret as a boolean mask:\n\
+             Cannot convert to `$(SparseMatrix{Bool})`:\n\
+             (detail down the stacktrace)"))
+    @viewfails(v[6, 7],
+        (d, 6, (1,), nothing, "The source class (:species) only contains 5 nodes."))
+    @viewfails(v[5, 7],
+        (d, 7, (2,), nothing, "The target class (:species) only contains 5 nodes."))
+    @viewfails(v[:x, 3],
+        (d, :x, (1,), nothing, "No node in the source class (:species) is labeled :x."))
+    @viewfails(v[3, :y],
+        (d, :y, (2,), nothing, "No node in the target class (:species) is labeled :y."))
+    @viewfails(v[end+1, 2],
+        (d, 6, (1,), nothing, "The source class (:species) only contains 5 nodes."))
+    @viewfails(v[2, (end-1):(end+1)],
+        (d, 6, (2,), nothing, "The target class (:species) only contains 5 nodes."))
+    @viewfails(v[[0 1 0]],
+        (d, sparse(Bool[0 1 0]), (1,), nothing,
+            "There are (5, 5) potential edges but the given mask is of size (1, 3)."))
 
-    @viewfails(v[end+1, 2], View, "The source class (:species) only contains 5 nodes")
-    @viewfails(v[2, (end-1):(end+1)], View,
-        "The target class (:species) only contains 5 nodes")
-    @viewfails(v[[0 1 0]], View,
-        "There are (5, 5) potential edges but the given mask is of size (1, 3).")
+    # Multi-dim.
+    @test_err(v[2, false],
+        """
+        Cannot index into <trophic> with [2, false]:
+        On dimension 2:
+        Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`.
+        Received: false  ::$Bool\
+        """)
+    @test_err(v[[0 1 0]],
+        """
+        There are (5, 5) potential edges but the given mask is of size (1, 3).
+        Cannot index into <trophic> with: [
+          (sparse([1], [2], Bool[1], 1, 3),)  ::$Tuple{$(SparseMatrix{Bool})},
+        ]\
+        """)
 
     # Immutable, prior to any indexing guard.
     @immutfails((v[1, 1] = true), View)

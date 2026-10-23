@@ -137,7 +137,7 @@ end
 # Exposed library errors.
 
 "Test report ref values, using `:whole` to expect `$(NF.WholeData)`."
-compare_refs(exp, act) = FieldsCompare.default(exp, act)
+compare_refs(exp, act) = FieldsCompare.value(exp, act)
 compare_refs(exp::Symbol, ::NF._WholeData) =
     if exp == :whole
         @test true

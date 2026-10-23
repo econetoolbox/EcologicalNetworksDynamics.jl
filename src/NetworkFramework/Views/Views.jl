@@ -36,7 +36,8 @@ module Views
 import EcologicalNetworksDynamics:
     EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix
 import .Display: join_elided, render_input, ns, reset
-import .NetworkFramework: NF, D, Model, can_convert, CheckError, checkerr, Query, LibError
+import .NetworkFramework:
+    NF, D, Model, can_convert, CheckError, checkerr, Query, LibError, dispatcher
 const V = Views
 
 using SparseArrays
@@ -79,12 +80,6 @@ Extract an owned copy of the viewed data under a regular dense/sparse vector/mat
 function extract end
 export extract
 
-# TODO: watch https://github.com/JuliaEditorSupport/JuliaFormatter.jl/issues/1203
-"""
-Obtain underlying view dispatcher.
-"""
-function dispatcher end
-
 include("nodes.jl")
 include("edges.jl")
 
@@ -103,8 +98,8 @@ end
 const AbstractView{d} = Union{NodeView{d},EdgeView{d}}
 let S = AbstractView
     # Extract dispatcher and delegate some basic dispatcher interface.
-    V.dispatcher(::Type{<:S{d}}) where {d} = d
-    V.dispatcher(s::S) = s |> typeof |> dispatcher
+    NF.dispatcher(::Type{<:S{d}}) where {d} = d
+    NF.dispatcher(s::S) = s |> typeof |> dispatcher
     D.readonly(s::S) = s |> dispatcher |> D.readonly
     D.type(s::S) = s |> dispatcher |> D.type
 
@@ -115,6 +110,9 @@ let S = AbstractView
     # Forbid any property access.
     Base.setproperty!(s::S, y::Symbol) = getproperty(s, y)
     Base.getproperty(::S, ::Symbol) = errwith("No property to access on views.")
+
+    # Rewire within data flow.
+    NF.obtain(s::S, query) = NF.obtain(NF.model(s), dispatcher(s), query)
 end
 
 include("nodes_display.jl")

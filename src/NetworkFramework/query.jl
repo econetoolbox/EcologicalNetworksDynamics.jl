@@ -41,6 +41,7 @@ type_check(d::Dispatcher, q::Tuple) = Tuple(dimguard(i) do
 end for (i, q) in enumerate(q))
 
 type_check(::Dispatcher, q::Union{Ref,UnitRange,CartesianIndex,Colon}) = q
+type_check(::D.NodeLevel, q::UnitRange) = q # (otherwise ambiguous with AbstractVector)
 type_check(d::Dispatcher, q) =
     checkerr(q, "Views are queried with indices [::Int] or labels [::Symbol], \
                  not `$(typeof(q))`."; d)
@@ -55,9 +56,12 @@ type_check(d::Dispatcher, q::Unsigned) =
         checkerr(q, "Index too large to be used with julia arrays ($q).", rethrow; d)
     end
 
-type_check(d::Dispatcher, q::AbstractArray{<:Integer}) =
+# Boolean masks.
+type_check(d::D.NodeLevel, q::AbstractVector{<:Integer}) = to_mask(d, q, SparseVector)
+type_check(d::D.EdgeLevel, q::AbstractMatrix{<:Integer}) = to_mask(d, q, SparseMatrix)
+to_mask(d::Dispatcher, q::AbstractArray, Mask::UnionAll) =
     try
-        NF.convert(SparseVector{Bool}, q)
+        NF.convert(Mask{Bool}, q)
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
@@ -91,28 +95,26 @@ function early_check(d::Dispatcher, c::CartesianIndex)
     c
 end
 
-# Index 2D edge data with a mask.
-function early_check(d::D.Web, (m,)::Tuple{SparseMatrix{Bool}})
-    e, a = size.((d, m))
-    e == a && return m
-    checkerr(m, "There are $e potential edges but the given mask is of size $a."; d)
-end
+early_check(::D.EdgeLevel, (m,)::Tuple{AbstractMatrix{Bool}}) = (m,)
 
 # ==========================================================================================
 # Check query against the model.
 
-late_check(md::Model, d::D.NodeLevel, (dim,)::Tuple) = dimguard(1) do
-    (late_check(md, d, dim, Val(N.class)),)
+late_check(md::Model, d::D.NodeLevel, (i,)::Tuple{Any}) = dimguard(1) do
+    (late_check(md, d, i, Val(N.class)),)
 end
-late_check(md::Model, d::D.Subclass, (dim,)::Tuple) = dimguard(1) do
-    (late_check(md, d, dim, Val(N.parent)),)
+late_check(md::Model, d::D.Subclass, (i,)::Tuple{Any}) = dimguard(1) do
+    (late_check(md, d, i, Val(N.parent)),)
 end
 
-late_check(md::Model, d::D.EdgeLevel, (i, j)::Tuple) = Tuple(
+late_check(md::Model, d::D.EdgeLevel, (i, j)::Tuple{Any,Any}) = Tuple(
     dimguard(dim) do
         late_check(md, d, i, Val(class))
         check_edge(md, d, i)
     end for (dim, (i, class)) in enumerate(zip((i, j), (N.source, N.target))))
+late_check(md::Model, d::D.EdgeLevel, (mask,)::Tuple{Any}) = dimguard(1) do
+    (late_check(md, d, mask),)
+end
 
 function late_check(md::Model, d::Dispatcher, r::Ref, c::Val{class}) where class
     early_check(d, r, c)
@@ -171,6 +173,14 @@ function late_check(
         "The given mask is of size $act but there $are $exp node$s in the class."; d)
 end
 
+# 2D masks.
+function late_check(md::Model, d::D.EdgeLevel, m::SparseMatrix{Bool})
+    src, tgt = N.sides(md, d)
+    e, a = length.((src, tgt)), size(m)
+    e == a && return m
+    checkerr(m, "There are $e potential edges but the given mask is of size $a."; d)
+end
+
 # Cartesian is checked like the underlying tuple.
 function late_check(::Model, d::Dispatcher, c::CartesianIndex)
     early_check(d, Tuple(c))
@@ -186,13 +196,11 @@ end
 
 function is_edge(md::Model, d::D.EdgeLevel, (i, j)::Tuple{Ref,Ref})
     web = N.web(md, d)
-    src, tgt = N.source(web), N.target(web)
+    src, tgt = N.sides(md, d)
     t, x, y = web.topology, src.index, tgt.index
     i, j = N.to_index.((x, y), (i, j))
     N.is_edge(t, i, j)
 end
-
-late_check(::Model, ::D.Web, m::SparseMatrix{Bool}) = m # As long as dimensions are ok.
 
 # ==========================================================================================
 # Exposed interface: whole checking sequence.
@@ -211,7 +219,7 @@ check(md::Model, d::Dispatcher, q) =
     end
 
 # 2D-mask boolean indexing breaks the above flow: 1 argument for 2 dimensions.
-function check(md::Model, d::D.Web, (q,)::Tuple{Any})
+function check(md::Model, d::D.EdgeLevel, (q,)::Tuple{Any})
     NF.can_convert(SparseMatrix{Bool}, q) || # (hopefully resolved statically)
         return @invoke check(md, d::Dispatcher, (q,))
     try
@@ -222,7 +230,7 @@ function check(md::Model, d::D.Web, (q,)::Tuple{Any})
     catch e
         e isa CheckError || rethrow(e)
         e.d = d
-        rethrow(Query.Error(q, e))
+        rethrow(Query.Error((q,), e))
     end
 end
 dimuref(n, uref) = (n, uref)
@@ -260,7 +268,7 @@ function Base.showerror(io::IO, e::Error)
                 false
             else
                 # Uref is always expected to at least start with the index dimension here.
-                dim, rest = uref
+                dim, rest... = uref
                 opendim = if !(query isa Tuple{Any})
                     print(io, "On dimension $dim")
                     true
@@ -273,7 +281,7 @@ function Base.showerror(io::IO, e::Error)
                     else
                         print(io, "In element ")
                     end
-                    NF.print_uref(io, rest)
+                    NF.print_uref(io, rest...)
                     print(io, " within the index")
                 end
                 true

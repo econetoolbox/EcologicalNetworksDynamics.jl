@@ -77,6 +77,7 @@ function parent(n::Network, class::Symbol)
 end
 source(n::Network, web::Symbol) = N.class(n, N.web(n, web).source)
 target(n::Network, web::Symbol) = N.class(n, N.web(n, web).target)
+sides(n::Network, web::Symbol) = (N.source(n, web), N.target(n, web))
 export parent, source, target
 
 """

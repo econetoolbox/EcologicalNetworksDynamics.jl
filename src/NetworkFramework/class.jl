@@ -186,8 +186,8 @@ function expand!(md::Model, d::D.Class, names)
 end
 
 # From number (generate names).
-function expand!(md::Model, b::ClassNumber, n)
-    d = dispatcher(b)
+function expand!(md::Model, bp::ClassNumber, n)
+    d = dispatcher(bp)
     prefix = D.short_prefix(d)
     names = (Symbol(prefix, i) for i in 1:n)
     expand!(md, d, names)
@@ -196,16 +196,16 @@ end
 #-------------------------------------------------------------------------------------------
 # Query.
 
-NF.obtain(v::V.NodeView, (q,)::Tuple{Any}) = obtain(v, q)
+NF.obtain(vw::V.NodeView, (q,)::Tuple{Any}) = obtain(vw, q)
 
-obtain(v::V.NodeNameView, r::Ref) = N.to_label(N.class(v).index, r)
-obtain(v::V.NodeMaskView, r::Symbol) = N.is_ref(N.class(v).index, r)
-obtain(v::V.NodeMaskView, r::Int) = r in N.class(v).restriction
+obtain(vw::V.NodeNameView, r::Ref) = N.to_label(N.class(vw).index, r)
+obtain(vw::V.NodeMaskView, r::Symbol) = N.is_ref(N.class(vw).index, r)
+obtain(vw::V.NodeMaskView, r::Int) = r in N.class(vw).restriction
 
-obtain(v::V.NodeView, u::UnitRange) = [obtain(v, i) for i in u]
-obtain(v::V.NodeView, ::Colon) = [obtain(v, i) for i in 1:length(v)]
-obtain(v::V.NodeView, m::SparseVector{Bool}) =
-    [obtain(v, i) for i in 1:length(v) if m[i]]
+obtain(vw::V.NodeView, u::UnitRange) = [obtain(vw, i) for i in u]
+obtain(vw::V.NodeView, ::Colon) = [obtain(vw, i) for i in 1:length(vw)]
+obtain(vw::V.NodeView, m::SparseVector{Bool}) =
+    [obtain(vw, i) for i in 1:length(vw) if m[i]]
 
 #-------------------------------------------------------------------------------------------
 # Display.

@@ -102,7 +102,7 @@ to_sparse(Target) =
             res[i] = try
                 Target(x)
             catch _
-                converr(typeof(res), x, "(detail down the stacktrace)"; uref = (i,))
+                converr(typeof(res), x, "(detail down the stacktrace)"; uref = Tuple(i))
             end
         end
         res
@@ -161,7 +161,7 @@ function try_convert(input, tries...)
         x = try
             convert(T, input)
         catch e
-            e isa ConvertError || rethrow(e)
+            e isa LibError || rethrow(e)
             push!(attempts, "convert input to $T")
             continue
         end

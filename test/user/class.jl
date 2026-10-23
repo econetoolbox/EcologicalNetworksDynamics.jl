@@ -186,8 +186,6 @@ end
 
 @testset "Class component: names view" begin
 
-    View = Views.NodeNameView{d}
-
     bp = Species([:a, :b, :c])
     m = Model(bp)
     v = m.species.names
@@ -225,10 +223,8 @@ end
 
     # TODO: either the reports tested here provide too much information (to be tested)
     # or that information should be better exploited to produce better report.
-    @viewfails(
-        v[],
-        (d, (), :whole, nothing, "Node-level data has 1 dimension, received 0.")
-    )
+    @viewfails(v[],
+        (d, (), :whole, nothing, "Node-level data has 1 dimension, received 0."))
     @viewfails(v[1, 2],
         (d, (1, 2), :whole, nothing, "Node-level data has 1 dimension, received 2."))
     @viewfails(v[1, 2, 3],
@@ -249,8 +245,7 @@ end
             Could not interpret as a boolean mask:
             Cannot convert to `$(NF.SparseVector){$Bool, $Int}`:
             (detail down the stacktrace)\
-            """,
-        ))
+            """))
     @viewfails(v[5],
         (d, 5, (1,), nothing, "This class only contains 3 nodes."))
     @viewfails(v[:x],
@@ -286,6 +281,17 @@ end
         """
     )
 
+    # Mask.
+    @test_err(v[[0, 1, 2]],
+        """
+        Cannot index into <species> with [[0, 1, 2]]:
+        In element [3] within the index:
+        Could not interpret as a boolean mask:
+        Cannot convert to `$(SparseVector{Bool, Int})`:
+        (detail down the stacktrace)
+        Received: 2  ::$Int\
+        """)
+
     # Large dimension display.
     @test_err(v[true, collect(1:20)],
         """
@@ -299,6 +305,7 @@ end
     )
 
     # Immutable.
+    View = Views.NodeNameView{d}
     @immutfails((v[1] = :u), View)
     @immutfails((v[:a] = :u), View)
     @immutfails((v[:a] = 2), View)
