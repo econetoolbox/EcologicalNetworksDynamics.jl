@@ -10,10 +10,271 @@ using Test
 using SparseArrays
 using OrderedCollections
 
+using ..Convert: conv, Alias
+
 cv(type, input) = convert(type, input)
 cv(type, input, ExpectedRefType) = convert(type, input; ExpectedRefType)
 
-@testset "Parsing maps and adjacency lists." begin
+@testset "Parsing maps and adjacency lists: successes" begin
+
+    #---------------------------------------------------------------------------------------
+    # To ref-value maps, any iterable of pairs.
+
+    # Index refs.
+    @test conv(Map{Float64}, [1 => 5, (2, 8)] => OrderedDict(1 => 5.0, 2 => 8.0))
+
+    # Label refs.
+    @test conv(Map{Float64},
+        ["a" => 5, (:b, 8), ['c', 13]] => OrderedDict(:a => 5.0, :b => 8.0, :c => 13.0))
+    # (Including named tuples, unlike julia's default behaviour.)
+    @test conv(Map{Float64},
+        (; a = 5, b = 8, c = 13) => OrderedDict(:a => 5.0, :b => 8.0, :c => 13.0))
+
+    # Default to symbol index.
+    @test conv(Map{Float64}, [] => OrderedDict{Symbol,Float64}())
+
+    # Group refs.
+    @test conv(
+        Map{Float64},
+        (
+            [("a", :b) => 5, [(:c, 'd'), 8], [:e, 13]],
+            OrderedDict(:a => 5.0, :b => 5.0, :c => 8.0, :d => 8.0, :e => 13.0),
+        ),
+    )
+    @test conv(
+        Map{Float64},
+        (
+            [(1, 2) => 5, [(3, 4), 8], [5, 13]],
+            OrderedDict(1 => 5.0, 2 => 5.0, 3 => 8.0, 4 => 8.0, 5 => 13.0),
+        ),
+    )
+
+    # Alias by using the exact same type.
+    @test conv(Map{Float64}, OrderedDict(1 => 5.0, 2 => 8.0) => Alias)
+    @test conv(Map{Float64}, OrderedDict(:a => 5.0, :b => 8.0) => Alias)
+
+    # Special binary case.
+    @test conv(
+        BinMap,
+        [1, 2] => OrderedSet([1, 2]),
+        ["a", :b, 'c'] => OrderedSet([:a, :b, :c]),
+        [] => OrderedSet{Symbol}(),
+        OrderedSet([:a, :b, :c]) => Alias,
+        # Accept boolean masks.
+        Bool[1, 0, 1, 1, 0] => OrderedSet([1, 3, 4]),
+        sparse(Bool[1, 0, 1, 1, 0]) => OrderedSet([1, 3, 4]),
+    )
+
+    # Still, use Bool as expected for ternary true/false/miss logic.
+    @test conv(Map{Bool}, [1 => true, 3 => false] => OrderedDict([1 => true, 3 => false]))
+
+    # Use boolean mask as grouped refs.
+    @test conv(
+        Map{Float64},
+        (
+            [Bool[1, 0, 1, 0, 0] => 5, (sparse(Bool[0, 1, 0, 1, 0]), 8), [5, 13]],
+            OrderedDict(1 => 5.0, 2 => 8.0, 3 => 5.0, 4 => 8.0, 5 => 13.0),
+        ),
+    )
+
+    #---------------------------------------------------------------------------------------
+    # To adjacency lists, any nested iterable.
+
+    @test conv(
+        Adjacency{Float64},
+        (
+            [1 => [5 => 50, 6 => 60], (2, (7 => 14, 8 => 16))],
+            OrderedDict(
+                1 => OrderedDict(5 => 50.0, 6 => 60.0),
+                2 => OrderedDict(7 => 14.0, 8 => 16.0),
+            ),
+        ),
+    )
+
+    @test conv(
+        Adjacency{Float64},
+        (
+            ["a" => [:b => 50, 'c' => 60], ("b", (; c = 14, a = 16.0))],
+            OrderedDict(
+                :a => OrderedDict(:b => 50.0, :c => 60.0),
+                :b => OrderedDict(:c => 14.0, :a => 16.0),
+            ),
+        ),
+    )
+
+    # Grouping refs and values on either source or target side.
+    @test conv(
+        Adjacency{Float64},
+        (
+            [
+                # Group source refs.
+                ("a", :b) => [:c => 5, ['d', 6]],
+                # Specify values per-source.
+                [(:a => 7, ('b', 8)), [:e, 'f']],
+                # Group even more within either lhs..
+                (((['a', :b], 9), 'c' => 10), [:g :h]),
+                # .. or lhs.
+                ('a', :b, "c") => [(:i, 'j') => 11, (:k, 12)],
+            ],
+            #! format: off
+            OrderedDict(
+                :a => OrderedDict(
+                    :c => 5.0,
+                    :d => 6.0,
+                    :e => 7.0,
+                    :f => 7.0,
+                    :g => 9.0,
+                    :h => 9.0,
+                    :i => 11.0,
+                    :j => 11.0,
+                    :k => 12.0,
+                ),
+                :b => OrderedDict(
+                    :c => 5.0,
+                    :d => 6.0,
+                    :e => 8.0,
+                    :f => 8.0,
+                    :g => 9.0,
+                    :h => 9.0,
+                    :i => 11.0,
+                    :j => 11.0,
+                    :k => 12.0,
+                ),
+                :c => OrderedDict(
+                    :g => 10.0,
+                    :h => 10.0,
+                    :i => 11.0,
+                    :j => 11.0,
+                    :k => 12.0,
+                ),
+            ),
+            #! format: on
+        ),
+    )
+
+    # Same with indices and boolean masks.
+    @test conv(
+        Adjacency{Float64},
+        (
+            [
+                Bool[1, 1, 0] => [3 => 50, [4, 60]],
+                [(1 => 70, (2, 80)), sparse(Bool[0, 0, 0, 0, 1, 1])],
+                ((([1, 2], 90), 3 => 100), Bool[0, 0, 0, 0, 0, 0, 1, 1]),
+                Bool[1, 1, 1] => [(9, 10) => 110, (11, 120)],
+            ],
+            #! format: off
+            OrderedDict(
+                1 => OrderedDict(
+                    3  => 50.0,
+                    4  => 60.0,
+                    5  => 70.0,
+                    6  => 70.0,
+                    7  => 90.0,
+                    8  => 90.0,
+                    9  => 110.0,
+                    10 => 110.0,
+                    11 => 120.0,
+                ),
+                2 => OrderedDict(
+                    3  => 50.0,
+                    4  => 60.0,
+                    5  => 80.0,
+                    6  => 80.0,
+                    7  => 90.0,
+                    8  => 90.0,
+                    9  => 110.0,
+                    10 => 110.0,
+                    11 => 120.0,
+                ),
+                3 => OrderedDict(
+                    7  => 100.0,
+                    8  => 100.0,
+                    9  => 110.0,
+                    10 => 110.0,
+                    11 => 120.0,
+                ),
+            ),
+            #! format: on
+        ),
+    )
+
+    @test conv(Adjacency{Float64}, [] => OrderedDict{Symbol,OrderedDict{Symbol,Float64}}())
+
+    @test conv(
+        Adjacency{Float64},
+        OrderedDict(
+            :a => OrderedDict(:b => 50.0, :c => 60.0),
+            :b => OrderedDict(:c => 14.0, :a => 16.0),
+        ) => Alias,
+    )
+
+    # Special binary case.
+    @test conv(
+        BinAdjacency,
+        (
+            [1 => [5, 6], (2, (7, 8))],
+            OrderedDict(1 => OrderedSet([5, 6]), 2 => OrderedSet([7, 8])),
+        ),
+        (
+            ["a" => [:b, 'c'], ("b", (:c, 'a'))],
+            OrderedDict(:a => OrderedSet([:b, :c]), :b => OrderedSet([:c, :a])),
+        ),
+        (
+            [(1, 2) => [3], ((2, 3), 1)],
+            OrderedDict(
+                1 => OrderedSet([3]),
+                2 => OrderedSet([3, 1]),
+                3 => OrderedSet([1]),
+            ),
+        ),
+        (
+            [("a", :b) => ['c'], (("b", :c), 'a')],
+            OrderedDict(
+                :a => OrderedSet([:c]),
+                :b => OrderedSet([:c, :a]),
+                :c => OrderedSet([:a]),
+            ),
+        ),
+        (
+            ["a" => :b, ("b", 'c')], # Allow singleton refs.
+            OrderedDict(:a => OrderedSet([:b]), :b => OrderedSet([:c])),
+        ),
+        [] => OrderedDict{Symbol,OrderedSet{Symbol}}(),
+        OrderedDict(1 => OrderedSet([2, 7]), 2 => OrderedSet([3, 8])) => Alias,
+
+        # Accept boolean matrices.
+        (
+            Bool[
+                0 1 0
+                0 0 0
+                1 0 1
+            ],
+            OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])),
+        ),
+        (
+            sparse(Bool[
+                0 1 0
+                0 0 0
+                1 0 1
+            ]),
+            OrderedDict(1 => OrderedSet([2]), 3 => OrderedSet([1, 3])),
+        ),
+    )
+
+    # Ternary logic.
+    @test conv(
+        Adjacency{Bool},
+        (
+            [1 => [5 => true, 7 => false], (2, ([7, false], 9 => true))],
+            OrderedDict(
+                1 => OrderedDict(5 => true, 7 => false),
+                2 => OrderedDict(7 => false, 9 => true),
+            ),
+        ),
+    )
+end
+
+@testset "Parsing maps and adjacency lists: failures" begin
 
     # Binary maps. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     @listfails( #  :not_iterable

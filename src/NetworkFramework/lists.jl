@@ -284,7 +284,7 @@ parse_value(p::Parser, input) =
 
 parse_iterable(p::Parser, input, what) =
     try
-        iterate(input)
+        input, iterate(input)
     catch e
         e isa MethodError && listerr(:not_iterable, input, p,
             "Input for $what needs to be iterable.", rethrow)
@@ -298,6 +298,11 @@ function parse_iterable(p::Parser, input::Pair, _)
         "This pair is just considered an iterable in this context, \
          which may be confusing. \
          Consider grouping with an explicit vector instead like [$(repr(a)), $(repr(b))].")
+end
+# Special-case named tuples, considered iterable of *pairs* in this context.
+function parse_iterable(::Parser, tup::NamedTuple, _)
+    it = zip(keys(tup), values(tup))
+    it, iterate(it)
 end
 
 parse_pair(p::Parser, input, what) =
@@ -469,7 +474,7 @@ function parse(
     what = (; whole = "binary map", ref = "node"),
 )
     p = isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinMap{R}) : parser
-    it = parse_iterable(p, input, what.whole)
+    iterable, it = parse_iterable(p, input, what.whole)
     isnothing(it) && return empty_result(p)
 
     push!(p, 0)
@@ -483,7 +488,7 @@ function parse(
             "Duplicated $(what.ref) reference.")
         push!(res, ref)
 
-        it = iterate(input, it)
+        it = iterate(iterable, it)
     end
 
     result!(p)
@@ -554,7 +559,7 @@ function parse(
     what = (; whole = "map", pair = "reference(s) => value", ref = "node"),
 ) where {T}
     p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Map{T,R}) : parser
-    it = parse_iterable(p, input, what.whole)
+    iterable, it = parse_iterable(p, input, what.whole)
     isnothing(it) && return empty_result(p)
 
     push!(p, 0)
@@ -582,7 +587,7 @@ function parse(
         pop!(p)
         pop!(p)
 
-        it = iterate(input, it)
+        it = iterate(iterable, it)
     end
 
     result!(p)
@@ -600,7 +605,7 @@ function parse(
     p =
         isnothing(parser) ? Parser(nothing, ExpectedRefType, R -> BinAdjacency{R}) :
         parser
-    it = parse_iterable(p, input, "binary adjacency map")
+    iterable, it = parse_iterable(p, input, "binary adjacency map")
     isnothing(it) && return empty_result(p)
 
     push!(p, 1)
@@ -647,7 +652,7 @@ function parse(
         any_source || listerr(:no_sources, raw_sources, p, "No sources provided.")
         pop!(p)
 
-        it = iterate(input, it)
+        it = iterate(iterable, it)
         bump!(p)
     end
 
@@ -707,7 +712,7 @@ function parse(
     parser = nothing,
 ) where {T}
     p = isnothing(parser) ? Parser(T, ExpectedRefType, R -> Adjacency{T,R}) : parser
-    it = parse_iterable(p, input, "adjacency map")
+    iterable, it = parse_iterable(p, input, "adjacency map")
     isnothing(it) && return empty_result(p)
 
     push!(p, 0)
@@ -788,7 +793,7 @@ function parse(
         pop!(p)
         pop!(p)
 
-        it = iterate(input, it)
+        it = iterate(iterable, it)
     end
 
     result!(p)
