@@ -452,7 +452,7 @@ function mutate!(md::Model, d::D.AbstractNodeField, ::_WholeData, map::Map)
 end
 
 #-------------------------------------------------------------------------------------------
-# Targetting partial data.
+# Targetting individual node.
 
 function mutate!(md::Model, d::D.AbstractNodeField, (i,)::Tuple{Int}, x)
     entry = N.entry(md, d)
@@ -465,6 +465,62 @@ function mutate!(md::Model, d::D.AbstractNodeField, (l,)::Tuple{Symbol}, x)
     ix = N.class(md, d).index
     i = N.to_index(ix, l)
     mutate!(md, d, (i,), x)
+end
+
+#-------------------------------------------------------------------------------------------
+# Targetting nodes range.
+
+function late_check(
+    ::Model,
+    ::D.AbstractNodeField,
+    (range,)::Tuple{UnitRange},
+    x::Vector,
+)
+    e, a = length.((range, x))
+    e == a && return x
+    _, se = ns(e)
+    _, sa = ns(a)
+    checkerr(x, "Cannot mutate $e value$se given $a value$sa.")
+end
+
+function mutate!(md::Model, d::D.AbstractNodeField, (r,)::Tuple{UnitRange{Int}}, x::Vector)
+    entry = N.entry(md, d)
+    N.mutate!(entry) do nodes
+        nodes[r] .= x
+    end
+end
+
+#-------------------------------------------------------------------------------------------
+# Targetting masked nodes.
+
+function late_check(
+    ::Model,
+    ::D.AbstractNodeField,
+    (mask,)::Tuple{SparseVector{Bool}},
+    x::Vector,
+)
+    e = length(first(findnz(mask)))
+    a = length(x)
+    e == a && return x
+    _, se, are_e = nsa(e)
+    _, sa, are_a = nsa(a)
+    checkerr(x,
+        "$e value$se $are_e selected for mutation but $a value$sa $are_a provided.")
+end
+
+function mutate!(
+    md::Model,
+    d::D.AbstractNodeField,
+    (mask,)::Tuple{SparseVector{Bool}},
+    vec::Vector,
+)
+    picked, _ = findnz(mask)
+    entry = N.entry(md, d)
+    N.mutate!(entry) do nodes
+        for (i, x) in zip(picked, vec)
+            nodes[i] = x
+        end
+    end
 end
 
 #-------------------------------------------------------------------------------------------

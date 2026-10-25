@@ -81,6 +81,9 @@ print_mref(mref) = sprint(print_mref, mref)
 print_mref(io::IO, ((i, a),)::Tuple{MRef}) = print(io, "[$i] ($(repr(a)))")
 print_mref(io::IO, ((i, a), (j, b))::Tuple{MRef,MRef}) =
     print(io, "[$i, $j] ($(repr(a)), $(repr(b)))")
+print_mref(io::IO, (mask,)::Tuple{SparseVector{Bool}}) =
+    print(io, "[<$(join_elided(collect(I.map(Int, mask)), ""))>]")
+print_mref(io::IO, mref::Tuple) = print(io, "[$(join_elided(mref, ", "))]")
 
 "Aggregate references as the report bubble up."
 nestref(n, uref) = (n, uref)
@@ -122,7 +125,7 @@ function Base.showerror(io::IO, e::CheckError)
             print(io, Inthat)
         end
         mv = modelvalue(d, mref)
-        println(io, " referring to inner $mv:")
+        println(io, " targetting $mv:")
     end
     println(io, mess)
     render_input(io, value)
@@ -142,14 +145,18 @@ irrelevant_mref(mref, uref) =
         true
     end
 
-modelvalue(d::D.GraphField, ::_WholeData) = "model $d value"
-modelvalue(d::D.Class, mref) = "model $d name for node " * print_mref(mref)
-modelvalue(d::D.Web, mref) = "model $d topology for edge " * print_mref(mref)
+modelvalue(d::D.GraphField, ::_WholeData) = "$d value"
+modelvalue(d::D.Class, mref) = "$d name for node " * print_mref(mref)
+modelvalue(d::D.Web, mref) = "$d topology for edge " * print_mref(mref)
 function modelvalue(d::D.AbstractField, mref)
-    (name, field), level = D.content(d), D.level(d)
+    level = D.level(d)
     mr = print_mref(mref)
-    "model $(repr(name)) $level value $(repr(field)) $mr"
+    s = plural(mref)
+    "$level value$s $mr"
 end
+plural(::Any) = "(s)"
+plural(::Tuple{MRef}) = ""
+plural((r,)::Tuple{UnitRange}) = ns(length(r))[2]
 
 # ==========================================================================================
 

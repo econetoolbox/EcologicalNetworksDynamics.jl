@@ -90,7 +90,7 @@ const View = Views.EdgeMaskView{d}
     m = Model(Species(3))
     addfails.@check(m + Foodweb(zeros(Bool, 2, 2)), [],
         (Foodweb.Matrix, :late,
-            (d, spzeros(Bool, 2, 2), :whole, nothing,
+            (d, spzeros(Bool, 2, 2), :whole, :whole,
                 "There are 3 :species nodes but the provided matrix is of size (2, 2).")))
     @test_err(m + Foodweb(zeros(Bool, 2, 2)), # First time with a :late error.
         """
@@ -185,10 +185,10 @@ const View = Views.EdgeMaskView{d}
 
     addfails.@check(Model(Species("axy"), Foodweb(A)), [],
         (Foodweb.Adjacency, :late,
-            (d, :b, [1, :right, 1], nothing, "Not a target label among :species.")))
+            (d, :b, [1, :right, 1], :whole, "Not a target label among :species.")))
     addfails.@check(Model(Species("xyz"), Foodweb(Ai)), [],
         (Foodweb.Adjacency, :late,
-            (d, 6, [1, :left], nothing, "Not a valid source :species index among 3 nodes."),
+            (d, 6, [1, :left], :whole, "Not a valid source :species index among 3 nodes."),
         ))
 
     @test_err(Model(Species("axy"), Foodweb(A)), # First time with path-within-list.

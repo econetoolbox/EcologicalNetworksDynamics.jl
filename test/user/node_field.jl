@@ -356,16 +356,28 @@ end
     # Alternately use whole property to reassign.
     m.body_mass = [9, 5, 1]
     @test v == w == m.body_mass == [9, 5, 1]
-    @test a == alt.body_mass == [4, 5, 6] # Still unchanged.
 
     # Sophisticated reassign: map-like.
     m.body_mass = (; a = 7, c = 3)
     @test v == w == m.body_mass == [7, 5, 3]
-    @test a == alt.body_mass == [4, 5, 6] # Still unchanged.
+    m.body_mass = [3 => 8, 1 => 9]
+    @test v == w == m.body_mass == [9, 5, 8]
 
     # Or flat-like.
     m.body_mass = 2
     @test v == w == m.body_mass == [2, 2, 2]
+
+    # Indexing with ranges.
+    v[2:3] = [3, 4]
+    @test v == w == m.body_mass == [2, 3, 4]
+
+    # Indexing with masks.
+    v[[1, 0, 1]] = [8, 9]
+    @test v == w == m.body_mass == [8, 3, 9]
+
+    # Combine.
+    v[2:3] = 5 # HERE: that is going to be too much surface.. right?
+
     @test a == alt.body_mass == [4, 5, 6] # Still unchanged.
 
     error("STOP HERE")
