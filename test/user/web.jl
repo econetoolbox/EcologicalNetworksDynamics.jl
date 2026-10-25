@@ -434,7 +434,8 @@ end
     @viewfails(v[end+1, 2],
         (d, 6, (1,), nothing, "The source class (:species) only contains 5 nodes."))
     @viewfails(v[2, (end-1):(end+1)],
-        (d, 6, (2,), nothing, "The target class (:species) only contains 5 nodes."))
+        (d, 6, (2, (:last,)), nothing,
+            "The target class (:species) only contains 5 nodes."))
     @viewfails(v[[0 1 0]],
         (d, sparse(Bool[0 1 0]), (1,), nothing,
             "There are (5, 5) potential edges but the given mask is of size (1, 3)."))

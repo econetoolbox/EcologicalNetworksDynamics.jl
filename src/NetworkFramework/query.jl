@@ -3,7 +3,7 @@ module Query
 
 using EcologicalNetworksDynamics.NetworkFramework:
     I, D, N, NF, Dispatcher, dispatcher, CheckError, checkerr, SparseMatrix, SparseVector,
-    Ref, WholeData, _WholeData, Model, LibError
+    Ref, WholeData, _WholeData, Model, LibError, nestref, urefguard
 using EcologicalNetworksDynamics.Display: join_elided, render_input, ns, cyan, reset
 
 using SparseArrays
@@ -30,13 +30,13 @@ dim_check(d::D.NodeLevel, q::Tuple) = tuplerr(d, q)
 dim_check(d::D.EdgeLevel, q::Tuple) = tuplerr(d, q)
 tuplerr(d, q) = checkerr(q,
     "Cannot index into views with explicit tuples.";
-    d, uref = dimuref(1, WholeData))
+    d, uref = nestref(1, WholeData))
 
 # ==========================================================================================
 # Check query type.
 
 # Then dispatch to per-dimension checking.
-type_check(d::Dispatcher, q::Tuple) = Tuple(dimguard(i) do
+type_check(d::Dispatcher, q::Tuple) = Tuple(urefguard(i) do
     type_check(d, q)
 end for (i, q) in enumerate(q))
 
@@ -76,11 +76,11 @@ to_mask(d::Dispatcher, q::AbstractArray, Mask::UnionAll) =
 early_check(::Dispatcher, q, _) = q
 
 # Then dispatch to per-dimension checking.
-early_check(d::D.NodeLevel, (i,)::Tuple) = dimguard(1) do
+early_check(d::D.NodeLevel, (i,)::Tuple) = urefguard(1) do
     (early_check(d, i, Val(N.class)),)
 end
 early_check(d::D.EdgeLevel, (i, j)::Tuple) = Tuple(
-    dimguard(dim) do
+    urefguard(dim) do
         early_check(d, i, Val(class))
     end for (dim, (i, class)) in enumerate(zip((i, j), (N.source, N.target))))
 
@@ -100,19 +100,19 @@ early_check(::D.EdgeLevel, (m,)::Tuple{AbstractMatrix{Bool}}) = (m,)
 # ==========================================================================================
 # Check query against the model.
 
-late_check(md::Model, d::D.NodeLevel, (i,)::Tuple{Any}) = dimguard(1) do
+late_check(md::Model, d::D.NodeLevel, (i,)::Tuple{Any}) = urefguard(1) do
     (late_check(md, d, i, Val(N.class)),)
 end
-late_check(md::Model, d::D.Subclass, (i,)::Tuple{Any}) = dimguard(1) do
+late_check(md::Model, d::D.Subclass, (i,)::Tuple{Any}) = urefguard(1) do
     (late_check(md, d, i, Val(N.parent)),)
 end
 
 late_check(md::Model, d::D.EdgeLevel, (i, j)::Tuple{Any,Any}) = Tuple(
-    dimguard(dim) do
+    urefguard(dim) do
         late_check(md, d, i, Val(class))
         check_edge(md, d, i)
     end for (dim, (i, class)) in enumerate(zip((i, j), (N.source, N.target))))
-late_check(md::Model, d::D.EdgeLevel, (mask,)::Tuple{Any}) = dimguard(1) do
+late_check(md::Model, d::D.EdgeLevel, (mask,)::Tuple{Any}) = urefguard(1) do
     (late_check(md, d, mask),)
 end
 
@@ -138,7 +138,7 @@ function referr(md::Model, d::D.NodeLevel, i::Int, ::Val{N.class})
 end
 
 function referr(md::Model, d::D.NodeLevel, i::Int, ::Val{N.parent})
-    n, s = ns(length(N.parent(d, md)))
+    n, s = ns(length(N.parent(md, d)))
     checkerr(i, "The parent class only contains $n node$s."; d)
 end
 
@@ -151,7 +151,9 @@ end
 
 # Indexing with ranges.
 function late_check(md::Model, d::Dispatcher, u::UnitRange, c)
-    f, l = late_check.((md,), (d,), (first(u), last(u)), (c,))
+    f, l = (urefguard(_end) do
+        late_check(md, d, i, c)
+    end for (_end, i) in (((:first, first(u)), (:last, last(u)))))
     f:l
 end
 
@@ -165,7 +167,7 @@ function late_check(
     k::SparseVector{Bool},
     ::Val{class},
 ) where {class}
-    exp = length(N.class(md, d))
+    exp = length(class(md, d))
     act = length(k)
     exp == act && return k
     are, s = exp == 1 ? ("is", "") : ("are", "s")
@@ -233,16 +235,6 @@ function check(md::Model, d::D.EdgeLevel, (q,)::Tuple{Any})
         rethrow(Query.Error((q,), e))
     end
 end
-dimuref(n, uref) = (n, uref)
-dimuref(n, ::_WholeData) = (n,)
-dimguard(fn::Function, dim::Int) =
-    try
-        fn()
-    catch e
-        e isa CheckError || rethrow(e)
-        e.uref = dimuref(dim, e.uref)
-        rethrow(e)
-    end
 
 # Trivial, internal query analysis, invoked on 'reassign'.
 check(::Model, ::Dispatcher, w::_WholeData) = w

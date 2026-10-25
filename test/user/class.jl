@@ -254,7 +254,7 @@ end
     @viewfails(v[end+1],
         (d, 4, (1,), nothing, "This class only contains 3 nodes."))
     @viewfails(v[(end-1):(end+1)],
-        (d, 4, (1,), nothing, "This class only contains 3 nodes."))
+        (d, 4, (1, (:last,)), nothing, "This class only contains 3 nodes."))
     @viewfails(v[[0, 1]],
         (d, sparse(Bool[0, 1]), (1,), nothing,
             "The given mask is of size 2 but there are 3 nodes in the class."))

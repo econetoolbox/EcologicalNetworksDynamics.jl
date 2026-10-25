@@ -82,6 +82,19 @@ print_mref(io::IO, ((i, a),)::Tuple{MRef}) = print(io, "[$i] ($(repr(a)))")
 print_mref(io::IO, ((i, a), (j, b))::Tuple{MRef,MRef}) =
     print(io, "[$i, $j] ($(repr(a)), $(repr(b)))")
 
+"Aggregate references as the report bubble up."
+nestref(n, uref) = (n, uref)
+nestref(n, ::_WholeData) = (n,)
+"Upgrade underlying error with outer uref context."
+urefguard(fn::Function, uref) =
+    try
+        fn()
+    catch e
+        e isa CheckError || rethrow(e)
+        e.uref = nestref(uref, e.uref)
+        rethrow(e)
+    end
+
 #-------------------------------------------------------------------------------------------
 # Display.
 
