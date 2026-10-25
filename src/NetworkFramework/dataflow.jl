@@ -24,6 +24,17 @@ convert(T::Type, input) = converr(T, input, "Conversion not implemented.")
 convert(T::Type, ::Dispatcher, input) = convert(T, input)
 convert(T::Type, BP::Type{<:Blueprint}, input) = convert(T, dispatcher(BP), input)
 convert(T::Type, bp::Blueprint, input) = convert(T, typeof(bp), input)
+convert(d::Dispatcher, input) = convert(D.type(d), d, input)
+
+"Guarded entrypoint for mutation."
+mut_convert(d::Dispatcher, input) = try
+    convert(d, input)
+catch e
+    e isa LibError || rethrow(e)
+    e = CheckError(e)
+    e.d = d
+    rethrow(e)
+end
 
 #-------------------------------------------------------------------------------------------
 # Intrinsic check.
@@ -164,8 +175,7 @@ Default lowering pipeline from raw input to the data to be modified.
 The query is assumed to have been checked.
 """
 function mut_lower(md::Model, d::Dispatcher, mref, rhs)
-    T = D.type(d)
-    conv = convert(T, d, rhs)
+    conv = mut_convert(d, rhs)
     early = early_check(d, conv)
     late = late_check(md, d, mref, early)
     low = lower(md, d, mref, late)

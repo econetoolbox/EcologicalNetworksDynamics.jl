@@ -264,9 +264,7 @@ const View = V.NodeFieldView{d,Float64}
         """)
 end
 
-@testset "NodeField component: view" begin
-
-    # Test like class views.
+@testset "NodeField component: view (read)" begin
 
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
     v = m.body_mass
@@ -336,6 +334,13 @@ end
         (d, sparse(Bool[0, 1]), (1,), nothing,
             "The given mask is of size 2 but there is 1 node in the class."))
 
+end
+
+@testset "NodeField component: mutate" begin
+
+    m = Model(Species("abc"), BodyMass([4, 5, 6]))
+    v = m.body_mass
+
     # The field is *mutable* through the view.
     w = m.body_mass # Alternate view to the same model.
     alt = copy(m) # Forked model.
@@ -347,6 +352,21 @@ end
     v[:b] += 100
     @test v == w == m.body_mass == [40, 105, 6] # All views to model impacted, old and new.
     @test a == alt.body_mass == [4, 5, 6] # Forked model unchanged, or any view to it.
+
+    # Alternately use whole property to reassign.
+    m.body_mass = [9, 5, 1]
+    @test v == w == m.body_mass == [9, 5, 1]
+    @test a == alt.body_mass == [4, 5, 6] # Still unchanged.
+
+    # Sophisticated reassign: map-like.
+    m.body_mass = (; a = 7, c = 3)
+    @test v == w == m.body_mass == [7, 5, 3]
+    @test a == alt.body_mass == [4, 5, 6] # Still unchanged.
+
+    # Or flat-like.
+    m.body_mass = 2
+    @test v == w == m.body_mass == [2, 2, 2]
+    @test a == alt.body_mass == [4, 5, 6] # Still unchanged.
 
     error("STOP HERE")
     # ======================================================================================

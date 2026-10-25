@@ -236,7 +236,7 @@ function check(md::Model, d::D.EdgeLevel, (q,)::Tuple{Any})
     end
 end
 
-# Trivial, internal query analysis, invoked on 'reassign'.
+# Trivial, internal query analysis, invoked on 'reassign-like' mutation.
 check(::Model, ::Dispatcher, w::_WholeData) = w
 
 # ==========================================================================================

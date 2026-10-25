@@ -148,7 +148,8 @@ function define_node_field_component(
                 get_value(::Network, md::Model) = V.field_view(d, md)
                 NF.define_method(get_value; read_as = prop, depends = (CP,))
                 if !D.readonly(d)
-                    set_value!(::Network, md::Model, input) = NF.assign!(d, md, input)
+                    set_value!(::Network, md::Model, input) =
+                        NF.mut_set!(md, d, NF.WholeData, input)
                     NF.define_method(set_value!; write_as = prop, depends = (CP,))
                 end
                 end
@@ -418,10 +419,21 @@ function obtain(v::V.NodeFieldView, q::Ref)
     end
 end
 
-#-------------------------------------------------------------------------------------------
-# Reassign (mutate to whole data).
+# ==========================================================================================
+# Mutate.
 
-function mutate!(md::Model, d::D.AbstractNodeField, ::_WholeData, raw) # (or flat)
+#-------------------------------------------------------------------------------------------
+# Converting RHS.
+
+function convert(d::D.AbstractNodeField, input)
+    T = D.type(d)
+    try_convert(input, T, Vector{T}, Map{T})
+end
+
+#-------------------------------------------------------------------------------------------
+# Targetting whole data.
+
+function mutate!(md::Model, d::D.AbstractNodeField, ::_WholeData, raw) # (vec or flat)
     entry = N.entry(md, d)
     N.mutate!(entry) do nodes
         nodes .= raw
@@ -440,7 +452,7 @@ function mutate!(md::Model, d::D.AbstractNodeField, ::_WholeData, map::Map)
 end
 
 #-------------------------------------------------------------------------------------------
-# Finer-grained mutation.
+# Targetting partial data.
 
 function mutate!(md::Model, d::D.AbstractNodeField, (i,)::Tuple{Int}, x)
     entry = N.entry(md, d)
