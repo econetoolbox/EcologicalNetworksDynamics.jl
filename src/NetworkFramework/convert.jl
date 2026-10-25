@@ -76,6 +76,17 @@ function convert(::Type{Vector{T}}, input) where {T}
     ]
 end
 
+# Blacklist a few unfortunate consequences of the above.
+for D in (AbstractDict, NamedTuple)
+    eval(
+        quote
+            can_convert(::Type{Vector{T}}, ::$D) where T = false
+            convert(::Type{Vector{T}}, d::$D) where T =
+                @invoke convert(Vector{T}::Type, d::Any)
+        end,
+    )
+end
+
 to_dense(T) = array -> @invoke convert(Vector{T}, array::Any)
 function ac_dense(Target, inputs)
     for Input in inputs

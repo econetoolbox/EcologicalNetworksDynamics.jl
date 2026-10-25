@@ -104,6 +104,18 @@ end
     # etc.
 
     #---------------------------------------------------------------------------------------
+    # Avoid downgrading dicts to vecs though.
+
+    for dict in (
+        Dict([:a => 0, :b => 1]),
+        OrderedDict([:a => 0, :b => 1]),
+        (; a = 1, b = 0),
+    )
+        @convfails(convert(Vector{Bool}, dict),
+            Vector{Bool}, dict, :whole, "Conversion not implemented.")
+    end
+
+    #---------------------------------------------------------------------------------------
     # To ref-value maps, any iterable of pairs.
 
     # Index refs.
