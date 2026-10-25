@@ -343,7 +343,7 @@ end
     @test a == w == [4, 5, 6] # All synced (same underlying storage).
 
     # Mutate, invoking COW.
-    v[1] *= 10 # HERE: need a better design for dispatching and reports upgrades.
+    v[1] *= 10
     v[:b] += 100
     @test v == w == m.body_mass == [40, 105, 6] # All views to model impacted, old and new.
     @test a == alt.body_mass == [4, 5, 6] # Forked model unchanged, or any view to it.

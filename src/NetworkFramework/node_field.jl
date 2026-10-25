@@ -418,93 +418,41 @@ function obtain(v::V.NodeFieldView, q::Ref)
     end
 end
 
-# ==========================================================================================
-# ↑ ↑ HERE update impl ↑ ↑
-# ==========================================================================================
-
-function late_check(d::D.AbstractNodeField, model::Model, map::Map{<:Any,Symbol})
-    core_late_check(d, model, map)
-    # Reorder values one by one into a vector.
-    [check_with_ref(d, model, map[label], label) for label in keys(map)]
-end
-
-# Same with index references instead.
-function late_check(d::D.AbstractNodeField, model::Model, map::Map{<:Any,Int})
-    core_late_check(d, model, map)
-    [check_with_ref(d, model, map[i], i) for i in eachindex(map)]
-end
-
-late_check(d::D.AbstractNodeField, model::Model, value) = check(d, model, value)
-
 #-------------------------------------------------------------------------------------------
-# Mutation: called when setting through a view.
-# Input may be anything,
-# but the underlying model value and the reference can be assumed to be correct.
+# Reassign (mutate to whole data).
 
-mutate_check(d::D.AbstractNodeField, model::Model, value, ref) =
-    try
-        check_with_ref(d, WholeCheck(model), value, ref)
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When attempting to mutate $d node field")
-    end
-
-#-------------------------------------------------------------------------------------------
-# Assignment: called when setting all values at once through a property.
-# Input may be anything, but the underlying model value can be assumed to be correct.
-
-assign!(d::D.AbstractNodeField, model::Model, input) =
-    try
-        assign_parsed!(d, model, parse(d, input))
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When attempting to assign to $d node field")
-    end
-
-# Reassign all values from raw input.
-function assign_parsed!(d::D.AbstractNodeField, model::Model, raw::Vector)
-    early = early_check(d, raw)
-    late = late_check(d, model, early)
-    network = NF.network(model)
-    (classname, fieldname) = D.content(d)
-    class = N.class(network, classname)
-    entry = class.data[fieldname]
+function mutate!(md::Model, d::D.AbstractNodeField, ::_WholeData, raw) # (or flat)
+    entry = N.entry(md, d)
     N.mutate!(entry) do nodes
-        for (i, new_value) in enumerate(late)
-            nodes[i] = new_value
+        nodes .= raw
+    end
+end
+
+function mutate!(md::Model, d::D.AbstractNodeField, ::_WholeData, map::Map)
+    ix = N.class(md, d).index
+    entry = N.entry(md, d)
+    N.mutate!(entry) do nodes
+        for (label, x) in map
+            i = N.to_index(ix, label)
+            nodes[i] = x
         end
     end
 end
 
-# Reassign *some* values from mapped input.
-function assign_parsed!(d::D.AbstractNodeField, model::Model, map::Map)
-    core_early_check(d, map) # (avoids reparsing)
-    core_late_check(d, model, map; must_be_complete = false) # Allow partial reassignment.
-    network = NF.network(model)
-    (classname, fieldname) = D.content(d)
-    class = N.class(network, classname)
-    entry = class.data[fieldname]
-    index = class.index
+#-------------------------------------------------------------------------------------------
+# Finer-grained mutation.
+
+function mutate!(md::Model, d::D.AbstractNodeField, (i,)::Tuple{Int}, x)
+    entry = N.entry(md, d)
     N.mutate!(entry) do nodes
-        for (label, new_value) in map
-            i = N.to_index(index, label)
-            nodes[i] = new_value
-        end
+        nodes[i] = x
     end
 end
 
-# Assume the assignment input is a scalar to flatten to all nodes.
-function assign_parsed!(d::D.AbstractNodeField, model::Model, input)
-    network = NF.network(model)
-    (classname, fieldname) = D.content(d)
-    value = check(d, input)
-    early = early_check(d, value)
-    late = late_check(d, model, early)
-    class = N.class(network, classname)
-    entry = class.data[fieldname]
-    N.mutate!(entry) do nodes
-        nodes .= late
-    end
+function mutate!(md::Model, d::D.AbstractNodeField, (l,)::Tuple{Symbol}, x)
+    ix = N.class(md, d).index
+    i = N.to_index(ix, l)
+    mutate!(md, d, (i,), x)
 end
 
 #-------------------------------------------------------------------------------------------

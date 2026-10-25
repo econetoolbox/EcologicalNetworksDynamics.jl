@@ -324,8 +324,8 @@ N.sides(md::Model, d::Web) = N.sides(N.network(md), web(d))
 N.source(md::Model, d::Web) = N.source(N.network(md), web(d))
 N.target(md::Model, d::Web) = N.target(N.network(md), web(d))
 N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
-N.entry(md::Model, d::NodeField) = N.class(d, md).data[field(d)]
-N.entry(md::Model, d::EdgeField) = N.web(d, md).data[field(d)]
+N.entry(md::Model, d::NodeField) = N.class(md, d).data[field(d)]
+N.entry(md::Model, d::EdgeField) = N.web(md, d).data[field(d)]
 
 
 end

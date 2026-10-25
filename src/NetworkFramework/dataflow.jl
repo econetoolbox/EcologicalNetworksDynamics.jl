@@ -109,6 +109,7 @@ bp_early_check(bp::Blueprint) =
 "Use perform checks against an actual model value, continuing lowering."
 late_check(::Model, ::Dispatcher, low) = low # Nothing checked by default.
 late_check(md::Model, bp::Blueprint, low) = late_check(md, dispatcher(bp), low)
+late_check(md::Model, d::Dispatcher, _mref, low) = late_check(md, d, low)
 
 "Guarded entrypoint for the blueprint pipeline."
 bp_late_check(md::Model, bp::Blueprint, low) =
@@ -137,6 +138,7 @@ but be careful not to output data possibly still referenced by user.
 """
 lower(::Model, ::Dispatcher, late_data) = late_data
 lower(md::Model, bp::Blueprint, ld) = lower(md, dispatcher(bp), ld)
+lower(md::Model, d::Dispatcher, _mref, ld) = lower(md, d, ld)
 
 #-------------------------------------------------------------------------------------------
 # Expand.
@@ -148,7 +150,7 @@ expand!(md::Model, bd::Blueprint, low) = expand!(md, dispatcher(bd), low)
 # ==========================================================================================
 # Query values.
 
-"Given a checked reference to inner model data, obtain a copy of it."
+"Given a checked reference to inner model data, obtain a copy of it. Cannot fail."
 obtain(md::Model, d::Dispatcher, mref) = unimplemented(obtain, md, d, mref)
 
 # Redirect cartesian index like the underlying tuple.
@@ -161,16 +163,19 @@ obtain(md::Model, d::Dispatcher, c::CartesianIndex) = obtain(md, d, Tuple(c))
 Default lowering pipeline from raw input to the data to be modified.
 The query is assumed to have been checked.
 """
-function mut_lower(md::Model, d::Dispatcher, _mref, rhs)
+function mut_lower(md::Model, d::Dispatcher, mref, rhs)
     T = D.type(d)
     conv = convert(T, d, rhs)
     early = early_check(d, conv)
-    late = late_check(md, d, early)
-    low = lower(md, d, late)
+    late = late_check(md, d, mref, early)
+    low = lower(md, d, mref, late)
     low
 end
 
-"Actually perform mutation, assuming checked model reference (query) and lowered data."
+"""
+Actually perform mutation, assuming checked model reference (query) and lowered data.
+Cannot fail.
+"""
 mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mref, low)
 
 "Guarded entrypoint for the mutation pipeline."
