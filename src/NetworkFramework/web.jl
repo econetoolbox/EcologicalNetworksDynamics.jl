@@ -73,7 +73,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
     # ======================================================================================
     # Component and generic constructors.
 
-    c = NF.eval(
+    cp = NF.eval(
         quote
             define_component(
                 $(Meta.quot(Web)),
@@ -83,15 +83,15 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
             )
         end,
     )
-    C = typeof(c)
+    CP = typeof(cp)
     NF.eval(quote
-        $D.component(::$_D) = $c
-        (::$C)(args...; kwargs...) = NF.construct($d, $c, args...; kwargs...)
+        $D.component(::$_D) = $cp
+        (::$CP)(args...; kwargs...) = NF.construct($d, $cp, args...; kwargs...)
     end)
 
-    define_web_properties(mod, d; depends = (C,))
+    define_web_properties(mod, d; depends = (CP,))
 
-    (c, C)
+    (cp, CP)
 end
 
 # ==========================================================================================

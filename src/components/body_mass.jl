@@ -25,11 +25,11 @@ function NF.early_check(bp::Z)
          with a negative value of Z.")
 end
 
-function NF.expand!(m::Model, bp::Z)
-    M = read(m.trophic._level) do level
+function NF.expand!(md::Model, bp::Z)
+    M = read(md.trophic._level) do level
         bp.Z .^ (level .- 1) # Credit to Ismaël Lajaaiti.
     end
-    NF.expand!(d, m, M)
+    NF.expand!(d, md, M)
 end
 
 # ==========================================================================================

@@ -66,7 +66,7 @@ function define_node_field_component(
                 @bp_construct Raw
             end
             export Raw
-            NF.data(b::Raw) = b.$short
+            NF.data(bp::Raw) = bp.$short
             NF.register_blueprint(Raw, "raw values"; d,
                 implied = (Class,), # Infer number of class nodes from vector size.
             )
@@ -83,7 +83,7 @@ function define_node_field_component(
                 @bp_construct Map
             end
             export Map
-            NF.data(b::Map) = b.$short
+            NF.data(bp::Map) = bp.$short
             NF.register_blueprint(Map, $"[$class => $field] map"; d,
                 implied = (Class,), # Infer class nodes from map keys.
             )
@@ -109,7 +109,7 @@ function define_node_field_component(
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
-    c = NF.eval(
+    cp = NF.eval(
         quote
             define_component(
                 $(Meta.quot(Singular)),
@@ -119,19 +119,19 @@ function define_node_field_component(
             )
         end,
     )
-    C = typeof(c)
+    CP = typeof(cp)
     NF.eval(
         quote
-            $D.component(::$_D) = $c
-            (::$C)($short, args...; kwargs...) =
-                construct($d, $c, $short, args...; kwargs...)
+            $D.component(::$_D) = $cp
+            (::$CP)($short, args...; kwargs...) =
+                NF.construct($d, $cp, $short, args...; kwargs...)
         end,
     )
 
     if may_flat(d)
         R = flat(d) # Receiver type.
         NF.eval(quote
-            (::$C)($short::$R) = $c.Flat($short)
+            (::$CP)($short::$R) = $cp.Flat($short)
         end)
     end
 
@@ -143,13 +143,13 @@ function define_node_field_component(
             quote
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework: V, NF, D, Network, Model
-                const d, prop, C = $d, $prop, $C
+                const d, prop, CP = $d, $prop, $CP
                 D.viewtype(::typeof(d)) = V.NodeFieldView
-                get_value(::Network, m::Model) = V.field_view(d, m)
-                NF.define_method(get_value; read_as = prop, depends = (C,))
+                get_value(::Network, md::Model) = V.field_view(d, md)
+                NF.define_method(get_value; read_as = prop, depends = (CP,))
                 if !D.readonly(d)
-                    set_value!(::Network, m::Model, input) = NF.assign!(d, m, input)
-                    NF.define_method(set_value!; write_as = prop, depends = (C,))
+                    set_value!(::Network, md::Model, input) = NF.assign!(d, md, input)
+                    NF.define_method(set_value!; write_as = prop, depends = (CP,))
                 end
                 end
             end
@@ -157,57 +157,64 @@ function define_node_field_component(
     )
 
     # Display.
-    NF.eval(quote
-        F.shortline(io::IO, model::Model, ::$C) = NF.nodes_shortline(io, model, $d)
-    end)
+    NF.eval(
+        quote
+            F.shortline(io::IO, model::Model, ::$CP) = NF.nodes_shortline(io, model, $d)
+        end,
+    )
 
-    (c, C)
+    (cp, CP)
 end
 
 # ==========================================================================================
 # Specialization.
 
-datatype(B::Type{<:NodeFieldRawBlueprint}) = Vector{D.type(B)}
-datatype(B::Type{<:NodeFieldMapBlueprint}) = Map{D.type(B)}
-datatype(B::Type{<:NodeFieldFlatBlueprint}) = D.type(B)
+datatype(BP::Type{<:NodeFieldRawBlueprint}) = Vector{D.type(BP)}
+datatype(BP::Type{<:NodeFieldMapBlueprint}) = Map{D.type(BP)}
+datatype(BP::Type{<:NodeFieldFlatBlueprint}) = D.type(BP)
 
 #-------------------------------------------------------------------------------------------
 # Construct.
 
 function construct(d::D.AbstractNodeField, Field::Component, input, args...; kwargs...)
     T = D.type(d)
-    tries = []
+    tries = (
+        Vector{T} => x -> Field.Raw(x, args...; kwargs...),
+        Map{T} => x -> Field.Map(x, args...; kwargs...),
+    )
     if may_flat(d)
-        push!(tries, T => x -> Field.Flat(x, args...; kwargs...))
+        tries = (T => x -> Field.Flat(x, args...; kwargs...), tries...) # (try flat first)
     end
-    push!(tries, Vector{T} => x -> Field.Raw(x, args...; kwargs...))
-    push!(tries, Map{T} => x -> Field.Map(x, args...; kwargs...))
-    try_convert(input, tries...)
+    try
+        try_convert(input, tries...)
+    catch e
+        e isa BlueprintError && rethrow(e)
+        e isa LibError || rethrow(e)
+        e = CheckError(e)
+        e.d = d
+        rethrow(e)
+    end
 end
 
 # Allow passing values as separate arguments.
-construct(B::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
-    first, second, rest...) =
-    @invoke construct(B::Type{<:Blueprint}, (first, second, rest...))
+construct(BP::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
+    first, second, rest...) = bp_construct(BP, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
 # Intrinsic check.
 
 # Default to checking every value independenly.
 # (It has been checked that the compiler is eliding the whole loop
-# in case `intrinsic_check` is defaulting to noop.)
+# in case `intrinsic_check` is defaulting to no-op.)
 function intrinsic_check(
     d::D.AbstractNodeField,
     data::Union{Vector,Map},
     checkref = ref -> (),
 )
-    for (ref, x) in pairs(data)
-        try
-            checkref(ref)
-            intrinsic_check(d, x, ref)
-        catch e
-            e isa LibError || rethrow(e)
-            upgrade(e, RefErr, ref)
+    for (uref, x) in pairs(data)
+        urefguard(uref) do
+            checkref(uref)
+            intrinsic_check(d, x, uref)
         end
     end
     data
@@ -215,8 +222,8 @@ end
 
 # In addition to every value being checked,
 # indices-maps also must be *dense* on construction.
-function intrinsic_check(B::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int})
-    d = dispatcher(B)
+function intrinsic_check(BP::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int})
+    d = dispatcher(BP)
     n = length(map)
     intrinsic_check(
         d,
@@ -239,7 +246,8 @@ intrinsic_check(d::D.AbstractNodeField, x, ::Ref) = intrinsic_check(d, x)
 # Early check.
 
 # Hmpf.. unfortunate necessary wiring? :\
-early_check(B::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int}) = intrinsic_check(B, map)
+early_check(BP::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int}) =
+    intrinsic_check(BP, map)
 
 #-------------------------------------------------------------------------------------------
 # Late check.
@@ -249,41 +257,45 @@ early_check(B::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int}) = intrinsic_c
 late_check(::Model, ::D.AbstractNodeField, x, ::Int, ::Symbol) = x
 
 # Raw.
-function late_check(m::Model, b::NodeFieldRawBlueprint, vec::Vector)
+function late_check(md::Model, bp::NodeFieldRawBlueprint, vec::Vector)
     # Check plain number of provided values.
-    d, nw = dispatcher(b), N.network(m)
+    d, nw = dispatcher(bp), N.network(md)
     cl = D.class(d)
     exp, act = N.n_nodes(nw, cl), length(vec)
-    exp == act ||
-        checkerr(vec, "Wrong number of values received for $d: expected $exp, got $act.")
+    exp == act || checkerr(vec,
+        "Wrong number of values received: expected $exp, got $cyan$act$reset.")
     # Then check values one by one.
     labels = N.node_labels(nw, cl)
     map(enumerate(zip(labels, vec))) do (i, (label, x))
         try
-            late_check(m, d, x, i, label)
+            late_check(md, d, x, i, label)
         catch e
             e isa LibError || rethrow(e)
-            upgrade(e, ModelRefErr, i)
+            if !(e isa CheckError)
+                e = CheckError(e)
+            end
+            e.mref = (i, label)
+            rethrow(e)
         end
     end
 end
 
 # Map (labels).
-function late_check(md::Model, b::NodeFieldMapBlueprint, map::Map{<:Any,Symbol})
+function late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map{<:Any,Symbol})
     # Check references first.
-    late_check_refs(md, dispatcher(b), map; must_be_complete = true)
+    late_check_refs(md, dispatcher(bp), map; must_be_complete = true)
     # Then reorder and check values one by one.
-    d = dispatcher(b)
+    d = dispatcher(bp)
     nw, c = N.network(md), D.class(d)
     ix = N.class(nw, c).index
     [map[l] for l in ix.reverse]
 end
 
 # Map (indices).
-function late_check(md::Model, b::NodeFieldMapBlueprint, map::Map{<:Any,Int})
-    late_check_refs(md, dispatcher(b), map; must_be_complete = true)
+function late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map{<:Any,Int})
+    late_check_refs(md, dispatcher(bp), map; must_be_complete = true)
     # Then reorder and check values one by one.
-    d = dispatcher(b)
+    d = dispatcher(bp)
     nw, c = N.network(md), D.class(d)
     cl = N.class(nw, c)
     n = length(cl)
@@ -308,7 +320,7 @@ function late_check_refs(
     if must_be_complete
         miss = setdiff(exp, act)
         isempty(miss) ||
-            checkerr(map, "Missing for $d: no value provided for $(render(miss)).")
+            checkerr(map, "Missing: no value provided for $(render(miss)).")
     end
     unexp = setdiff(act, exp)
     if !isempty(unexp)
@@ -337,7 +349,7 @@ function late_check_refs(
         ", ", " and "; repr = false)
     if must_be_complete && !isempty(miss)
         s = length(miss) == 1 ? "" : "s"
-        checkerr(map, "Missing for $d: no value provided for node$s $(render(miss)).")
+        checkerr(map, "Missing: no value provided for node$s $(render(miss)).")
     end
     unexp = miss
     for act in keys(map)
@@ -380,18 +392,18 @@ end
 # Expand.
 
 # Flat.
-function expand!(m::Model, b::NodeFieldFlatBlueprint, low)
-    d = dispatcher(b)
-    nw, cl = N.network(m), D.class(d)
+function expand!(md::Model, bp::NodeFieldFlatBlueprint, low)
+    d = dispatcher(bp)
+    nw, cl = N.network(md), D.class(d)
     n = N.n_nodes(nw, cl)
     vec = fill(low, n)
-    expand!(m, d, vec)
+    expand!(md, d, vec)
 end
 
-function expand!(m::Model, d::D.AbstractNodeField, low::Vector)
+function expand!(md::Model, d::D.AbstractNodeField, low::Vector)
     # Even with the .Raw blueprint,
     # late-checking guarantees that lowered data is fresh = not aliased by user.
-    nw, (c, f) = (N.network(m), D.content(d))
+    nw, (c, f) = (N.network(md), D.content(d))
     class = N.class(nw, c)
     N.add_field!(class, f, low)
 end
@@ -498,11 +510,11 @@ end
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function nodes_shortline(io::IO, m::Model, d::D.NodeField)
+function nodes_shortline(io::IO, md::Model, d::D.NodeField)
     cc, fc, rs = F.component_color, F.field_color, reset
     Field = D.CamelCaseSingular(d)
     c, f = D.content(d)
-    nw = N.network(m)
+    nw = N.network(md)
     cl = N.class(nw, c)
     entry = cl.data[f]
     N.read(entry) do data

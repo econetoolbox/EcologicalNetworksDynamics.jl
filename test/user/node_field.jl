@@ -8,6 +8,7 @@ using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
     @propfails, @viewfails, @mutfails
 using OrderedCollections
+using SparseArrays
 using Test
 
 const d, _D = D.NodeField(:species, :body_mass)
@@ -48,9 +49,10 @@ const View = V.NodeFieldView{d,Float64}
 
     invalid = [4, 5, :x]
     @bpfails(BodyMass.Raw(invalid),
-        BodyMass.Raw, :construct,
-        (nothing, 3, :convert, Float64, :x, "Conversion not implemented."))
-    @checkfails(BodyMass(invalid), invalid,
+        BodyMass.Raw, :construct, (d, :x, (3,), nothing,
+        "Cannot convert to `$Float64`:\n\
+         Conversion not implemented."))
+    @checkfails(BodyMass(invalid), d, invalid, :whole, nothing,
         """
         Cannot convert input to either:
           - $Float64
@@ -64,24 +66,22 @@ const View = V.NodeFieldView{d,Float64}
     # Intrinsic check.
 
     @bpfails(BodyMass([4, -5, 6]),
-        BodyMass.Raw, :construct,
-        (nothing, 2, :check, -5.0, "Value cannot be negative."))
+        BodyMass.Raw, :construct, (d, -5.0, (2,), nothing, "Value cannot be negative."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
 
     alias[3] *= -1
     addfails.@check(Model(bp), [],
-        (BodyMass.Raw, :early, (nothing, 3, :check, -6.0, "Value cannot be negative.")))
+        (BodyMass.Raw, :early, (d, -6.0, (3,), nothing, "Value cannot be negative.")))
 
     #---------------------------------------------------------------------------------------
     # Late check.
 
     addfails.@check(Model(Species("abc"), BodyMass([1, 2])), [],
         (BodyMass.Raw, :late,
-            (:whole, :whole, :check, [1.0, 2.0],
-                "Wrong number of values received for <species:body_mass>: \
-                 expected 3, got 2.")))
+            (d, [1.0, 2.0], :whole, :whole,
+                "Wrong number of values received: expected 3, got 2.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -135,19 +135,17 @@ const View = V.NodeFieldView{d,Float64}
     end
 
     @bpfails(BodyMass.Map([:a => [5, 8]]), BodyMass.Map, :construct,
-        (nothing, :whole, :list,
-            "Expected values of type 'Float64', \
-             received instead at [1][right]: [5, 8]  ::$Vector{$Int}."))
+        (d, [5, 8], [1, :right], nothing, "Expected values of type 'Float64'."))
 
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
 
     @bpfails(BodyMass([:a => -5]), BodyMass.Map, :construct,
-        (nothing, :a, :check, -5.0, "Value cannot be negative."))
+        (d, -5.0, (:a,), nothing, "Value cannot be negative."))
     @bpfails(BodyMass([1 => -5]), BodyMass.Map, :construct,
-        (nothing, 1, :check, -5.0, "Value cannot be negative."))
+        (d, -5.0, (1,), nothing, "Value cannot be negative."))
     @bpfails(BodyMass([2 => 5]), BodyMass.Map, :construct,
-        (nothing, 2, :check, 2,
+        (d, 2, (2,), nothing,
             "There is only 1 value in the given map so no index can be 2."))
 
     #---------------------------------------------------------------------------------------
@@ -156,13 +154,13 @@ const View = V.NodeFieldView{d,Float64}
     bp.M[:b] *= -1
     bpi.M[2] *= -1
     addfails.@check(Model(bp), [],
-        (BodyMass.Map, :early, (nothing, :b, :check, -5.0, "Value cannot be negative.")))
+        (BodyMass.Map, :early, (d, -5.0, (:b,), nothing, "Value cannot be negative.")))
     addfails.@check(Model(bpi), [],
-        (BodyMass.Map, :early, (nothing, 2, :check, -5.0, "Value cannot be negative.")))
+        (BodyMass.Map, :early, (d, -5.0, (2,), nothing, "Value cannot be negative.")))
     pop!(bpi.M, 2)
     addfails.@check(Model(bpi), [],
         (BodyMass.Map, :early,
-            (nothing, 3, :check, 3,
+            (d, 3, (3,), nothing,
                 "There are only 2 values in the given map so no index can be 3.")))
 
     #---------------------------------------------------------------------------------------
@@ -170,11 +168,11 @@ const View = V.NodeFieldView{d,Float64}
 
     addfails.@check(Model(Species("abc"), BodyMass([:a => 1])), [],
         (BodyMass.Map, :late,
-            (:whole, :whole, :check, OrderedDict([:a => 1.0]),
-                "Missing for <species:body_mass>: no value provided for :b and :c.")))
+            (d, OrderedDict([:a => 1.0]), :whole, :whole,
+                "Missing: no value provided for :b and :c.")))
     addfails.@check(Model(Species("a"), BodyMass([:a => 1, :x => 2])), [],
         (BodyMass.Map, :late,
-            (:whole, :whole, :check, OrderedDict([:a => 1.0, :x => 2.0]),
+            (d, OrderedDict([:a => 1.0, :x => 2.0]), :whole, :whole,
                 "Not a :species name: :x.")))
 
     # (inconsistent indices map cannot even get through early check)
@@ -232,13 +230,15 @@ const View = V.NodeFieldView{d,Float64}
     )
 
     @bpfails(BodyMass.Flat(:a), BodyMass.Flat, :construct,
-        (nothing, :whole, :convert, Float64, :a, "Conversion not implemented."))
+        (d, :a, :whole, nothing,
+            "Cannot convert to `$Float64`:\n\
+             Conversion not implemented."))
 
     #---------------------------------------------------------------------------------------
     # Intrinsic check.
 
     @bpfails(BodyMass(-5), BodyMass.Flat, :construct,
-        (nothing, :whole, :check, -5.0, "Value cannot be negative."))
+        (d, -5.0, :whole, nothing, "Value cannot be negative."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -248,7 +248,7 @@ const View = V.NodeFieldView{d,Float64}
     bp.M *= -1
     addfails.@check(m + bp, [],
         (BodyMass.Flat, :early,
-            (nothing, :whole, :check, -5.0, "Value cannot be negative.")))
+            (d, -5.0, :whole, nothing, "Value cannot be negative.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -303,25 +303,38 @@ end
     @test v[(end-1):end] == [5, 6]
     @test v[[true, false, true]] == v[[1, 0, 1]] == [4, 6]
 
-    @viewfails(v[], View, "Node-level data has 1 dimension, received 0")
-    @viewfails(v[1, 2], View, "Node-level data has 1 dimension, received 2")
-    @viewfails(v[1, 2, 3], View, "Node-level data has 1 dimension, received 3")
-    @viewfails(v[true], View, "Views are queried with indices [::Int] or labels [::Symbol]")
-    @viewfails(v[(1,)], View, "Cannot index into views with explicit tuples")
-    @viewfails(v[0x8000000000000000], View,
-        "Index too large to be used with julia arrays (9223372036854775808)")
-    @viewfails(v[-5], View, "Integer node references can only be positive")
-    @viewfails(v[[0, 1, 2]], View,
-        "Could not interpret as a boolean mask (not only 1's and 0's?)")
-    @viewfails(v[5], View, "This class only contains 3 nodes")
-    @viewfails(v[:x], View, "No node in this class is labeled :x")
-
-    @viewfails(v[end+1], View, "This class only contains 3 nodes")
-    @viewfails(v[(end-1):(end+1)], View, "This class only contains 3 nodes")
-    @viewfails(v[[0, 1]], View,
-        "The given mask is of size 2 but there are 3 nodes in the class")
-    @viewfails(Model(BodyMass([5])).body_mass[[0, 1]], View,
-        "The given mask is of size 2 but there is 1 node in the class")
+    @viewfails(v[],
+        (d, (), :whole, nothing, "Node-level data has 1 dimension, received 0."))
+    @viewfails(v[1, 2],
+        (d, (1, 2), :whole, nothing, "Node-level data has 1 dimension, received 2."))
+    @viewfails(v[1, 2, 3],
+        (d, (1, 2, 3), :whole, nothing, "Node-level data has 1 dimension, received 3."))
+    @viewfails(v[true],
+        (d, true, (1,), nothing,
+            "Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`."))
+    @viewfails(v[(3,)],
+        (d, (3,), (1,), nothing, "Cannot index into views with explicit tuples."))
+    @viewfails(v[0x8000000000000000],
+        (d, 0x8000000000000000, (1,), nothing,
+            "Index too large to be used with julia arrays (9223372036854775808)."))
+    @viewfails(v[-5],
+        (d, -5, (1,), nothing, "Integer node references can only be positive."))
+    @viewfails(v[[0, 1, 2]],
+        (d, 2, (1, (3,)), nothing,
+            "Could not interpret as a boolean mask:\n\
+             Cannot convert to `$(SparseVector{Bool, Int})`:\n\
+             (detail down the stacktrace)"))
+    @viewfails(v[5], (d, 5, (1,), nothing, "This class only contains 3 nodes."))
+    @viewfails(v[:x], (d, :x, (1,), nothing, "No node in this class is labeled :x."))
+    @viewfails(v[end+1], (d, 4, (1,), nothing, "This class only contains 3 nodes."))
+    @viewfails(v[(end-1):(end+1)],
+        (d, 4, (1, (:last,)), nothing, "This class only contains 3 nodes."))
+    @viewfails(v[[0, 1]],
+        (d, sparse(Bool[0, 1]), (1,), nothing,
+            "The given mask is of size 2 but there are 3 nodes in the class."))
+    @viewfails(Model(BodyMass([5])).body_mass[[0, 1]],
+        (d, sparse(Bool[0, 1]), (1,), nothing,
+            "The given mask is of size 2 but there is 1 node in the class."))
 
     # The field is *mutable* through the view.
     w = m.body_mass # Alternate view to the same model.

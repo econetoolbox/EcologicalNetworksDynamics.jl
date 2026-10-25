@@ -25,7 +25,7 @@ include("./species.jl")
 include("./foodweb.jl")
 
 # First example of nodes data.
-#  include("./body_mass.jl")
+include("./body_mass.jl")
 
 # Non-numeric nodes data, that require checking against model values.
 #  include("./metabolic_class.jl")

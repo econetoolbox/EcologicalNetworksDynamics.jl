@@ -120,6 +120,9 @@ bp_late_check(md::Model, bp::Blueprint, low) =
         if isnothing(e.d)
             e.d = dispatcher(bp)
         end
+        if isnothing(e.mref)
+            e.mref = WholeData
+        end
         rethrow(BlueprintError(B, :late, e))
     end
 
