@@ -21,7 +21,8 @@ module Errors
 using EcologicalNetworksDynamics:
     I, Display, @ErrBrand, errwith, errwrap, withcontext, prepend_context!, OneShotReport,
     escall, Tests, Option
-using .Display: blue, red, yellow, black, bold, italics, reset, rept, eprintln, render_input
+using .Display:
+    blue, red, yellow, black, bold, italics, reset, rept, eprintln, render_input, wide_repr
 using .Tests.Strings: showcompare, showdiff, check_string, UnmatchedStrings, Ln, lnline
 
 using Test
@@ -64,6 +65,7 @@ function fails(src::Ln, xp, E, fields, checks;
     check_fields_expression(E, en) = R.check_fields_expression(E, en, fields, src)
     eval_fields(ev) = R.eval_macro_input(ev, fields, "expected error fields", src)
     wrap(e) = Base.rethrow(FailedFailureTest(src, e))
+    test_error_renders(e) = R.test_error_renders(e, src)
     # (^^^) ..the intent is to clarify what's happening in the generated code below.
     # Control flow can therefore wind between execution(vvv)scope and expansion(^^^)scope.
     quote
@@ -83,6 +85,7 @@ function fails(src::Ln, xp, E, fields, checks;
                 e isa $R.UnexpectedSuccess && $R.unexpected_success(E, fields)
                 e isa E || $R.unexpected_error_type(e, E, fields)
                 $R.test_error_expected(e, E, enames, fields, checks)
+                $test_error_renders(e)
             end
         catch e
             $wrap(e)
@@ -280,7 +283,32 @@ function test_error_expected(err, E::Type, enames::Tuple{Vararg{Symbol}}, fields
     isnothing(success) ? @test(true) : success # Forward up to the console.
 end
 
-#-------------------------------------------------------------------------------------------
+"Test whether the error reporting would at least not yield an exception when rendering."
+function test_error_renders(e, src = nothing)
+    try
+        sprint(showerror, e)
+        @test true
+    catch _
+        # Situation: rethrowing from this block results in the whole error stack
+        # being rendered by `@testset`, triggering the above again.
+        # But rethrowing from outside this block looses the stack leading to actual `err`.
+        # Downgrade the exception to a simple failed test then.
+        E = typeof(e)
+        io = stderr
+        isnothing(src) || println(io, lnline(src))
+        println(io,
+            "$(yellow)Error report rendering failed for $italics$E$reset$yellow:$reset")
+        wide_repr(io, e)
+        println(io, "\n$(yellow)Rendering the above resulted in:$reset")
+        exc, bt = last(current_exceptions())
+        showerror(io, exc, bt)
+        println(io)
+        failed_error_report_rendering = false # (displayed by `@testset`)
+        @test failed_error_report_rendering
+    end
+end
+
+# ==========================================================================================
 
 "Elementary functions testing exception fields."
 module FieldsCompare

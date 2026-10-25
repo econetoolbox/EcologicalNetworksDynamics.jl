@@ -1,4 +1,4 @@
-"""
+    """
 Testing utils.
 Not useful for end users, but heavily used in package automated testing
 and useful to setup development environment with Revise for contributors.
@@ -146,7 +146,7 @@ compare_refs(exp::Symbol, ::NF._WholeData) =
             showcompare(
                 io,
                 exp,
-                ":whole $italics(alias for $black$(NF.WholeInput)$reset$italics)$reset",
+                ":whole $italics(alias for $black$(NF.WholeData)$reset$italics)$reset",
             )
         end
     end
