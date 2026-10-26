@@ -56,7 +56,7 @@ component(s::S) = throw("Component unspeficied for $s.")
 # Display.
 function Base.show(io::IO, s::S)
     class = D.class(s)
-    print(io, "$cyan<$class>$reset")
+    print(io, "<$class>")
 end
 
 # ==========================================================================================
@@ -83,7 +83,7 @@ Class(s::S) = Class(class(s))
 # Display.
 function Base.show(io::IO, s::S)
     class, parent = content(s)
-    print(io, "$cyan<$parent:$class>$reset")
+    print(io, "<$parent:$class>")
 end
 
 # ==========================================================================================
@@ -145,7 +145,7 @@ target(s::S) = Class(targetname(s))
 # Display.
 function Base.show(io::IO, s::S)
     web = D.web(s)
-    print(io, "$cyan<$web>$reset")
+    print(io, "<$web>")
 end
 
 # TODO: do we need a "Subweb"? Maybe refactor components first to figure this.
@@ -179,7 +179,7 @@ CamelCaseSingular(s::S) = name_variants(s)[3]
 # Display.
 function Base.show(io::IO, s::S)
     field = D.field(s)
-    print(io, "$cyan<$field>$reset")
+    print(io, "<$field>")
 end
 
 # ==========================================================================================
@@ -207,7 +207,7 @@ Class(s::S) = Class(class(s))
 # Display.
 function Base.show(io::IO, s::S)
     class, field = content(s)
-    print(io, "$cyan<$class:$field>$reset")
+    print(io, "<$class:$field>")
 end
 
 # ==========================================================================================
@@ -239,7 +239,7 @@ NodeField(s::S) = NodeField(class(s), field(s))
 # Display.
 function Base.show(io::IO, s::S)
     class, field, parent = content(s)
-    print(io, "$cyan<$parent:$class:$field>$reset")
+    print(io, "<$parent:$class:$field>")
 end
 
 # ==========================================================================================
@@ -266,7 +266,7 @@ Web(s::S) = Web(web(s))
 # Display.
 function Base.show(io::IO, s::S)
     web, field = content(s)
-    print(io, "$cyan<$web:$field>$reset")
+    print(io, "<$web:$field>")
 end
 
 # ==========================================================================================
@@ -327,5 +327,8 @@ N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
 N.entry(md::Model, d::NodeField) = N.class(md, d).data[field(d)]
 N.entry(md::Model, d::EdgeField) = N.web(md, d).data[field(d)]
 
+
+# Wide display.
+Base.show(io::IO, ::MIME"text/plain", d::Dispatcher) = print(io, "$cyan$d$reset")
 
 end

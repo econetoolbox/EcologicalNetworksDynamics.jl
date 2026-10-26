@@ -34,8 +34,8 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics:
-    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix
-import .Display: join_elided, render_input, ns, reset
+    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith
+import .Display: join_elided, render_input, ns, reset, cyan, yellow
 import .NetworkFramework:
     NF, D, Model, can_convert, CheckError, checkerr, Query, LibError, dispatcher, Ref
 const V = Views
@@ -109,10 +109,10 @@ let S = AbstractView
 
     # Forbid any property access.
     Base.setproperty!(s::S, y::Symbol) = getproperty(s, y)
-    Base.getproperty(::S, ::Symbol) = errwith("No property to access on views.")
-
-    # Rewire within data flow.
-    NF.obtain(s::S, query) = NF.obtain(NF.model(s), dispatcher(s), query)
+    Base.getproperty(::S, s::Symbol) =
+        errwith("No property to access on views:") do io
+            print(io, "Tried to access $cyan$(repr(s))$reset.")
+        end
 end
 
 include("nodes_display.jl")
@@ -121,38 +121,40 @@ include("edges_display.jl")
 #-------------------------------------------------------------------------------------------
 # Julia `getindex` endpoint.
 
-# HERE: better integrate `Query` and this endpoint,
-# so as to feature trivial extensions like v['a'] for v[:a]
-# yet leaning on `AbstractArray` for pretty much all the rest.
-
-"Only accept individual `Ref`erenced value queries to leave the rest to `AbstractArray`."
-Base.getindex(vw::AbstractView, query::Ref...) = getindex_view(vw, query)
-
-"Accept nodes indexing with arrays of labels."
-Base.getindex(vw::NodeView, labels::AbstractVector{Symbol}) =
-    @invoke Base.getindex(vw::AbstractVector, to_indices(vw, labels)::Vector{Int})
-
-function getindex_view(vw::AbstractView, query)
+function Base.getindex(vw::AbstractView, query...)
     md, d = NF.model(vw), dispatcher(vw)
-    mref = Query.check(md, d, query)
-    NF.obtain(vw, mref)
-end
-
-function to_indices(vw::NodeView, labels::AbstractArray{Symbol})
-    # I dislike how this is leaking `Query` logic here,
-    # but we need to avoid opening(=having to support) all `Base.getindex` surface.
-    md, d = NF.model(vw), dispatcher(vw)
-    ix = N.class(md, d).index
-    res = sizehint!(Int[], length(labels))
-    for (i, l) in pairs(labels)
-        N.is_ref(ix, l) || throw(
-            Query.Error((labels,),
-                CheckError(l, "No node in this class is labeled $(repr(l)).";
-                    d, uref = (1, (i,)))))
-        push!(res, N.to_index(ix, l))
+    # Check whether we have specialized for this query type,
+    # or else just resort to AbstractArray implementation.
+    if applicable(Query.check, md, d, query)
+        mref = Query.check(md, d, query)
+        # Same here, either we have explained how to obtain the value
+        # or we just loop back in with the checked query.
+        if applicable(NF.obtain, vw, mref)
+            NF.obtain(vw, mref)
+        elseif applicable(NF.obtain, md, d, mref) # (this is hand-made dispatching, right?)
+            NF.obtain(md, d, mref)
+        else
+            # .. careful though.
+            if typeof(mref) == typeof(query)
+                fn = "$NF.$(NF.obtain)"
+                V = typeof(vw)
+                Q = typeof(query)
+                throw("Preventing infinite loop? Forgot to implement $fn($V, $Q)?")
+            end
+            getindex(vw, mref...)
+        end
+    else
+        P = supertype(typeof(vw))
+        invoke(getindex, Tuple{P,Vararg}, vw, query...)
     end
-    res
 end
+
+# v[1] -> check(1) -> obtain(1)
+# v[:a] -> check(:a) -> obtain(:a)
+# v['a'] -> check('a') -> obtain(:a)
+# v[[1,2,3]] -> giA -> giV[1] etc.
+# v[[:a, :b, :c]] -> check(vec{l}) -> giV(vec{i})
+# v[['a', 'b', 'c']] -> check(vec{l}) -> giV(vec{i})
 
 #-------------------------------------------------------------------------------------------
 # Julia `setindex!` endpoint.

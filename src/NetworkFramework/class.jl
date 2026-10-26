@@ -196,16 +196,9 @@ end
 #-------------------------------------------------------------------------------------------
 # Query.
 
-NF.obtain(vw::V.NodeView, (q,)::Tuple{Any}) = obtain(vw, q)
-
-obtain(vw::V.NodeNameView, r::Ref) = N.to_label(N.class(vw).index, r)
-obtain(vw::V.NodeMaskView, r::Symbol) = N.is_ref(N.class(vw).index, r)
-obtain(vw::V.NodeMaskView, r::Int) = r in N.class(vw).restriction
-
-obtain(vw::V.NodeView, u::UnitRange) = [obtain(vw, i) for i in u]
-obtain(vw::V.NodeView, ::Colon) = [obtain(vw, i) for i in 1:length(vw)]
-obtain(vw::V.NodeView, m::SparseVector{Bool}) =
-    [obtain(vw, i) for i in 1:length(vw) if m[i]]
+obtain(vw::V.NodeNameView, (r,)::Tuple{Ref}) = N.to_label(N.class(vw).index, r)
+obtain(vw::V.NodeMaskView, (r,)::Tuple{Symbol}) = N.is_ref(N.class(vw).index, r)
+obtain(vw::V.NodeMaskView, (r,)::Tuple{Int}) = r in N.class(vw).restriction
 
 #-------------------------------------------------------------------------------------------
 # Display.

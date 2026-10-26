@@ -10,14 +10,11 @@ using SparseArrays
 
 # ==========================================================================================
 # Check number of indexing dimensions.
+# ONHOLD? rely on `AbstractArray`?
 
 dim_check(::D.NodeLevel, i) = (i,)
 dim_check(::D.EdgeLevel, i, j) = (i, j)
 dim_check(d::Dispatcher, q...) = dimerr(d, q, length(q))
-
-dim_check(::D.NodeLevel, c::CartesianIndex{1}) = c
-dim_check(::D.EdgeLevel, c::CartesianIndex{2}) = c
-dim_check(d::Dispatcher, c::CartesianIndex{N}) where N = dimerr(d, c, N)
 
 function dimerr(d, q, act)
     l = titlecase(D.level(d))
@@ -40,8 +37,7 @@ type_check(d::Dispatcher, q::Tuple) = Tuple(urefguard(i) do
     type_check(d, q)
 end for (i, q) in enumerate(q))
 
-type_check(::Dispatcher, q::Union{Ref,UnitRange,CartesianIndex,Colon}) = q
-type_check(::D.NodeLevel, q::UnitRange) = q # (otherwise ambiguous with AbstractVector)
+type_check(::Dispatcher, q::Ref) = q
 type_check(d::Dispatcher, q) =
     checkerr(q, "Views are queried with indices [::Int] or labels [::Symbol], \
                  not `$(typeof(q))`."; d)
@@ -54,20 +50,6 @@ type_check(d::Dispatcher, q::Unsigned) =
     catch e
         e isa InexactError || rethrow(e)
         checkerr(q, "Index too large to be used with julia arrays ($q).", rethrow; d)
-    end
-
-# Boolean masks.
-type_check(d::D.NodeLevel, q::AbstractVector{<:Integer}) = to_mask(d, q, SparseVector)
-type_check(d::D.EdgeLevel, q::AbstractMatrix{<:Integer}) = to_mask(d, q, SparseMatrix)
-to_mask(d::Dispatcher, q::AbstractArray, Mask::UnionAll) =
-    try
-        NF.convert(Mask{Bool}, q)
-    catch e
-        e isa LibError || rethrow(e)
-        e = CheckError(e)
-        e.d = d
-        e.mess = "Could not interpret as a boolean mask:\n" * e.mess
-        rethrow(e)
     end
 
 # ==========================================================================================
@@ -89,12 +71,6 @@ function early_check(d::Dispatcher, i::Int, _)
     checkerr(i, "Integer node references can only be positive."; d)
 end
 
-# Cartesian is checked like the underlying tuple.
-function early_check(d::Dispatcher, c::CartesianIndex)
-    early_check(d, Tuple(c))
-    c
-end
-
 early_check(::D.EdgeLevel, (m,)::Tuple{AbstractMatrix{Bool}}) = (m,)
 
 # ==========================================================================================
@@ -112,9 +88,6 @@ late_check(md::Model, d::D.EdgeLevel, (i, j)::Tuple{Any,Any}) = Tuple(
         late_check(md, d, i, Val(class))
         check_edge(md, d, i)
     end for (dim, (i, class)) in enumerate(zip((i, j), (N.source, N.target))))
-late_check(md::Model, d::D.EdgeLevel, (mask,)::Tuple{Any}) = urefguard(1) do
-    (late_check(md, d, mask),)
-end
 
 function late_check(md::Model, d::Dispatcher, r::Ref, c::Val{class}) where class
     early_check(d, r, c)
@@ -149,46 +122,6 @@ function referr(md::Model, d::D.EdgeLevel, i::Int, ::Val{class}) where class
     checkerr(i, "The $class class ($name) only contains $n node$s."; d)
 end
 
-# Indexing with ranges.
-function late_check(md::Model, d::Dispatcher, u::UnitRange, c)
-    f, l = (urefguard(_end) do
-        late_check(md, d, i, c)
-    end for (_end, i) in (((:first, first(u)), (:last, last(u)))))
-    f:l
-end
-
-# Indexing with colon, meaning 'all'. Always valid.
-late_check(::Model, ::Dispatcher, ::Colon, _) = (:)
-
-# Indexing with masks.
-function late_check(
-    md::Model,
-    d::D.NodeLevel,
-    k::SparseVector{Bool},
-    ::Val{class},
-) where {class}
-    exp = length(class(md, d))
-    act = length(k)
-    exp == act && return k
-    are, s = exp == 1 ? ("is", "") : ("are", "s")
-    checkerr(k,
-        "The given mask is of size $act but there $are $exp node$s in the class."; d)
-end
-
-# 2D masks.
-function late_check(md::Model, d::D.EdgeLevel, m::SparseMatrix{Bool})
-    src, tgt = N.sides(md, d)
-    e, a = length.((src, tgt)), size(m)
-    e == a && return m
-    checkerr(m, "There are $e potential edges but the given mask is of size $a."; d)
-end
-
-# Cartesian is checked like the underlying tuple.
-function late_check(::Model, d::Dispatcher, c::CartesianIndex)
-    early_check(d, Tuple(c))
-    c
-end
-
 # Edges.
 check_edge(::Model, ::D.Web, q) = q # Ok if marginal indices are ok.
 function check_edge(md::Model, d::D.EdgeField, (i, j)::Tuple{Ref,Ref})
@@ -205,9 +138,33 @@ function is_edge(md::Model, d::D.EdgeLevel, (i, j)::Tuple{Ref,Ref})
 end
 
 # ==========================================================================================
-# Exposed interface: whole checking sequence.
+# Exposed interface: the whole checking sequence.
+# Statically allow-list the accepted query types
+# so as to help `Views` rely on julia's implementations of `AbstractArray` interface *much*.
+# This also reduces the surface to be supported within this module.
 
-check(md::Model, d::Dispatcher, q) =
+# Single-value access, using either indices or labels.
+const Label = Union{Symbol,Char,AbstractString} # (matches our `convert`)
+const Point = Union{Int,Label}
+check(md::Model, d::D.NodeLevel, q::Tuple{Point}) = _check(md, d, q)
+check(md::Model, d::D.EdgeLevel, q::Tuple{Point,Point}) = _check(md, d, q)
+
+# Multiple-labels accesses, useful to match `view[[i, j, k]]` arrays of indices.
+function check(md::Model, d::D.NodeLevel, (labels,)::Tuple{AbstractVector{<:Label}})
+    ix = N.class(md, d).index
+    res = sizehint!(Int[], length(labels))
+    for (i, l) in pairs(I.map(Symbol, labels))
+        N.is_ref(ix, l) || throw(
+            Query.Error((labels,),
+                CheckError(l, "No node in this class is labeled $(repr(l)).";
+                    d, uref = (1, (i,)))))
+        push!(res, N.to_index(ix, l))
+    end
+    (res,)
+end
+
+# .. although the implementation is the same regardless.
+_check(md::Model, d::Dispatcher, q) =
     try
         q = dim_check(d, q...)
         q = type_check(d, q)
@@ -219,22 +176,6 @@ check(md::Model, d::Dispatcher, q) =
         e.d = d
         rethrow(Query.Error(q, e))
     end
-
-# 2D-mask boolean indexing breaks the above flow: 1 argument for 2 dimensions.
-function check(md::Model, d::D.EdgeLevel, (q,)::Tuple{Any})
-    NF.can_convert(SparseMatrix{Bool}, q) || # (hopefully resolved statically)
-        return @invoke check(md, d::Dispatcher, (q,))
-    try
-        q = type_check(d, (q,))
-        q = early_check(d, q)
-        q = late_check(md, d, q)
-        q
-    catch e
-        e isa CheckError || rethrow(e)
-        e.d = d
-        rethrow(Query.Error((q,), e))
-    end
-end
 
 # Trivial, internal query analysis, invoked on 'reassign-like' mutation.
 check(::Model, ::Dispatcher, w::_WholeData) = w

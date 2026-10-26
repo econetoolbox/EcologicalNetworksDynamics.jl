@@ -186,6 +186,7 @@ end
 
 @testset "Class component: names view" begin
 
+    View = Views.NodeNameView{d}
     bp = Species([:a, :b, :c])
     m = Model(bp)
     v = m.species.names
@@ -198,6 +199,7 @@ end
          :b
          :c\
         """)
+    @test_err(v.a, "No property to access on views:\nTried to access :a.") # Opaque though.
 
     # The view has some basic vector-like interface.
     @test v == collect(v) == [:a, :b, :c] == [i for i in v]
@@ -214,54 +216,40 @@ end
     @test v["c"] == :c
     @test v[split("a")...] == :a # (accept substrings as label)
 
-    # Natural markers, ranges, boolean masks.
+    # Natural markers, ranges, boolean masks, indices lists.
     @test v[end] == :c
     @test v[end-1] == :b
     @test v[1:2] == [:a, :b]
     @test v[(end-1):end] == [:b, :c]
-    @test v[[false, true, false]] == v[[0, 1, 0]] == [:b]
+    @test v[[false, true, false]] == [:b]
+    @test v[[3, 3, 3, 2, 2, 1]] == [:c, :c, :c, :b, :b, :a]
+    @test v[['c', 'b', 'b', 'a']] == [:c, :b, :b, :a] # Special feature: convert to labels.
 
-    # TODO: either the reports tested here provide too much information (to be tested)
-    # or that information should be better exploited to produce better report.
-    @viewfails(v[],
-        (d, (), :whole, nothing, "Node-level data has 1 dimension, received 0."))
-    @viewfails(v[1, 2],
-        (d, (1, 2), :whole, nothing, "Node-level data has 1 dimension, received 2."))
-    @viewfails(v[1, 2, 3],
-        (d, (1, 2, 3), :whole, nothing, "Node-level data has 1 dimension, received 3."))
-    @viewfails(v[true],
-        (d, true, (1,), nothing,
-            "Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`."))
-    @viewfails(v[(3,)],
-        (d, (3,), (1,), nothing, "Cannot index into views with explicit tuples."))
-    @viewfails(v[0x8000000000000000],
-        (d, 0x8000000000000000, (1,), nothing,
-            "Index too large to be used with julia arrays (9223372036854775808)."))
+    # Most of the query input checking is (now) made by julia's AbstractArray.
+    @test_err(v[], "BoundsError: attempt to access 3-element $View at index []")
+    @test_err(v[1, 2], "BoundsError: attempt to access 3-element $View at index [1, 2]")
+    @test_err(v[1, 2, 3],
+        "BoundsError: attempt to access 3-element $View at index [1, 2, 3]")
+    @test_err(v[true], "ArgumentError: invalid index: true of type Bool")
+    @test_err(v[(3,)], "ArgumentError: invalid index: (3,) of type Tuple{$Int}")
+    @test_err(v[0x8000000000000000], "InexactError: convert($Int, 0x8000000000000000)")
+    @test_err(v[(end-1):(end+1)],
+        "BoundsError: attempt to access 3-element $View at index [2:4]")
+    @test_err(v[Bool[0, 1]],
+        "BoundsError: attempt to access 3-element $View at index [2-element Vector{Bool}]")
+    # (we used to have better error messages than julia's though, nevermind X)
+
+    # Although it goes further.
     @viewfails(v[-5],
         (d, -5, (1,), nothing, "Integer node references can only be positive."))
-    @viewfails(v[[0, 1, 2]], # TODO: avoid bubbling up this *textual* way?
-        (d, 2, (1, (3,)), nothing,
-            """
-            Could not interpret as a boolean mask:
-            Cannot convert to `$(NF.SparseVector){$Bool, $Int}`:
-            (detail down the stacktrace)\
-            """))
     @viewfails(v[5],
         (d, 5, (1,), nothing, "This class only contains 3 nodes."))
-    @viewfails(v[:x],
-        (d, :x, (1,), nothing, "No node in this class is labeled :x."))
-
     @viewfails(v[end+1],
         (d, 4, (1,), nothing, "This class only contains 3 nodes."))
-    @viewfails(v[(end-1):(end+1)],
-        (d, 4, (1, (:last,)), nothing, "This class only contains 3 nodes."))
-    @viewfails(v[[0, 1]],
-        (d, sparse(Bool[0, 1]), (1,), nothing,
-            "The given mask is of size 2 but there are 3 nodes in the class."))
-
-    @viewfails(Model(Species(1)).species.names[[0, 1]],
-        (d, sparse(Bool[0, 1]), (1,), nothing,
-            "The given mask is of size 2 but there is 1 node in the class."))
+    @viewfails(v[:x],
+        (d, :x, (1,), nothing, "No node in this class is labeled :x."))
+    # TODO: either the reports tested here provide too much information (to be tested)
+    # or that information should be better exploited to produce better report.
 
     # Short query display.
     @test_err(v[:x],
@@ -270,42 +258,7 @@ end
         No node in this class is labeled :x.\
         """)
 
-    # Large query display.
-    @test_err(v[true, collect(1:5)],
-        """
-        Node-level data has 1 dimension, received 2.
-        Cannot index into <species> with: [
-          true  ::Bool,
-          [1, 2, 3, 4, 5]  ::$Vector{$Int},
-        ]\
-        """
-    )
-
-    # Mask.
-    @test_err(v[[0, 1, 2]],
-        """
-        Cannot index into <species> with [[0, 1, 2]]:
-        In element [3] within the index:
-        Could not interpret as a boolean mask:
-        Cannot convert to `$(SparseVector{Bool, Int})`:
-        (detail down the stacktrace)
-        Received: 2  ::$Int\
-        """)
-
-    # Large dimension display.
-    @test_err(v[true, collect(1:20)],
-        """
-        Node-level data has 1 dimension, received 2.
-        Cannot index into <species> with: [
-          true  ::Bool,
-          20-element $Vector{$Int}:\n$(join(map(i -> lpad(i, 3), 1:20),"\n"))  \
-            ::$Vector{$Int},
-        ]\
-        """
-    )
-
     # Immutable.
-    View = Views.NodeNameView{d}
     @immutfails((v[1] = :u), View)
     @immutfails((v[:a] = :u), View)
     @immutfails((v[:a] = 2), View)

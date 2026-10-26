@@ -161,11 +161,13 @@ expand!(md::Model, bd::Blueprint, low) = expand!(md, dispatcher(bd), low)
 # ==========================================================================================
 # Query values.
 
-"Given a checked reference to inner model data, obtain a copy of it. Cannot fail."
-obtain(md::Model, d::Dispatcher, mref) = unimplemented(obtain, md, d, mref)
+"""
+    obtain(md::Model, d::Dispatcher, mref)
+    obtain(vw::AbstractView, mref)
 
-# Redirect cartesian index like the underlying tuple.
-obtain(md::Model, d::Dispatcher, c::CartesianIndex) = obtain(md, d, Tuple(c))
+Given a checked reference to inner model data, obtain a copy of it. Cannot fail.
+"""
+function obtain end
 
 # ==========================================================================================
 # Mutate/Reassign.
