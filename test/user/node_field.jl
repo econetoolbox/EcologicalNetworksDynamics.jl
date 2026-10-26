@@ -6,7 +6,7 @@ using EcologicalNetworksDynamics
 using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF, D, V
 using EcologicalNetworksDynamics.Tests:
     @test_err, @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
-    @propfails, @viewfails, @mutfails
+    @propfails, @viewfails, @mutfails, @viewfails
 using OrderedCollections
 using SparseArrays
 using Test
@@ -331,8 +331,6 @@ end
 
 @testset "NodeField component: mutate" begin
 
-    error("STOP HERE") # Cleanup the `Query` module then resume.
-
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
     v = m.body_mass
 
@@ -369,13 +367,72 @@ end
     @test v == w == m.body_mass == [8, 3, 9]
     v[2:3] .= 7 # Broadcast.
     @test v == w == m.body_mass == [8, 7, 7]
+    v .= [1, 2, 3] # Broadcast to it all.
+    @test v == w == m.body_mass == [1, 2, 3]
     v[[2, 3, 1]] = [3, 5, 7] # Indices vector.
     @test v == w == m.body_mass == [7, 3, 5]
+
     # One extension: accept labels vector.
     v[[:a, :c]] = [8, 9]
     @test v == w == m.body_mass == [8, 3, 9]
 
     # Still unchanged.
+    @test a == alt.body_mass == [4, 5, 6]
+
+    # Index-checking is also enabled via `setindex!`.
+    @viewfails(v[-5] = 8, (d, -5, :whole, nothing, "There are 3 nodes in this class."))
+    @viewfails(v[5] = 8, (d, 5, :whole, nothing, "There are 3 nodes in this class."))
+    @viewfails(v[end+1] = 8, (d, 4, :whole, nothing, "There are 3 nodes in this class."))
+    @viewfails(v[:x] = 8, (d, :x, :whole, nothing, "No node in this class is labeled :x."))
+
+    @test_err(v[:x] = 8,
+        """
+        Cannot index into <species:body_mass> with [:x]:
+        No node in this class is labeled :x.\
+        """)
+
+    @test_err(v[['a', 'x']] = 8,
+        """
+        Cannot index into <species:body_mass> with [['a', 'x']]:
+        In element [2] within the index:
+        No node in this class is labeled :x.
+        Received: 'x'  ::Char\
+        """)
+
+    @test_err(v[] = 8, "BoundsError: attempt to access 3-element $View at index []")
+    @test_err(v[1, 2] = 8, "BoundsError: attempt to access 3-element $View at index [1, 2]")
+    @test_err(v[1, 2, 3] = 8,
+        "BoundsError: attempt to access 3-element $View at index [1, 2, 3]")
+    @test_err(v[true] = 8, "ArgumentError: invalid index: true of type Bool")
+    @test_err(v[(3,)] = 8, "ArgumentError: invalid index: (3,) of type Tuple{$Int}")
+    @test_err(v[0x8000000000000000] = 8, "InexactError: convert($Int, 0x8000000000000000)")
+    @test_err(v[(end-1):(end+1)] = 8,
+        "BoundsError: attempt to access 3-element $View at index [2:4]")
+    @test_err(v[Bool[0, 1]] = 8,
+        "BoundsError: attempt to access 3-element $View at index [2-element Vector{Bool}]")
+
+    # Still unchanged (after failures).
+    @test v == w == m.body_mass == [8, 3, 9]
+    @test a == alt.body_mass == [4, 5, 6]
+
+    # The value is still checked.
+    @mutfails(v .= -5, (d, -5.0, :whole, (1,), "Value cannot be negative."))
+    @mutfails(v[:a] = -5, (d, -5.0, :whole, (1,), "Value cannot be negative."))
+    @mutfails(v[2:3] = [1, -5], (d, -5.0, :whole, (3,), "Value cannot be negative."))
+
+    @test_err(v[2:3] = [1, -5],
+        """
+        While mutating model:
+        In the provided input for <species:body_mass> targetting node value(s) [3]:
+        Value cannot be negative.
+        Received: -5.0  ::$Float64\
+        """)
+    # HERE: improve that report again with the node label?
+    # Maybe re-enforce that trusted `mref` is a consistent `Tuple{Int,Symbol}`.
+
+    # Although /!\ CAREFUL partial mutation may have been applied.
+    #                                 *v*
+    @test v == w == m.body_mass == [8, 1, 9]
     @test a == alt.body_mass == [4, 5, 6]
 
     error("STOP HERE")
@@ -384,14 +441,6 @@ end
     # ======================================================================================
 
     # Support various mutating operations like regular julia arrays.
-    v[1:2] .= 8
-    v[(end-1):end] .*= 100
-    @test v == w == m.body_mass == [8, 800, 600]
-    @test a == alt.body_mass == [4, 5, 6]
-
-    v .= [5, 4, 3]
-    @test v == w == m.body_mass == [5, 4, 3]
-    @test a == alt.body_mass == [4, 5, 6]
 
     # The value is still checked.
     @mutfails(

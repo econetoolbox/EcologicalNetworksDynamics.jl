@@ -131,8 +131,6 @@ function Base.getindex(vw::AbstractView, query...)
     # or else just resort to AbstractArray implementation.
     mref = if applicable(_query_check, vw, query)
         _query_check(vw, query)
-    elseif applicable(_query_check, md, d, query)
-        _query_check(md, d, query)
     else
         P = supertype(typeof(vw))
         return invoke(getindex, Tuple{P,Vararg}, vw, query...)
@@ -158,6 +156,22 @@ end
 #-------------------------------------------------------------------------------------------
 # Julia `setindex!` endpoint.
 
+"Mutate fields through the view."
+function Base.setindex!(vw::FieldView, rhs, query...)
+    mref = if applicable(_query_check, vw, query)
+        _query_check(vw, query)
+    else
+        P = supertype(typeof(vw))
+        R = typeof(rhs)
+        return invoke(setindex!, Tuple{P,R,Vararg}, vw, rhs, query...)
+    end
+    _mut_set!(vw, mref, rhs)
+end
+# Circle back as long as the mref is not just two local integers.
+_mut_set!(vw::FieldView, mref, rhs) = setindex!(vw, rhs, mref...)
+_mut_set!(vw::FieldView, mref::NF.TrustedMRef, rhs) =
+    NF.mut_set!(NF.model(vw), dispatcher(vw), mref, rhs)
+
 "Views into topological information cannot be used to mutate it."
 Base.setindex!(vw::TopologyView, _...) = throw(ImmutableError(typeof(vw)))
 
@@ -171,27 +185,5 @@ function Base.showerror(io::IO, e::ImmutableError)
     d = dispatcher(V)
     print(io, "Cannot change $d $i once they have been set.")
 end
-
-"""
-Fields may be mutated through the view, in compliance with underlying COW logic.
-But disallow indexed mutation with anything else than individually `Ref`erenced values,
-otherwise too much surface needs to be covered like:
-
-    view[mask] = vec
-    view[range] = single # etc.
-
-Although the following are already supported by AbstractArrays:
-
-    view[mask] .= vec
-    view[rang] .= single
-"""
-function Base.setindex!(vw::FieldView, rhs, query::Ref...)
-    md, d = NF.model(vw), dispatcher(vw)
-    NF.mut_set!(md, d, query, rhs)
-end
-
-"One exception for arrays of labels."
-Base.setindex!(vw::NodeFieldView, rhs, labels::AbstractVector{Symbol}) =
-    @invoke Base.setindex!(vw::AbstractVector, rhs, to_indices(vw, labels)::Vector{Int})
 
 end

@@ -190,29 +190,20 @@ Cannot fail.
 """
 mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mref, low)
 
-"Guarded entrypoint for the mutation pipeline."
-function mut_set!(md::Model, d::Dispatcher, query, rhs)
-    mref = mut_mref(md, d, query)
+"Guarded entrypoint for the mutation pipeline, with trusted `mref` query (local indices)."
+const TrustedMRef = Union{Tuple{Int},Tuple{Int,Int},_WholeData}
+function mut_set!(md::Model, d::Dispatcher, mref::TrustedMRef, rhs)
     low = try
         mut_lower(md, d, mref, rhs)
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
         e.d = d
-        if isnothing(e.uref)
-            e.uref = query
-        end
-        if isnothing(e.mref)
-            e.mref = mref
-        end
+        e.mref = mref
         rethrow(MutationError(e))
     end
     mutate!(md, d, mref, low)
 end
-
-"Guarded entrypoint for querying mutation (lhs)."
-mut_mref(::Model, ::Dispatcher, q::Union{Ref, _WholeData}) = q
-# TODO: not sure we need anything else for that one?
 
 # ==========================================================================================
 "Register a given exotic blueprint into the above."
