@@ -367,18 +367,21 @@ end
     m.body_mass = 2
     @test v == w == m.body_mass == [2, 2, 2]
 
-    # Indexing with ranges.
-    v[2:3] = [3, 4]
+    # AbstractArray also provides more sophisticated indexed mutation options.
+    v[2:3] = [3, 4] # Ranges.
     @test v == w == m.body_mass == [2, 3, 4]
-
-    # Indexing with masks.
-    v[[1, 0, 1]] = [8, 9]
+    v[v .!= 3] = [8, 9] # Masks.
+    @test v == w == m.body_mass == [8, 3, 9]
+    v[2:3] .= 7 # Broadcast.
+    @test v == w == m.body_mass == [8, 7, 7]
+    v[[2, 3, 1]] = [3, 5, 7] # Indices vector.
+    @test v == w == m.body_mass == [7, 3, 5]
+    # One extension: accept labels vector.
+    v[[:a, :c]] = [8, 9]
     @test v == w == m.body_mass == [8, 3, 9]
 
-    # Combine.
-    v[2:3] = 5 # HERE: that is going to be too much surface.. right?
-
-    @test a == alt.body_mass == [4, 5, 6] # Still unchanged.
+    # Still unchanged.
+    @test a == alt.body_mass == [4, 5, 6]
 
     error("STOP HERE")
     # ======================================================================================

@@ -37,7 +37,7 @@ import EcologicalNetworksDynamics:
     EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix
 import .Display: join_elided, render_input, ns, reset
 import .NetworkFramework:
-    NF, D, Model, can_convert, CheckError, checkerr, Query, LibError, dispatcher
+    NF, D, Model, can_convert, CheckError, checkerr, Query, LibError, dispatcher, Ref
 const V = Views
 
 using SparseArrays
@@ -119,19 +119,45 @@ include("nodes_display.jl")
 include("edges_display.jl")
 
 #-------------------------------------------------------------------------------------------
-# Wire julia endpoints.
+# Julia `getindex` endpoint.
 
-function Base.getindex(vw::AbstractView, query...)
+# HERE: better integrate `Query` and this endpoint,
+# so as to feature trivial extensions like v['a'] for v[:a]
+# yet leaning on `AbstractArray` for pretty much all the rest.
+
+"Only accept individual `Ref`erenced value queries to leave the rest to `AbstractArray`."
+Base.getindex(vw::AbstractView, query::Ref...) = getindex_view(vw, query)
+
+"Accept nodes indexing with arrays of labels."
+Base.getindex(vw::NodeView, labels::AbstractVector{Symbol}) =
+    @invoke Base.getindex(vw::AbstractVector, to_indices(vw, labels)::Vector{Int})
+
+function getindex_view(vw::AbstractView, query)
     md, d = NF.model(vw), dispatcher(vw)
     mref = Query.check(md, d, query)
     NF.obtain(vw, mref)
 end
 
-function Base.setindex!(vw::FieldView, rhs, query...)
+function to_indices(vw::NodeView, labels::AbstractArray{Symbol})
+    # I dislike how this is leaking `Query` logic here,
+    # but we need to avoid opening(=having to support) all `Base.getindex` surface.
     md, d = NF.model(vw), dispatcher(vw)
-    NF.mut_set!(md, d, query, rhs)
+    ix = N.class(md, d).index
+    res = sizehint!(Int[], length(labels))
+    for (i, l) in pairs(labels)
+        N.is_ref(ix, l) || throw(
+            Query.Error((labels,),
+                CheckError(l, "No node in this class is labeled $(repr(l)).";
+                    d, uref = (1, (i,)))))
+        push!(res, N.to_index(ix, l))
+    end
+    res
 end
 
+#-------------------------------------------------------------------------------------------
+# Julia `setindex!` endpoint.
+
+"Views into topological information cannot be used to mutate it."
 Base.setindex!(vw::TopologyView, _...) = throw(ImmutableError(typeof(vw)))
 
 struct ImmutableError <: LibError
@@ -144,5 +170,27 @@ function Base.showerror(io::IO, e::ImmutableError)
     d = dispatcher(V)
     print(io, "Cannot change $d $i once they have been set.")
 end
+
+"""
+Fields may be mutated through the view, in compliance with underlying COW logic.
+But disallow indexed mutation with anything else than individually `Ref`erenced values,
+otherwise too much surface needs to be covered like:
+
+    view[mask] = vec
+    view[range] = single # etc.
+
+Although the following are already supported by AbstractArrays:
+
+    view[mask] .= vec
+    view[rang] .= single
+"""
+function Base.setindex!(vw::FieldView, rhs, query::Ref...)
+    md, d = NF.model(vw), dispatcher(vw)
+    NF.mut_set!(md, d, query, rhs)
+end
+
+"One exception for arrays of labels."
+Base.setindex!(vw::NodeFieldView, rhs, labels::AbstractVector{Symbol}) =
+    @invoke Base.setindex!(vw::AbstractVector, rhs, to_indices(vw, labels)::Vector{Int})
 
 end
