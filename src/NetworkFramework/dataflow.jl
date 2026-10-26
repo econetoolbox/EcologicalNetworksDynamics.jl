@@ -192,7 +192,7 @@ mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mre
 
 "Guarded entrypoint for the mutation pipeline."
 function mut_set!(md::Model, d::Dispatcher, query, rhs)
-    mref = Query.check(md, d, query)
+    mref = mut_mref(md, d, query)
     low = try
         mut_lower(md, d, mref, rhs)
     catch e
@@ -209,6 +209,10 @@ function mut_set!(md::Model, d::Dispatcher, query, rhs)
     end
     mutate!(md, d, mref, low)
 end
+
+"Guarded entrypoint for querying mutation (lhs)."
+mut_mref(::Model, ::Dispatcher, q::Union{Ref, _WholeData}) = q
+# TODO: not sure we need anything else for that one?
 
 # ==========================================================================================
 "Register a given exotic blueprint into the above."

@@ -227,7 +227,30 @@ end
     # Special feature: convert to labels.
     @test v[['c', 'b', 'b', 'a']] == [:c, :b, :b, :a]
 
-    # Most of the query input checking is (now) made by julia's AbstractArray.
+    # Basic bound-checking is homemade.
+    @viewfails(v[-5], (d, -5, :whole, nothing, "There are 3 nodes in this class."))
+    @viewfails(v[5], (d, 5, :whole, nothing, "There are 3 nodes in this class."))
+    @viewfails(v[end+1], (d, 4, :whole, nothing, "There are 3 nodes in this class."))
+    @viewfails(v[:x], (d, :x, :whole, nothing, "No node in this class is labeled :x."))
+    # TODO: either the reports tested here provide too much information (to be tested)
+    # or that information should be better exploited to produce better report.
+
+    # Short query display.
+    @test_err(v[:x],
+        """
+        Cannot index into <species> with [:x]:
+        No node in this class is labeled :x.\
+        """)
+
+    @test_err(v[['a', 'x']],
+        """
+        Cannot index into <species> with [['a', 'x']]:
+        In element [2] within the index:
+        No node in this class is labeled :x.
+        Received: 'x'  ::Char\
+        """)
+
+    # And the rest of input checking is (now) made by julia's AbstractArray.
     @test_err(v[], "BoundsError: attempt to access 3-element $View at index []")
     @test_err(v[1, 2], "BoundsError: attempt to access 3-element $View at index [1, 2]")
     @test_err(v[1, 2, 3],
@@ -240,25 +263,6 @@ end
     @test_err(v[Bool[0, 1]],
         "BoundsError: attempt to access 3-element $View at index [2-element Vector{Bool}]")
     # (we used to have better error messages than julia's though, nevermind X)
-
-    # Although it goes further.
-    @viewfails(v[-5],
-        (d, -5, (1,), nothing, "Integer node references can only be positive."))
-    @viewfails(v[5],
-        (d, 5, (1,), nothing, "This class only contains 3 nodes."))
-    @viewfails(v[end+1],
-        (d, 4, (1,), nothing, "This class only contains 3 nodes."))
-    @viewfails(v[:x],
-        (d, :x, (1,), nothing, "No node in this class is labeled :x."))
-    # TODO: either the reports tested here provide too much information (to be tested)
-    # or that information should be better exploited to produce better report.
-
-    # Short query display.
-    @test_err(v[:x],
-        """
-        Cannot index into <species> with [:x]:
-        No node in this class is labeled :x.\
-        """)
 
     # Immutable.
     @immutfails((v[1] = :u), View)

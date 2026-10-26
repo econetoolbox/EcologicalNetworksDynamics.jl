@@ -111,19 +111,8 @@ but every method may be specialized depending on pipeline, data kind or blueprin
     - Record lowered data into the the model.
     - Not fail.
 
-- Pipeline "index": query model data for extraction. Only the data kind is available.
-  This is not open for extension by component authors within the lib like the above
-  so the implementation is separate, although principles are the same.
-  - Check the index (same responsibility although different specialized steps):
-    - `check_dim`: raise on meaningless dimensions queried (*e.g.* 2D node data).
-    - `check_type`: raise on invalid index type, allowing for a few restricted conversions.
-    - `check_value`: raise on meaningless index value.
-    - `check_query`: raise on mismatch between index value and model value.
-  - `obtain`: retrieve the desired data. Cannot fail.
-
 - Pipeline "data mutation": happens after expansion, the data kind is available as context.
   Most steps share responsibilities with the ones in pipelines above, and default to them:
-  - Index check: like above to determine the target "LHS" data (mutation is `RHS = LHS`).
   - `convert` the RHS.
   - `early_check` the RHS.
   - `late_check` the RHS.
@@ -165,9 +154,6 @@ include("./dataflow.jl")
 # Typical `parse` utils.
 include("./convert.jl")
 include("./lists.jl")
-
-# Querying the model for particular data.
-include("query.jl")
 
 # View types.
 include("./Views/Views.jl")

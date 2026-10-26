@@ -303,6 +303,17 @@ end
     @test v[Bool[1, 0, 1]] == [4, 6]
     @test v[[:a, :c]] == [4, 6]
 
+    @viewfails(v[-5], (d, -5, :whole, nothing, "There are 3 nodes in this class."))
+    @viewfails(v[5], (d, 5, :whole, nothing, "There are 3 nodes in this class."))
+    @viewfails(v[:x], (d, :x, :whole, nothing, "No node in this class is labeled :x."))
+    @viewfails(v[end+1], (d, 4, :whole, nothing, "There are 3 nodes in this class."))
+
+    @test_err(v[5],
+        """
+        Cannot index into <species:body_mass> with [5]:
+        There are 3 nodes in this class.\
+        """)
+
     @test v isa AbstractVector{Float64}
     @test_err(v[], "BoundsError: attempt to access 3-element $View at index []")
     @test_err(v[1, 2], "BoundsError: attempt to access 3-element $View at index [1, 2]")
@@ -316,15 +327,11 @@ end
     @test_err(v[Bool[0, 1]],
         "BoundsError: attempt to access 3-element $View at index [2-element Vector{Bool}]")
 
-    @viewfails(v[-5],
-        (d, -5, (1,), nothing, "Integer node references can only be positive."))
-    @viewfails(v[5], (d, 5, (1,), nothing, "This class only contains 3 nodes."))
-    @viewfails(v[:x], (d, :x, (1,), nothing, "No node in this class is labeled :x."))
-    @viewfails(v[end+1], (d, 4, (1,), nothing, "This class only contains 3 nodes."))
-
 end
 
 @testset "NodeField component: mutate" begin
+
+    error("STOP HERE") # Cleanup the `Query` module then resume.
 
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
     v = m.body_mass

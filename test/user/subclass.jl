@@ -42,6 +42,11 @@ const View = Views.NodeMaskView{d} # Tested view type.
     @test v[[2, 4]] == [1, 0]
     @test v[['b', 'd']] == [1, 0]
 
+    @viewfails(v[-5], (d, -5, :whole, nothing, "There are 5 nodes in this class."))
+    @viewfails(v[6], (d, 6, :whole, nothing, "There are 5 nodes in this class."))
+    @viewfails(v[:x], (d, :x, :whole, nothing, "No node in this class is labeled :x."))
+    @viewfails(v[end+1], (d, 6, :whole, nothing, "There are 5 nodes in this class."))
+
     # Same guards as node names views.
     @test v isa AbstractSparseVector{Bool}
     @test_err(v[], "BoundsError: attempt to access 5-element $View at index []")
@@ -53,12 +58,6 @@ const View = Views.NodeMaskView{d} # Tested view type.
         "BoundsError: attempt to access 5-element $View at index [4:6]")
     @test_err(v[Bool[0, 1]],
         "BoundsError: attempt to access 5-element $View at index [2-element Vector{Bool}]")
-
-    @viewfails(v[-5],
-        (d, -5, (1,), nothing, "Integer node references can only be positive."))
-    @viewfails(v[6], (d, 6, (1,), nothing, "The parent class only contains 5 nodes."))
-    @viewfails(v[:x], (d, :x, (1,), nothing, "No node in the parent class is labeled :x."))
-    @viewfails(v[end+1], (d, 6, (1,), nothing, "The parent class only contains 5 nodes."))
 
     @immutfails((v[1] = :u), View)
     @immutfails((v[:a] = :u), View)

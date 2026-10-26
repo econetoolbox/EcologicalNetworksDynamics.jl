@@ -35,9 +35,10 @@ module Views
 
 import EcologicalNetworksDynamics:
     EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith
-import .Display: join_elided, render_input, ns, reset, cyan, yellow
+import .Display: join_elided, render_input, ns, reset, cyan, yellow, nsa
 import .NetworkFramework:
-    NF, D, Model, can_convert, CheckError, checkerr, Query, LibError, dispatcher, Ref
+    NF, D, Model, can_convert, CheckError, checkerr, LibError, dispatcher, Ref,
+    WholeData, _WholeData
 const V = Views
 
 using SparseArrays
@@ -118,18 +119,20 @@ end
 include("nodes_display.jl")
 include("edges_display.jl")
 
-#-------------------------------------------------------------------------------------------
+# ==========================================================================================
 # Julia `getindex` endpoint.
+
+include("query.jl")
 
 function Base.getindex(vw::AbstractView, query...)
     # (Pretty-much hand-made dispatching, right?)
     md, d = NF.model(vw), dispatcher(vw)
     # Check whether we have specialized for this query type,
     # or else just resort to AbstractArray implementation.
-    mref = if applicable(Query.check, vw, query)
-        Query.check(vw, query)
-    elseif applicable(Query.check, md, d, query)
-        Query.check(md, d, query)
+    mref = if applicable(_query_check, vw, query)
+        _query_check(vw, query)
+    elseif applicable(_query_check, md, d, query)
+        _query_check(md, d, query)
     else
         P = supertype(typeof(vw))
         return invoke(getindex, Tuple{P,Vararg}, vw, query...)
@@ -150,22 +153,6 @@ function Base.getindex(vw::AbstractView, query...)
         end
         getindex(vw, mref...)
     end
-end
-
-# The sparse node mask view is indexed within its parent.
-Query.check(vw::NodeMaskView, (labels,)::Tuple{AbstractVector{<:Query.Label}}) =
-    Query.check(NF.model(vw), dispatcher(vw), (labels,); class = N.parent)
-
-# These ones, apparently specialized within julia, need disambiguation?
-# TODO: that is fragile to internal julia changes,
-# can we make better without having to support all the interface ourselves, or list it here?
-for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
-    eval(
-        quote
-            Base.getindex(vw::NodeMaskView, q::$Q) =
-                invoke(getindex, Tuple{AbstractView,Any}, vw, q)
-        end,
-    )
 end
 
 #-------------------------------------------------------------------------------------------

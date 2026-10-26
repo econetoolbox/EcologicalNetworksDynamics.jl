@@ -170,7 +170,7 @@ const src = T.errfield(NF.CheckError)
 @genfailsmacro bpfails NF.BlueprintError (; src)
 @genfailsmacro mutfails NF.MutationError (; src)
 
-@genfailsmacro viewfails NF.Query.Error (; src, query = nothing)
+@genfailsmacro viewfails NF.Views.Error (; src, query = nothing)
 #                                               ^^^^^ (redundant with test lhs)
 @genfailsmacro immutfails NF.Views.ImmutableError
 

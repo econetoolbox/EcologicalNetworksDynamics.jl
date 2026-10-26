@@ -416,29 +416,29 @@ end
     @test v[6] == true
     @test v[[3, 6, 9, 12, 15]] == [0, 1, 0, 1, 0]
 
-    # AbstractArray guards.
+    (s, _), (t, _) = D.sides(d)
+    @viewfails(v[-5, 2], (s, -5, :whole, nothing, "There are 5 nodes in this class."))
+    @viewfails(v[6, 7], (s, 6, :whole, nothing, "There are 5 nodes in this class."))
+    @viewfails(v[5, 7], (s, 7, :whole, nothing, "There are 5 nodes in this class."))
+    @viewfails(v[:x, 3], (s, :x, :whole, nothing, "No node in this class is labeled :x."))
+    @viewfails(v[3, :y], (s, :y, :whole, nothing, "No node in this class is labeled :y."))
+    @viewfails(v[end+1, 2], (s, 6, :whole, nothing, "There are 5 nodes in this class."))
+
+    @test_err(v[5, 7], # TODO: improve on this report again leveraging `uref` (left :whole).
+        """
+        Cannot index into <species> with [7]:
+        There are 5 nodes in this class.\
+        """)
+
     @test_err(v[], "BoundsError: attempt to access 5×5 $View at index []")
     @test_err(v[1, 2, 3], "BoundsError: attempt to access 5×5 $View at index [1, 2, 3]")
     @test_err(v[true, false], "ArgumentError: invalid index: true of type Bool")
     @test_err(v[(1, 2)], "ArgumentError: invalid index: (1, 2) of type Tuple{$Int, $Int}")
     @test_err(v[0x8000000000000000, 2], "InexactError: convert($Int, 0x8000000000000000)")
     @test_err(v[2, (end-1):(end+1)],
-            "BoundsError: attempt to access 5×5 $View at index [2, 4:6]")
+        "BoundsError: attempt to access 5×5 $View at index [2, 4:6]")
     @test_err(v[Bool[0 1 0]],
-            "BoundsError: attempt to access 5×5 $View at index [1×3 Matrix{Bool}]")
-
-    @viewfails(v[-5, 2],
-        (d, -5, (1,), nothing, "Integer node references can only be positive."))
-    @viewfails(v[6, 7],
-        (d, 6, (1,), nothing, "The source class (:species) only contains 5 nodes."))
-    @viewfails(v[5, 7],
-        (d, 7, (2,), nothing, "The target class (:species) only contains 5 nodes."))
-    @viewfails(v[:x, 3],
-        (d, :x, (1,), nothing, "No node in the source class (:species) is labeled :x."))
-    @viewfails(v[3, :y],
-        (d, :y, (2,), nothing, "No node in the target class (:species) is labeled :y."))
-    @viewfails(v[end+1, 2],
-        (d, 6, (1,), nothing, "The source class (:species) only contains 5 nodes."))
+        "BoundsError: attempt to access 5×5 $View at index [1×3 Matrix{Bool}]")
 
     # Immutable, prior to any indexing guard.
     @immutfails((v[1, 1] = true), View)
