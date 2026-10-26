@@ -4,7 +4,8 @@ module SubclassTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.NetworkFramework: D, Views
-using EcologicalNetworksDynamics.Tests: @viewfails, @immutfails, @test_repr, @test_disp
+using EcologicalNetworksDynamics.Tests:
+    @test_err, @viewfails, @immutfails, @test_repr, @test_disp
 using OrderedCollections
 using SparseArrays
 using Test
@@ -23,7 +24,6 @@ const View = Views.NodeMaskView{d} # Tested view type.
     @test m.producers.parent_index == OrderedDict(:b => 2, :c => 3, :e => 5)
 
     v = m.producers.mask
-    @test v isa AbstractArray{Bool}
     @test v isa View
 
     e = extract(v)
@@ -39,35 +39,26 @@ const View = Views.NodeMaskView{d} # Tested view type.
     @test v[0x1] == v['a'] == false
     @test v[end] == v[end-2] == true
     @test v[Bool[0, 1, 0, 1, 0]] == [1, 0]
+    @test v[[2, 4]] == [1, 0]
+    @test v[['b', 'd']] == [1, 0]
 
     # Same guards as node names views.
-    @viewfails(v[],
-        (d, (), :whole, nothing, "Node-level data has 1 dimension, received 0."))
-    @viewfails(v[1, 2],
-        (d, (1, 2), :whole, nothing, "Node-level data has 1 dimension, received 2."))
-    @viewfails(v[true],
-        (d, true, (1,), nothing,
-            "Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`."))
-    @viewfails(v[(3,)],
-        (d, (3,), (1,), nothing, "Cannot index into views with explicit tuples."))
-    @viewfails(v[0x8000000000000000],
-        (d, 0x8000000000000000, (1,), nothing,
-            "Index too large to be used with julia arrays (9223372036854775808)."))
+    @test v isa AbstractSparseVector{Bool}
+    @test_err(v[], "BoundsError: attempt to access 5-element $View at index []")
+    @test_err(v[1, 2], "BoundsError: attempt to access 5-element $View at index [1, 2]")
+    @test_err(v[true], "ArgumentError: invalid index: true of type Bool")
+    @test_err(v[(3,)], "ArgumentError: invalid index: (3,) of type Tuple{$Int}")
+    @test_err(v[0x8000000000000000], "InexactError: convert(Int64, 0x8000000000000000)")
+    @test_err(v[(end-1):(end+1)],
+        "BoundsError: attempt to access 5-element $View at index [4:6]")
+    @test_err(v[Bool[0, 1]],
+        "BoundsError: attempt to access 5-element $View at index [2-element Vector{Bool}]")
+
     @viewfails(v[-5],
         (d, -5, (1,), nothing, "Integer node references can only be positive."))
-    @viewfails(v[[0, 1, 2]],
-        (d, 2, (1, (3,)), nothing,
-            "Could not interpret as a boolean mask:\n\
-             Cannot convert to `$(SparseVector{Bool, Int})`:\n\
-             (detail down the stacktrace)"))
     @viewfails(v[6], (d, 6, (1,), nothing, "The parent class only contains 5 nodes."))
     @viewfails(v[:x], (d, :x, (1,), nothing, "No node in the parent class is labeled :x."))
     @viewfails(v[end+1], (d, 6, (1,), nothing, "The parent class only contains 5 nodes."))
-    @viewfails(v[(end-1):(end+1)],
-        (d, 6, (1, (:last,)), nothing, "The parent class only contains 5 nodes."))
-    @viewfails(v[[0, 1]],
-        (d, sparse(Bool[0, 1]), (1,), nothing,
-            "The given mask is of size 2 but there are 5 nodes in the class."))
 
     @immutfails((v[1] = :u), View)
     @immutfails((v[:a] = :u), View)

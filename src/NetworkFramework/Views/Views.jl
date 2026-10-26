@@ -122,31 +122,50 @@ include("edges_display.jl")
 # Julia `getindex` endpoint.
 
 function Base.getindex(vw::AbstractView, query...)
+    # (Pretty-much hand-made dispatching, right?)
     md, d = NF.model(vw), dispatcher(vw)
     # Check whether we have specialized for this query type,
     # or else just resort to AbstractArray implementation.
-    if applicable(Query.check, md, d, query)
-        mref = Query.check(md, d, query)
-        # Same here, either we have explained how to obtain the value
-        # or we just loop back in with the checked query.
-        if applicable(NF.obtain, vw, mref)
-            NF.obtain(vw, mref)
-        elseif applicable(NF.obtain, md, d, mref) # (this is hand-made dispatching, right?)
-            NF.obtain(md, d, mref)
-        else
-            # .. careful though.
-            if typeof(mref) == typeof(query)
-                fn = "$NF.$(NF.obtain)"
-                V = typeof(vw)
-                Q = typeof(query)
-                throw("Preventing infinite loop? Forgot to implement $fn($V, $Q)?")
-            end
-            getindex(vw, mref...)
-        end
+    mref = if applicable(Query.check, vw, query)
+        Query.check(vw, query)
+    elseif applicable(Query.check, md, d, query)
+        Query.check(md, d, query)
     else
         P = supertype(typeof(vw))
-        invoke(getindex, Tuple{P,Vararg}, vw, query...)
+        return invoke(getindex, Tuple{P,Vararg}, vw, query...)
     end
+    # Same here, either we have explained how to obtain the value
+    # or we just loop back in with the checked query.
+    if applicable(NF.obtain, vw, mref)
+        NF.obtain(vw, mref)
+    elseif applicable(NF.obtain, md, d, mref)
+        NF.obtain(md, d, mref)
+    else
+        # .. careful though.
+        if typeof(mref) == typeof(query)
+            fn = "$NF.$(NF.obtain)"
+            V = typeof(vw)
+            Q = typeof(query)
+            throw("Preventing infinite loop? Forgot to implement $fn($V, $Q)?")
+        end
+        getindex(vw, mref...)
+    end
+end
+
+# The sparse node mask view is indexed within its parent.
+Query.check(vw::NodeMaskView, (labels,)::Tuple{AbstractVector{<:Query.Label}}) =
+    Query.check(NF.model(vw), dispatcher(vw), (labels,); class = N.parent)
+
+# These ones, apparently specialized within julia, need disambiguation?
+# TODO: that is fragile to internal julia changes,
+# can we make better without having to support all the interface ourselves, or list it here?
+for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
+    eval(
+        quote
+            Base.getindex(vw::NodeMaskView, q::$Q) =
+                invoke(getindex, Tuple{AbstractView,Any}, vw, q)
+        end,
+    )
 end
 
 #-------------------------------------------------------------------------------------------

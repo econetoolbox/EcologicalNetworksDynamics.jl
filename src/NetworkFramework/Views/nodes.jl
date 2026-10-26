@@ -81,7 +81,7 @@ end
 
 #-------------------------------------------------------------------------------------------
 "View into network class restriction mask, read-only."
-struct NodeMaskView{d} <: AbstractVector{Bool} # d::D.Subclass
+struct NodeMaskView{d} <: AbstractSparseVector{Bool,Int} # d::D.Subclass
     model::Model
     restriction::N.Restriction # Cache an alias to underlying restriction.
 end

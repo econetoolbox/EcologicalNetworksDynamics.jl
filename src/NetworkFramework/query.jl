@@ -150,8 +150,13 @@ check(md::Model, d::D.NodeLevel, q::Tuple{Point}) = _check(md, d, q)
 check(md::Model, d::D.EdgeLevel, q::Tuple{Point,Point}) = _check(md, d, q)
 
 # Multiple-labels accesses, useful to match `view[[i, j, k]]` arrays of indices.
-function check(md::Model, d::D.NodeLevel, (labels,)::Tuple{AbstractVector{<:Label}})
-    ix = N.class(md, d).index
+function check(
+    md::Model,
+    d::D.NodeLevel,
+    (labels,)::Tuple{AbstractVector{<:Label}};
+    class = N.class,
+)
+    ix = class(md, d).index
     res = sizehint!(Int[], length(labels))
     for (i, l) in pairs(I.map(Symbol, labels))
         N.is_ref(ix, l) || throw(
@@ -162,6 +167,7 @@ function check(md::Model, d::D.NodeLevel, (labels,)::Tuple{AbstractVector{<:Labe
     end
     (res,)
 end
+# The sparse node mask view is indexed within its parent.
 
 # .. although the implementation is the same regardless.
 _check(md::Model, d::Dispatcher, q) =
@@ -238,7 +244,7 @@ function Base.showerror(io::IO, e::Error)
         end
     end
     # Report either before or after depending on the query size.
-    Cantwith = "Cannot index into $d with"
+    Cantwith = "Cannot index into $cyan$d$reset with"
     if length(repr(query)) <= 20
         # Easier to understand before..
         q = "[" * join_elided(query, ", ") * "]"
