@@ -216,14 +216,16 @@ end
     @test v["c"] == :c
     @test v[split("a")...] == :a # (accept substrings as label)
 
-    # Natural markers, ranges, boolean masks, indices lists.
+    # Natural markers, ranges, boolean masks, indices lists, inherited from AbstractArray.
+    @test v isa AbstractVector{Symbol}
     @test v[end] == :c
     @test v[end-1] == :b
     @test v[1:2] == [:a, :b]
     @test v[(end-1):end] == [:b, :c]
     @test v[[false, true, false]] == [:b]
     @test v[[3, 3, 3, 2, 2, 1]] == [:c, :c, :c, :b, :b, :a]
-    @test v[['c', 'b', 'b', 'a']] == [:c, :b, :b, :a] # Special feature: convert to labels.
+    # Special feature: convert to labels.
+    @test v[['c', 'b', 'b', 'a']] == [:c, :b, :b, :a]
 
     # Most of the query input checking is (now) made by julia's AbstractArray.
     @test_err(v[], "BoundsError: attempt to access 3-element $View at index []")

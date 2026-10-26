@@ -149,13 +149,6 @@ function Base.getindex(vw::AbstractView, query...)
     end
 end
 
-# v[1] -> check(1) -> obtain(1)
-# v[:a] -> check(:a) -> obtain(:a)
-# v['a'] -> check('a') -> obtain(:a)
-# v[[1,2,3]] -> giA -> giV[1] etc.
-# v[[:a, :b, :c]] -> check(vec{l}) -> giV(vec{i})
-# v[['a', 'b', 'c']] -> check(vec{l}) -> giV(vec{i})
-
 #-------------------------------------------------------------------------------------------
 # Julia `setindex!` endpoint.
 

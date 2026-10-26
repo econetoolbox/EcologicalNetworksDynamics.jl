@@ -349,7 +349,7 @@ post_expand!(::Model, ::D.Web) = nothing
 #-------------------------------------------------------------------------------------------
 # Obtain.
 
-obtain(md::Model, d::D.Web, q::Tuple) = Query.is_edge(md, d, q)
+obtain(md::Model, d::D.Web, q::Tuple{Ref,Ref}) = Query.is_edge(md, d, q)
 
 # Accept mixtures of ranges and scalars.
 function obtain(md::Model, d::D.Web, (i, rj)::Tuple{Ref,UnitRange})

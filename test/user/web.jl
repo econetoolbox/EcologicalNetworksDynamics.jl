@@ -376,53 +376,59 @@ end
     @test v[1, :b] == true
     @test v[:b, 1] == false
 
-    # Natural markers & ranges.
+    # Natural interface inherited from AbstractArray.
+    @test v isa AbstractSparseMatrix{Bool,Int}
+    @test nnz(v) == 6
+    nz = nonzeros(v)
+    @test nz isa Vector{Bool}
+    @test nz == ones(6)
+    sim = similar(v)
+    @test sim isa SparseMatrix{Bool}
+    @test sim == spzeros(Bool, size(v))
+    @test findnz(v) == findnz(A)
     @test v[1, end] == false
     a = v[2, 3:5]
     b = v[1:(end-1), 3]
     c = v[2:3, ((end-1):end)]
-    @test a isa SparseVector{Bool}
-    @test b isa SparseVector{Bool}
-    @test c isa SparseMatrix{Bool}
-    @test a == [1, 0, 1]
+    @test a isa Vector{Bool} # TODO: have them be sparse?
+    @test b isa Vector{Bool} #       This is difficult because julia cannot automatically
+    @test c isa Matrix{Bool} #       pick a specific parse storage from abstract impl.
+    @test a == [1, 0, 1] #           So I am afraid it would require whole surface coverage.
     @test b == [1, 1, 0, 1]
     @test c == [
         0 1
         0 0
     ]
-
-    # Boolean masks.
-    k = [
+    mask = Bool[
         0 1 0 0 0
         0 0 1 0 1
         0 1 1 1 0
         0 0 1 0 0
         0 0 0 0 1
     ]
-    @test v[k] isa SparseVector{Bool}
-    @test v[k] == v[sparse(k)] == v[Bool.(k)] == [1, 0, 1, 0, 1, 0, 1, 0]
+    @test v[mask] isa Vector{Bool}
+    @test v[mask] == v[sparse(mask)] == [1, 0, 1, 0, 1, 0, 1, 0]
+    # TODO: feature `v[:a, [:b, :c]]` etc.? Dispatch nightmare though. Worth it?
 
-    @viewfails(v[],
-        (d, (), :whole, nothing, "Edge-level data has 2 dimensions, received 0."))
-    @viewfails(v[1],
-        (d, (1,), :whole, nothing, "Edge-level data has 2 dimensions, received 1."))
-    @viewfails(v[1, 2, 3],
-        (d, (1, 2, 3), :whole, nothing, "Edge-level data has 2 dimensions, received 3."))
-    @viewfails(v[true, false],
-        (d, true, (1,), nothing,
-            "Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`."))
-    @viewfails(v[(1, 2)],
-        (d, (1, 2), (1,), nothing, "Cannot index into views with explicit tuples."))
-    @viewfails(v[0x8000000000000000, 2],
-        (d, 0x8000000000000000, (1,), nothing,
-            "Index too large to be used with julia arrays (9223372036854775808)."))
+    # /!\ These (1D col-major) are (now) supported then. TODO: forbid? (=Fight julia again?)
+    @test length(v) == 25
+    @test v[1] == false
+    @test v[6] == true
+    @test v[[3, 6, 9, 12, 15]] == [0, 1, 0, 1, 0]
+
+    # AbstractArray guards.
+    @test_err(v[], "BoundsError: attempt to access 5×5 $View at index []")
+    @test_err(v[1, 2, 3], "BoundsError: attempt to access 5×5 $View at index [1, 2, 3]")
+    @test_err(v[true, false], "ArgumentError: invalid index: true of type Bool")
+    @test_err(v[(1, 2)], "ArgumentError: invalid index: (1, 2) of type Tuple{$Int, $Int}")
+    @test_err(v[0x8000000000000000, 2], "InexactError: convert($Int, 0x8000000000000000)")
+    @test_err(v[2, (end-1):(end+1)],
+            "BoundsError: attempt to access 5×5 $View at index [2, 4:6]")
+    @test_err(v[Bool[0 1 0]],
+            "BoundsError: attempt to access 5×5 $View at index [1×3 Matrix{Bool}]")
+
     @viewfails(v[-5, 2],
         (d, -5, (1,), nothing, "Integer node references can only be positive."))
-    @viewfails(v[[0 1; 2 3]],
-        (d, 2, (1, (2, 1)), nothing,
-            "Could not interpret as a boolean mask:\n\
-             Cannot convert to `$(SparseMatrix{Bool})`:\n\
-             (detail down the stacktrace)"))
     @viewfails(v[6, 7],
         (d, 6, (1,), nothing, "The source class (:species) only contains 5 nodes."))
     @viewfails(v[5, 7],
@@ -433,28 +439,6 @@ end
         (d, :y, (2,), nothing, "No node in the target class (:species) is labeled :y."))
     @viewfails(v[end+1, 2],
         (d, 6, (1,), nothing, "The source class (:species) only contains 5 nodes."))
-    @viewfails(v[2, (end-1):(end+1)],
-        (d, 6, (2, (:last,)), nothing,
-            "The target class (:species) only contains 5 nodes."))
-    @viewfails(v[[0 1 0]],
-        (d, sparse(Bool[0 1 0]), (1,), nothing,
-            "There are (5, 5) potential edges but the given mask is of size (1, 3)."))
-
-    # Multi-dim.
-    @test_err(v[2, false],
-        """
-        Cannot index into <trophic> with [2, false]:
-        On dimension 2:
-        Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`.
-        Received: false  ::$Bool\
-        """)
-    @test_err(v[[0 1 0]],
-        """
-        There are (5, 5) potential edges but the given mask is of size (1, 3).
-        Cannot index into <trophic> with: [
-          (sparse([1], [2], Bool[1], 1, 3),)  ::$Tuple{$(SparseMatrix{Bool})},
-        ]\
-        """)
 
     # Immutable, prior to any indexing guard.
     @immutfails((v[1, 1] = true), View)

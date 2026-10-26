@@ -55,7 +55,7 @@ end
 """
 View into edges topology (a binary masks), read-only.
 """
-struct EdgeMaskView{d} <: AbstractMatrix{Bool} # d::D.Web
+struct EdgeMaskView{d} <: AbstractSparseMatrix{Bool,Int} # d::D.Web
     model::Model
     web::N.Web # Cache an alias to underlying web.
 end
@@ -69,6 +69,29 @@ let S = EdgeMaskView
     N.web(s::S) = getfield(s, :web)
     D.web(s::S) = D.web(dispatcher(s))
     V.extract(s::S) = s |> N.topology |> N.to_mask
+    # Duty to AbstractSparseMatrix..?
+    SparseArrays.nonzeros(s::S) = ones(eltype(s), s |> N.web |> N.n_edges)
+end
+
+# ==========================================================================================
+# Common to sparse views.
+
+const SparseEdgeView = Union{SparseEdgeFieldView,EdgeMaskView}
+let S = SparseEdgeView
+    # Duty to AbstractSparseMatrix..?
+    Base.similar(s::S) = spzeros(eltype(s), size(s))
+    SparseArrays.nnz(s::S) = s |> N.n_edges
+    function SparseArrays.findnz(s::S)
+        is, js = map(1:2) do _
+            sizehint!(Int[], nnz(s))
+        end
+        for (i, j) in N.edges(s)
+            push!(is, i)
+            push!(js, j)
+        end
+        (is, js, nonzeros(s))
+    end
+    V.extract(s::S; kw...) = N.to_sparse(N.view(s); kw...)
 end
 
 # ==========================================================================================
