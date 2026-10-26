@@ -5,7 +5,7 @@ using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF, D, V
 using EcologicalNetworksDynamics.Tests:
-    @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
+    @test_err, @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
     @propfails, @viewfails, @mutfails
 using OrderedCollections
 using SparseArrays
@@ -266,10 +266,11 @@ end
 
 @testset "NodeField component: view (read)" begin
 
+    # Test like in `Class`.
+
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
     v = m.body_mass
     @test v isa View
-    @test v isa AbstractVector{Float64}
     @test v == collect(v) == [4, 5, 6] == [i for i in v]
 
     @test_repr(v, "<species:body_mass>[4.0, 5.0, 6.0]")
@@ -286,7 +287,7 @@ end
 
     e = extract(v)
     @test e isa Vector{Float64}
-    @test e == v
+    @test e == v == [4, 5, 6]
 
     @test v[1] == 4
     @test v[0x2] == 5
@@ -299,40 +300,27 @@ end
     @test v[end-1] == 5
     @test v[1:2] == [4, 5]
     @test v[(end-1):end] == [5, 6]
-    @test v[[true, false, true]] == v[[1, 0, 1]] == [4, 6]
+    @test v[Bool[1, 0, 1]] == [4, 6]
+    @test v[[:a, :c]] == [4, 6]
 
-    @viewfails(v[],
-        (d, (), :whole, nothing, "Node-level data has 1 dimension, received 0."))
-    @viewfails(v[1, 2],
-        (d, (1, 2), :whole, nothing, "Node-level data has 1 dimension, received 2."))
-    @viewfails(v[1, 2, 3],
-        (d, (1, 2, 3), :whole, nothing, "Node-level data has 1 dimension, received 3."))
-    @viewfails(v[true],
-        (d, true, (1,), nothing,
-            "Views are queried with indices [::Int] or labels [::Symbol], not `$Bool`."))
-    @viewfails(v[(3,)],
-        (d, (3,), (1,), nothing, "Cannot index into views with explicit tuples."))
-    @viewfails(v[0x8000000000000000],
-        (d, 0x8000000000000000, (1,), nothing,
-            "Index too large to be used with julia arrays (9223372036854775808)."))
+    @test v isa AbstractVector{Float64}
+    @test_err(v[], "BoundsError: attempt to access 3-element $View at index []")
+    @test_err(v[1, 2], "BoundsError: attempt to access 3-element $View at index [1, 2]")
+    @test_err(v[1, 2, 3],
+        "BoundsError: attempt to access 3-element $View at index [1, 2, 3]")
+    @test_err(v[true], "ArgumentError: invalid index: true of type Bool")
+    @test_err(v[(3,)], "ArgumentError: invalid index: (3,) of type Tuple{$Int}")
+    @test_err(v[0x8000000000000000], "InexactError: convert(Int64, 0x8000000000000000)")
+    @test_err(v[(end-1):(end+1)],
+        "BoundsError: attempt to access 3-element $View at index [2:4]")
+    @test_err(v[Bool[0, 1]],
+        "BoundsError: attempt to access 3-element $View at index [2-element Vector{Bool}]")
+
     @viewfails(v[-5],
         (d, -5, (1,), nothing, "Integer node references can only be positive."))
-    @viewfails(v[[0, 1, 2]],
-        (d, 2, (1, (3,)), nothing,
-            "Could not interpret as a boolean mask:\n\
-             Cannot convert to `$(SparseVector{Bool, Int})`:\n\
-             (detail down the stacktrace)"))
     @viewfails(v[5], (d, 5, (1,), nothing, "This class only contains 3 nodes."))
     @viewfails(v[:x], (d, :x, (1,), nothing, "No node in this class is labeled :x."))
     @viewfails(v[end+1], (d, 4, (1,), nothing, "This class only contains 3 nodes."))
-    @viewfails(v[(end-1):(end+1)],
-        (d, 4, (1, (:last,)), nothing, "This class only contains 3 nodes."))
-    @viewfails(v[[0, 1]],
-        (d, sparse(Bool[0, 1]), (1,), nothing,
-            "The given mask is of size 2 but there are 3 nodes in the class."))
-    @viewfails(Model(BodyMass([5])).body_mass[[0, 1]],
-        (d, sparse(Bool[0, 1]), (1,), nothing,
-            "The given mask is of size 2 but there is 1 node in the class."))
 
 end
 

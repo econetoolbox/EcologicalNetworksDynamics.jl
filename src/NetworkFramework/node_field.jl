@@ -412,7 +412,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Obtain.
 
-function obtain(v::V.NodeFieldView, q::Ref)
+function obtain(v::V.NodeFieldView, (q,)::Tuple{Ref})
     i = N.to_index(N.class(v).index, q)
     read(N.entry(v)) do data
         data[i]
