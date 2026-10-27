@@ -176,11 +176,11 @@ function obtain end
 Default lowering pipeline from raw input to the data to be modified.
 The query is assumed to have been checked.
 """
-function mut_lower(md::Model, d::Dispatcher, mref, rhs)
+function mut_lower(md::Model, d::Dispatcher, ref, rhs)
     conv = mut_convert(d, rhs)
     early = early_check(d, conv)
-    late = late_check(md, d, mref, early)
-    low = lower(md, d, mref, late)
+    late = late_check(md, d, ref, early)
+    low = lower(md, d, ref, late)
     low
 end
 
@@ -191,18 +191,18 @@ Cannot fail.
 mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mref, low)
 
 "Guarded entrypoint for the mutation pipeline, with trusted `mref` query (local indices)."
-const TrustedMRef = Union{Tuple{Int},Tuple{Int,Int},_WholeData}
-function mut_set!(md::Model, d::Dispatcher, mref::TrustedMRef, rhs)
+const TrustedRef = Union{Tuple{Int},Tuple{Int,Int},_WholeData}
+function mut_set!(md::Model, d::Dispatcher, ref::TrustedRef, rhs)
     low = try
-        mut_lower(md, d, mref, rhs)
+        mut_lower(md, d, ref, rhs)
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
         e.d = d
-        e.mref = mref
+        e.mref = complete_mref(ref, md, d)
         rethrow(MutationError(e))
     end
-    mutate!(md, d, mref, low)
+    mutate!(md, d, ref, low)
 end
 
 # ==========================================================================================

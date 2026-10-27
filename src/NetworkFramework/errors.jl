@@ -85,6 +85,14 @@ print_mref(io::IO, (mask,)::Tuple{SparseVector{Bool}}) =
     print(io, "[<$(join_elided(collect(I.map(Int, mask)), ""))>]")
 print_mref(io::IO, mref::Tuple) = print(io, "[$(join_elided(mref, ", "))]")
 
+"Upgrade from either to both."
+complete_mref(uref::URef, ix::N.Index) = (N.to_index(ix, uref), N.to_label(ix, uref))
+complete_mref((uref,)::Tuple{URef}, md::Model, d::D.NodeLevel) =
+    (complete_mref(uref, N.class(md, d).index),)
+complete_mref(uref::Tuple{URef,URef}, md::Model, d::D.EdgeLevel) =
+    complete_mref.(uref, map(cl -> cl.index, N.sides(md, d)))
+complete_mref(::_WholeData, ::Model, ::D.GraphLevel) = WholeData
+
 "Aggregate references as the report bubble up."
 nestref(n, uref) = (n, uref)
 nestref(n, ::_WholeData) = (n,)

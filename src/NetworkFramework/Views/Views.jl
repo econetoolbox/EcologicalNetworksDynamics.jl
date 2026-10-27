@@ -129,7 +129,7 @@ function Base.getindex(vw::AbstractView, query...)
     md, d = NF.model(vw), dispatcher(vw)
     # Check whether we have specialized for this query type,
     # or else just resort to AbstractArray implementation.
-    mref = if applicable(_query_check, vw, query)
+    ref = if applicable(_query_check, vw, query)
         _query_check(vw, query)
     else
         P = supertype(typeof(vw))
@@ -137,19 +137,19 @@ function Base.getindex(vw::AbstractView, query...)
     end
     # Same here, either we have explained how to obtain the value
     # or we just loop back in with the checked query.
-    if applicable(NF.obtain, vw, mref)
-        NF.obtain(vw, mref)
-    elseif applicable(NF.obtain, md, d, mref)
-        NF.obtain(md, d, mref)
+    if applicable(NF.obtain, vw, ref)
+        NF.obtain(vw, ref)
+    elseif applicable(NF.obtain, md, d, ref)
+        NF.obtain(md, d, ref)
     else
         # .. careful though.
-        if typeof(mref) == typeof(query)
+        if typeof(ref) == typeof(query)
             fn = "$NF.$(NF.obtain)"
             V = typeof(vw)
             Q = typeof(query)
             throw("Preventing infinite loop? Forgot to implement $fn($V, $Q)?")
         end
-        getindex(vw, mref...)
+        getindex(vw, ref...)
     end
 end
 
@@ -158,19 +158,19 @@ end
 
 "Mutate fields through the view."
 function Base.setindex!(vw::FieldView, rhs, query...)
-    mref = if applicable(_query_check, vw, query)
+    ref = if applicable(_query_check, vw, query)
         _query_check(vw, query)
     else
         P = supertype(typeof(vw))
         R = typeof(rhs)
         return invoke(setindex!, Tuple{P,R,Vararg}, vw, rhs, query...)
     end
-    _mut_set!(vw, mref, rhs)
+    _mut_set!(vw, ref, rhs)
 end
-# Circle back as long as the mref is not just two local integers.
-_mut_set!(vw::FieldView, mref, rhs) = setindex!(vw, rhs, mref...)
-_mut_set!(vw::FieldView, mref::NF.TrustedMRef, rhs) =
-    NF.mut_set!(NF.model(vw), dispatcher(vw), mref, rhs)
+# Circle back as long as the ref is not just two local integers.
+_mut_set!(vw::FieldView, ref, rhs) = setindex!(vw, rhs, ref...)
+_mut_set!(vw::FieldView, ref::NF.TrustedRef, rhs) =
+    NF.mut_set!(NF.model(vw), dispatcher(vw), ref, rhs)
 
 "Views into topological information cannot be used to mutate it."
 Base.setindex!(vw::TopologyView, _...) = throw(ImmutableError(typeof(vw)))

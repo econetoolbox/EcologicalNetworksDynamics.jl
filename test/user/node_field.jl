@@ -347,11 +347,16 @@ end
     @test a == alt.body_mass == [4, 5, 6] # Forked model unchanged, or any view to it.
 
     # Alternately use whole property to reassign.
-    m.body_mass = [9, 5, 1]
+    input = [9, 5, 1]
+    m.body_mass = input
     @test v == w == m.body_mass == [9, 5, 1]
+    # This importantly leaks no reference within the model, so it's *not* actual reassign.
+    input[1] *= 10
+    @test input == [90, 5, 1]
+    @test v == w == m.body_mass == [9, 5, 1] # Unchanged.
 
     # Sophisticated reassign: map-like.
-    m.body_mass = (; a = 7, c = 3)
+    m.body_mass = (; a = 7, c = 3) # (may be partial then)
     @test v == w == m.body_mass == [7, 5, 3]
     m.body_mass = [3 => 8, 1 => 9]
     @test v == w == m.body_mass == [9, 5, 8]
@@ -416,19 +421,17 @@ end
     @test a == alt.body_mass == [4, 5, 6]
 
     # The value is still checked.
-    @mutfails(v .= -5, (d, -5.0, :whole, (1,), "Value cannot be negative."))
-    @mutfails(v[:a] = -5, (d, -5.0, :whole, (1,), "Value cannot be negative."))
-    @mutfails(v[2:3] = [1, -5], (d, -5.0, :whole, (3,), "Value cannot be negative."))
+    @mutfails(v .= -5, (d, -5.0, :whole, ((1, :a),), "Value cannot be negative."))
+    @mutfails(v[:a] = -5, (d, -5.0, :whole, ((1, :a),), "Value cannot be negative."))
+    @mutfails(v[2:3] = [1, -5], (d, -5.0, :whole, ((3, :c),), "Value cannot be negative."))
 
     @test_err(v[2:3] = [1, -5],
         """
         While mutating model:
-        In the provided input for <species:body_mass> targetting node value(s) [3]:
+        In the provided input for <species:body_mass> targetting node value [3] (:c):
         Value cannot be negative.
         Received: -5.0  ::$Float64\
         """)
-    # HERE: improve that report again with the node label?
-    # Maybe re-enforce that trusted `mref` is a consistent `Tuple{Int,Symbol}`.
 
     # Although /!\ CAREFUL partial mutation may have been applied.
     #                                 *v*
@@ -439,74 +442,6 @@ end
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
     # ======================================================================================
-
-    # Support various mutating operations like regular julia arrays.
-
-    # The value is still checked.
-    @mutfails(
-        v[2] = -1,
-        "When attempting to mutate <species:body_mass> node field:\n\
-         At node with label :b ([2]):\n\
-         Value cannot be negative.\n\
-         Received: -1.0"
-    )
-    @mutfails(
-        v[:b] = -10,
-        "When attempting to mutate <species:body_mass> node field:\n\
-         At node with label :b ([2]):\n\
-         Value cannot be negative.\n\
-         Received: -10.0"
-    )
-    @mutfails(
-        v .-= 4,
-        "When attempting to mutate <species:body_mass> node field:\n\
-         At node with label :c ([3]):\n\
-         Value cannot be negative.\n\
-         Received: -1.0"
-    )
-
-    # And all regular index guards are set.
-    @viewfails(
-        v[nothing] = 1,
-        View,
-        "Views are indexed with indices (::Int) or labels (::Symbol). \
-         Cannot index with: nothing ::Nothing."
-    )
-    @viewfails(v[0] = 1, View, "Cannot index with [0] into a class with 3 :species nodes.")
-    @viewfails(v[4] = 1, View, "Cannot index with [4] into a class with 3 :species nodes.")
-    @viewfails(
-        v[:x] = 1,
-        View,
-        "Label does not refer to a node in :species class: :x.\n\
-         Valid labels: [:a, :b, :c]."
-    )
-    @viewfails(v[] = 1, View, "Cannot index into nodes with 0 dimensions: [].")
-    @viewfails(v[1, 2] = 1, View, "Cannot index into nodes with 2 dimensions: [1, 2].")
-    # Plus this mimick one.
-    for invalid_set in (() -> v[1:2] = 8, () -> v[end:(end-1)] *= 10)
-        @viewfails(
-            invalid_set(),
-            View,
-            "Indexed assignment with a single value to possibly many locations \
-             is not supported; perhaps use broadcasting `.=` instead?"
-        )
-    end
-
-    # The field can also be pseudo-'reassigned', although this leaks no reference.
-    m.body_mass = [6, 8, 4]
-    @test m.body_mass == v == [6, 8, 4]
-
-    # Reassignnment also works with mapped input.
-    m.body_mass = Dict(:a => 2, :b => 3, :c => 7)
-    @test m.body_mass == v == [2, 3, 7]
-
-    # It may be partial/incomplete in this case.
-    m.body_mass = Dict(:b => 100)
-    @test m.body_mass == v == [2, 100, 7]
-
-    # Or anything that could be used as a typical blueprint constructor.
-    m.body_mass = 5
-    @test m.body_mass == v == [5, 5, 5]
 
     # Checked.
     @mutfails(
