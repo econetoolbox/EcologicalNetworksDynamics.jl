@@ -33,8 +33,6 @@ function define_graph_field(mod::Module, d::D.GraphField)
                     @bp_construct Raw
                 end
                 export Raw
-                NF.datatype(::Type{Raw}) = T
-                NF.data(bp::Raw) = bp.$field
                 NF.register_blueprint(Raw, "raw $($("$singular")) value"; d)
 
                 end

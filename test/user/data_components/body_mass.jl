@@ -2,9 +2,11 @@ module BodyMassTest
 
 using EcologicalNetworksDynamics
 
+using EcologicalNetworksDynamics.Tests:
+    D, N, @test_disp, @test_repr, addfails, @test_err, @bpfails, @argfails
 using Test
-using EcologicalNetworksDynamics: Network
-using Main: is_disp, is_repr, @argfails, @sysfails, Value
+
+const d, _D = D.NodeField(:species, :body_mass)
 
 @testset "Body mass component." begin
 
@@ -19,15 +21,14 @@ using Main: is_disp, is_repr, @argfails, @sysfails, Value
     # It also has a special way of being built from trophic levels.
     bp = BodyMass.Z(2.8)
     @test bp == BodyMass(; Z = 2.8)
-    @test is_repr(bp, "<BodyMass>:Z(Z: 2.8)")
-    @test is_disp(
-        bp,
+    @test_repr(bp, "<BodyMass>:Z(Z: 2.8)")
+    @test_disp(bp,
         """
         blueprint for <BodyMass>: Z {
           Z: 2.8,
         }\
-        """,
-    )
+        """)
+
     # This one requires a foodweb because it is built from trophic levels.
     fw = Foodweb([:a => [:b, :c], :b => :c])
     m = Model(fw, bp)
@@ -35,22 +36,32 @@ using Main: is_disp, is_repr, @argfails, @sysfails, Value
     @test m.body_mass == [2.8^1.5, 2.8, 1]
 
     # Expansion failures.
-    @sysfails(Model(bp), Missing(Foodweb, nothing, [BodyMass.Z], nothing))
-    @sysfails(Model(Species(3), bp), Missing(Foodweb, nothing, [BodyMass.Z], nothing))
-    @sysfails(
-        Model(fw, BodyMass(; Z = -1)),
-        Check(
-            early,
-            [BodyMass.Z],
-            "Cannot calculate body masses from trophic levels \
-             with a negative value of Z.\n\
-             Received: -1.0",
-        )
+    noneg = "Cannot calculate body masses from trophic levels with a negative value of Z."
+    @bpfails(Model(fw, BodyMass(; Z = -1)),
+        BodyMass.Z, :construct, (d, -1.0, :whole, nothing, noneg))
+    bp.Z *= -1
+    addfails.@check(Model(fw, bp), [],
+        (BodyMass.Z, :early, (d, -2.8, :whole, nothing, noneg)))
+    addfails.@missingrequired(Model(bp), Species, BodyMass, [BodyMass.Z], nothing)
+    addfails.@missingrequired(
+        Model(Species(3), bp),
+        Foodweb,
+        nothing,
+        [BodyMass.Z],
+        nothing
     )
 
     # Input guards.
     @argfails(BodyMass(), "Either 'M' or 'Z' must be provided to define body masses.")
-    @test_throws(MethodError, BodyMass([1, 2], Z = 3.4))
+    @test_err(BodyMass([1, 2], Z = 3.4),
+        """
+        Unexpected keyword arguments to blueprint constructor:
+        in BodyMass.Raw:
+        Received: pairs(::$NamedTuple) with 1 entry:
+          :Z => 3.4
+        Type: $Base.Pairs{$Symbol, $Float64, $Nothing, @NamedTuple{Z::$Float64}}\
+        """
+    )
     @argfails(
         BodyMass(M = [1, 2], Z = 3.4),
         "Cannot specify both 'M' and 'Z' to define body masses."

@@ -18,18 +18,17 @@ mutable struct Z <: Blueprint
 end
 NF.register_blueprint(Z, "trophic levels"; d, depends = (Foodweb,))
 
-function NF.early_check(bp::Z)
-    (; Z) = bp
-    Z >= 0 || NF.checkerr(Z,
-        "Cannot calculate body masses from trophic levels \
-         with a negative value of Z.")
+function NF.bp_early_check(::Type{Z}, x)
+    x >= 0 && return x
+    NF.checkerr(x,
+        "Cannot calculate body masses from trophic levels with a negative value of Z.")
 end
 
-function NF.expand!(md::Model, bp::Z)
+function NF.expand!(md::Model, ::Z, Z)
     M = read(md.trophic._level) do level
-        bp.Z .^ (level .- 1) # Credit to Ismaël Lajaaiti.
+        Z .^ (level .- 1) # Credit to Ismaël Lajaaiti.
     end
-    NF.expand!(d, md, M)
+    NF.expand!(md, d, M)
 end
 
 # ==========================================================================================

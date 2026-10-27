@@ -142,8 +142,7 @@ This is to avoid the need for making the system mutable and systematically fork 
 to possibly revert to original state in case of failure.
 """
 # TODO: would a swap!(::Network, ::Network) help in making add! transactional?
-late_check(s, bp::Blueprint, _early_check_data) = late_check(s, bp)
-late_check(_, ::Blueprint) = nothing # Ignore additional data by default.
+late_check(_, ::Blueprint, early) = early # Alias unchanged by default.
 
 """
 Assuming that late_check passed,
@@ -151,7 +150,7 @@ transform its passed data into anything useful to `expand!`.
 Failure to lower can only be a bug in the component library,
 but it does not compromise system state because `expand!` has not yet started.
 """
-lower(_, ::Blueprint, late_check_data) = late_check_data # Pass unchanged by default.
+lower(_, ::Blueprint, late) = late # Alias unchanged by default.
 
 """
 The expansion step is when the wrapped system value is finally modified,
@@ -168,8 +167,7 @@ This function must not fail or the system may end up in a corrupt state.
 #       Note that random expansion would result in:
 #       (System{Value}() + blueprint).property != (System{Value}() + blueprint).property
 #       which may be confusing.
-expand!(s, bp::Blueprint, _lower_data) = expand!(s, bp) # Ignore data..
-expand!(_, ::Blueprint) = nothing # ..and do nothing by default.
+expand!(_, ::Blueprint, low) = low # Do nothing by default.
 
 # NOTE: the above signatures for default functions *could* be more strict
 # like eg. `check(::System{V}, ::Blueprint{V}) where {V}`,

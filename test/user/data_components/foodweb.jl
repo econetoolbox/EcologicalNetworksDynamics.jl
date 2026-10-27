@@ -4,9 +4,8 @@ using EcologicalNetworksDynamics
 using SparseArrays
 using Random
 
+using EcologicalNetworksDynamics.Tests: EN, N, F, NF, V, D, @immutfails, @test_disp
 using Test
-using .EcologicalNetworksDynamics: F, V, D, EN
-using Main: @viewfails, is_disp
 
 @testset "Foodweb component." begin
     # Very structuring, the foodweb does provide a lot of properties.
@@ -21,14 +20,12 @@ using Main: @viewfails, is_disp
     m = Model(Species("abcd"), bp)
 
     # Expanding the foodweb actually produces extra subclasses.
-    @test is_disp(
-        m,
+    @test_disp(m,
         """
-        Model (alias for $(F.System){$(EN.Network)}) with 2 components:
+        Model (alias for $(F.System){$(N.Network)}) with 2 components:
           - Species: 4 (:a, :b, :c, :d)
           - Foodweb: 4 links, 2 producers, 2 consumers, 3 preys, 1 top.\
-        """,
-    )
+        """)
 
     # Aliases.
     @test m.trophic === m.foodweb
@@ -68,12 +65,9 @@ using Main: @viewfails, is_disp
     @test m.trophic.carnivory == m.carnivory
 
     # Calculated trophic levels.
+    View = V.NodeFieldView{D.NodeField(:species,:trophic_level)[1],Float64}
     @test m.trophic.level ≈ [1, 2, 1, 2 + 1 / 3]
-    @viewfails(
-        m.trophic.level[:d] = 1,
-        V.NodeDataView{D.NodeField(:species, :trophic_level),Float64},
-        "Values of :trophic_level are readonly."
-    )
+    @immutfails(m.trophic.level[:d] = 1, View)
 
     # Construct from random models.
     # (further interface checking tested elsewhere as part of typical kwargs helpers use)

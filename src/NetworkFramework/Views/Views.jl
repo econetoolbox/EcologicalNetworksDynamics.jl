@@ -158,6 +158,7 @@ end
 
 "Mutate fields through the view."
 function Base.setindex!(vw::FieldView, rhs, query...)
+    D.readonly(vw) && throw(ImmutableError(typeof(vw)))
     ref = if applicable(_query_check, vw, query)
         _query_check(vw, query)
     else

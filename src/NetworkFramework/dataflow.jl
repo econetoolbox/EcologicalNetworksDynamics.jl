@@ -40,16 +40,21 @@ mut_convert(d::Dispatcher, input) =
 #-------------------------------------------------------------------------------------------
 # Construct.
 
-"Determine main blueprint data value and data type if any (expect *static* answer)."
-# TODO: default to first field type?
-datatype(BP::Type{<:Blueprint}) = unimplemented(datatype, BP)
+"""
+Determine main blueprint data value and data type if any (expect *static* answer).
+Defaults to first field type.
+"""
+datatype(BP::Type{<:Blueprint}) = first(fieldtypes(BP))
 datatype(bp::Blueprint) = typeof(data(bp))
 
 # Get the core corresponding field type.
 D.type(BP::Type{<:Blueprint}) = D.type(dispatcher(BP))
 
-"Extract main blueprint data if any (expect *static* answer)."
-data(bp::Blueprint) = unimplemented(data, bp) # TODO: default to first field?
+"""
+Extract main blueprint data if any (expect *static* answer).
+Defaults to first field.
+"""
+data(bp::Blueprint) = getfield(bp, first(fieldnames(typeof(bp))))
 
 """
 Guarded entrypoint into blueprint construction.
@@ -62,7 +67,7 @@ function construct(BP::Type{<:Blueprint}, args...; kwargs...)
     err(unexp) = io -> begin
         print(io, "in ")
         bpcol(io, BP)
-        print(io, ":")
+        println(io, ":")
         render_input(io, unexp)
     end
     isempty(rest) || errwith(err(rest), "Unexpected arguments to blueprint constructor:")
@@ -157,7 +162,8 @@ mut_lower(md::Model, d::Dispatcher, _ref, ld) = mut_lower(md, d, ld)
 
 "Use `lower`ed data to finally expand into the desired component. Cannot fail."
 expand!(md::Model, d::Dispatcher, low) = unimplemented(expand!, md, d, low)
-expand!(md::Model, bd::Blueprint, low) = expand!(md, dispatcher(bd), low)
+expand!(md::Model, bp::Blueprint, late) =
+    expand!(md, dispatcher(bp), NF.bp_lower(md, bp, late))
 
 # ==========================================================================================
 # Query values.
@@ -226,9 +232,9 @@ function register_blueprint(
         end
     end
     eval(quote
-        F.early_check(b::$BP) = NF._bp_early_check(b)
-        F.late_check(m::Model, b::$BP, data) = NF._bp_late_check(m, b, data)
-        F.expand!(m::Model, b::$BP, data) = NF.expand!(m, b, NF.bp_lower(m, b, data))
+        F.early_check(bp::$BP) = NF._bp_early_check(bp)
+        F.late_check(md::Model, bp::$BP, data) = NF._bp_late_check(md, bp, data)
+        F.expand!(md::Model, bp::$BP, low) = NF.expand!(md, bp, low)
     end)
     isnothing(d) && return
     eval(quote

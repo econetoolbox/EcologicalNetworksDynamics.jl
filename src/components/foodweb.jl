@@ -74,33 +74,29 @@ function NF.post_expand!(model::Model, d::_D)
 end
 
 depends = (Foodweb,)
-p, _ = D.Class(:producers)
-c, _ = D.Class(:consumers)
-t, _ = D.Class(:tops)
-r, _ = D.Class(:preys)
+p, _P = D.Class(:producers)
+c, _C = D.Class(:consumers)
+t, _T = D.Class(:tops)
+r, _R = D.Class(:preys)
 # TODO: fix that there is no need for a short prefix for them: subclasses.
-D.name_variants(::typeof(p)) = (:_, :producer, :producers, :Producer, :Producers)
-D.name_variants(::typeof(c)) = (:_, :consumer, :consumers, :Consumer, :Consumers)
-D.name_variants(::typeof(t)) = (:_, :top, :tops, :Top, :Tops)
-D.name_variants(::typeof(r)) = (:_, :prey, :preys, :Preys, :Preys)
-D.component(::typeof(p)) = Foodweb
-D.component(::typeof(c)) = Foodweb
-D.component(::typeof(t)) = Foodweb
-D.component(::typeof(r)) = Foodweb
+D.name_variants(::_P) = (:_, :producer, :producers, :Producer, :Producers)
+D.name_variants(::_C) = (:_, :consumer, :consumers, :Consumer, :Consumers)
+D.name_variants(::_T) = (:_, :top, :tops, :Top, :Tops)
+D.name_variants(::_R) = (:_, :prey, :preys, :Preys, :Preys)
+D.component(::Union{_P,_C,_T,_R}) = Foodweb
 NF.define_class_properties(EN, p; depends)
 NF.define_class_properties(EN, c; depends)
 NF.define_class_properties(EN, t; depends)
 NF.define_class_properties(EN, r; depends)
 
-p, _ = D.Web(:producers_web)
-h, _ = D.Web(:herbivory)
-c, _ = D.Web(:carnivory)
-D.name_variants(::typeof(p)) = (:producers_web, :ProducersWeb)
-D.name_variants(::typeof(h)) = (:herbivory, :Herbivory)
-D.name_variants(::typeof(c)) = (:carnivory, :Carnivory)
-D.component(::typeof(p)) = Foodweb
-D.component(::typeof(h)) = Foodweb
-D.component(::typeof(c)) = Foodweb
+p, _P = D.Web(:producers_web)
+h, _H = D.Web(:herbivory)
+c, _C = D.Web(:carnivory)
+D.name_variants(::_P) = (:producers_web, :ProducersWeb)
+D.name_variants(::_H) = (:herbivory, :Herbivory)
+D.name_variants(::_C) = (:carnivory, :Carnivory)
+D.component(::Union{_P, _H, _C}) = Foodweb
+D.sidenames(::Union{_P, _H, _C}) = (:species, :species)
 NF.define_web_properties(EN, p; depends)
 NF.define_web_properties(EN, h; depends)
 NF.define_web_properties(EN, c; depends)
@@ -130,7 +126,8 @@ end
 const l, _L = D.NodeField(:species, :trophic_level)
 D.type(::_L) = Float64
 D.readonly(::_L) = true
-level(::Network, md::Model) = V.data_view(l, md)
+D.viewtype(::_L) = V.NodeFieldView # TODO: why is that necessary?
+level(::Network, md::Model) = V.field_view(l, md)
 level_entry(nw::Network) = N.class(nw, :species).data[:trophic_level]
 NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
 NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])

@@ -66,7 +66,6 @@ function define_node_field_component(
                 @bp_construct Raw
             end
             export Raw
-            NF.data(bp::Raw) = bp.$short
             NF.register_blueprint(Raw, "raw values"; d,
                 implied = (Class,), # Infer number of class nodes from vector size.
             )
@@ -83,7 +82,6 @@ function define_node_field_component(
                 @bp_construct Map
             end
             export Map
-            NF.data(bp::Map) = bp.$short
             NF.register_blueprint(Map, $"[$class => $field] map"; d,
                 implied = (Class,), # Infer class nodes from map keys.
             )
@@ -100,7 +98,6 @@ function define_node_field_component(
                     @bp_construct Flat
                 end
                 export Flat
-                NF.data(bp::Flat) = bp.$short
                 NF.register_blueprint(Flat, "uniform value"; d, depends = (Class,))
             end,
         )
@@ -169,10 +166,6 @@ end
 
 # ==========================================================================================
 # Specialization.
-
-datatype(BP::Type{<:NodeFieldRawBlueprint}) = Vector{D.type(BP)}
-datatype(BP::Type{<:NodeFieldMapBlueprint}) = Map{D.type(BP)}
-datatype(BP::Type{<:NodeFieldFlatBlueprint}) = D.type(BP)
 
 #-------------------------------------------------------------------------------------------
 # Construct.
@@ -409,8 +402,7 @@ end
 # Expand.
 
 # Flat.
-function expand!(md::Model, bp::NodeFieldFlatBlueprint, low)
-    d = dispatcher(bp)
+function expand!(md::Model, d::D.AbstractNodeField, low)
     nw, cl = N.network(md), D.class(d)
     n = N.n_nodes(nw, cl)
     vec = fill(low, n)

@@ -5,7 +5,7 @@ Use to throw or rethrow when the error is identified within user arguments.
 """
 argerr(message, throw = Base.throw) = throw(ArgumentError(message))
 
-abstract type OneShotReport end
+abstract type OneShotReport <: Exception end
 
 """
 Use to create apparent one-shot error type,

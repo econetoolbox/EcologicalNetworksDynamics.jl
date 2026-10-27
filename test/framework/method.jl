@@ -49,7 +49,7 @@ module Calls
         struct Unf_b <: Blueprint{Value} end
         define_blueprint(Unf_b)
         define_component(:Unf; blueprints = [:b => Unf_b])
-        F.expand!(s, ::Unf_b) = (F.value(s)._member = 0)
+        F.expand!(s, ::Unf_b, _) = (F.value(s)._member = 0)
         s = System{Value}(Unf.b())
 
         # Simple valid invocation.

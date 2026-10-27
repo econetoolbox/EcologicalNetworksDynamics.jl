@@ -325,7 +325,7 @@ module FieldsCompare
     function type(exp, act)
         E, A = typeof.((exp, act))
         E === A || errwith(WrongField, "wrong type", rethrow) do io
-            showcompare(io, E, A)
+            showcompare(io, E, rept(act))
         end
     end
 

@@ -39,7 +39,7 @@ module Basics # Use submodules to not clash blueprints/components names.
     end
     F.early_check(nl::NLines) =
         nl.n > 0 || checkfails("Not a positive number of lines: $(nl.n).")
-    F.expand!(s, nl::NLines) = (F.value(s)._n = nl.n)
+    F.expand!(s, nl::NLines, _) = (F.value(s)._n = nl.n)
     define_blueprint(NLines)
     define_component(:Size, Value, Basics; blueprints = [:N => NLines])
     local Size, _Size # (reassure JuliaLS)
@@ -61,7 +61,7 @@ module Basics # Use submodules to not clash blueprints/components names.
         mutable struct Uniform <: Blueprint{Value}
             value::Float64
         end
-        F.expand!(s, u::Uniform) = (F.value(s)._dict[:a] = [u.value for _ in 1:s.n])
+        F.expand!(s, u::Uniform, _) = (F.value(s)._dict[:a] = [u.value for _ in 1:s.n])
         define_blueprint(Uniform)
 
         mutable struct Raw <: Blueprint{Value}
@@ -69,12 +69,12 @@ module Basics # Use submodules to not clash blueprints/components names.
         end
         F.implied(::Raw) = (_Size,)
         F.implied_blueprint_for(r::Raw, ::Type{_Size}) = NLines(length(r.a))
-        function F.late_check(s, raw::Raw)
+        function F.late_check(s, raw::Raw, _)
             na = length(raw.a)
             nv = s.n
             na == nv || checkfails("Cannot expand $na 'a' values into $nv lines.")
         end
-        F.expand!(s, r::Raw) = (F.value(s)._dict[:a] = deepcopy(r.a))
+        F.expand!(s, r::Raw, _) = (F.value(s)._dict[:a] = deepcopy(r.a))
         define_blueprint(Raw)
 
     end # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -106,22 +106,22 @@ module Basics # Use submodules to not clash blueprints/components names.
         mutable struct Uniform <: Blueprint{Value}
             value::Float64
         end
-        F.late_check(s, u::Uniform) =
+        F.late_check(s, u::Uniform, _) =
             maximum(s.a) <= u.value ||
             checkfails("Values 'b' not larger than maximum 'a' values.")
-        F.expand!(s, u::Uniform) = (F.value(s)._dict[:b] = [u.value for _ in 1:s.n])
+        F.expand!(s, u::Uniform, _) = (F.value(s)._dict[:b] = [u.value for _ in 1:s.n])
         define_blueprint(Uniform)
 
         mutable struct Raw <: Blueprint{Value}
             b::Vector{Float64}
         end
-        function F.late_check(v, raw::Raw)
+        function F.late_check(v, raw::Raw, _)
             nb = length(raw.b)
             nv = v.n
             nb == nv || checkfails("Cannot expand $nb 'a' values into $nv lines.")
             maximum(v.a) <= minimum(raw.b) || checkfails("Values 'b' too small wrt 'a'.")
         end
-        F.expand!(s, r::Raw) = (F.value(s)._dict[:b] = deepcopy(r.b))
+        F.expand!(s, r::Raw, _) = (F.value(s)._dict[:b] = deepcopy(r.b))
         Basics.NLines(r::Raw) = NLines(length(r.b))
         F.implied(::Raw) = (Size,) # (also works with singleton instance)
         F.implied_blueprint_for(r::Raw, ::Type{_Size}) = NLines(length(r.b))
@@ -157,11 +157,11 @@ module Basics # Use submodules to not clash blueprints/components names.
     # One component whose expansion/checking depends on other components within the system.
 
     struct ReflectionMark <: Blueprint{Value} end
-    F.late_check(s, ::ReflectionMark) =
+    F.late_check(s, ::ReflectionMark, _) =
         if !has_component(s, A) && !has_component(s, B)
             checkfails("Cannot reflect from no data.")
         end
-    function F.expand!(s, ::ReflectionMark)
+    function F.expand!(s, ::ReflectionMark, _)
         rf = Char[]
         if has_component(s, A)
             push!(rf, 'A')
@@ -179,7 +179,7 @@ module Basics # Use submodules to not clash blueprints/components names.
     # so it does not *require* A,
     # but it needs A to expand.
     struct ReflectFromB <: Blueprint{Value} end
-    function F.expand!(s, ::ReflectFromB)
+    function F.expand!(s, ::ReflectFromB, _)
         F.value(s)._dict[:reflection] =
             collect(first.(repr.(Iterators.take(Iterators.cycle(s.a), s.n))))
     end

@@ -21,13 +21,15 @@ include("./errors.jl")
 
 # ==========================================================================================
 # Exposed testing interface, with the collection of macros directly used in tests.
+# Symbols are not imported here only to be directly used here,
+# but also to be imported from within tests modules.
 
 const T = Tests
 
 using EcologicalNetworksDynamics:
-    EN, N, F, NetworkFramework, I, SparseMatrix, Display, errwith, withcontext
+    EN, N, F, I, SparseMatrix, Display, errwith, withcontext
 using .Display: rept, render_input, yellow, black, reset, italics
-using .NetworkFramework: NF, D
+using EcologicalNetworksDynamics.NetworkFramework: NF, D, V
 
 using .Strings:
     showcompare,
@@ -118,7 +120,7 @@ module addfails
         end
     end
     "It is okay to use a component singleton to compare against the type."
-    comp(exp::CompType, act::CompType) =
+    comp(exp, act) =
         exp === act || reerrwith(WrongField, "wrong component") do io
             T.showcompare(io, exp, act)
         end

@@ -195,10 +195,6 @@ end
 # ==========================================================================================
 # Specialization.
 
-data(bp::WebBlueprint) = bp.A
-datatype(::Type{<:ReflexiveWebMatrixBlueprint}) = SparseMatrix{Bool}
-datatype(::Type{<:ReflexiveWebAdjacencyBlueprint}) = BinAdjacency
-
 #-------------------------------------------------------------------------------------------
 # Construct.
 

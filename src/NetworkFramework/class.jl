@@ -137,11 +137,6 @@ end
 # ==========================================================================================
 # Specialisation for this typical component type.
 
-datatype(::Type{<:ClassNames}) = Vector{Symbol}
-datatype(::Type{<:ClassNumber}) = Int
-data(bp::ClassNames) = bp.names
-data(bp::ClassNumber) = bp.n
-
 #-------------------------------------------------------------------------------------------
 # Construct.
 
