@@ -281,22 +281,36 @@ function late_check(md::Model, bp::NodeFieldRawBlueprint, vec::Vector)
     end
 end
 
+# HERE: what this awkward `complete` argument is telling us
+# is that checking + lowering differ depending
+# whether we are following `expand` or `mutate` pipeline. Clarify, deal with it.
+late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map) =
+    late_check(md, dispatcher(bp), map; complete = true)
+
 # Map (labels).
-function late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map{<:Any,Symbol})
+function late_check(
+    md::Model,
+    d::D.NodeField,
+    map::Map{<:Any,Symbol};
+    complete = false, # Raise when *all* values are supposed to be (re)set.
+)
     # Check references first.
-    late_check_refs(md, dispatcher(bp), map; must_be_complete = true)
+    late_check_refs(md, d, map; complete)
     # Then reorder and check values one by one.
-    d = dispatcher(bp)
     nw, c = N.network(md), D.class(d)
     ix = N.class(nw, c).index
     [map[l] for l in ix.reverse]
 end
 
 # Map (indices).
-function late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map{<:Any,Int})
-    late_check_refs(md, dispatcher(bp), map; must_be_complete = true)
+function late_check(
+    md::Model,
+    d::D.NodeField,
+    map::Map{<:Any,Int};
+    complete = false,
+)
+    late_check_refs(md, d, map; complete)
     # Then reorder and check values one by one.
-    d = dispatcher(bp)
     nw, c = N.network(md), D.class(d)
     cl = N.class(nw, c)
     n = length(cl)
@@ -308,7 +322,7 @@ function late_check_refs(
     md::Model,
     d::D.AbstractNodeField,
     map::Map{<:Any,Symbol};
-    must_be_complete = true, # Lower for assignment.
+    complete = true,
 )
     nw = N.network(md)
     c = D.class(d)
@@ -318,7 +332,7 @@ function late_check_refs(
     render(set) = join_elided(
         sort!(collect(I.map(ref -> "$green$(repr(ref))$reset", set))),
         ", ", " and "; repr = false)
-    if must_be_complete
+    if complete
         miss = setdiff(exp, act)
         isempty(miss) ||
             checkerr(map, "Missing: no value provided for $(render(miss)).")
@@ -335,7 +349,7 @@ function late_check_refs(
     md::Model,
     d::D.AbstractNodeField,
     map::Map{<:Any,Int};
-    must_be_complete = true,
+    complete = true,
 )
     nw = N.network(md)
     c = D.class(d)
@@ -348,7 +362,7 @@ function late_check_refs(
     render(set) = join_elided(
         I.map(ref -> "$green$(repr(ref))$reset", set),
         ", ", " and "; repr = false)
-    if must_be_complete && !isempty(miss)
+    if complete && !isempty(miss)
         s = length(miss) == 1 ? "" : "s"
         checkerr(map, "Missing: no value provided for node$s $(render(miss)).")
     end

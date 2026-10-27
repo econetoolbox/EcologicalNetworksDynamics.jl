@@ -1,4 +1,4 @@
-    """
+"""
 Testing utils.
 Not useful for end users, but heavily used in package automated testing
 and useful to setup development environment with Revise for contributors.
@@ -88,20 +88,23 @@ end
 "Test various possible failures during `Framework.add!()`."
 module addfails
     using ..T: T, I, F, NF, @genfailsmacro, mess, rept, WrongField, italics, reset
+    using EcologicalNetworksDynamics.Framework: Component, CompType
+    # (erroring here is always in the context of rethrowing from `catch`ing the checked err)
+    reerrwith(args...; kwargs...) = T.errwith(args..., rethrow; kwargs...)
     "The `node` fields on `AddError` is easily tested as a *path* of blueprint types."
     function node(exp, node; skip_first = false)
         exp isa Vector ||
-            T.errwith("not a path vector to compare against a node", rethrow) do io
+            reerrwith("not a path vector to compare against a node") do io
                 println(io, rept(exp))
             end
-        node isa F.Node || T.errwith(WrongField, "not an `add!` node", rethrow) do io
+        node isa F.Node || reerrwith(WrongField, "not an `add!` node") do io
             println(io, rept(node))
         end
         act = F.path(node)
         if skip_first
             popfirst!(act)
         end
-        err() = T.errwith(WrongField, "wrong nodes path", rethrow) do io
+        err() = reerrwith(WrongField, "wrong nodes path") do io
             if skip_first
                 println(io, "  $italics(the first actual path step was skipped)$reset")
             end
@@ -114,11 +117,18 @@ module addfails
             e === a || err()
         end
     end
+    "It is okay to use a component singleton to compare against the type."
+    comp(exp::CompType, act::CompType) =
+        exp === act || reerrwith(WrongField, "wrong component") do io
+            T.showcompare(io, exp, act)
+        end
+    comp(exp::Component, act::CompType) = comp(typeof(exp), act)
     @genfailsmacro bpconflict F.ConflictWithBroughtComponent (; node, other_node = node)
     @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
     @genfailsmacro component F.ComponentError (; mess)
     @genfailsmacro lower F.LoweringAborted (; node)
-    @genfailsmacro missingrequired F.MissingRequiredComponent (; node)
+    @genfailsmacro missingrequired F.MissingRequiredComponent (;
+        node, Miss = comp, Comp = comp)
     @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)
     # That one is more involved..
     @genfailsmacro check F.HookCheckFailure (;

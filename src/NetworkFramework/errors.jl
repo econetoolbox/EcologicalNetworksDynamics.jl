@@ -91,7 +91,7 @@ complete_mref((uref,)::Tuple{URef}, md::Model, d::D.NodeLevel) =
     (complete_mref(uref, N.class(md, d).index),)
 complete_mref(uref::Tuple{URef,URef}, md::Model, d::D.EdgeLevel) =
     complete_mref.(uref, map(cl -> cl.index, N.sides(md, d)))
-complete_mref(::_WholeData, ::Model, ::D.GraphLevel) = WholeData
+complete_mref(::_WholeData, ::Model, ::Dispatcher) = WholeData
 
 "Aggregate references as the report bubble up."
 nestref(n, uref) = (n, uref)
@@ -142,6 +142,8 @@ end
 "True if printing `mref` does not bring more information w.r.t `uref`."
 irrelevant_mref(mref, uref) =
     if isnothing(mref)
+        true
+    elseif mref === WholeData
         true
     elseif uref === WholeData
         mref === WholeData

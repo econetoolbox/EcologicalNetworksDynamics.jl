@@ -174,8 +174,16 @@ const View = V.NodeFieldView{d,Float64}
         (BodyMass.Map, :late,
             (d, OrderedDict([:a => 1.0, :x => 2.0]), :whole, :whole,
                 "Not a :species name: :x.")))
+    addfails.@check(Model(Species(3), BodyMass([1 => 5])), [],
+        (BodyMass.Map, :late,
+            (d, OrderedDict([1 => 5.0]), :whole, :whole,
+                "Missing: no value provided for nodes 2 and 3.")))
 
     # (inconsistent indices map cannot even get through early check)
+
+    # NOTE: Late checking of *values* is also performed,
+    # but irrelevant for body_mass so not tested here.
+    # Instead, they are tested at metabolic_class.
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -262,6 +270,10 @@ const View = V.NodeFieldView{d,Float64}
           - Species: 3 (:a, :b, :c)
           - BodyMass: [5.0, 5.0, 5.0]\
         """)
+
+    # Species are required then.
+    addfails.@missingrequired(Model(bp),
+        Species, BodyMass, [BodyMass.Flat], nothing)
 end
 
 @testset "NodeField component: view (read)" begin
@@ -425,6 +437,14 @@ end
     @mutfails(v[:a] = -5, (d, -5.0, :whole, ((1, :a),), "Value cannot be negative."))
     @mutfails(v[2:3] = [1, -5], (d, -5.0, :whole, ((3, :c),), "Value cannot be negative."))
 
+    # On assignment.
+    input = [:x => 1, :y => 2]
+    @mutfails(m.body_mass = input,
+        (d, OrderedDict(:x => 1.0, :y => 2.0), :whole, :whole,
+            "Not :species names: :x and :y."))
+    @mutfails(m.body_mass = [:a => 1, :c => -2],
+        (d, -2.0, (:c,), :whole, "Value cannot be negative."))
+
     @test_err(v[2:3] = [1, -5],
         """
         While mutating model:
@@ -442,182 +462,6 @@ end
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
     # ======================================================================================
-
-    # Checked.
-    @mutfails(
-        m.body_mass = [6, -1, 4],
-        "When attempting to assign to <species:body_mass> node field:\n\
-         At node index [2]:\n\
-         Value cannot be negative.",
-        -1,
-    )
-    @mutfails(
-        m.body_mass = Dict(:a => 2, :x => 5, :c => 7),
-        "When attempting to assign to <species:body_mass> node field:\n\
-         Not a :species name: :x.",
-    )
-    @mutfails(
-        m.body_mass = -1,
-        "When attempting to assign to <species:body_mass> node field:\n\
-         Value cannot be negative.",
-        -1,
-    )
-    @mutfails(
-        m.body_mass = :what,
-        "When attempting to assign to <species:body_mass> node field:\n\
-         Cannot convert input to either:\n  \
-          - $Float64\n  \
-          - $(Vector{Float64})\n  \
-          - $(Map{Float64})",
-        :what,
-    )
-
-    # Construct from mapped values.
-    map = [:a => 4, :b => 5, :c => 6]
-    bp = BodyMass.Map(map)
-    @test bp == BodyMass(map) # Directly dispatched from component.
-    @test is_repr(bp, "<BodyMass>:Map(M: {a: 4.0, b: 5.0, c: 6.0})")
-    @test is_disp(
-        bp,
-        """
-        blueprint for <BodyMass>: Map {\n  \
-          M: {a: 4.0, b: 5.0, c: 6.0},\n\
-        }\
-        """,
-    )
-    # Expand into the same component.
-    m = Model(bp)
-    @test m.species.names == [:a, :b, :c]
-    @test m.body_mass == [4, 5, 6]
-
-    # Late-check against node names.
-    m = Model(Species(m.species.names))
-    addfails.@missingrequired(
-        m + BodyMass([:a => 5, :x => 6, :y => 7]),
-        Check(
-            late,
-            [BodyMass.Map],
-            "When checking <species:body_mass> blueprint against model:\n\
-             Missing for <species:body_mass>, no value provided for :b and :c.",
-        )
-    )
-    addfails.@check(
-        m + BodyMass([:a => 5, :b => 6, :c => 7, :x => 8, :y => 9]),
-        Check(
-            late,
-            [BodyMass.Map],
-            "When checking <species:body_mass> blueprint against model:\n\
-             Not :species names: :x and :y.",
-        )
-    )
-    # NOTE: Late checking of *values* is also performed,
-    # but irrelevant for body_mass so not tested here.
-    # Instead, they are tested at metabolic_class.
-
-    # Same with index references.
-    imap = [1 => 4, 2 => 5, 3 => 6]
-    bp = BodyMass.Map(imap)
-    @test bp == BodyMass(imap)
-    @test is_repr(bp, "<BodyMass>:Map(M: {1: 4.0, 2: 5.0, 3: 6.0})")
-    @test is_disp(
-        bp,
-        """
-        blueprint for <BodyMass>: Map {\n  \
-          M: {1: 4.0, 2: 5.0, 3: 6.0},\n\
-        }\
-        """,
-    )
-    m = Model(bp)
-    @test m.species.names == [:s1, :s2, :s3] # Default names obtained.
-    @test m.body_mass == [4, 5, 6]
-    m = Model(Species(m.species.number))
-    addfails.@missingrequired(
-        m + BodyMass([1 => 5, 4 => 6, 5 => 7]),
-        Check(
-            late,
-            [BodyMass.Map],
-            "When checking <species:body_mass> blueprint against model:\n\
-             Missing for <species:body_mass>, no value provided for nodes 2 and 3.",
-        )
-    )
-    addfails.@check(
-        m + BodyMass([1 => 5, 2 => 6, 3 => 7, 4 => 8, 5 => 9]),
-        Check(
-            late,
-            [BodyMass.Map],
-            "When checking <species:body_mass> blueprint against model:\n\
-             Invalid indices for class :species with 3 nodes: 4 and 5.",
-        )
-    )
-
-    # Alias blueprints if exact input type is used.
-    bp = BodyMass.Map(map)
-    input = bp.M
-    bp = BodyMass(input)
-    @test bp.M === input
-    input[:x] = 15
-    @test bp.M == OrderedDict([:a => 4, :b => 5, :c => 6, :x => 15])
-    input[:x] *= -1
-    addfails.@check(
-        Model(bp),
-        Check(
-            early,
-            [BodyMass.Map],
-            "When checking <species:body_mass> blueprint data:\n\
-             At node with label :x:\n\
-             Value cannot be negative.\n\
-             Received: -15.0",
-        )
-    )
-
-    # Fail constructing from mapped.
-    @bpfails(
-        BodyMass.Map([:a => :what]),
-        "When constructing <species:body_mass> from map:\n\
-         Expected values of type '$Float64', \
-         received instead at [1][right]: :what ::Symbol.",
-    )
-
-    # Construct from a flat value.
-    bp = BodyMass.Flat(3)
-    @test bp == BodyMass(3)
-    m = Model(Species(5), bp)
-    @test m.body_mass == [3, 3, 3, 3, 3]
-    bp.M *= -1 # Mutable.
-    addfails.@check(
-        Model(Species(5), bp),
-        Check(
-            early,
-            [BodyMass.Flat],
-            "When checking <species:body_mass> blueprint data:\n\
-             Value cannot be negative.\n\
-             Received: -3.0",
-        )
-    )
-    # But then it needs the class.
-    addfails.@missingrequired(
-        Model(bp),
-        Missing(Species, nothing, [BodyMass.Flat], nothing)
-    )
-
-    # Fail constructing from Flat.
-    @bpfails(
-        BodyMass.Flat(:what),
-        "When constructing <species:body_mass> from a flat value",
-        :what,
-        Float64,
-        "Conversion not implemented.",
-    )
-
-    # Generic construction failure.
-    @bpfails(
-        BodyMass(:what),
-        "Cannot convert input to either:\n  \
-          - $Float64\n  \
-          - $(Vector{Float64})\n  \
-          - $(Map{Float64})",
-        :what,
-    )
 
 end
 
