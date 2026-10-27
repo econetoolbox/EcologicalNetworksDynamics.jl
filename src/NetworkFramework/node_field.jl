@@ -248,7 +248,7 @@ _late_check(md::Model, d::D.AbstractNodeField, x, i::Int, l::Symbol) =
         if !(e isa CheckError)
             e = CheckError(e)
         end
-        e.mref = (i, label)
+        e.mref = (i, l)
         rethrow(e)
     end
 

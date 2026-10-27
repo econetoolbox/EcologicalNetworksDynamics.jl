@@ -28,7 +28,7 @@ include("./foodweb.jl")
 include("./body_mass.jl")
 
 # Non-numeric nodes data, that require checking against model values.
-#  include("./metabolic_class.jl")
+include("./metabolic_class.jl")
 
 # Nodes data only relevant to a sub-class.
 #  include("./growth_rate.jl")
