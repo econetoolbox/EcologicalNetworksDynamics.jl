@@ -63,61 +63,67 @@ so it mostly falls into three categories:
         - `[:a => :b, :b => :d]`
         - `[1 => 2, 2 => 4]`
 
-There are several main "pipelines" that data may transit through
+There are several main "pipelines" that data transits through
 when flowing from raw user input to internal storage.
 The various methods defined in this module are named after
-the different steps in these pipelines.
-With the name comes responsibility what to do with the data, specified below.
+these pipelines and the different steps in them.
+With the name comes responsibility what to do with the data, as specified below.
 The module attempts to provide sensible defaults
 but every method may be specialized depending on pipeline, data kind or blueprint.
-TODO: update the (maximal) picture below based on actual use of it is in the code.
+Unless otherwise stated,
+every step is implicitly responsible for raising adequate exception in case of failure.
 
-- Pipeline "blueprint expansion": a blueprint type or value is available:
+- Pipeline "blueprint construction" `cst`:
+  only raw input and the data type are available.
+  The total, final output data must alias the original input if already correct.
+  This responsibility therefore weights on every step.
 
-  - `construct`: transform input into checked blueprint fields. Consists in:
+    - `convert`:
+        - Convert raw input to expected inner type.
+        - *Alias* input if already expected type. If possible no-op, static, O(1) process.
 
-    - `convert` responsibilities:
-      - Convert input to expected field type.
-      - *Alias* input if already expected type. If possible no-op, static, O(1) process.
-      - Raise exception in case conversion is impossible.
-
-    - `intrinsic_check`: Responsibilities:
+    - `early_check`:
       - Verify converted value consistency against expected data kind. Out-of-context.
-      - Raise exception in case the value does not make sense.
+      - *Alias* input. No-op, static, O(1), whenever possible.
+      - Return data ready to feed into `new`.
 
-  - `early_check` responsibilities:
-    - Verify blueprint value prior to expansion.
-      This involves checking blueprint fields again
-      because blueprint may have been mutated since construction.
-    - Raise exception in case the value does not make sense.
-    - If useful, take this opportunity to start the lowering process
-      by collecting/transforming data to be passed to `late_check`.
-    - Default to running `intrinsic_check` again with no lowering.
+- Pipeline "blueprint expansion" `bp`: a blueprint value is available as input.
+  Every step may or may not locally alias input,
+  but the total, final output data, if mutable
+  *must not* alias the original blueprint value.
+  In other words, aliasing, if mutable, *must* be lost along this pipeline chain.
 
-  - `imply` responsibilities:
+  - `early_check`:
+    - Verify blueprint value prior to expansion,
+      because it may have muted since construction.
+    - If possible, start lowering data towards internal storage format.
+
+  - `imply`:
     - If any blueprint is implied: construct and expand it. Should not fail.
 
-  - `late_check` responsibilities:
-    - Verify blueprint value against model value,
+  - `late_check`: a model value becomes available to verify against.
+    - Verify blueprint value against the given model value,
       now available with all components required for expansion guaranteed inside.
-    - Raise exception in case the value doesn't fit within the model.
     - If useful, continue the lowering process, producing data to be passed to `lower`.
-    - Default to checking nothing and passing data as-is.
 
-  - `lower` responsibilities:
+  - `lower`:
     - Transform data passed by `late_check` into the eventual storage format.
     - Not fail.
 
-  - `expand!` responsibilities:
+  - `expand!`:
     - Record lowered data into the the model.
     - Not fail.
 
-- Pipeline "data mutation": happens after expansion, the data kind is available as context.
-  Most steps share responsibilities with the ones in pipelines above, and default to them:
-  - `convert` the RHS.
-  - `early_check` the RHS.
-  - `late_check` the RHS.
-  - `lower` the RHS.
+- Pipeline "data mutation" `mut`:
+  happens after expansion, the data kind is available as context.
+  Like above, the total, final output cannot be an alias,
+  although the internal storage already makes this difficult to happen unintentionally.
+  Interestingly, the data flowing through this pipeline may be only *partial*,
+  so completeness checks can be disabled.
+  - `convert`: see above.
+  - `early_check`: see above: may not alias to start lowering, no completeness check.
+  - `late_check`: see above.
+  - `lower`: see above.
   - `commit`: record mutation result into the internal representation. Cannot fail.
 
 The above steps are default-configured within the lib for typical component types,
@@ -172,7 +178,7 @@ include("./node_field.jl")
 #  include("./edge_field.jl")
 
 # Typical allometry-related blueprints.
-#  include("./allometry.jl")
+include("./allometry.jl")
 
 include("./display.jl")
 
@@ -181,21 +187,20 @@ include("./display.jl")
 
 function non_negative(T, input)
     v = convert(T, input)
-    v < 0 && checkerr(v, "Value cannot be negative.")
-    v
+    v >= 0 && return v
+    checkerr(v, "Value cannot be negative.")
 end
 
 function fraction(T, input)
     v = convert(T, input)
-    0.0 <= v <= 1.0 || checkerr(v, "Value must belong to [0, 1].")
-    v
+    0.0 <= v <= 1.0 && return v
+    checkerr(v, "Value must belong to [0, 1].")
 end
 
 function name_among(expected, input)
     name = convert(Symbol, input)
-    name in expected ||
-        checkerr(name, "Expected one of $(join_elided(expected, ", ", " or ")).")
-    name
+    name in expected && return name
+    checkerr(name, "Expected one of $(join_elided(expected, ", ", " or ")).")
 end
 
 # Pick symbols from an aliased dict.

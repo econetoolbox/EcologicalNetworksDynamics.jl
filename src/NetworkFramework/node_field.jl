@@ -10,14 +10,17 @@ If raised, provide the argument type for component-call constructor.
 flat(d::D.AbstractField) = D.type(d)
 may_flat(d::D.AbstractField) = !isnothing(flat(d))
 
+"Expand to a class field."
+abstract type NodeFieldBlueprint <: Blueprint end
+
 "Expand to a class field from a vector of raw values."
-abstract type NodeFieldRawBlueprint <: Blueprint end
+abstract type NodeFieldRawBlueprint <: NodeFieldBlueprint end
 
 "Expand to a class field from mapped values."
-abstract type NodeFieldMapBlueprint <: Blueprint end
+abstract type NodeFieldMapBlueprint <: NodeFieldBlueprint end
 
 "Expand to a class field from a single value."
-abstract type NodeFieldFlatBlueprint <: Blueprint end
+abstract type NodeFieldFlatBlueprint <: NodeFieldBlueprint end
 
 "Typical setup for a component bringing a new class field to the network."
 function define_node_field_component(
@@ -192,45 +195,69 @@ end
 
 # Allow passing values as separate arguments.
 construct(BP::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
-    first, second, rest...) = bp_construct(BP, (first, second, rest...))
+    first, second, rest...) = construct(BP, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
 # Early check.
 
-# Default to checking every value independenly.
+"""
+Extension point per node value.
+May return transformed/lowered value (*e.g.* MetabolicDict),
+to be collected (`bp`, `mut`) or not (`cst`) depending on the pipeline.
+"""
+early_check(d::D.AbstractNodeField, x, ::Ref) = early_check(d, x)
+
+# On construction, check all values without creating anything new.
 # (It has been checked that the compiler is eliding the whole loop
-# in case `early_check` is defaulting to no-op.)
-function early_check(
-    d::D.AbstractNodeField,
-    data::Union{Vector,Map},
-    checkref = ref -> (),
-)
-    for (uref, x) in pairs(data)
-        urefguard(uref) do
-            checkref(uref)
-            early_check(d, x, uref)
+#  in case `early_check` is defaulting to no-op.)
+function cst_early_check(BP::Type{<:NodeFieldBlueprint}, data::Union{Vector,Map})
+    d = dispatcher(BP)
+    for (ref, x) in pairs(data)
+        urefguard(ref) do
+            check_dense_ref(ref, data)
+            early_check(d, x, ref)
         end
     end
     data
 end
 
-# In addition to every value being checked,
-# indices-maps also must be *dense* on construction.
-function bp_early_check(d::D.AbstractNodeField, map::Map{<:Any,Int})
+# Index-maps need to be dense: they cannot be holed.
+check_dense_ref(ref, _) = ref
+function check_dense_ref(i::Int, map::Map{<:Any,Int})
     n = length(map)
-    early_check(d, map,
-        ref -> begin
-            ref <= n && return
-            n, s, are = nsa(n)
-            checkerr(
-                ref,
-                "There $are only $n value$s in the given map \
-                 so no index can be $ref.")
-        end)
+    i <= n && return i
+    n, s, are = nsa(n)
+    checkerr(i, "There $are only $n value$s in the given map so no index can be $i.")
 end
 
-# Extension point.
-early_check(d::D.AbstractNodeField, x, ::Ref) = early_check(d, x)
+# On expansion checked values (possibly lowered) are collected.
+function bp_early_check(bp::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint})
+    d, data = dispatcher(bp), NF.data(bp)
+    collect_checked(data) do ref, x
+        urefguard(ref) do
+            check_dense_ref(ref, data)
+            early_check(d, x, ref) # <- Lowering may happen here.
+        end
+    end
+end
+
+# On mutation, don't check for density.
+mut_early_check(d::D.NodeField, data::Union{Vector,Map}) = collect_checked(data) do ref, x
+    urefguard(ref) do
+        early_check(d, x, ref)
+    end
+end
+
+# "Collect" either means into a fresh vector or a fresh map.
+collect_checked(fn::Function, data::Vector) = [fn(ref, x) for (ref, x) in pairs(data)]
+function collect_checked(fn::Function, data::Map)
+    M = typeof(data)
+    res = M()
+    for (ref, x) in pairs(data)
+        res[ref] = fn(ref, x)
+    end
+    res
+end
 
 #-------------------------------------------------------------------------------------------
 # Late check, when obtaining vectors.
@@ -401,20 +428,31 @@ end
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-# Flat.
-function expand!(md::Model, d::D.AbstractNodeField, low)
-    nw, cl = N.network(md), D.class(d)
-    n = N.n_nodes(nw, cl)
-    vec = fill(low, n)
+# Raw.
+function expand!(md::Model, d::D.AbstractNodeField, vec::Vector)
+    # Even with the .Raw blueprint,
+    # early+late-checking guarantee that lowered data is fresh = not aliased by user.
+    nw, (c, f) = (N.network(md), D.content(d))
+    class = N.class(nw, c)
+    N.add_field!(class, f, vec)
+end
+
+# Map.
+function expand!(md::Model, d::D.AbstractNodeField, map::Map)
+    # Reorder into the final vector.
+    R = reftype(map)
+    ix = N.class(md, d).index
+    # HERE: this is failing, but it should have been checked, right?
+    vec = [map[ref] for ref in N.ordered(R, ix)] # (guaranteed without holes on `bp`)
     expand!(md, d, vec)
 end
 
-function expand!(md::Model, d::D.AbstractNodeField, low::Vector)
-    # Even with the .Raw blueprint,
-    # late-checking guarantees that lowered data is fresh = not aliased by user.
-    nw, (c, f) = (N.network(md), D.content(d))
-    class = N.class(nw, c)
-    N.add_field!(class, f, low)
+# Flat.
+function expand!(md::Model, d::D.AbstractNodeField, flat)
+    nw, cl = N.network(md), D.class(d)
+    n = N.n_nodes(nw, cl)
+    vec = fill(flat, n)
+    expand!(md, d, vec)
 end
 
 #-------------------------------------------------------------------------------------------

@@ -19,11 +19,10 @@ or maps and adjacency lists.
 Following julia's behaviour:
 *alias* instead of converting if the input type is already the one desired.
 """
+# Generic default behaviour.
 convert(T::Type, input) = converr(T, input, "Conversion not implemented.")
-# Extension points (specialize).
 convert(T::Type, ::Dispatcher, input) = convert(T, input)
 convert(T::Type, BP::Type{<:Blueprint}, input) = convert(T, dispatcher(BP), input)
-convert(T::Type, bp::Blueprint, input) = convert(T, typeof(bp), input)
 convert(d::Dispatcher, input) = convert(D.type(d), d, input)
 
 "Guarded entrypoint for mutation."
@@ -38,7 +37,33 @@ mut_convert(d::Dispatcher, input) =
     end
 
 #-------------------------------------------------------------------------------------------
-# Construct.
+# Early check.
+
+"Default early check, for either pipeline."
+early_check(::Dispatcher, data) = data # Defaults to just accepting & aliasing the value.
+
+"Early check for blueprint construction: must alias."
+cst_early_check(BP::Type{<:Blueprint}, data) = early_check(dispatcher(BP), data)
+
+"Early check for blueprint expansion: may start lowering."
+bp_early_check(bp::Blueprint) = cst_early_check(typeof(bp), data(bp))
+
+"Early check for mutation: may start lowering."
+mut_early_check(d::Dispatcher, data) = early_check(d, data)
+
+"Guarded entrypoint for the blueprint pipeline."
+_bp_early_check(bp::Blueprint) = # Entry point: the framework calls in there.
+    try
+        bp_early_check(bp) # Extension point: authors specialize this.
+    catch e
+        e isa CheckError || rethrow(e)
+        B = typeof(bp)
+        e.d = dispatcher(bp)
+        rethrow(BlueprintError(B, :early, e))
+    end
+
+#-------------------------------------------------------------------------------------------
+# "Construct blueprint" entrypoint.
 
 """
 Determine main blueprint data value and data type if any (expect *static* answer).
@@ -47,14 +72,14 @@ Defaults to first field type.
 datatype(BP::Type{<:Blueprint}) = first(fieldtypes(BP))
 datatype(bp::Blueprint) = typeof(data(bp))
 
-# Get the core corresponding field type.
-D.type(BP::Type{<:Blueprint}) = D.type(dispatcher(BP))
-
 """
 Extract main blueprint data if any (expect *static* answer).
 Defaults to first field.
 """
 data(bp::Blueprint) = getfield(bp, first(fieldnames(typeof(bp))))
+
+# Get the core corresponding field type.
+D.type(BP::Type{<:Blueprint}) = D.type(dispatcher(BP))
 
 """
 Guarded entrypoint into blueprint construction.
@@ -75,11 +100,11 @@ function construct(BP::Type{<:Blueprint}, args...; kwargs...)
         errwith(err(kwargs), "Unexpected keyword arguments to blueprint constructor:")
     T = datatype(BP)
     data = convert(T, BP, input)
-    (bp_early_check(BP, data),)
+    (cst_early_check(BP, data),)
 end
 
 "Guarded framework entrypoint for correct error upgrade."
-bp_construct(BP::Type{<:Blueprint}, args...; kwargs...) =
+_construct(BP::Type{<:Blueprint}, args...; kwargs...) =
     try
         construct(BP, args...; kwargs...)
     catch e
@@ -90,46 +115,21 @@ bp_construct(BP::Type{<:Blueprint}, args...; kwargs...) =
     end
 
 #-------------------------------------------------------------------------------------------
-# Early check.
-
-"Validate data and take this opportunity to start lowering."
-early_check(::Dispatcher, data) = data # Defaults to just accepting & aliasing the value.
-
-# (Mostly because lowering may also happen here),
-# early_check exists in two flavours depending on the pipeline involved:
-# "expansion" (prefix by `bp_`) or "mutation" (prefix by `mut_`).
-# These default to just `early_check`, but may be useful as extension points.
-# The same happens for `late_check` and `lower`.
-bp_early_check(d::Dispatcher, data) = early_check(d, data)
-bp_early_check(BP::Type{<:Blueprint}, data) = bp_early_check(dispatcher(BP), data)
-bp_early_check(bp::Blueprint) = bp_early_check(typeof(bp), data(bp))
-mut_early_check(d::Dispatcher, data) = early_check(d, data)
-
-"Guarded entrypoint for the blueprint pipeline."
-_bp_early_check(bp::Blueprint) =
-    try
-        bp_early_check(bp)
-    catch e
-        e isa CheckError || rethrow(e)
-        B = typeof(bp)
-        e.d = dispatcher(bp)
-        rethrow(BlueprintError(B, :early, e))
-    end
-
-#-------------------------------------------------------------------------------------------
 # Late check.
 
-"Use perform checks against an actual model value, continuing lowering."
-late_check(::Model, ::Dispatcher, low) = low # Default to just accept & alias.
-bp_late_check(md::Model, d::Dispatcher, low) = late_check(md, d, low)
-bp_late_check(md::Model, bp::Blueprint, low) = bp_late_check(md, dispatcher(bp), low)
-mut_late_check(md::Model, d::Dispatcher, low) = late_check(md, d, low)
-mut_late_check(md::Model, d::Dispatcher, _ref, low) = mut_late_check(md, d, low)
+"Default late check, for either pipeline."
+late_check(::Model, ::Dispatcher, early) = early # Default to just accept & alias.
+
+"Late check for blueprint expansion."
+bp_late_check(md::Model, bp::Blueprint, early) = late_check(md, dispatcher(bp), early)
+
+"Late check for mutation."
+mut_late_check(md::Model, d::Dispatcher, _ref, early) = late_check(md, d, early)
 
 "Guarded entrypoint for the blueprint pipeline."
-_bp_late_check(md::Model, bp::Blueprint, low) =
+_bp_late_check(md::Model, bp::Blueprint, early) =
     try
-        bp_late_check(md, bp, low)
+        bp_late_check(md, bp, early)
     catch e
         e isa CheckError || rethrow(e)
         B = typeof(bp)
@@ -145,22 +145,19 @@ _bp_late_check(md::Model, bp::Blueprint, low) =
 #-------------------------------------------------------------------------------------------
 # Lower.
 
-"""
-Final lowering stage, transforming data
-into something compatible with internal storage for `expand!`.
-Defaults to aliasing because lowering may have started before,
-but be careful not to output data possibly still referenced by user.
-"""
-lower(::Model, ::Dispatcher, late) = late
-bp_lower(md::Model, d::Dispatcher, late) = lower(md, d, late)
-bp_lower(md::Model, bp::Blueprint, late) = bp_lower(md, dispatcher(bp), late)
-mut_lower(md::Model, d::Dispatcher, late) = lower(md, d, late)
-mut_lower(md::Model, d::Dispatcher, _ref, ld) = mut_lower(md, d, ld)
+"Default lowering, for either pipeline."
+lower(::Model, ::Dispatcher, late) = late # Default to just accept & alias.
+
+"Lowering for blueprint expansion."
+bp_lower(md::Model, bp::Blueprint, late) = lower(md, dispatcher(bp), late)
+
+"Lowering for mutation."
+mut_lower(md::Model, d::Dispatcher, _ref, ld) = lower(md, d, ld)
 
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-"Use `lower`ed data to finally expand into the desired component. Cannot fail."
+"Final stage of blueprint expansion."
 expand!(md::Model, d::Dispatcher, low) = unimplemented(expand!, md, d, low)
 expand!(md::Model, bp::Blueprint, late) =
     expand!(md, dispatcher(bp), NF.bp_lower(md, bp, late))
@@ -234,7 +231,7 @@ function register_blueprint(
     eval(quote
         F.early_check(bp::$BP) = NF._bp_early_check(bp)
         F.late_check(md::Model, bp::$BP, data) = NF._bp_late_check(md, bp, data)
-        F.expand!(md::Model, bp::$BP, low) = NF.expand!(md, bp, low)
+        F.expand!(md::Model, bp::$BP, late) = NF.expand!(md, bp, late)
     end)
     isnothing(d) && return
     eval(quote
@@ -246,6 +243,6 @@ end
 macro bp_construct(BP)
     BP, new = esc.((BP, :new))
     quote
-        $BP(args...; kwargs...) = $new($NF.bp_construct($BP, args...; kwargs...)...)
+        $BP(args...; kwargs...) = $new($NF._construct($BP, args...; kwargs...)...)
     end
 end

@@ -142,7 +142,7 @@ end
 
 # Allow passing names as separate arguments.
 construct(BP::Type{<:ClassNames}, first, second, rest...) =
-    bp_construct(BP, (first, second, rest...))
+    construct(BP, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
 # Early check.
