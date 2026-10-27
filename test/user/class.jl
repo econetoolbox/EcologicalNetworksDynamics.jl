@@ -86,14 +86,11 @@ const Sp = @PropertySpace(species, Network)
         """)
 
     #---------------------------------------------------------------------------------------
-    # Intrinsic check.
+    # Early check.
 
     @bpfails(Species([:a, :b, 'b']), # TODO: confusingly reports `Received: :b`.. fix?
         Species.Names, :construct,
         (d, :b, (3,), nothing, "Species 2 and 3 would both be named :b."))
-
-    #---------------------------------------------------------------------------------------
-    # Early check.
 
     # It is (still) ok to break values checking afterwards..
     input[3] = :x
@@ -127,19 +124,22 @@ const Sp = @PropertySpace(species, Network)
         }\
         """)
 
-    # Intrinsic check.
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
     @bpfails(Species(-1),
         Species.Number, :construct,
         (d, -1, :whole, nothing, "Cannot construct a negative number of species nodes."))
 
-    # Early check.
     bp.n = -3
     addfails.@check(Model(bp), [],
         (Species.Number, :early,
             (d, -3, :whole, nothing,
                 "Cannot construct a negative number of species nodes.")))
 
+    #---------------------------------------------------------------------------------------
     # Expand.
+
     m = Model(Species(3))
     @test has_component(m, Species)
     @test_disp(m,

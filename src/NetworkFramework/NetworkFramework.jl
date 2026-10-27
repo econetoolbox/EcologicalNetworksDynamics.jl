@@ -70,6 +70,7 @@ the different steps in these pipelines.
 With the name comes responsibility what to do with the data, specified below.
 The module attempts to provide sensible defaults
 but every method may be specialized depending on pipeline, data kind or blueprint.
+TODO: update the (maximal) picture below based on actual use of it is in the code.
 
 - Pipeline "blueprint expansion": a blueprint type or value is available:
 
@@ -116,6 +117,7 @@ but every method may be specialized depending on pipeline, data kind or blueprin
   - `convert` the RHS.
   - `early_check` the RHS.
   - `late_check` the RHS.
+  - `lower` the RHS.
   - `commit`: record mutation result into the internal representation. Cannot fail.
 
 The above steps are default-configured within the lib for typical component types,

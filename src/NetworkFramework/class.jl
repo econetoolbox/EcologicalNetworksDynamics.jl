@@ -150,10 +150,10 @@ construct(BP::Type{<:ClassNames}, first, second, rest...) =
     bp_construct(BP, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
-# Intrinsic check.
+# Early check.
 
 # Names: forbid duplicates (triangular check).
-function intrinsic_check(d::D.Class, names::Vector{Symbol})
+function early_check(d::D.Class, names::Vector{Symbol})
     already = OrderedDict{Symbol,Int}() # {name: index}
     for (i, name) in enumerate(names)
         if haskey(already, name)
@@ -169,7 +169,7 @@ function intrinsic_check(d::D.Class, names::Vector{Symbol})
 end
 
 # Number: forbid negative number of nodes.
-function intrinsic_check(d::D.Class, n::Int)
+function early_check(d::D.Class, n::Int)
     n >= 0 && return n
     class = D.snake_case_plural(d)
     checkerr(n, "Cannot construct a negative number of $class nodes.")

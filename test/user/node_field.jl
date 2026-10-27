@@ -63,13 +63,10 @@ const View = V.NodeFieldView{d,Float64}
     )
 
     #---------------------------------------------------------------------------------------
-    # Intrinsic check.
+    # Early check.
 
     @bpfails(BodyMass([4, -5, 6]),
         BodyMass.Raw, :construct, (d, -5.0, (2,), nothing, "Value cannot be negative."))
-
-    #---------------------------------------------------------------------------------------
-    # Early check.
 
     alias[3] *= -1
     addfails.@check(Model(bp), [],
@@ -138,7 +135,7 @@ const View = V.NodeFieldView{d,Float64}
         (d, [5, 8], [1, :right], nothing, "Expected values of type 'Float64'."))
 
     #---------------------------------------------------------------------------------------
-    # Intrinsic check.
+    # Early check.
 
     @bpfails(BodyMass([:a => -5]), BodyMass.Map, :construct,
         (d, -5.0, (:a,), nothing, "Value cannot be negative."))
@@ -147,9 +144,6 @@ const View = V.NodeFieldView{d,Float64}
     @bpfails(BodyMass([2 => 5]), BodyMass.Map, :construct,
         (d, 2, (2,), nothing,
             "There is only 1 value in the given map so no index can be 2."))
-
-    #---------------------------------------------------------------------------------------
-    # Early check.
 
     bp.M[:b] *= -1
     bpi.M[2] *= -1
@@ -243,13 +237,10 @@ const View = V.NodeFieldView{d,Float64}
              Conversion not implemented."))
 
     #---------------------------------------------------------------------------------------
-    # Intrinsic check.
+    # Early check.
 
     @bpfails(BodyMass(-5), BodyMass.Flat, :construct,
         (d, -5.0, :whole, nothing, "Value cannot be negative."))
-
-    #---------------------------------------------------------------------------------------
-    # Early check.
 
     m = Model(Species("abc"))
 
@@ -276,7 +267,7 @@ const View = V.NodeFieldView{d,Float64}
         Species, BodyMass, [BodyMass.Flat], nothing)
 end
 
-@testset "NodeField component: view (read)" begin
+@testset "NodeField component: view" begin
 
     # Test like in `Class`.
 
@@ -438,6 +429,9 @@ end
     @mutfails(v[2:3] = [1, -5], (d, -5.0, :whole, ((3, :c),), "Value cannot be negative."))
 
     # On assignment.
+    @mutfails(m.body_mass = [1, 5],
+        (d, [1.0, 5.0], :whole, :whole,
+            "Wrong number of values received: expected 3, got 2."))
     input = [:x => 1, :y => 2]
     @mutfails(m.body_mass = input,
         (d, OrderedDict(:x => 1.0, :y => 2.0), :whole, :whole,
@@ -457,11 +451,6 @@ end
     #                                 *v*
     @test v == w == m.body_mass == [8, 1, 9]
     @test a == alt.body_mass == [4, 5, 6]
-
-    error("STOP HERE")
-    # ======================================================================================
-    # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
-    # ======================================================================================
 
 end
 

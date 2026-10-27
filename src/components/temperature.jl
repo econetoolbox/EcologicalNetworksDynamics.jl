@@ -6,7 +6,7 @@ using EcologicalNetworksDynamics.NetworkFramework: EN, NF, D
 const d, _D = D.GraphField(:temperature)
 D.name_variants(::_D) = (:T, :temperature, :Temperature)
 D.type(::_D) = Float64
-NF.intrinsic_check(::_D, T) = NF.non_negative(Float64, T)
+NF.early_check(::_D, T) = NF.non_negative(Float64, T)
 
 # Generate and execute the code to generate blueprints and component.
 # Execute this within toplevel module to still expose the component.

@@ -202,12 +202,12 @@ construct(BP::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
     first, second, rest...) = bp_construct(BP, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
-# Intrinsic check.
+# Early check.
 
 # Default to checking every value independenly.
 # (It has been checked that the compiler is eliding the whole loop
-# in case `intrinsic_check` is defaulting to no-op.)
-function intrinsic_check(
+# in case `early_check` is defaulting to no-op.)
+function early_check(
     d::D.AbstractNodeField,
     data::Union{Vector,Map},
     checkref = ref -> (),
@@ -215,7 +215,7 @@ function intrinsic_check(
     for (uref, x) in pairs(data)
         urefguard(uref) do
             checkref(uref)
-            intrinsic_check(d, x, uref)
+            early_check(d, x, uref)
         end
     end
     data
@@ -223,12 +223,9 @@ end
 
 # In addition to every value being checked,
 # indices-maps also must be *dense* on construction.
-function intrinsic_check(BP::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int})
-    d = dispatcher(BP)
+function bp_early_check(d::D.AbstractNodeField, map::Map{<:Any,Int})
     n = length(map)
-    intrinsic_check(
-        d,
-        map,
+    early_check(d, map,
         ref -> begin
             ref <= n && return
             n, s, are = nsa(n)
@@ -236,88 +233,50 @@ function intrinsic_check(BP::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int})
                 ref,
                 "There $are only $n value$s in the given map \
                  so no index can be $ref.")
-        end,
-    )
+        end)
 end
 
 # Extension point.
-intrinsic_check(d::D.AbstractNodeField, x, ::Ref) = intrinsic_check(d, x)
+early_check(d::D.AbstractNodeField, x, ::Ref) = early_check(d, x)
 
 #-------------------------------------------------------------------------------------------
-# Early check.
-
-# Hmpf.. unfortunate necessary wiring? :\
-early_check(BP::Type{<:NodeFieldMapBlueprint}, map::Map{<:Any,Int}) =
-    intrinsic_check(BP, map)
-
-#-------------------------------------------------------------------------------------------
-# Late check.
+# Late check, when obtaining vectors.
 
 # Extension point, checking individual values against the model.
 # Raise simple `checkerr` on failure, the report will be upgraded anyway.
 late_check(::Model, ::D.AbstractNodeField, x, ::Int, ::Symbol) = x
 
-# Raw.
-function late_check(md::Model, bp::NodeFieldRawBlueprint, vec::Vector)
+# Guarding the above.
+_late_check(md::Model, d::D.AbstractNodeField, x, i::Int, l::Symbol) =
+    try
+        late_check(md, d, x, i, l)
+    catch e
+        e isa LibError || rethrow(e)
+        if !(e isa CheckError)
+            e = CheckError(e)
+        end
+        e.mref = (i, label)
+        rethrow(e)
+    end
+
+# When obtaining a vector, lower to a vector.
+function late_check(md::Model, d::D.NodeField, vec::Vector)
     # Check plain number of provided values.
-    d, nw = dispatcher(bp), N.network(md)
-    cl = D.class(d)
-    exp, act = N.n_nodes(nw, cl), length(vec)
+    cl = N.class(md, d)
+    exp, act = N.n_nodes(cl), length(vec)
     exp == act || checkerr(vec,
         "Wrong number of values received: expected $exp, got $cyan$act$reset.")
     # Then check values one by one.
-    labels = N.node_labels(nw, cl)
+    labels = N.node_labels(cl)
     map(enumerate(zip(labels, vec))) do (i, (label, x))
-        try
-            late_check(md, d, x, i, label)
-        catch e
-            e isa LibError || rethrow(e)
-            if !(e isa CheckError)
-                e = CheckError(e)
-            end
-            e.mref = (i, label)
-            rethrow(e)
-        end
+        _late_check(md, d, x, i, label)
     end
 end
 
-# HERE: what this awkward `complete` argument is telling us
-# is that checking + lowering differ depending
-# whether we are following `expand` or `mutate` pipeline. Clarify, deal with it.
-late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map) =
-    late_check(md, dispatcher(bp), map; complete = true)
+#-------------------------------------------------------------------------------------------
+# Late check, when obtaining maps.
 
-# Map (labels).
-function late_check(
-    md::Model,
-    d::D.NodeField,
-    map::Map{<:Any,Symbol};
-    complete = false, # Raise when *all* values are supposed to be (re)set.
-)
-    # Check references first.
-    late_check_refs(md, d, map; complete)
-    # Then reorder and check values one by one.
-    nw, c = N.network(md), D.class(d)
-    ix = N.class(nw, c).index
-    [map[l] for l in ix.reverse]
-end
-
-# Map (indices).
-function late_check(
-    md::Model,
-    d::D.NodeField,
-    map::Map{<:Any,Int};
-    complete = false,
-)
-    late_check_refs(md, d, map; complete)
-    # Then reorder and check values one by one.
-    nw, c = N.network(md), D.class(d)
-    cl = N.class(nw, c)
-    n = length(cl)
-    [map[i] for i in 1:n]
-end
-
-# Check without producing returned data.
+"Check (only) label references against the model."
 function late_check_refs(
     md::Model,
     d::D.AbstractNodeField,
@@ -345,6 +304,7 @@ function late_check_refs(
     nothing
 end
 
+"Check (only) index references against the model."
 function late_check_refs(
     md::Model,
     d::D.AbstractNodeField,
@@ -362,11 +322,14 @@ function late_check_refs(
     render(set) = join_elided(
         I.map(ref -> "$green$(repr(ref))$reset", set),
         ", ", " and "; repr = false)
-    if complete && !isempty(miss)
+    unexp = if isempty(miss)
+        miss
+    elseif complete
         s = length(miss) == 1 ? "" : "s"
         checkerr(map, "Missing: no value provided for node$s $(render(miss)).")
+    else
+        empty!(miss)
     end
-    unexp = miss
     for act in keys(map)
         act in 1:n && continue
         push!(unexp, act)
@@ -379,6 +342,45 @@ function late_check_refs(
         )
     end
     nothing
+end
+
+# When obtaining a map (expansion pipeline: all values required), lower to a vector.
+function bp_late_check(md::Model, d::D.NodeField, map::Map)
+    late_check_refs(md, d, map; complete = true)
+    ix = N.class(md, d).index
+    T = D.type(d)
+    res = sizehint!(T[], length(map))
+    for (i, l) in enumerate(ix.reverse) # (reorder values)
+        early = get_from_map(map, i, l)
+        late = _late_check(md, d, early, i, l)
+        push!(res, late)
+    end
+    res
+end
+get_from_map(map::Map{<:Any,Int}, i::Int, ::Symbol) = map[i]
+get_from_map(map::Map{<:Any,Symbol}, ::Int, l::Symbol) = map[l]
+
+# When obtaining a map (mutation pipeline: not all values are required): lower to a map.
+function mut_late_check(md::Model, d::D.NodeField, map::Map)
+    late_check_refs(md, d, map; complete = false)
+    late_check_map_values(md, d, map)
+end
+
+# Just read to check on index-maps.
+function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Int})
+    ix = N.class(md, d).index
+    for (i, early) in pairs(map)
+        l = N.to_label(ix, i)
+        _late_check(md, d, early, i, l)
+    end
+    map
+end
+
+# Convert and read for symbol-maps.
+function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Symbol})
+    ix = N.class(md, d).index
+    late_check_map_values(md, d,
+        OrderedDict(N.to_index(ix, l) => x for (l, x) in pairs(map)))
 end
 
 #-------------------------------------------------------------------------------------------

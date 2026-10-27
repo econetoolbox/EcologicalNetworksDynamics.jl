@@ -7,7 +7,7 @@ using EcologicalNetworksDynamics.NetworkFramework:
 const d, _D = D.NodeField(:species, :body_mass)
 D.name_variants(::_D) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
 D.type(::_D) = Float64
-NF.intrinsic_check(::_D, mass::Real) = NF.non_negative(Float64, mass)
+NF.early_check(::_D, mass::Real) = NF.non_negative(Float64, mass)
 
 # ==========================================================================================
 # One extra blueprint to build from trophic levels.

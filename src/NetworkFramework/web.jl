@@ -223,9 +223,9 @@ function construct(d::D.Web, Web::Component, input, args...; kwargs...)
 end
 
 #-------------------------------------------------------------------------------------------
-# Intrinsic check.
+# Early check.
 
-function intrinsic_check(::D.Web, A::SparseMatrix{Bool})
+function early_check(::D.Web, A::SparseMatrix{Bool})
     n, m = size(A)
     n == m && return A
     checkerr(A, "The adjacency matrix of size $((m, n)) is not squared.")

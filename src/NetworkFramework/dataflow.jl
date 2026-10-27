@@ -27,26 +27,15 @@ convert(T::Type, bp::Blueprint, input) = convert(T, typeof(bp), input)
 convert(d::Dispatcher, input) = convert(D.type(d), d, input)
 
 "Guarded entrypoint for mutation."
-mut_convert(d::Dispatcher, input) = try
-    convert(d, input)
-catch e
-    e isa LibError || rethrow(e)
-    e = CheckError(e)
-    e.d = d
-    rethrow(e)
-end
-
-#-------------------------------------------------------------------------------------------
-# Intrinsic check.
-
-"""
-Assuming input data already has the right type,
-check that the value is consistent with expectations.
-Return the passed data aliased and unchanged.
-"""
-intrinsic_check(::Dispatcher, data) = data # Nothing to check *a priori*.
-intrinsic_check(BP::Type{<:Blueprint}, data) = intrinsic_check(dispatcher(BP), data)
-intrinsic_check(bp::Blueprint) = intrinsic_check(typeof(bp), data(bp))
+mut_convert(d::Dispatcher, input) =
+    try
+        convert(d, input)
+    catch e
+        e isa LibError || rethrow(e)
+        e = CheckError(e)
+        e.d = d
+        rethrow(e)
+    end
 
 #-------------------------------------------------------------------------------------------
 # Construct.
@@ -81,7 +70,7 @@ function construct(BP::Type{<:Blueprint}, args...; kwargs...)
         errwith(err(kwargs), "Unexpected keyword arguments to blueprint constructor:")
     T = datatype(BP)
     data = convert(T, BP, input)
-    (intrinsic_check(BP, data),)
+    (bp_early_check(BP, data),)
 end
 
 "Guarded framework entrypoint for correct error upgrade."
@@ -99,14 +88,22 @@ bp_construct(BP::Type{<:Blueprint}, args...; kwargs...) =
 # Early check.
 
 "Validate data and take this opportunity to start lowering."
-early_check(d::Dispatcher, data) = intrinsic_check(d, data)
-early_check(BP::Type{<:Blueprint}, data) = early_check(dispatcher(BP), data)
-early_check(bp::Blueprint) = early_check(typeof(bp), data(bp))
+early_check(::Dispatcher, data) = data # Defaults to just accepting & aliasing the value.
+
+# (Mostly because lowering may also happen here),
+# early_check exists in two flavours depending on the pipeline involved:
+# "expansion" (prefix by `bp_`) or "mutation" (prefix by `mut_`).
+# These default to just `early_check`, but may be useful as extension points.
+# The same happens for `late_check` and `lower`.
+bp_early_check(d::Dispatcher, data) = early_check(d, data)
+bp_early_check(BP::Type{<:Blueprint}, data) = bp_early_check(dispatcher(BP), data)
+bp_early_check(bp::Blueprint) = bp_early_check(typeof(bp), data(bp))
+mut_early_check(d::Dispatcher, data) = early_check(d, data)
 
 "Guarded entrypoint for the blueprint pipeline."
-bp_early_check(bp::Blueprint) =
+_bp_early_check(bp::Blueprint) =
     try
-        early_check(bp)
+        bp_early_check(bp)
     catch e
         e isa CheckError || rethrow(e)
         B = typeof(bp)
@@ -118,14 +115,16 @@ bp_early_check(bp::Blueprint) =
 # Late check.
 
 "Use perform checks against an actual model value, continuing lowering."
-late_check(::Model, ::Dispatcher, low) = low # Nothing checked by default.
-late_check(md::Model, bp::Blueprint, low) = late_check(md, dispatcher(bp), low)
-late_check(md::Model, d::Dispatcher, _mref, low) = late_check(md, d, low)
+late_check(::Model, ::Dispatcher, low) = low # Default to just accept & alias.
+bp_late_check(md::Model, d::Dispatcher, low) = late_check(md, d, low)
+bp_late_check(md::Model, bp::Blueprint, low) = bp_late_check(md, dispatcher(bp), low)
+mut_late_check(md::Model, d::Dispatcher, low) = late_check(md, d, low)
+mut_late_check(md::Model, d::Dispatcher, _ref, low) = mut_late_check(md, d, low)
 
 "Guarded entrypoint for the blueprint pipeline."
-bp_late_check(md::Model, bp::Blueprint, low) =
+_bp_late_check(md::Model, bp::Blueprint, low) =
     try
-        late_check(md, bp, low)
+        bp_late_check(md, bp, low)
     catch e
         e isa CheckError || rethrow(e)
         B = typeof(bp)
@@ -147,9 +146,11 @@ into something compatible with internal storage for `expand!`.
 Defaults to aliasing because lowering may have started before,
 but be careful not to output data possibly still referenced by user.
 """
-lower(::Model, ::Dispatcher, late_data) = late_data
-lower(md::Model, bp::Blueprint, ld) = lower(md, dispatcher(bp), ld)
-lower(md::Model, d::Dispatcher, _mref, ld) = lower(md, d, ld)
+lower(::Model, ::Dispatcher, late) = late
+bp_lower(md::Model, d::Dispatcher, late) = lower(md, d, late)
+bp_lower(md::Model, bp::Blueprint, late) = bp_lower(md, dispatcher(bp), late)
+mut_lower(md::Model, d::Dispatcher, late) = lower(md, d, late)
+mut_lower(md::Model, d::Dispatcher, _ref, ld) = mut_lower(md, d, ld)
 
 #-------------------------------------------------------------------------------------------
 # Expand.
@@ -173,28 +174,23 @@ function obtain end
 # Mutate/Reassign.
 
 """
-Default lowering pipeline from raw input to the data to be modified.
-The query is assumed to have been checked.
-"""
-function mut_lower(md::Model, d::Dispatcher, ref, rhs)
-    conv = mut_convert(d, rhs)
-    early = early_check(d, conv)
-    late = late_check(md, d, ref, early)
-    low = lower(md, d, ref, late)
-    low
-end
-
-"""
 Actually perform mutation, assuming checked model reference (query) and lowered data.
 Cannot fail.
 """
 mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mref, low)
 
-"Guarded entrypoint for the mutation pipeline, with trusted `mref` query (local indices)."
+"""
+Guarded entrypoint into the whole mutation pipeline,
+with trusted `ref` query (local indices).
+"""
 const TrustedRef = Union{Tuple{Int},Tuple{Int,Int},_WholeData}
 function mut_set!(md::Model, d::Dispatcher, ref::TrustedRef, rhs)
     low = try
-        mut_lower(md, d, ref, rhs)
+        conv = mut_convert(d, rhs)
+        early = mut_early_check(d, conv)
+        late = mut_late_check(md, d, ref, early)
+        low = mut_lower(md, d, ref, late)
+        low
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
@@ -230,9 +226,9 @@ function register_blueprint(
         end
     end
     eval(quote
-        F.early_check(b::$BP) = NF.bp_early_check(b)
-        F.late_check(m::Model, b::$BP, data) = NF.bp_late_check(m, b, data)
-        F.expand!(m::Model, b::$BP, data) = NF.expand!(m, b, data)
+        F.early_check(b::$BP) = NF._bp_early_check(b)
+        F.late_check(m::Model, b::$BP, data) = NF._bp_late_check(m, b, data)
+        F.expand!(m::Model, b::$BP, data) = NF.expand!(m, b, NF.bp_lower(m, b, data))
     end)
     isnothing(d) && return
     eval(quote

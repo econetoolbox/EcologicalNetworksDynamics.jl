@@ -77,7 +77,7 @@ const View = Views.EdgeMaskView{d}
              Conversion not implemented."))
 
     #---------------------------------------------------------------------------------------
-    # Intrinsic check.
+    # Early check.
 
     @bpfails(Foodweb(zeros(Bool, 2, 3)),
         Foodweb.Matrix, :construct,
