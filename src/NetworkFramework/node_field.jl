@@ -264,22 +264,25 @@ end
 
 # Extension point, checking individual values against the model.
 # Raise simple `checkerr` on failure, the report will be upgraded anyway.
-late_check(::Model, ::D.AbstractNodeField, x, ::Int, ::Symbol) = x
+late_check(::Model, ::D.AbstractNodeField, x, ::MRef) = x
 
-# Guarding the above.
-_late_check(md::Model, d::D.AbstractNodeField, x, i::Int, l::Symbol) =
+# Guarding the above to upgrade exceptions.
+_late_check(md::Model, d::D.AbstractNodeField, x, uref, mref::MRef) =
     try
-        late_check(md, d, x, i, l)
+        late_check(md, d, x, mref)
     catch e
         e isa LibError || rethrow(e)
         if !(e isa CheckError)
             e = CheckError(e)
         end
-        e.mref = (i, l)
+        if e.uref === WholeData
+            e.uref = uref
+        end
+        e.mref = (mref,)
         rethrow(e)
     end
 
-# When obtaining a vector, lower to a vector.
+# Lower to a fresh vector while checking.
 function late_check(md::Model, d::D.NodeField, vec::Vector)
     # Check plain number of provided values.
     cl = N.class(md, d)
@@ -289,7 +292,7 @@ function late_check(md::Model, d::D.NodeField, vec::Vector)
     # Then check values one by one.
     labels = N.node_labels(cl)
     map(enumerate(zip(labels, vec))) do (i, (label, x))
-        _late_check(md, d, x, i, label)
+        _late_check(md, d, x, (i,), (i, label))
     end
 end
 
@@ -309,7 +312,7 @@ function late_check_refs(
     exp = Set(labels)
     act = Set(keys(map))
     render(set) = join_elided(
-        sort!(collect(I.map(ref -> "$green$(repr(ref))$reset", set))),
+        sort!(collect(I.map(ref -> "$cyan$(repr(ref))$reset", set))),
         ", ", " and "; repr = false)
     if complete
         miss = setdiff(exp, act)
@@ -319,7 +322,7 @@ function late_check_refs(
     unexp = setdiff(act, exp)
     if !isempty(unexp)
         a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
-        checkerr(map, "Not$a $cyan$(repr(c))$reset name$s: $(render(unexp)).")
+        checkerr(map, "Not$a $green$(repr(c))$reset name$s: $(render(unexp)).")
     end
     nothing
 end
@@ -365,20 +368,34 @@ function late_check_refs(
 end
 
 # When obtaining a map (expansion pipeline: all values required), lower to a vector.
-function bp_late_check(md::Model, d::D.NodeField, map::Map)
+function bp_late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map)
+    d = dispatcher(bp)
     late_check_refs(md, d, map; complete = true)
     ix = N.class(md, d).index
     T = D.type(d)
     res = sizehint!(T[], length(map))
     for (i, l) in enumerate(ix.reverse) # (reorder values)
-        early = get_from_map(map, i, l)
-        late = _late_check(md, d, early, i, l)
+        uref, early = get_from_map(map, i, l)
+        late = _late_check(md, d, early, (uref,), (i, l))
         push!(res, late)
     end
     res
 end
-get_from_map(map::Map{<:Any,Int}, i::Int, ::Symbol) = map[i]
-get_from_map(map::Map{<:Any,Symbol}, ::Int, l::Symbol) = map[l]
+get_from_map(map::Map{<:Any,Int}, i::Int, ::Symbol) = (i, map[i])
+get_from_map(map::Map{<:Any,Symbol}, ::Int, l::Symbol) = (l, map[l])
+
+#-------------------------------------------------------------------------------------------
+# Late check, on mutation pipeline.
+
+function mut_late_check(md::Model, d::D.NodeField, (i,)::Tuple{Int}, x)
+    ix = N.class(md, d).index
+    l = N.to_label(ix, i)
+    # HERE: that will be wrong `uref`:
+    # drop the idea to have both consistent `uref` *and* `mref` within the report.
+    # That just requires too much context to be passed down the pipelines.
+    # Have *either* instead.
+    _late_check(md, d, x, (i,), (i, l))
+end
 
 # When obtaining a map (mutation pipeline: not all values are required): lower to a map.
 function mut_late_check(md::Model, d::D.NodeField, map::Map)
@@ -391,16 +408,22 @@ function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Int})
     ix = N.class(md, d).index
     for (i, early) in pairs(map)
         l = N.to_label(ix, i)
-        _late_check(md, d, early, i, l)
+        _late_check(md, d, early, (i,), (i, l))
     end
     map
 end
 
-# Convert and read for symbol-maps.
+# Read and convert for symbol-maps.
 function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Symbol})
     ix = N.class(md, d).index
-    late_check_map_values(md, d,
-        OrderedDict(N.to_index(ix, l) => x for (l, x) in pairs(map)))
+    T = valtype(map)
+    res = Map{T,Int}()
+    for (l, early) in pairs(map)
+        i = N.to_index(ix, l)
+        late = _late_check(md, d, early, (l,), (i, l))
+        res[i] = late
+    end
+    res
 end
 
 #-------------------------------------------------------------------------------------------
@@ -442,7 +465,6 @@ function expand!(md::Model, d::D.AbstractNodeField, map::Map)
     # Reorder into the final vector.
     R = reftype(map)
     ix = N.class(md, d).index
-    # HERE: this is failing, but it should have been checked, right?
     vec = [map[ref] for ref in N.ordered(R, ix)] # (guaranteed without holes on `bp`)
     expand!(md, d, vec)
 end

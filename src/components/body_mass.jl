@@ -18,7 +18,7 @@ mutable struct Z <: Blueprint
 end
 NF.register_blueprint(Z, "trophic levels"; d, depends = (Foodweb,))
 
-function NF.bp_early_check(::Type{Z}, x)
+function NF.cst_early_check(::Type{Z}, x)
     x >= 0 && return x
     NF.checkerr(x,
         "Cannot calculate body masses from trophic levels with a negative value of Z.")

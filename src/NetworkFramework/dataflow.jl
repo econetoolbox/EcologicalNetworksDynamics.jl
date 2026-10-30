@@ -124,7 +124,8 @@ late_check(::Model, ::Dispatcher, early) = early # Default to just accept & alia
 bp_late_check(md::Model, bp::Blueprint, early) = late_check(md, dispatcher(bp), early)
 
 "Late check for mutation."
-mut_late_check(md::Model, d::Dispatcher, _ref, early) = late_check(md, d, early)
+mut_late_check(md::Model, d::Dispatcher, early) = late_check(md, d, early)
+mut_late_check(md::Model, d::Dispatcher, _ref, early) = mut_late_check(md, d, early)
 
 "Guarded entrypoint for the blueprint pipeline."
 _bp_late_check(md::Model, bp::Blueprint, early) =

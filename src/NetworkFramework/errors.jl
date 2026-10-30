@@ -147,12 +147,8 @@ irrelevant_mref(mref, uref) =
         true
     elseif uref === WholeData
         mref === WholeData
-    elseif uref isa Tuple{Vararg{Int}}
-        uref == getindex.(mref, 1)
-    elseif uref isa Tuple{Vararg{Symbol}}
-        uref == getindex.(mref, 2)
     else
-        true
+        false
     end
 
 modelvalue(d::D.GraphField, ::_WholeData) = "$d value"
