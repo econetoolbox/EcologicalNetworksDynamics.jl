@@ -112,7 +112,7 @@ end
         (; a = 1, b = 0),
     )
         @convfails(convert(Vector{Bool}, dict),
-            Vector{Bool}, dict, :whole, "Conversion not implemented.")
+            Vector{Bool}, dict, :uwhole, "Conversion not implemented.")
     end
 
     #---------------------------------------------------------------------------------------
@@ -120,7 +120,7 @@ end
 
     input = [0, 1, 2]
     @convfails(convert(Vector{Bool}, input),
-        Bool, 2, (3,), "(detail down the stacktrace)")
+        Bool, 2, (:u, (3,)), "(detail down the stacktrace)")
 
     @test_err(convert(Vector{Bool}, input),
         """
@@ -131,7 +131,7 @@ end
         """)
 
     @convfails(convert(Vector{Bool}, Type),
-        Vector{Bool}, Type, :whole, "Input is not iterable.")
+        Vector{Bool}, Type, :uwhole, "Input is not iterable.")
     @test_err(convert(Vector{Bool}, Type),
         """
         Cannot convert to `Vector{Bool}`:
@@ -142,7 +142,7 @@ end
     # Sparse arrays don't accept unclear 'zero' conversions.
     @test conv(Vector{Symbol}, ["a", "b"] => [:a, :b])
     @convfails(convert(SparseVector{Symbol}, ["a", "b"]),
-        SparseVector{Symbol}, ["a", "b"], :whole, "Conversion not implemented.")
+        SparseVector{Symbol}, ["a", "b"], :uwhole, "Conversion not implemented.")
 
     #---------------------------------------------------------------------------------------
     # Try several conversions at once, first match first served.
@@ -154,7 +154,7 @@ end
 
     input = 5
     @checkfails(try_convert(input, Symbol => id, Vector{String} => id),
-        nothing, 5, :whole, nothing,
+        nothing, 5, :uwhole,
         """
         Cannot convert input to either:
           - $Symbol

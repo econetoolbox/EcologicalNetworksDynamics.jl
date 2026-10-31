@@ -137,8 +137,8 @@ _bp_late_check(md::Model, bp::Blueprint, early) =
         if isnothing(e.d)
             e.d = dispatcher(bp)
         end
-        if isnothing(e.mref)
-            e.mref = WholeData
+        if e.ref === UserRef(WholeData)
+            e.ref = ModelRef(WholeData)
         end
         rethrow(BlueprintError(B, :late, e))
     end
@@ -189,17 +189,27 @@ with trusted `ref` query (local indices).
 """
 const TrustedRef = Union{Tuple{Int},Tuple{Int,Int},_WholeData}
 function mut_set!(md::Model, d::Dispatcher, ref::TrustedRef, rhs)
-    low = try
+    early = try
         conv = mut_convert(d, rhs)
         early = mut_early_check(d, conv)
+        early
+    catch e
+        e isa LibError || rethrow(e)
+        e = CheckError(e)
+        e.d = d
+        if e.ref === UserRef(WholeData)
+            e.ref = UserRef(ref)
+        end
+        rethrow(MutationError(e))
+    end
+    low = try
         late = mut_late_check(md, d, ref, early)
         low = mut_lower(md, d, ref, late)
         low
     catch e
         e isa LibError || rethrow(e)
-        e = CheckError(e)
         e.d = d
-        e.mref = complete_mref(ref, md, d)
+        e.ref = to_mref(ref, md, d)
         rethrow(MutationError(e))
     end
     mutate!(md, d, ref, low)

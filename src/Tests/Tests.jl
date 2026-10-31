@@ -27,8 +27,9 @@ include("./errors.jl")
 const T = Tests
 
 using EcologicalNetworksDynamics:
-    EN, N, F, I, SparseMatrix, Display, errwith, withcontext
-using .Display: rept, render_input, yellow, black, reset, italics
+    EN, N, F, I, SparseMatrix, errwith, withcontext
+using EcologicalNetworksDynamics.Display:
+    rept, render_input, yellow, black, cyan, reset, italics
 using EcologicalNetworksDynamics.NetworkFramework: NF, D, V
 
 using .Strings:
@@ -148,19 +149,38 @@ end
 #-------------------------------------------------------------------------------------------
 # Exposed library errors.
 
-"Test report ref values, using `:whole` to expect `$(NF.WholeData)`."
-compare_refs(exp, act) = FieldsCompare.value(exp, act)
-compare_refs(exp::Symbol, ::NF._WholeData) =
-    if exp == :whole
-        @test true
+"""
+Test report ref values,
+using `:u` and `:m` to refer to either `UserRef` or `ModelRef`,
+and `:whole` to expect `$(NF.WholeData)`.
+"""
+function compare_refs((type, ref)::Tuple{Symbol,Any}, act)
+    T = if type == :u
+        NF.UserRef
+    elseif type == :m
+        NF.ModelRef
     else
-        errwith(WrongField, "wrong input reference", rethrow) do io
-            showcompare(
-                io,
-                exp,
-                ":whole $italics(alias for $black$(NF.WholeData)$reset$italics)$reset",
-            )
+        errwith("Invalid expected input reference qualifier:", rethrow) do io
+            showcompare(io, "$cyan:u$reset (`UserRef`) or $cyan:r$reset (`ModelRef`)", type)
         end
+    end
+    if ref == :whole
+        ref = NF.WholeData
+    end
+    FieldsCompare.default(T(ref), act)
+end
+"For convenience, use directly use `:uwhole` or `:mwhole`."
+compare_refs(exp::Symbol, act) =
+    if exp == :uwhole
+        compare_refs((:u, :whole), act)
+    elseif exp == :mwhole
+        compare_refs((:m, :whole), act)
+    else
+        @invoke compare_refs(exp::Any, act)
+    end
+compare_refs(exp, _) =
+    errwith("Invalid expected input reference qualifier:", rethrow) do io
+        showcompare(io, "`(:u, ref)` or `(:m, ref)` or `:uwhole` or `:mwhole`", exp)
     end
 
 "Test datakind/dispatcher value, using tuples of symbols for their content."
@@ -171,12 +191,11 @@ test_datakind(exp, ::D.Dispatcher) =
 test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     FieldsCompare.value(exp, D.content(act))
 
-const uref = compare_refs
-const mref = compare_refs
-@genfailsmacro convfails NF.ConvertError (; mess, uref)
+const ref = compare_refs
+@genfailsmacro convfails NF.ConvertError (; mess, ref)
 @genfailsmacro listfails NF.ListError (;
     mess, tag = nothing, path = FieldsCompare.value)
-@genfailsmacro checkfails NF.CheckError (; mess, uref, mref)
+@genfailsmacro checkfails NF.CheckError (; mess, ref)
 
 const src = T.errfield(NF.CheckError)
 @genfailsmacro bpfails NF.BlueprintError (; src)
@@ -189,7 +208,7 @@ const src = T.errfield(NF.CheckError)
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
 T.test_errsource(err, E::Type{NF.CheckError}, fields, checks = (;)) =
-    @invoke T.test_errsource(err, E::Type, fields, (; mess, uref, mref, checks...))
+    @invoke T.test_errsource(err, E::Type, fields, (; mess, ref, checks...))
 T.test_errsource(err, E::Type{NF.BlueprintError}, fields, checks = (;)) =
     @invoke T.test_errsource(err, E::Type, fields,
         (; src = T.errfield(NF.CheckError), checks...))

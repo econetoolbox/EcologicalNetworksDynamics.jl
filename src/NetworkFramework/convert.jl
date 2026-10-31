@@ -69,7 +69,7 @@ function convert(::Type{Vector{T}}, input) where {T}
             convert(T, x)
         catch e
             e isa ConvertError || rethrow(e)
-            e.uref = (i,)
+            e.ref = UserRef((i,))
             rethrow(e)
         end
         for (i, x) in pairs(input)
@@ -225,16 +225,18 @@ end
 mutable struct ConvertError <: LibError
     Target::Type
     value::Any
-    uref::Any
+    ref::InputRef
     mess::String
 end
-converr(T::Type, value, mess::String, throw = Base.throw; uref = WholeData) =
-    throw(ConvertError(T, value, uref, mess))
+converr(T::Type, value, mess::String, throw = Base.throw; ref = UserRef(WholeData)) =
+    throw(ConvertError(T, value, ref, mess))
 
 function CheckError(e::ConvertError)
-    (; Target, value, uref, mess) = e
+    (; Target, value, ref, mess) = e
+    # TODO: not exactly satisfied with this upgrade,
+    # but nesting exception types complicates things much more?
     mess = "Cannot convert to `$Target`:\n" * mess
-    CheckError(value, mess; uref)
+    CheckError(value, mess; ref)
 end
 
 function Base.showerror(io::IO, e::ConvertError)

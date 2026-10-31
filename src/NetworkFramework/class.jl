@@ -156,7 +156,7 @@ function early_check(d::D.Class, names::Vector{Symbol})
             j = already[name]
             checkerr(name,
                 "$Class $j and $i would both be named $cyan$(repr(name))$reset.";
-                uref = (i,))
+                ref = UserRef((i,))) # HERE: make it more comfy with `uref = (i,)` instead.
         end
         already[name] = i
     end

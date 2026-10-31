@@ -68,18 +68,17 @@ const Sp = @PropertySpace(species, Network)
 
     @bpfails(Species.Names(:a),
         Species.Names, :construct,
-        (d, :a, :whole, nothing,
-            "Cannot convert to `$Vector{$Symbol}`:\nInput is not iterable."))
+        (d, :a, :uwhole, "Cannot convert to `$Vector{$Symbol}`:\nInput is not iterable."))
     @jl_basic_callfails(Species(:a)) # Preserve forward compatibility.
 
     @bpfails(Species([:a, :b, nothing]),
         Species.Names, :construct,
-        (d, nothing, (3,), nothing,
+        (d, nothing, (:u, (3,)),
             "Cannot convert to `$Symbol`:\nConversion not implemented."))
     @test_err(Species([:a, :b, nothing]), # First time with a 1D uref.
         """
         While constructing blueprint Species.Names:
-        In the provided input at [3]:
+        In the provided input at [3] for <species>:
         Cannot convert to `$Symbol`:
         Conversion not implemented.
         Received: nothing  ::$Nothing\
@@ -90,14 +89,14 @@ const Sp = @PropertySpace(species, Network)
 
     @bpfails(Species([:a, :b, 'b']), # TODO: confusingly reports `Received: :b`.. fix?
         Species.Names, :construct,
-        (d, :b, (3,), nothing, "Species 2 and 3 would both be named :b."))
+        (d, :b, (:u, (3,)), "Species 2 and 3 would both be named :b."))
 
     # It is (still) ok to break values checking afterwards..
     input[3] = :x
     # .. but then expansion fails.
     addfails.@check(Model(bp), [],
         (Species.Names, :early,
-            (d, :x, (3,), nothing, "Species 2 and 3 would both be named :x.")))
+            (d, :x, (3,), "Species 2 and 3 would both be named :x.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -129,13 +128,12 @@ const Sp = @PropertySpace(species, Network)
 
     @bpfails(Species(-1),
         Species.Number, :construct,
-        (d, -1, :whole, nothing, "Cannot construct a negative number of species nodes."))
+        (d, -1, :uwhole, "Cannot construct a negative number of species nodes."))
 
     bp.n = -3
     addfails.@check(Model(bp), [],
         (Species.Number, :early,
-            (d, -3, :whole, nothing,
-                "Cannot construct a negative number of species nodes.")))
+            (d, -3, nothing, "Cannot construct a negative number of species nodes.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.

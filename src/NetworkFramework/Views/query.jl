@@ -23,14 +23,14 @@ query_check(vw::NodeMaskView, q) =
 # These ones, apparently specialized within julia, need disambiguation?
 # TODO: that is fragile to internal julia changes,
 # can we make better without having to support all the interface ourselves, or list it here?
-for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
-    eval(
-        quote
-            Base.getindex(vw::NodeMaskView, q::$Q) =
-                invoke(getindex, Tuple{AbstractView,Any}, vw, q)
-        end,
-    )
-end
+#  for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
+    #  eval(
+        #  quote
+            #  Base.getindex(vw::NodeMaskView, q::$Q) =
+                #  invoke(getindex, Tuple{AbstractView,Any}, vw, q)
+        #  end,
+    #  )
+#  end
 
 # Single-value access, using either indices or labels.
 function node_check(md::Model, d::D.NodeLevel, (i,)::Tuple{Int}; class = N.class)
