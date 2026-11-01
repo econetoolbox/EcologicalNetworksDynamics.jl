@@ -1,50 +1,60 @@
-# When optional arguments get sophisticated structure and connections / dependencies
-# this helper macro defines local primitives to ease their analysis.
-# The following functions get defined,
-# they work on a local copy of the given kwargs,
-# which gets consumed during the analysis.
-#
-#  alias!(args::Symbol...)
-#    Consider these arguments as aliases:
-#    check that no redudant aliased values have been given,
-#    and rename/standardize to the first one if given.
-#
-#  given(arg::Symbol)
-#      True if the argument has been provided (be it consumed or not).
-#
-#  miss = !given
-#
-#  left(arg::Symbol)
-#      True if the argument has been provided but not yet consumed.
-#
-#  peek(arg::Symbol, type::Type = Any)
-#    Get the argument value
-#    with helpful error if it cannot be `convert`ed to the given type.
-#
-#  take!(arg::Symbol, type::Type = Any)
-#    Pops the argument value
-#    with helpful error if it cannot be `convert`ed to the given type.
-#
-#  take_or!(arg::Symbol, default, type::Type = typeof(default))
-#    Pops the argument value, unless not present and then a default is used.
-#    To avoid unnecessary calculations,
-#    provide a function as the `default` to calculate the default value,
-#    only executed if the argument is not present.
-#
-#  populate!(defaults...)
-#    Complete the arguments with default values, not overriding the originals if given.
-#
-#  no_unused_arguments()
-#    Raise an error if there some arguments have been left unused,
-#    indicating possible mispelling or semantic error.
-#
-#  left()
-#    Get reference to underlying consumable dict.
-#
+"""
+When optional arguments get sophisticated structure and connections / dependencies
+this helper macro defines local primitives to ease their analysis.
+The following functions get defined,
+they work on a local copy of the given kwargs,
+which gets consumed during the analysis.
+
+    alias!(args::Symbol...)
+      Consider these arguments as aliases:
+      check that no redudant aliased values have been given,
+      and rename/standardize to the first one if given.
+
+    given(arg::Symbol)
+        True if the argument has been provided (be it consumed or not).
+
+    miss = !given
+
+    left(arg::Symbol)
+        True if the argument has been provided but not yet consumed.
+
+    peek(arg::Symbol, type::Type = Any)
+      Get the argument value
+      with helpful error if it cannot be `convert`ed to the given type.
+
+    take!(arg::Symbol, type::Type = Any)
+      Pops the argument value
+      with helpful error if it cannot be `convert`ed to the given type.
+
+    take_or!(arg::Symbol, default, type::Type = typeof(default))
+      Pops the argument value, unless not present and then a default is used.
+      To avoid unnecessary calculations,
+      provide a function as the `default` to calculate the default value,
+      only executed if the argument is not present.
+
+    take_either!(alternates::Pair{Symbol,<Callable>}...; none = missing)
+      Pick either of the given argument,
+      returning its value processed by the corresponding function.
+      Error if several of them is provided.
+      Unless `none` is given, error if none is provided.
+
+    populate!(defaults...)
+      Complete the arguments with default values, not overriding the originals if given.
+
+    no_unused_arguments()
+      Raise an error if there some arguments have been left unused,
+      indicating possible mispelling or semantic error.
+
+    left()
+      Get reference to underlying consumable dict.
+"""
 # TODO: cover with dedicated test instead of relying on use in the package.
 module KwargsHelpers
 
 import EcologicalNetworksDynamics: argerr
+import EcologicalNetworksDynamics.Display: join_elided, green, cyan, reset
+
+const K = KwargsHelpers
 
 macro kwargs_helpers(kwargs)
     (
@@ -56,6 +66,7 @@ macro kwargs_helpers(kwargs)
         peek,
         take!,
         take_or!,
+        take_either!,
         populate!,
         no_unused_arguments,
     ) =
@@ -68,6 +79,7 @@ macro kwargs_helpers(kwargs)
             :peek,
             :take!,
             :take_or!,
+            :take_either!,
             :populate!,
             :no_unused_arguments,
         ))
@@ -147,7 +159,38 @@ macro kwargs_helpers(kwargs)
             end
         end
 
-        # Populate with default args.
+        function $take_either!(
+            alternates::Pair{Symbol,<:Union{Function,Type}}...;
+            none = missing,
+        )
+            pick = nothing
+            gr(a) = "$green$(repr(a))$reset"
+            args() = join_elided(map(a -> gr(first(a)), alternates),
+                ", ", " or "; repr = false)
+            for (arg, fn) in alternates
+                $given(arg) || continue
+                if isnothing(pick)
+                    pick = (arg, fn)
+                    continue
+                end
+                already, _ = pick
+                if length(alternates) == 2
+                    argerr("Cannot provide both arguments $(gr(already)) and $(gr(arg)).")
+                else
+                    argerr("Only one arguments among $(args()) may be given. \
+                            Received both $(gr(already)) and $(gr(arg)).")
+                end
+            end
+            if isnothing(pick)
+                ismissing(none) &&
+                    argerr("Expected one argument among $(args()). Got neither.")
+                return none()
+            end
+            arg, fn = pick
+            v = $take!(arg)
+            fn(v)
+        end
+
         $populate!(; defs...) =
             for (k, v) in defs
                 $given(k) && continue
@@ -159,7 +202,7 @@ macro kwargs_helpers(kwargs)
         function $no_unused_arguments()
             isempty(kw) && return
             k, v = first(kw)
-            argerr("Unexpected argument: $k = $(repr(v)).")
+            argerr("Unexpected argument: $green$k$reset = $cyan$(repr(v))$reset.")
         end
 
     end
@@ -174,6 +217,7 @@ function no_unused_arguments end
 function peek end
 function populate! end
 function take! end
+function take_either! end
 function take_or! end
 
 export @kwargs_helpers
@@ -185,6 +229,7 @@ export no_unused_arguments
 export peek
 export populate!
 export take!
+export take_either!
 export take_or!
 
 end

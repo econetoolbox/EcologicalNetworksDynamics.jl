@@ -72,7 +72,7 @@ const View = Views.EdgeMaskView{d}
 
     @bpfails(Foodweb.Matrix(:a),
         Foodweb.Matrix, :construct,
-        (d, :a, :whole, nothing,
+        (d, :a, :uwhole,
             "Cannot convert to `$(NF.SparseMatrix{Bool})`:\n\
              Conversion not implemented."))
 
@@ -81,7 +81,7 @@ const View = Views.EdgeMaskView{d}
 
     @bpfails(Foodweb(zeros(Bool, 2, 3)),
         Foodweb.Matrix, :construct,
-        (d, spzeros(Bool, 2, 3), :whole, nothing,
+        (d, spzeros(Bool, 2, 3), :uwhole,
             "The adjacency matrix of size (3, 2) is not squared."))
 
     #---------------------------------------------------------------------------------------
@@ -90,13 +90,13 @@ const View = Views.EdgeMaskView{d}
     m = Model(Species(3))
     addfails.@check(m + Foodweb(zeros(Bool, 2, 2)), [],
         (Foodweb.Matrix, :late,
-            (d, spzeros(Bool, 2, 2), :whole, :whole,
+            (d, spzeros(Bool, 2, 2), :mwhole,
                 "There are 3 :species nodes but the provided matrix is of size (2, 2).")))
     @test_err(m + Foodweb(zeros(Bool, 2, 2)), # First time with a :late error.
         """
         Blueprint cannot expand against current system value:
         While verifying blueprint against model:
-        In the provided input for <trophic>:
+        In the provided input targetting edge values for <trophic>:
         There are 3 :species nodes but the provided matrix is of size (2, 2).
         Received: sparse(Int64[], Int64[], Bool[], 2, 2)  ::$(SparseMatrix{Bool})
         Not all blueprints have been expanded.
@@ -170,8 +170,7 @@ const View = Views.EdgeMaskView{d}
     # All list parsing errors are reported here.
     @bpfails(Foodweb.Adjacency(:a),
         Foodweb.Adjacency, :construct,
-        (d, :a, :whole, nothing,
-            "Input for binary adjacency map needs to be iterable."))
+        (d, :a, :uwhole, "Input for binary adjacency map needs to be iterable."))
     @test_err(Foodweb.Adjacency(:a), # First test with :list.
         """
         While constructing blueprint Foodweb.Adjacency:
@@ -185,17 +184,17 @@ const View = Views.EdgeMaskView{d}
 
     addfails.@check(Model(Species("axy"), Foodweb(A)), [],
         (Foodweb.Adjacency, :late,
-            (d, :b, [1, :right, 1], :whole, "Not a target label among :species.")))
+            (d, :b, (:u, [1, :right, 1]), "Not a target label among :species.")))
     addfails.@check(Model(Species("xyz"), Foodweb(Ai)), [],
         (Foodweb.Adjacency, :late,
-            (d, 6, [1, :left], :whole, "Not a valid source :species index among 3 nodes."),
+            (d, 6, (:u, [1, :left]), "Not a valid source :species index among 3 nodes."),
         ))
 
     @test_err(Model(Species("axy"), Foodweb(A)), # First time with path-within-list.
         """
         Blueprint cannot expand against current system value:
         While verifying blueprint against model:
-        In the provided input at [1][right][1]:
+        In the provided input at [1][right][1] for <trophic>:
         Not a target label among :species.
         Received: :b  ::Symbol
         Not all blueprints have been expanded.
@@ -226,7 +225,7 @@ const View = Views.EdgeMaskView{d}
     # Generic construct failure.
 
     input = [1 => 2 0 1]
-    @checkfails(Foodweb(input), d, input, :whole, nothing,
+    @checkfails(Foodweb(input), d, input, :uwhole,
         """
         Cannot convert input to either:
           - $(SparseMatrix{Bool})
@@ -417,12 +416,12 @@ end
     @test v[[3, 6, 9, 12, 15]] == [0, 1, 0, 1, 0]
 
     (s, _), (t, _) = D.sides(d)
-    @viewfails(v[-5, 2], (s, -5, :whole, nothing, "There are 5 nodes in this class."))
-    @viewfails(v[6, 7], (s, 6, :whole, nothing, "There are 5 nodes in this class."))
-    @viewfails(v[5, 7], (s, 7, :whole, nothing, "There are 5 nodes in this class."))
-    @viewfails(v[:x, 3], (s, :x, :whole, nothing, "No node in this class is labeled :x."))
-    @viewfails(v[3, :y], (s, :y, :whole, nothing, "No node in this class is labeled :y."))
-    @viewfails(v[end+1, 2], (s, 6, :whole, nothing, "There are 5 nodes in this class."))
+    @viewfails(v[-5, 2], (s, -5, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[6, 7], (s, 6, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[5, 7], (s, 7, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[:x, 3], (s, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[3, :y], (s, :y, :uwhole, "No node in this class is labeled :y."))
+    @viewfails(v[end+1, 2], (s, 6, :uwhole, "There are 5 nodes in this class."))
 
     @test_err(v[5, 7], # TODO: improve on this report again leveraging `uref` (left :whole).
         """

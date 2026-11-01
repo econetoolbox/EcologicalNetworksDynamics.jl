@@ -236,7 +236,7 @@ function CheckError(e::ConvertError)
     # TODO: not exactly satisfied with this upgrade,
     # but nesting exception types complicates things much more?
     mess = "Cannot convert to `$Target`:\n" * mess
-    CheckError(value, mess; ref)
+    CheckError(value, mess; uref = ref.ref) # (weird uref round-twist :\)
 end
 
 function Base.showerror(io::IO, e::ConvertError)

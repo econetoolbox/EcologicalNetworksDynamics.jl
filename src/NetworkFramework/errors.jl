@@ -56,12 +56,17 @@ mutable struct CheckError <: LibError
     unless they are hooking higher in the usual call chain.
     """
     mess::String
-    CheckError(
-        value,
-        mess::String;
-        d = nothing,
-        ref = UserRef(WholeData),
-    ) = new(d, value, ref, mess)
+    function CheckError(value, mess::String; kwargs...)
+        @kwargs_helpers kwargs
+        d = take_or!(:d, nothing, Option{Dispatcher})
+        ref = take_either!(
+            :uref => UserRef,
+            :mref => ModelRef;
+            none = () -> UserRef(WholeData),
+        )
+        no_unused_arguments()
+        new(d, value, ref, mess)
+    end
 end
 "Upgrade underlying errors."
 CheckError(e::CheckError) = e

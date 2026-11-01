@@ -42,10 +42,10 @@ const View = Views.NodeMaskView{d} # Tested view type.
     @test v[[2, 4]] == [1, 0]
     @test v[['b', 'd']] == [1, 0]
 
-    @viewfails(v[-5], (d, -5, :whole, nothing, "There are 5 nodes in this class."))
-    @viewfails(v[6], (d, 6, :whole, nothing, "There are 5 nodes in this class."))
-    @viewfails(v[:x], (d, :x, :whole, nothing, "No node in this class is labeled :x."))
-    @viewfails(v[end+1], (d, 6, :whole, nothing, "There are 5 nodes in this class."))
+    @viewfails(v[-5], (d, -5, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[6], (d, 6, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[:x], (d, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[end+1], (d, 6, :uwhole, "There are 5 nodes in this class."))
 
     # Same guards as node names views.
     @test v isa AbstractSparseVector{Bool}

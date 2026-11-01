@@ -285,7 +285,7 @@ function check_refs(check::Function, ::D.Web, adj::BinAdjacency)
         end
     catch e
         e isa CheckError || rethrow(e)
-        e.uref = path
+        e.ref = UserRef(path)
         rethrow(e)
     end
     adj

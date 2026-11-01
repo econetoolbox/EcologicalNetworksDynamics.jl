@@ -23,14 +23,14 @@ query_check(vw::NodeMaskView, q) =
 # These ones, apparently specialized within julia, need disambiguation?
 # TODO: that is fragile to internal julia changes,
 # can we make better without having to support all the interface ourselves, or list it here?
-#  for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
-    #  eval(
-        #  quote
-            #  Base.getindex(vw::NodeMaskView, q::$Q) =
-                #  invoke(getindex, Tuple{AbstractView,Any}, vw, q)
-        #  end,
-    #  )
-#  end
+for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
+    eval(
+        quote
+            Base.getindex(vw::NodeMaskView, q::$Q) =
+                invoke(getindex, Tuple{AbstractView,Any}, vw, q)
+        end,
+    )
+end
 
 # Single-value access, using either indices or labels.
 function node_check(md::Model, d::D.NodeLevel, (i,)::Tuple{Int}; class = N.class)
@@ -91,16 +91,13 @@ end
 
 function Base.showerror(io::IO, e::Error)
     (; query, src) = e
-    (; mess, value, d, uref, mref) = src
+    (; mess, value, d, ref) = src
+    (; ref) = ref
     function report() # Return true if value was displayed.
-        openline = if uref === WholeData
-            false
-        else
-            if irrelevant_uref(query, uref)
-                false
-            else
+        if ref !== WholeData
+            if !irrelevant_uref(query, ref)
                 # Uref is always expected to at least start with the index dimension here.
-                dim, rest... = uref
+                dim, rest... = ref
                 opendim = if !(query isa Tuple{Any})
                     print(io, "On dimension $dim")
                     true
@@ -113,22 +110,14 @@ function Base.showerror(io::IO, e::Error)
                     else
                         print(io, "In element ")
                     end
-                    NF.print_uref(io, rest...)
+                    NF.print_ref(io, UserRef(rest...))
                     print(io, " within the index")
                 end
-                true
-            end
-        end
-        if NF.irrelevant_mref(mref, uref)
-            if openline
                 println(io, ":")
             end
-        else
-            mv = NF.modelvalue(d, mref)
-            println(io, " referring to inner $mv:")
         end
         print(io, mess)
-        if !irrelevant_uref(query, uref)
+        if !irrelevant_uref(query, ref)
             println(io)
             render_input(io, value)
             true

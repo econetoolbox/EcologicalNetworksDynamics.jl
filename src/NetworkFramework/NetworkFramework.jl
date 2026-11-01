@@ -134,9 +134,10 @@ The library should catch it and append relevant context before it bubbles up to 
 module NetworkFramework
 
 using EcologicalNetworksDynamics:
-    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, KwargsHelpers, AD,
+    EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, AD,
     FailedAttempts, Display, errwith, unimplemented, paste_paths
 using .Display: render_input, green, cyan, black, reset, join_elided, rept, ns, nsa
+using EcologicalNetworksDynamics.KwargsHelpers
 using .Networks: Topology
 using .Framework: bpdisplay, bpcol
 
@@ -172,7 +173,7 @@ const V = Views
 # so gather default implementation for typical ones.
 include("./graph_field.jl")
 include("./class.jl")
-#  include("./web.jl")
+include("./web.jl")
 #  include("./node_field.jl")
 #  include("./subnode_field.jl")
 #  include("./edge_field.jl")

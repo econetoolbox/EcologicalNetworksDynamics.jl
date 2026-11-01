@@ -96,7 +96,7 @@ const Sp = @PropertySpace(species, Network)
     # .. but then expansion fails.
     addfails.@check(Model(bp), [],
         (Species.Names, :early,
-            (d, :x, (3,), "Species 2 and 3 would both be named :x.")))
+            (d, :x, (:u, (3,)), "Species 2 and 3 would both be named :x.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -133,7 +133,7 @@ const Sp = @PropertySpace(species, Network)
     bp.n = -3
     addfails.@check(Model(bp), [],
         (Species.Number, :early,
-            (d, -3, nothing, "Cannot construct a negative number of species nodes.")))
+            (d, -3, :uwhole, "Cannot construct a negative number of species nodes.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -226,10 +226,10 @@ end
     @test v[['c', 'b', 'b', 'a']] == [:c, :b, :b, :a]
 
     # Basic bound-checking is homemade.
-    @viewfails(v[-5], (d, -5, :whole, nothing, "There are 3 nodes in this class."))
-    @viewfails(v[5], (d, 5, :whole, nothing, "There are 3 nodes in this class."))
-    @viewfails(v[end+1], (d, 4, :whole, nothing, "There are 3 nodes in this class."))
-    @viewfails(v[:x], (d, :x, :whole, nothing, "No node in this class is labeled :x."))
+    @viewfails(v[-5], (d, -5, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[5], (d, 5, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[end+1], (d, 4, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[:x], (d, :x, :uwhole, "No node in this class is labeled :x."))
     # TODO: either the reports tested here provide too much information (to be tested)
     # or that information should be better exploited to produce better report.
 

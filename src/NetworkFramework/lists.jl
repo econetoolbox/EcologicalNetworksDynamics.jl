@@ -150,7 +150,7 @@ end
 listerr(tag, value, path, mess, throw = Base.throw) =
     throw(ListError(tag, value, isnothing(path) ? [] : deepcopy(path), mess))
 CheckError(e::ListError) =
-    CheckError(e.value, e.mess; ref = UserRef(isempty(e.path) ? WholeData : e.path))
+    CheckError(e.value, e.mess; uref = isempty(e.path) ? WholeData : e.path)
 Base.showerror(io::IO, e::ListError) = showerror(io, CheckError(e))
 
 # Pick the report with highest priority,

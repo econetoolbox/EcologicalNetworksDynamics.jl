@@ -164,10 +164,13 @@ function compare_refs((type, ref)::Tuple{Symbol,Any}, act)
             showcompare(io, "$cyan:u$reset (`UserRef`) or $cyan:r$reset (`ModelRef`)", type)
         end
     end
+    act isa T || errwith("Wrong type of input reference") do io
+        showcompare(io, T, act)
+    end
     if ref == :whole
         ref = NF.WholeData
     end
-    FieldsCompare.default(T(ref), act)
+    FieldsCompare.value(ref, act.ref)
 end
 "For convenience, use directly use `:uwhole` or `:mwhole`."
 compare_refs(exp::Symbol, act) =
