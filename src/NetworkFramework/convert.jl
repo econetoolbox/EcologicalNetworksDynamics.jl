@@ -216,7 +216,7 @@ function from_name(input, tries...)
         name == attempt && return fn()
         push!(expected, attempt)
     end
-    checkerr(input, "Expected one of [$(EN.join_elided(expected, ", ", " or "))].")
+    checkerr(input, "Expected one of [$(join_elided(expected, ", ", " or "))].")
 end
 
 # ==========================================================================================

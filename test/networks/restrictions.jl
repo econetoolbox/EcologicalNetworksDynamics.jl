@@ -15,9 +15,9 @@ using Test
     @test 5 in f
     @test 10 in f
     @test collect(indices(f)) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    @test toparent(1, f) == 1
-    @test toparent(5, f) == 5
-    @test toparent(10, f) == 10
+    @test toparent(f, 1) == 1
+    @test toparent(f, 5) == 5
+    @test toparent(f, 10) == 10
 
 end
 
@@ -34,15 +34,15 @@ end
 
     exp = 4:8
     @test collect(indices(r)) == exp
-    @test toparent.(1:length(r), (r,)) == exp
-    @test tolocal.(indices(r), (r,)) == 1:length(r)
+    @test toparent.((r,), 1:length(r)) == exp
+    @test tolocal.((r,), indices(r)) == 1:length(r)
 
     function check_mask_to_range(mask, range)
         r = restriction_from_mask(mask)
         @test r == Range(range)
         @test collect(indices(r)) == range
-        @test toparent.(1:length(r), (r,)) == range
-        @test tolocal.(indices(r), (r,)) == 1:length(r)
+        @test toparent.((r,), 1:length(r)) == range
+        @test tolocal.((r,), indices(r)) == 1:length(r)
     end
 
     check_mask_to_range(Bool[0, 0, 0, 1, 1, 1, 0, 0, 0], 4:6)
@@ -69,15 +69,15 @@ end
 
     exp = [1, 3, 5, 6, 8]
     @test collect(indices(s)) == exp
-    @test toparent.(1:length(s), (s,)) == exp
-    @test tolocal.(indices(s), (s,)) == 1:length(s)
+    @test toparent.((s,), 1:length(s)) == exp
+    @test tolocal.((s,), indices(s)) == 1:length(s)
 
     function check_mask_to_sparse(mask, sparse)
         s = restriction_from_mask(mask)
         @test s == Sparse(sparse)
         @test collect(indices(s)) == sparse
-        @test toparent.(1:length(s), (s,)) == sparse
-        @test tolocal.(indices(s), (s,)) == 1:length(s)
+        @test toparent.((s,), 1:length(s)) == sparse
+        @test tolocal.((s,), indices(s)) == 1:length(s)
     end
 
     check_mask_to_sparse(Bool[0, 1, 1, 0, 1, 0, 1], [2, 3, 5, 7])
@@ -97,8 +97,8 @@ end
 
     exp = [2, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15]
     @test collect(indices(s)) == exp
-    @test toparent.(1:length(s), (s,)) == exp
-    @test tolocal.(indices(s), (s,)) == 1:length(s)
+    @test toparent.((s,), 1:length(s)) == exp
+    @test tolocal.((s,), indices(s)) == 1:length(s)
 
     f = restriction_from_mask(Bool[0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1])
     @test f isa SparseRanges
@@ -108,8 +108,8 @@ end
         s = restriction_from_mask(mask)
         @test s == SparseRanges(ranges)
         @test collect(indices(s)) == inds
-        @test toparent.(1:length(s), (s,)) == inds
-        @test tolocal.(indices(s), (s,)) == 1:length(s)
+        @test toparent.((s,), 1:length(s)) == inds
+        @test tolocal.((s,), indices(s)) == 1:length(s)
     end
 
     check_mask_to_sparse_ranges(

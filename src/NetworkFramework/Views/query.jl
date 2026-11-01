@@ -16,20 +16,22 @@ _query_check(vw::NodeView, q::Tuple{AbstractVector{<:Label}}) = query_check(vw, 
 query_check(vw::NodeView, q) = node_check(NF.model(vw), dispatcher(vw), q)
 query_check(vw::EdgeView, q) = edge_check(NF.model(vw), dispatcher(vw), q)
 
-# The sparse node mask view is indexed within its parent.
-query_check(vw::NodeMaskView, q) =
+# Views into subclasses are indexed within their parents.
+query_check(vw::Union{NodeMaskView,SubnodeFieldView}, q) =
     node_check(NF.model(vw), dispatcher(vw), q; class = N.parent)
 
 # These ones, apparently specialized within julia, need disambiguation?
 # TODO: that is fragile to internal julia changes,
 # can we make better without having to support all the interface ourselves, or list it here?
-for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
-    eval(
-        quote
-            Base.getindex(vw::NodeMaskView, q::$Q) =
-                invoke(getindex, Tuple{AbstractView,Any}, vw, q)
-        end,
-    )
+for V in (NodeMaskView, SubnodeFieldView)
+    for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
+        eval(
+            quote
+                Base.getindex(vw::$V, q::$Q) =
+                    invoke(getindex, Tuple{AbstractView,Any}, vw, q)
+            end,
+        )
+    end
 end
 
 # Single-value access, using either indices or labels.

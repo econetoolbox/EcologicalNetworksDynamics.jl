@@ -140,6 +140,8 @@ to_mref((i,)::Tuple{Ref}, md::Model, d::D.NodeLevel) =
 to_mref((i, j)::Tuple{Ref,Ref}, md::Model, d::D.EdgeLevel) =
     ModelRef(to_mref.((i, j), map(cl -> cl.index, N.sides(md, d))))
 to_mref(::_WholeData, ::Model, ::Dispatcher) = ModelRef(WholeData)
+to_mref((i,)::Tuple{Ref}, md::Model, d::D.SubnodeLevel) =
+    ModelRef((to_mref(i, N.parent(md, d).index),))
 
 "Upgrade underlying error with outer uref context."
 urefguard(fn::Function, uref) =
@@ -165,7 +167,7 @@ function Base.showerror(io::IO, e::CheckError)
     targetting(::Nothing, ::UserRef) = ""
     targetting(d::Dispatcher, mref::ModelRef) = " targetting " * modelvalue(d, mref)
     for_d(::Nothing) = ""
-    for_d(d) = " for $d"
+    for_d(d) = " for $green$d$reset"
     skip = isnothing(d) && ref.ref == WholeData # Uninformative line then.
     skip || println(io, "In the provided input$(at(ref))$(targetting(d, ref))$(for_d(d)):")
     println(io, mess)

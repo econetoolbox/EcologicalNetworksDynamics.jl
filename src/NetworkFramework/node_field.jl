@@ -10,17 +10,37 @@ If raised, provide the argument type for component-call constructor.
 flat(d::D.AbstractField) = D.type(d)
 may_flat(d::D.AbstractField) = !isnothing(flat(d))
 
-"Expand to a class field."
-abstract type NodeFieldBlueprint <: Blueprint end
+"Share (much) code with subnode field."
+abstract type AbstractNodeFieldBlueprint <: Blueprint end
 
+"Expand to a class field."
+abstract type NodeFieldBlueprint <: AbstractNodeFieldBlueprint end
 "Expand to a class field from a vector of raw values."
 abstract type NodeFieldRawBlueprint <: NodeFieldBlueprint end
-
 "Expand to a class field from mapped values."
 abstract type NodeFieldMapBlueprint <: NodeFieldBlueprint end
-
 "Expand to a class field from a single value."
 abstract type NodeFieldFlatBlueprint <: NodeFieldBlueprint end
+
+#-------------------------------------------------------------------------------------------
+# Should live in `subnode_field.jl`, but need to be declared earlier :\
+"Expand to a subclass field."
+abstract type SubnodeFieldBlueprint <: AbstractNodeFieldBlueprint end
+"Expand into a subclass field from a raw vector, one element per node in the subclass."
+abstract type SubnodeFieldRawBlueprint <: SubnodeFieldBlueprint end
+"Expand into a subclass field from mapped values."
+abstract type SubnodeFieldMapBlueprint <: SubnodeFieldBlueprint end
+"Expand into a subclass field from a single value."
+abstract type SubnodeFieldFlatBlueprint <: SubnodeFieldBlueprint end
+
+"Either kind of raw blueprint for (sub)node fields."
+const AbstractNodeFieldRawBlueprint = Union{NodeFieldRawBlueprint,SubnodeFieldRawBlueprint}
+"Either kind of map blueprint for (sub)node fields."
+const AbstractNodeFieldMapBlueprint = Union{NodeFieldMapBlueprint,SubnodeFieldMapBlueprint}
+"Either kind of flat blueprint for (sub)node fields."
+const AbstractNodeFieldFlatBlueprint =
+    Union{NodeFieldFlatBlueprint,SubnodeFieldFlatBlueprint}
+#-------------------------------------------------------------------------------------------
 
 "Typical setup for a component bringing a new class field to the network."
 function define_node_field_component(
@@ -70,7 +90,7 @@ function define_node_field_component(
             end
             export Raw
             NF.register_blueprint(Raw, "raw values"; d,
-                implied = (Class,), # Infer number of class nodes from vector size.
+                implied = [Class], # Infer number of class nodes from vector size.
             )
         end,
     )
@@ -86,13 +106,14 @@ function define_node_field_component(
             end
             export Map
             NF.register_blueprint(Map, $"[$class => $field] map"; d,
-                implied = (Class,), # Infer class nodes from map keys.
+                implied = [Class], # Infer class nodes from map keys.
             )
         end,
     )
 
     #---------------------------------------------------------------------------------------
     # From a scalar broadcasted to all nodes in the class (if meaningful).
+
     if may_flat(d)
         bpmod.eval(
             quote
@@ -101,7 +122,7 @@ function define_node_field_component(
                     @bp_construct Flat
                 end
                 export Flat
-                NF.register_blueprint(Flat, "uniform value"; d, depends = (Class,))
+                NF.register_blueprint(Flat, "uniform value"; d, depends = [Class])
             end,
         )
     end
@@ -146,11 +167,11 @@ function define_node_field_component(
                 const d, prop, CP = $d, $prop, $CP
                 D.viewtype(::typeof(d)) = V.NodeFieldView
                 get_value(::Network, md::Model) = V.field_view(d, md)
-                NF.define_method(get_value; read_as = prop, depends = (CP,))
+                NF.define_method(get_value; read_as = prop, depends = [CP])
                 if !D.readonly(d)
                     set_value!(::Network, md::Model, input) =
                         NF.mut_set!(md, d, NF.WholeData, input)
-                    NF.define_method(set_value!; write_as = prop, depends = (CP,))
+                    NF.define_method(set_value!; write_as = prop, depends = [CP])
                 end
                 end
             end
@@ -194,7 +215,7 @@ function construct(d::D.AbstractNodeField, Field::Component, input, args...; kwa
 end
 
 # Allow passing values as separate arguments.
-construct(BP::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
+construct(BP::Type{<:Union{AbstractNodeFieldRawBlueprint,AbstractNodeFieldMapBlueprint}},
     first, second, rest...) = construct(BP, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
@@ -210,20 +231,20 @@ early_check(d::D.AbstractNodeField, x, ::Ref) = early_check(d, x)
 # On construction, check all values without creating anything new.
 # (It has been checked that the compiler is eliding the whole loop
 #  in case `early_check` is defaulting to no-op.)
-function cst_early_check(BP::Type{<:NodeFieldBlueprint}, data::Union{Vector,Map})
+function cst_early_check(BP::Type{<:AbstractNodeFieldBlueprint}, data::Union{Vector,Map})
     d = dispatcher(BP)
     for (ref, x) in pairs(data)
         urefguard((ref,)) do
-            check_dense_ref(ref, data)
+            check_dense_ref(BP, ref, data)
             early_check(d, x, ref)
         end
     end
     data
 end
 
-# Index-maps need to be dense: they cannot be holed.
-check_dense_ref(ref, _) = ref
-function check_dense_ref(i::Int, map::Map{<:Any,Int})
+# Index-maps need to be dense: they cannot be holed for root classes.
+check_dense_ref(::Type{<:AbstractNodeFieldBlueprint}, ref, _) = ref
+function check_dense_ref(::Type{<:NodeFieldBlueprint}, i::Int, map::Map{<:Any,Int})
     n = length(map)
     i <= n && return i
     n, s, are = nsa(n)
@@ -231,11 +252,13 @@ function check_dense_ref(i::Int, map::Map{<:Any,Int})
 end
 
 # On expansion checked values (possibly lowered) are collected.
-function bp_early_check(bp::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint})
+function bp_early_check(
+    bp::Union{AbstractNodeFieldRawBlueprint,AbstractNodeFieldMapBlueprint},
+)
     d, data = dispatcher(bp), NF.data(bp)
     collect_checked(data) do ref, x
         urefguard((ref,)) do
-            check_dense_ref(ref, data)
+            check_dense_ref(typeof(bp), ref, data)
             early_check(d, x, ref) # <- Lowering may happen here.
         end
     end
@@ -281,7 +304,7 @@ _late_check(md::Model, d::D.AbstractNodeField, x, mref::MRef) =
     end
 
 # Lower to a fresh vector while checking.
-function late_check(md::Model, d::D.NodeField, vec::Vector)
+function late_check(md::Model, d::D.AbstractNodeField, vec::Vector)
     # Check plain number of provided values.
     cl = N.class(md, d)
     exp, act = N.n_nodes(cl), length(vec)
@@ -320,6 +343,7 @@ function late_check_refs(
     unexp = setdiff(act, exp)
     if !isempty(unexp)
         a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
+        c = D.snake_case_singular(first(D.Class(d)))
         checkerr(map, "Not$a $green$(repr(c))$reset name$s: $(render(unexp)).")
     end
     nothing
@@ -332,11 +356,9 @@ function late_check_refs(
     map::Map{<:Any,Int};
     complete = true,
 )
-    nw = N.network(md)
-    c = D.class(d)
-    n = N.n_nodes(nw, c)
+    n = late_check_expected_index_refs(md, d)
     miss = Int[]
-    for exp in 1:n
+    for exp in late_check_expected_index_refs(md, d)
         haskey(map, exp) && continue
         push!(miss, exp)
     end
@@ -352,11 +374,12 @@ function late_check_refs(
         empty!(miss)
     end
     for act in keys(map)
-        act in 1:n && continue
+        late_check_is_index_ref(md, d, act) && continue
         push!(unexp, act)
     end
     if !isempty(unexp)
         indices, s = length(unexp) == 1 ? ("index", "") : ("indices", "s")
+        c = D.class(d)
         checkerr(
             map,
             "Invalid $indices for class $(repr(c)) with $n node$s: $(render(unexp)).",
@@ -364,17 +387,23 @@ function late_check_refs(
     end
     nothing
 end
+# These details in the above change when considering subnode fields.
+late_check_expected_index_refs(md::Model, d::D.AbstractNodeField) = 1:length(N.class(md, d))
+late_check_is_index_ref(md::Model, d::D.AbstractNodeField, i::Int) =
+    i in 1:length(N.class(md, d))
 
 # When obtaining a map (expansion pipeline: all values required), lower to a vector.
-function bp_late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map)
+function bp_late_check(md::Model, bp::AbstractNodeFieldMapBlueprint, map::Map)
     d = dispatcher(bp)
     late_check_refs(md, d, map; complete = true)
     ix = N.class(md, d).index
+    rs = N.class(md, d).restriction
     T = D.type(d)
     res = sizehint!(T[], length(map))
-    for (i, l) in enumerate(ix.reverse) # (reorder values)
-        early = get_from_map(map, i, l)
-        late = _late_check(md, d, early, (i, l))
+    for (i, parent_i) in enumerate(N.indices(rs)) # (reorder values)
+        l = N.to_label(ix, i)
+        early = get_from_map(map, parent_i, l)
+        late = _late_check(md, d, early, (parent_i, l))
         push!(res, late)
     end
     res
@@ -385,20 +414,20 @@ get_from_map(map::Map{<:Any,Symbol}, ::Int, l::Symbol) = map[l]
 #-------------------------------------------------------------------------------------------
 # Late check, on mutation pipeline.
 
-function mut_late_check(md::Model, d::D.NodeField, (i,)::Tuple{Int}, x)
+function mut_late_check(md::Model, d::D.AbstractNodeField, (i,)::Tuple{Int}, x)
     ix = N.class(md, d).index
     l = N.to_label(ix, i)
     _late_check(md, d, x, (i, l))
 end
 
 # When obtaining a map (mutation pipeline: not all values are required): lower to a map.
-function mut_late_check(md::Model, d::D.NodeField, map::Map)
+function mut_late_check(md::Model, d::D.AbstractNodeField, map::Map)
     late_check_refs(md, d, map; complete = false)
     late_check_map_values(md, d, map)
 end
 
 # Just read to check on index-maps.
-function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Int})
+function late_check_map_values(md::Model, d::D.AbstractNodeField, map::Map{<:Any,Int})
     ix = N.class(md, d).index
     for (i, early) in pairs(map)
         l = N.to_label(ix, i)
@@ -408,7 +437,7 @@ function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Int})
 end
 
 # Read and convert for symbol-maps.
-function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Symbol})
+function late_check_map_values(md::Model, d::D.AbstractNodeField, map::Map{<:Any,Symbol})
     ix = N.class(md, d).index
     T = valtype(map)
     res = Map{T,Int}()
@@ -423,13 +452,13 @@ end
 #-------------------------------------------------------------------------------------------
 # Implied class.
 
-function implied_class(::D.NodeField, Class, bp::NodeFieldRawBlueprint)
+function implied_class(::D.NodeField, Class, bp::AbstractNodeFieldRawBlueprint)
     raw = data(bp)
     n = length(raw)
     Class.Number(n)
 end
 
-implied_class(d::D.NodeField, Class, bp::NodeFieldMapBlueprint) =
+implied_class(d::D.NodeField, Class, bp::AbstractNodeFieldMapBlueprint) =
     implied_class(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
 
 function implied_class(::D.NodeField, Class, map::Map{<:Any,Symbol})
@@ -474,9 +503,9 @@ end
 #-------------------------------------------------------------------------------------------
 # Obtain.
 
-function obtain(v::V.NodeFieldView, (q,)::Tuple{Ref})
-    i = N.to_index(N.class(v).index, q)
-    read(N.entry(v)) do data
+function obtain(vw::V.NodeFieldView, (q,)::Tuple{Ref})
+    i = N.to_index(N.class(vw).index, q)
+    read(N.entry(vw)) do data
         data[i]
     end
 end
@@ -529,7 +558,7 @@ function mutate!(md::Model, d::D.AbstractNodeField, (l,)::Tuple{Symbol}, x)
     mutate!(md, d, (i,), x)
 end
 
-#-------------------------------------------------------------------------------------------
+# ==========================================================================================
 # Display.
 
 function nodes_shortline(io::IO, md::Model, d::D.NodeField)

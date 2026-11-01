@@ -1,6 +1,8 @@
 "Test all aspects of typical NodeField component, using body mass as an example."
 module NodeFieldTest
 
+# Much inspired by `Class`.
+
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF, D, V
@@ -128,11 +130,12 @@ const View = V.NodeFieldView{d,Float64}
     )
 
     for alias in (bp.M, bpi.M)
-        @test BodyMass(alias).M === alias
+        @test alias === BodyMass.Map(alias).M
+        @test alias === BodyMass(alias).M
     end
 
     @bpfails(BodyMass.Map([:a => [5, 8]]), BodyMass.Map, :construct,
-        (d, [5, 8], (:u, [1, :right]), "Expected values of type 'Float64'."))
+        (d, [5, 8], (:u, [1, :right]), "Expected values of type '$Float64'."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -259,18 +262,14 @@ const View = V.NodeFieldView{d,Float64}
         """)
 
     # Species are required then.
-    addfails.@missingrequired(Model(bp),
-        Species, BodyMass, [BodyMass.Flat], nothing)
+    addfails.@missing(Model(bp), Species, BodyMass, [BodyMass.Flat], nothing)
 end
 
 @testset "NodeField component: view" begin
 
-    # Test like in `Class`.
-
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
     v = m.body_mass
     @test v isa View
-    @test v == collect(v) == [4, 5, 6] == [i for i in v]
 
     @test_repr(v, "<species:body_mass>[4.0, 5.0, 6.0]")
     @test_disp(v,
@@ -288,6 +287,7 @@ end
     @test e isa Vector{Float64}
     @test e == v == [4, 5, 6]
 
+    # Basic indexing.
     @test v[1] == 4
     @test v[0x2] == 5
     @test v[:c] == 6
@@ -295,11 +295,13 @@ end
     @test v["b"] == 5
     @test v[split("c")...] == 6
 
+    @test v isa AbstractVector{Float64}
     @test v[end] == 6
     @test v[end-1] == 5
     @test v[1:2] == [4, 5]
     @test v[(end-1):end] == [5, 6]
     @test v[Bool[1, 0, 1]] == [4, 6]
+    @test v == collect(v) == [4, 5, 6] == [i for i in v]
     @test v[[:a, :c]] == [4, 6]
 
     @viewfails(v[-5], (d, -5, :uwhole, "There are 3 nodes in this class."))
@@ -313,7 +315,6 @@ end
         There are 3 nodes in this class.\
         """)
 
-    @test v isa AbstractVector{Float64}
     @test_err(v[], "BoundsError: attempt to access 3-element $View at index []")
     @test_err(v[1, 2], "BoundsError: attempt to access 3-element $View at index [1, 2]")
     @test_err(v[1, 2, 3],

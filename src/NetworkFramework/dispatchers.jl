@@ -306,6 +306,7 @@ const Topology = Union{Class,Subclass,Web}
 # Abstract over levels.
 const GraphLevel = GraphField
 const NodeLevel = Union{Class,Subclass,NodeField,SubnodeField}
+const SubnodeLevel = Union{Subclass,SubnodeField}
 const EdgeLevel = Union{Web,EdgeField}
 dim(::GraphField) = 0
 dim(::NodeLevel) = 1
@@ -318,13 +319,14 @@ level(::EdgeLevel) = "edge"
 # Use dispatcher as static index into underlying data.
 
 N.class(md::Model, d::NodeLevel) = N.class(N.network(md), class(d))
-N.parent(md::Model, d::Subclass) = N.parent(N.network(md), class(d))
+N.parent(md::Model, d::SubnodeLevel) = N.parent(N.network(md), class(d))
 N.web(md::Model, d::Web) = N.web(N.network(md), web(d))
 N.sides(md::Model, d::Web) = N.sides(N.network(md), web(d))
 N.source(md::Model, d::Web) = N.source(N.network(md), web(d))
 N.target(md::Model, d::Web) = N.target(N.network(md), web(d))
 N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
 N.entry(md::Model, d::NodeField) = N.class(md, d).data[field(d)]
+N.entry(md::Model, d::SubnodeField) = N.class(md, d).data[field(d)]
 N.entry(md::Model, d::EdgeField) = N.web(md, d).data[field(d)]
 
 

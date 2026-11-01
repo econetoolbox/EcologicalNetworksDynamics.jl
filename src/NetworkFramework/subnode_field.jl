@@ -1,20 +1,4 @@
 """
-Expand into a subclass field from a raw vector,
-one element per node in the subclass.
-"""
-abstract type SubnodeFieldRawBlueprint <: NodeFieldRawBlueprint end
-
-"""
-Expand into a subclass field from mapped values.
-"""
-abstract type SubnodeFieldMapBlueprint <: NodeFieldMapBlueprint end
-
-"""
-Expand into a subclass field from a single value.
-"""
-abstract type SubnodeFieldFlatBlueprint <: NodeFieldFlatBlueprint end
-
-"""
 Typical setup for a componing bringing a new field to a network *sub*class,
 with a `sparse` logic.
 It gets its own blueprints types, but substantial parts of their behaviour
@@ -26,7 +10,7 @@ function define_subnode_field_component(
     blueprints = [],
     requires = [],
 )
-    nc = D.Class(d)
+    nc, _ = D.Class(d)
     Class = D.CamelCaseSingular(nc)
     class, field = D.content(d)
     value, values, Value, Values, short = D.name_variants(d)
@@ -38,32 +22,30 @@ function define_subnode_field_component(
     # Blueprints for the component.
 
     ClassComponent = D.component(nc)
-    bpmod = mod.eval((
-        quote
-            module $Value_
-            import EcologicalNetworksDynamics: F, NF, D
-            using SparseArrays
-            const Class = $ClassComponent
-            const _Class = typeof(Class)
-            const d = $d
-            const (class, field) = D.content(d)
+    bpmod = mod.eval(
+        (
+            quote
+                module $Value_
+                import EcologicalNetworksDynamics.NetworkFramework: F, NF, D, @bp_construct
+                using SparseArrays
+                const Class, d, T = $ClassComponent, $d, $T
+                const _Class = typeof(Class)
+                const (class, field) = D.content(d)
+                end
             end
-        end
-    ).args |> last)
+        ).args |> last,
+    )
 
     #---------------------------------------------------------------------------------------
     # From raw values: one per node in the subclass (=dense).
+
     bpmod.eval(quote
         mutable struct Raw <: NF.SubnodeFieldRawBlueprint
-            $field::Vector{$T}
-            Raw($field) = new(NF.construct(d, Raw, $field))
+            $field::Vector{T}
+            @bp_construct Raw
         end
-        NF.data(bp::Raw) = bp.$field
-        F.early_check(bp::Raw) = NF._early_check(d, bp)
-        F.late_check(model, bp::Raw, data) = NF.late_check(d, model, bp, data)
-        F.expand!(model, bp::Raw, data) = NF.expand!(d, model, bp, data)
-        NF.define_blueprint(Raw, "raw values")
         export Raw
+        NF.register_blueprint(Raw, "raw values"; d)
     end)
 
     #---------------------------------------------------------------------------------------
@@ -72,30 +54,23 @@ function define_subnode_field_component(
     bpmod.eval(quote
         mutable struct Map <: NF.SubnodeFieldMapBlueprint
             $field::NF.Map{$T}
-            Map($field) = new(NF.construct(d, Map, $field))
+            @bp_construct Map
         end
-        NF.data(bp::Map) = bp.$field
-        F.early_check(bp::Map) = NF._early_check(d, bp)
-        F.late_check(model, bp::Map, data) = NF.late_check(d, model, bp, data)
-        F.expand!(model, bp::Map, data) = NF.expand!(d, model, bp, data)
-        NF.define_blueprint(Map, "[$class => $field] map")
         export Map
+        NF.register_blueprint(Map, "[$class => $field] map"; d)
     end)
 
     #---------------------------------------------------------------------------------------
     # From a scalar broadcasted to all nodes in the subclass (if meaningful).
+
     if may_flat(d)
         bpmod.eval(
             quote
                 mutable struct Flat <: NF.SubnodeFieldFlatBlueprint
                     $field::$T
-                    Flat($field) = new(NF.construct(d, Flat, $field))
+                    @bp_construct Flat
                 end
-                NF.data(bp::Flat) = bp.$field
-                F.early_check(bp::Flat) = NF._early_check(d, bp)
-                F.late_check(model, bp::Flat, data) = NF.late_check(d, model, bp, data)
-                F.expand!(model, bp::Flat, data) = NF.expand!(d, model, bp, data)
-                NF.define_blueprint(Flat, "uniform value"; depends = [Class])
+                NF.register_blueprint(Flat, "uniform value"; d, depends = [Class])
                 export Flat
             end,
         )
@@ -104,9 +79,9 @@ function define_subnode_field_component(
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
-    DT = typeof(d)
+    _D = typeof(d)
     requires = [ClassComponent, requires...]
-    comp = mod.eval(
+    cp = mod.eval(
         quote
             NF.define_component(
                 $(Meta.quot(Value)),
@@ -116,19 +91,19 @@ function define_subnode_field_component(
             )
         end,
     )
-    C = typeof(comp)
+    CP = typeof(cp)
     mod.eval(
         quote
-            $D.component(::$DT) = $comp
+            $D.component(::$_D) = $cp
             (::$_Value)($field, args...; kwargs...) =
-                $construct($d, $Value, $field, args...; kwargs...)
+                NF.construct($d, $Value, $field, args...; kwargs...)
         end,
     )
 
     if may_flat(d)
         R = flat(d) # Receiver type.
         mod.eval(quote
-            (::$_Value)($field::$R) = $Value.Flat($field)
+            (::$_Value)($field::$R) = $cp.Flat($field)
         end)
     end
 
@@ -139,16 +114,15 @@ function define_subnode_field_component(
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics: V, NF, D, Network, Model
-                const d = $d
-                const prop = $prop
-                const C = $C
+                using EcologicalNetworksDynamics.NetworkFramework: V, NF, D, Network, Model
+                const d, prop, CP = $d, $prop, $CP
                 D.viewtype(::typeof(d)) = V.SubnodeFieldView
-                get_value(::Network, m::Model) = V.data_view(d, m)
-                NF.define_method(get_value; read_as = prop, depends = [C])
+                get_value(::Network, md::Model) = V.field_view(d, md)
+                NF.define_method(get_value; read_as = prop, depends = [CP])
                 if !D.readonly(d)
-                    set_value!(::Network, m::Model, input) = NF.assign!(d, m, input)
-                    NF.define_method(set_value!; write_as = prop, depends = [C])
+                    set_value!(::Network, md::Model, input) =
+                        NF.mut_set!(md, d, NF.WholeData, input)
+                    NF.define_method(set_value!; write_as = prop, depends = [CP])
                 end
                 end
             end
@@ -156,84 +130,94 @@ function define_subnode_field_component(
     )
 
     # Display.
-    mod.eval(
-        quote
-            $F.shortline(io::IO, model::Model, ::$C) = $NF.nodes_shortline(io, model, $d)
-        end,
-    )
+    NF.eval(quote
+        $F.shortline(io::IO, md::Model, ::$CP) = $NF.nodes_shortline(io, md, $d)
+    end)
 
-    comp
+    (cp, CP)
 
 end
 
 # ==========================================================================================
 # Only redefine parts that do not already work with regular NodeField.
 
-# No need to bring the class (yet).
-function construct(d::D.SubnodeField, Field::Component, input)
-    T = D.type(d)
-    tries = []
-    if may_flat(d)
-        push!(tries, T => v -> Field.Flat(v))
+#-------------------------------------------------------------------------------------------
+#Late-check.
+
+# Index maps happens against the *parent* nodes indices.
+late_check_expected_index_refs(md::Model, d::D.SubnodeField) =
+    N.indices(N.class(md, d).restriction)
+late_check_is_index_ref(md::Model, d::D.SubnodeField, i::Int) =
+    i in N.class(md, d).restriction
+
+#-------------------------------------------------------------------------------------------
+# Obtain.
+# The index is expected to stand within parent class.
+# Yield zero when off-subclass.
+
+function obtain(vw::V.SubnodeFieldView, (q,)::Tuple{Ref})
+    i_parent = N.to_index(N.parent(vw).index, q)
+    rs = N.class(vw).restriction
+    T = eltype(vw)
+    if i_parent in rs
+        i_loc = N.tolocal(rs, i_parent)
+        read(N.entry(vw)) do data
+            data[i_loc]
+        end
+    else
+        zero(T)
     end
-    push!(tries, Vector{T} => v -> Field.Raw(v))
-    push!(tries, Map{T} => m -> Field.Map(m))
-    try_convert(input, tries...)
 end
 
-# Display it sparse within its parent class.
-function nodes_shortline(io::IO, model::Model, d::D.SubnodeField)
+# ==========================================================================================
+# Mutate.
+# The index is expected to stand within parent class.
+# Ignore when off-subclass: rejected during late-check if nonzero.
+
+function mut_late_check(md::Model, d::D.SubnodeField, (i,)::Tuple{Int}, x)
+    rs = N.class(md, d).restriction
+    if i in rs
+        ix = N.parent(md, d).index
+        l = N.to_label(ix, i)
+        _late_check(md, d, x, (i, l))
+    else
+        T = D.type(d)
+        x === zero(T) && return x
+        c = D.snake_case_singular(first(D.Class(d)))
+        checkerr(x, "Not a null value for a non-$green$c$reset.")
+    end
+end
+
+function mutate!(md::Model, d::D.SubnodeField, (i_parent,)::Tuple{Int}, x)
+    rs = N.class(md, d).restriction
+    if i_parent in rs
+        i_local = N.tolocal(rs, i_parent)
+        entry = N.entry(md, d)
+        N.mutate!(entry) do nodes
+            nodes[i_local] = x
+        end
+    else
+        T = D.type(d)
+        zero(T)
+    end
+end
+
+# ==========================================================================================
+# Display.
+# Sparse within its parent class.
+
+function nodes_shortline(io::IO, md::Model, d::D.SubnodeField)
+    cc, fc, rs = F.component_color, F.field_color, reset
     T = D.type(d)
     c, f, p = D.content(d)
     Field = D.CamelCaseSingular(d)
-    network = NF.network(model)
-    n_parents = N.n_nodes(network, p)
-    subclass = N.class(network, c)
+    nw = N.network(md)
+    n_parents = N.n_nodes(nw, p)
+    subclass = N.class(nw, c)
     r = subclass.restriction
     entry = subclass.data[f]
     N.read(entry) do data
         sparse = N.expand(T, r, n_parents, data)
-        print(io, "$Field: [$(EN.join_elided(sparse, ", "))].")
-    end
-end
-
-# Check index references against *parent* class.
-function late_check(
-    d::D.SubnodeField,
-    model::Model,
-    ::SubnodeFieldMapBlueprint,
-    map::Map{<:Any,Int},
-)
-    # Check indices first.
-    network = NF.network(model)
-    class = D.class(d)
-    parent = D.parent(d)
-    r = N.restriction(network, class)
-    miss = Int[]
-    for exp in N.indices(r)
-        haskey(map, exp) && continue
-        push!(miss, exp)
-    end
-    if !isempty(miss)
-        miss = EN.join_elided(miss, ", ", " and ")
-        s = length(miss) == 1 ? "" : "s"
-        conserr("Missing for $d, no value provided for $(repr(parent)) node$s $miss.")
-    end
-    unexp = miss
-    for act in keys(map)
-        act in r && continue
-        push!(unexp, act)
-    end
-    if !isempty(unexp)
-        unexp = EN.join_elided(unexp, ", ", " and ")
-        indices = length(unexp) == 1 ? "index" : "indices"
-        conserr("Invalid $indices for $class within $parent: $unexp.")
-    end
-    # Then reorder values one by one into a vector.
-    try
-        [check_with_ref(d, model, map[i], N.tolocal(i, r)) for i in N.indices(r)]
-    catch e
-        e isa F.InputError || rethrow(e)
-        with_context!(e, "When checking $d values map against model")
+        print(io, "$cc$Field$rs: $fc[$(join_elided(sparse, ", "))]$rs")
     end
 end

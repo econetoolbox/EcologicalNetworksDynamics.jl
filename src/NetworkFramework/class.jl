@@ -77,14 +77,14 @@ function define_class_component(mod::Module, d::D.Class)
         F.shortline(io::IO, model::Model, ::$CP) = class_shortline($d, io, model)
     end)
 
-    define_class_properties(mod, d; depends = (CP,))
+    define_class_properties(mod, d; depends = [CP])
 
     (cp, CP)
 end
 
 # ==========================================================================================
 
-function define_class_properties(mod::Module, d::D.Class; depends = ())
+function define_class_properties(mod::Module, d::D.Class; depends = [])
     c = D.class(d)
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
 

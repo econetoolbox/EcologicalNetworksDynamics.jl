@@ -24,23 +24,25 @@ let S = SubnodeFieldView
     D.parent(s::S) = s |> dispatcher |> D.parent
 
     N.restriction(s::S) = N.restriction(N.network(s), D.class(s), D.parent(s))
-    N.parent_index(s::S) = N.class(N.network(s), D.parent(s)).index
+    N.parent(s::S) = N.class(N.network(s), D.parent(s))
     Base.size(s::S) = (N.n_nodes(N.network(s), D.parent(s)),)
 
     # Duty to AbstractSparseVector..?
+    SparseArrays.nnz(s::S) = s |> N.restriction |> length
+    Base.similar(s::S) = spzeros(eltype(s), size(s))
     SparseArrays.nonzeroinds(s::S) = s |> N.restriction |> N.indices |> collect
     SparseArrays.nonzeros(s::S) = read(collect, N.entry(s))
     SparseArrays.findnz(s::S) = (SparseArrays.nonzeroinds(s), nonzeros(s))
-    SparseArrays.nnz(s::S) = s |> N.restriction |> length
 
     function V.extract(s::S)
         T = eltype(s)
         n = length(s)
-        r = N.restriction(s)
+        rs = N.restriction(s)
         res = spzeros(T, n)
-        for i in 1:n
-            if i in r
-                res[i] = s[i]
+        entry = N.entry(s)
+        read(entry) do v
+            for (i_sub, i_parent) in enumerate(N.indices(rs))
+                res[i_parent] = v[i_sub]
             end
         end
         res

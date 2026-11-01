@@ -64,11 +64,11 @@ indices(s::Sparse) = s.select
 indices(s::SparseRanges) = I.flatten(s.ranges)
 
 "Convert a local index to a parent index."
-toparent(i::Int, r::Restriction) = unimplemented(toparent, i, r)
-toparent(i::Int, ::Full) = i
-toparent(i::Int, r::Range) = i + first(r.range) - 1
-toparent(i::Int, s::Sparse) = s.select[i]
-toparent(i::Int, s::SparseRanges) =
+toparent(r::Restriction, i::Int) = unimplemented(toparent, i, r)
+toparent(::Full, i::Int) = i
+toparent(r::Range, i::Int) = i + first(r.range) - 1
+toparent(s::Sparse, i::Int) = s.select[i]
+toparent(s::SparseRanges, i::Int) =
     let
         cs = s.cumsizes
         i_range = searchsortedfirst(cs, i)
@@ -77,11 +77,11 @@ toparent(i::Int, s::SparseRanges) =
     end
 
 "Convert a parent index to a local index, assuming it exists."
-tolocal(i::Int, r::Restriction) = unimplemented(tolocal, i, r)
-tolocal(i::Int, ::Full) = i
-tolocal(i::Int, r::Range) = i - first(r.range) + 1
-tolocal(i::Int, s::Sparse) = searchsortedfirst(s.select, i)
-tolocal(i::Int, s::SparseRanges) =
+tolocal(r::Restriction, i::Int) = unimplemented(tolocal, i, r)
+tolocal(::Full, i::Int) = i
+tolocal(r::Range, i::Int) = i - first(r.range) + 1
+tolocal(s::Sparse, i::Int) = searchsortedfirst(s.select, i)
+tolocal(s::SparseRanges, i::Int) =
     let
         (; ranges, cumsizes) = s
         i_range = searchsortedfirst(ranges, i:i; lt = (a, b) -> last(a) < first(b))

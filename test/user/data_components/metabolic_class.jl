@@ -10,6 +10,17 @@ const d, _D = D.NodeField(:species, :metabolic_class)
 
 @testset "Metabolic class component." begin
 
+    @test MetabolicClass isa Component
+    @test_disp(MetabolicClass, # (opted-out of the 'Flat' blueprint)
+        """
+        MetabolicClass (component for EcologicalNetworksDynamics.Networks.Network, expandable from:
+          Raw: raw values,
+          Map: [species => metabolic_class] map,
+          Favour: favourite consumer class,
+        )\
+        """
+    )
+
     base = Model(Foodweb([:a => :b, :b => :c]))
 
     # Values are symbols, checked and expanded against aliasing dict.

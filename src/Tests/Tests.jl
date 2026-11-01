@@ -130,7 +130,7 @@ module addfails
     @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
     @genfailsmacro component F.ComponentError (; mess)
     @genfailsmacro lower F.LoweringAborted (; node)
-    @genfailsmacro missingrequired F.MissingRequiredComponent (;
+    @genfailsmacro missing F.MissingRequiredComponent (;
         node, Miss = comp, Comp = comp)
     @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)
     # That one is more involved..

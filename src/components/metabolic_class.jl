@@ -24,7 +24,7 @@ D.type(::_D) = Symbol
 # Value checking.
 
 # Inputs are checked and expanded against aliasing dict.
-NF.early_check(::_D, input::Symbol) = NF.aliasing_symbol(MetabolicClassDict, input)
+NF.early_check(::_D, class::Symbol) = NF.aliasing_symbol(MetabolicClassDict, class)
 
 # When a model value is available, check against species trophic status.
 function NF.late_check(md::Model, ::_D, class, (_, sp)::Tuple{Int, Symbol})

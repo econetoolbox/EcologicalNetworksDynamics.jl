@@ -199,8 +199,6 @@ end
         """)
     @test_err(v.a, "No property to access on views:\nTried to access :a.") # Opaque though.
 
-    # The view has some basic vector-like interface.
-    @test v == collect(v) == [:a, :b, :c] == [i for i in v]
     # The view may be extracted into a regular vector.
     e = extract(v)
     @test e isa Vector{Symbol}
@@ -214,8 +212,10 @@ end
     @test v["c"] == :c
     @test v[split("a")...] == :a # (accept substrings as label)
 
+    # The view has some basic vector-like interface.
     # Natural markers, ranges, boolean masks, indices lists, inherited from AbstractArray.
     @test v isa AbstractVector{Symbol}
+    @test v == collect(v) == [:a, :b, :c] == [i for i in v]
     @test v[end] == :c
     @test v[end-1] == :b
     @test v[1:2] == [:a, :b]

@@ -50,7 +50,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
             end
             export Matrix
             NF.register_blueprint(Matrix, "boolean matrix of $($w) links"; d,
-                implied = (Class,), # Infer number of class nodes from matrix size.
+                implied = [Class], # Infer number of class nodes from matrix size.
             )
         end,
     )
@@ -65,7 +65,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
             end
             export Adjacency
             NF.register_blueprint(Adjacency, "adjacency list of $($w) links"; d,
-                implied = (Class,), # Infer number or names of class nodes from the lists.
+                implied = [Class], # Infer number or names of class nodes from the lists.
             )
         end,
     )
@@ -89,14 +89,14 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
         (::$CP)(args...; kwargs...) = NF.construct($d, $cp, args...; kwargs...)
     end)
 
-    define_web_properties(mod, d; depends = (CP,))
+    define_web_properties(mod, d; depends = [CP])
 
     (cp, CP)
 end
 
 # ==========================================================================================
 
-function define_web_properties(mod::Module, d::D.Web; depends = ())
+function define_web_properties(mod::Module, d::D.Web; depends = [])
     w = D.web(d)
     web, Web = D.name_variants(d)
     prop, Prop = D.propnames(d)
@@ -222,8 +222,8 @@ end
 # Early check.
 
 function early_check(::D.Web, A::SparseMatrix{Bool})
-    n, m = size(A)
-    n == m && return A
+    m, n = size(A)
+    m == n && return A
     checkerr(A, "The adjacency matrix of size $((m, n)) is not squared.")
 end
 

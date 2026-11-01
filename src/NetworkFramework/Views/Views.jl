@@ -135,7 +135,7 @@ function Base.getindex(vw::AbstractView, query...)
         P = supertype(typeof(vw))
         return invoke(getindex, Tuple{P,Vararg}, vw, query...)
     end
-    # Same here, either we have explained how to obtain the value
+    # Same here, either there is specialization how to obtain the value
     # or we just loop back in with the checked query.
     if applicable(NF.obtain, vw, ref)
         NF.obtain(vw, ref)
@@ -147,7 +147,9 @@ function Base.getindex(vw::AbstractView, query...)
             fn = "$NF.$(NF.obtain)"
             V = typeof(vw)
             Q = typeof(query)
-            throw("Preventing infinite loop? Forgot to implement $fn($V, $Q)?")
+            errwith("Preventing infinite loop?") do io
+                print(io, "Forgot to implement $fn($V, $Q)?")
+            end
         end
         getindex(vw, ref...)
     end

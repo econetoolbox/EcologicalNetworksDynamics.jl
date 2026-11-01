@@ -16,7 +16,7 @@ mutable struct Z <: Blueprint
     Z::Float64
     @bp_construct Z
 end
-NF.register_blueprint(Z, "trophic levels"; d, depends = (Foodweb,))
+NF.register_blueprint(Z, "trophic levels"; d, depends = [Foodweb])
 
 function NF.cst_early_check(::Type{Z}, x)
     x >= 0 && return x

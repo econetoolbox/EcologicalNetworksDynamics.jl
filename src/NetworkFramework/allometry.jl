@@ -51,7 +51,7 @@ function define_allometry_blueprints(
     allometric_template::Allometry,
     temperature_template::@NamedTuple{E_a::Float64, allometry::Allometry},
 )
-    nc = D.Class(d)
+    nc, _ = D.Class(d)
     Class = D.CamelCaseSingular(nc)
     class, field = D.content(d)
     value, values, Value, Values, short = D.name_variants(d)
@@ -64,7 +64,8 @@ function define_allometry_blueprints(
         (
             quote
                 module $Mod
-                using EcologicalNetworksDynamics: EN, NF, F, Model, Allometry
+                using EcologicalNetworksDynamics.NetworkFramework:
+                    EN, NF, F, Model, Allometry, @bp_construct
                 const d = $d
                 end
             end
@@ -74,76 +75,70 @@ function define_allometry_blueprints(
     # Base allometry relations.
     bpmod.eval(
         quote
-            mutable struct Allometric <: EN.AllometricBlueprint
+            mutable struct Allometric <: NF.AllometricBlueprint
                 allometry::Allometry
-                Allometric(allometry::Allometry) = new(allometry)
-                Allometric(; kwargs...) = new(EN.parse_allometry_arguments(kwargs))
-                Allometric(lit::Symbol) = new(EN.construct(d, Allometric, lit))
+                @bp_construct Allometric
             end
-            F.define_blueprint(
-                Allometric,
-                "allometric rates";
-                depends = [EN.BodyMass, EN.MetabolicClass],
-            )
-            F.early_check(bp::Allometric) = EN.early_check(d, bp, $allometric_template)
-            F.expand!(m::Model, bp::Allometric) = EN.expand!(d, m, bp)
             export Allometric
-        end,
-    )
+            NF.register_blueprint(Allometric, "allometric rates";
+                depends = [EN.BodyMass, EN.MetabolicClass])
+            NF.allometry_template(::Allometric) = $allometry_template
+        end)
 
     # Temperature-dependent allometry relations.
     bpmod.eval(
         quote
-            mutable struct Temperature <: EN.TemperatureAllometricBlueprint
+            mutable struct Temperature <: NF.TemperatureAllometricBlueprint
                 E_a::Float64
                 allometry::Allometry
-                Temperature(E_a, allometry::Allometry) = new(E_a, allometry)
-                Temperature(E_a; kwargs...) =
-                    new(E_a, EN.parse_allometry_arguments(kwargs))
-                function Temperature(lit::Symbol)
-                    (; E_a, allometry) = EN.construct(d, Temperature, lit)
-                    new(E_a, allometry)
-                end
+                @bp_construct Temperature
             end
-            F.define_blueprint(
-                Temperature,
-                "allometric rates and activation energy";
-                depends = [EN.BodyMass, EN.MetabolicClass, EN.Temperature],
-            )
-            F.early_check(bp::Temperature) =
-                EN.early_check(d, bp, $(temperature_template.allometry))
-            F.expand!(m::Model, bp::Temperature, _) = EN.expand!(d, m, bp)
             export Temperature
-
-        end,
-    )
+            NF.register_blueprint(Temperature,
+                "allometric rates and activation energy";
+                depends = [EN.BodyMass, EN.MetabolicClass, EN.Temperature])
+            NF.allometry_template(::Temperature) = $temperature_template
+        end)
 
     bpmod
 end
 
-#-------------------------------------------------------------------------------------------
-# Typically constructed from a value in the literature, named by a symbol.
-# But leave this decision to the caller.
-
-construct(::D.AbstractNodeField, ::Type{<:AllometricBlueprint}, ::Symbol) =
-    throw("unimplemented")
-construct(::D.AbstractNodeField, ::Type{<:TemperatureAllometricBlueprint}, ::Symbol) =
-    throw("unimplemented")
+# ==========================================================================================
+# Specialization.
 
 #-------------------------------------------------------------------------------------------
+# Construct.
+# Typically from a value in the literature, named by a symbol.
+# But leave this decision to the blueprint author.
 
-# Check the given parameters against a template (typically a default value)
+construct(::Type{<:AllometricBlueprint}, al::Allometry) = (al,)
+construct(::Type{<:AllometricBlueprint}; kw...) = (EN.parse_allometry_arguments(kw),)
+
+construct(::Type{<:TemperatureAllometricBlueprint}, E_a, al::Allometry) =
+    (NF.convert(Float64, E_a), al)
+construct(BP::Type{<:TemperatureAllometricBlueprint}, E_a; kw...) =
+    construct(BP, E_a, EN.parse_allometry_arguments(kw))
+
+#-------------------------------------------------------------------------------------------
+# Early check.
+# Happens against a template (typically a default value)
 # so as to reject missing or unexpected values.
+
+"The allometry template associated to this data kind."
+allometry_template(bp::AllometricBlueprint) = unimplemented(allometry_template, bp)
+
 function early_check(
     d::D.AbstractNodeField,
     bp::Union{AllometricBlueprint,TemperatureAllometricBlueprint},
-    template::Allometry,
 )
+    template = allometry_template(d)
     (; allometry) = bp
     (; isin, shortest, display_short) = AliasingDicts
     MC = MetabolicClassDict
     AP = AllometricParametersDict
     field = D.snake_case_plural(d)
+    gr(x) = "$green$x$reset"
+    cy(x) = "$cyan$x$reset"
 
     expected_classes = Set(k for (k, sub) in template if !isempty(sub))
     for (mc, sub) in allometry
@@ -152,9 +147,13 @@ function early_check(
         if isin(mc, expected_classes, MC)
             pop!(expected_classes, mc)
         else
-            isempty(sub) || NF.conserr("Allometric rates for '$mc' are meaningless \
-                                        in the context of calculating $field: \
-                                        $(display_short(sub)).")
+            isempty(sub) || checkerr(
+                allometry,
+                "Allometric rates for '$(gr(mc)) are meaningless \
+                 in the context of calculating $(gr(field)): \
+                 $(display_short(sub)).";
+                uref = (mc,),
+            )
         end
 
         expected_parms = Set(keys(template[mc]))
@@ -165,8 +164,11 @@ function early_check(
                 pop!(expected_parms, parm)
             else
                 s = shortest(parm, AP)
-                NF.conserr("Allometric parameter '$s' ($parm) for '$mc' is meaningless \
-                            in the context of calculating $field: $value.")
+                checkerr(allometry,
+                    "Allometric parameter '$(gr(s))' ($(cy(parm))) for '$(gr(mc))' \
+                     is meaningless in the context \
+                     of calculating $(gr(field)): $(cy(value)).",
+                )
             end
 
         end
@@ -175,52 +177,51 @@ function early_check(
         if !isempty(expected_parms)
             miss = pop!(expected_parms)
             s = shortest(miss, AP)
-            NF.conserr("Missing allometric parameter '$s' ($miss) for '$mc', \
-                        required to calculate $field.")
+            checkerr(allometry,
+                "Missing allometric parameter '$(gr(s))' ($(gr(miss))) for '$(gr(mc))', \
+                 required to calculate $(gr(field)).")
         end
     end
 
     # Check against missing metabolic classes.
     if !isempty(expected_classes)
         miss = pop!(expected_classes)
-        NF.conserr("Missing allometric rates for metabolic class '$miss', \
-                    required to calculate $field.")
+        checkerr(allometry,
+            "Missing allometric rates for metabolic class '$(gr(miss))', \
+             required to calculate $(gr(field)).")
     end
 end
 
 #-------------------------------------------------------------------------------------------
+# Expand.
 
-expand!(d::D.AbstractNodeField, model::Model, bp::AllometricBlueprint) =
-    expand!(d, model, bp.allometry)
+expand!(md::Model, d::D.AbstractNodeField, bp::AllometricBlueprint) =
+    expand!(md, d, bp.allometry)
 
-function expand!(d::D.AbstractNodeField, model::Model, bp::TemperatureAllometricBlueprint)
+function expand!(md::Model, d::D.AbstractNodeField, bp::TemperatureAllometricBlueprint)
     (; E_a, allometry) = bp
-    T = model.T
-    expand!(d, model, allometry; E_a, T)
+    T = md.T
+    expand!(md, d, allometry; E_a, T)
 end
 
 # Expand for dense nodes.
-function expand!(d::D.NodeField, model::Model, al::Allometry; kwargs...)
-    n = N.network(model)
-    c = D.class(d)
-    class = N.class(n, c)
-    field = D.field(d)
-    data = allometric_rates(al, model.M, model.metabolic_class; kwargs...)
-    N.add_field!(class, field, data)
+function expand!(md::Model, d::D.NodeField, al::Allometry; kwargs...)
+    f = D.field(d)
+    class = N.class(md, d)
+    data = allometric_rates(al, md.M, md.metabolic_class; kwargs...)
+    N.add_field!(class, f, data)
 end
 
 # Expand for sparse nodes.
-function expand!(d::D.SubnodeField, model::Model, al::Allometry; kwargs...)
-    n = N.network(model)
-    c = D.class(d)
-    class = N.class(n, c)
-    field = D.field(d)
-    r = N.restriction(n, c)
+function expand!(md::Model, d::D.SubnodeField, al::Allometry; kwargs...)
+    f = D.field(d)
+    cl = N.class(md, d)
+    r = cl.restriction
     inds = N.indices(r)
-    M = (model.M[i] for i in inds)
-    mc = (model.metabolic_class[i] for i in inds)
+    M = (md.M[i] for i in inds)
+    mc = (md.metabolic_class[i] for i in inds)
     data = allometric_rates(al, M, mc; kwargs...)
-    N.add_field!(class, field, data)
+    N.add_field!(cl, f, data)
 end
 
 #-------------------------------------------------------------------------------------------

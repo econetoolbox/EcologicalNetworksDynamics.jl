@@ -7,14 +7,12 @@ using SparseArrays
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @bpfails, @checkfails, addfails, @propfails,
     @viewfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework:
-    EN, D, F, NF, Network, Views, SparseMatrix
-using EcologicalNetworksDynamics.Framework: @PropertySpace
+using EcologicalNetworksDynamics.NetworkFramework: EN, D, N, F, NF, Views, SparseMatrix
 using OrderedCollections
 using Test
 
 const d, _D = D.Web(:trophic)
-const Tr = @PropertySpace(trophic, Network)
+const Tr = F.@PropertySpace(trophic, N.Network)
 const View = Views.EdgeMaskView{d}
 
 @testset "Web component: blueprints" begin
@@ -22,7 +20,7 @@ const View = Views.EdgeMaskView{d}
     @test_disp(
         Foodweb,
         """
-        Foodweb (component for $Network, expandable from:
+        Foodweb (component for $(N.Network), expandable from:
           Matrix: boolean matrix of foodweb links,
           Adjacency: adjacency list of foodweb links,
         )\
@@ -82,7 +80,13 @@ const View = Views.EdgeMaskView{d}
     @bpfails(Foodweb(zeros(Bool, 2, 3)),
         Foodweb.Matrix, :construct,
         (d, spzeros(Bool, 2, 3), :uwhole,
-            "The adjacency matrix of size (3, 2) is not squared."))
+            "The adjacency matrix of size (2, 3) is not squared."))
+
+    bp.A = zeros(Bool, 4, 5)
+    addfails.@check(Model(bp), [],
+        (Foodweb.Matrix, :early,
+            (d, spzeros(Bool, 4, 5), :uwhole,
+                "The adjacency matrix of size (4, 5) is not squared.")))
 
     #---------------------------------------------------------------------------------------
     # Late check.
@@ -108,12 +112,13 @@ const View = Views.EdgeMaskView{d}
     #---------------------------------------------------------------------------------------
     # Expand, implying underlying class.
 
+    bp = Foodweb(A)
     m = Model(bp)
     @test has_component(m, Foodweb)
     @test has_component(m, Species)
     @test_disp(m,
         """
-        Model (alias for $(F.System){$Network}) with 2 components:
+        Model (alias for $(F.System){$(N.Network)}) with 2 components:
           - Species: 3 (:s1, :s2, :s3)
           - Foodweb: 3 links, 1 producer, 2 consumers, 2 preys, 1 top.\
         """)
@@ -361,7 +366,7 @@ end
         0 0 1 0 1
         0 0 0 0 0
     ])
-    @test v == collect(v) == [i for i in v] == A
+
     # The view may be extracted into a regular sparse matrix.
     e = extract(v)
     @test e isa SparseMatrix{Bool}
@@ -383,7 +388,7 @@ end
     @test nz == ones(6)
     sim = similar(v)
     @test sim isa SparseMatrix{Bool}
-    @test sim == spzeros(Bool, size(v))
+    @test sim == spzeros(Bool, (5, 5))
     @test findnz(v) == findnz(A)
     @test v[1, end] == false
     a = v[2, 3:5]
@@ -407,6 +412,7 @@ end
     ]
     @test v[mask] isa Vector{Bool}
     @test v[mask] == v[sparse(mask)] == [1, 0, 1, 0, 1, 0, 1, 0]
+    @test v == collect(v) == [i for i in v] == A
     # TODO: feature `v[:a, [:b, :c]]` etc.? Dispatch nightmare though. Worth it?
 
     # /!\ These (1D col-major) are (now) supported then. TODO: forbid? (=Fight julia again?)

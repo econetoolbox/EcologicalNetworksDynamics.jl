@@ -31,7 +31,7 @@ include("./body_mass.jl")
 include("./metabolic_class.jl")
 
 # Nodes data only relevant to a sub-class.
-#  include("./growth_rate.jl")
+include("./growth_rate.jl")
 
 # Graph-level data.
 #  include("./hill_exponent.jl")
