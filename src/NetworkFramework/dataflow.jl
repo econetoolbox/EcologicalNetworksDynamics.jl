@@ -125,7 +125,7 @@ bp_late_check(md::Model, bp::Blueprint, early) = late_check(md, dispatcher(bp), 
 
 "Late check for mutation."
 mut_late_check(md::Model, d::Dispatcher, early) = late_check(md, d, early)
-mut_late_check(md::Model, d::Dispatcher, _ref, early) = mut_late_check(md, d, early)
+mut_late_check(md::Model, d::Dispatcher, _iref, early) = mut_late_check(md, d, early)
 
 "Guarded entrypoint for the blueprint pipeline."
 _bp_late_check(md::Model, bp::Blueprint, early) =
@@ -187,32 +187,24 @@ mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mre
 Guarded entrypoint into the whole mutation pipeline,
 with trusted `ref` query (local indices).
 """
-const TrustedRef = Union{Tuple{Int},Tuple{Int,Int},_WholeData}
-function mut_set!(md::Model, d::Dispatcher, ref::TrustedRef, rhs)
-    early = try
+const TrustedIndexRef = Union{Tuple{Int},Tuple{Int,Int},_WholeData}
+function mut_set!(md::Model, d::Dispatcher, iref::TrustedIndexRef, rhs)
+    low = try
         conv = mut_convert(d, rhs)
         early = mut_early_check(d, conv)
-        early
+        late = mut_late_check(md, d, iref, early)
+        low = mut_lower(md, d, iref, late)
+        low
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
         e.d = d
         if e.ref === UserRef(WholeData)
-            e.ref = UserRef(ref)
+            e.ref = to_mref(iref, md, d)
         end
         rethrow(MutationError(e))
     end
-    low = try
-        late = mut_late_check(md, d, ref, early)
-        low = mut_lower(md, d, ref, late)
-        low
-    catch e
-        e isa LibError || rethrow(e)
-        e.d = d
-        e.ref = to_mref(ref, md, d)
-        rethrow(MutationError(e))
-    end
-    mutate!(md, d, ref, low)
+    mutate!(md, d, iref, low)
 end
 
 # ==========================================================================================

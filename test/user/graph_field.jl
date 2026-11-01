@@ -87,11 +87,11 @@ const d, _D = D.GraphField(:temperature)
     @test m.T == 244 # Current model updated.
 
     # Value is still checked.
-    @mutfails(m.T = -1, (d, -1.0, :uwhole, "Value cannot be negative."))
+    @mutfails(m.T = -1, (d, -1.0, :mwhole, "Value cannot be negative."))
     @test_err(m.T = -1, # First time with @mutfails.
         """
         While mutating model:
-        In the provided input for <temperature>:
+        In the provided input targetting network value for <temperature>:
         Value cannot be negative.
         Received: -1.0  ::Float64\
         """

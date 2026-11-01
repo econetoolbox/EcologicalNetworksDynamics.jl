@@ -170,7 +170,7 @@ function Base.setindex!(vw::FieldView, rhs, query...)
 end
 # Circle back as long as the ref is not just two local integers.
 _mut_set!(vw::FieldView, ref, rhs) = setindex!(vw, rhs, ref...)
-_mut_set!(vw::FieldView, ref::NF.TrustedRef, rhs) =
+_mut_set!(vw::FieldView, ref::NF.TrustedIndexRef, rhs) =
     NF.mut_set!(NF.model(vw), dispatcher(vw), ref, rhs)
 
 "Views into topological information cannot be used to mutate it."

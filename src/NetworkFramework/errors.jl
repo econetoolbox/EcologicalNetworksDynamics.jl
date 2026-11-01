@@ -178,15 +178,15 @@ modelvalue(::D.Class, ::ModelRef{_WholeData}) = "node values"
 modelvalue(::D.Web, ::ModelRef{_WholeData}) = "edge values"
 modelvalue(::D.Class, mref) = "name for node " * print_ref(mref)
 modelvalue(::D.Web, mref) = "topology for edge " * print_ref(mref)
+modelvalue(d::D.AbstractField, ::ModelRef{_WholeData}) = "$(D.level(d)) values"
 function modelvalue(d::D.AbstractField, mref)
     level = D.level(d)
     mr = print_ref(mref)
     s = plural(mref)
     "$level value$s $mr"
 end
-plural(::Any) = "(s)"
-plural(::Tuple{MRef}) = ""
-plural((r,)::Tuple{UnitRange}) = ns(length(r))[2]
+plural(::Any) = "s"
+plural(::ModelRef{Tuple{MRef}}) = ""
 
 # ==========================================================================================
 
