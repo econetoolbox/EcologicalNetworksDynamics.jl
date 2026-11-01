@@ -12,7 +12,7 @@ module MetabolicClassDef
 
 using EcologicalNetworksDynamics: Foodweb
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, D, N, F, NF, AD, Blueprint, Model, MetabolicClassDict
+    EN, D, N, F, NF, AD, Blueprint, Model, MetabolicClassDict, @bp_construct
 using EcologicalNetworksDynamics.Display: cyan, reset
 
 const d, _D = D.NodeField(:species, :metabolic_class)
@@ -56,15 +56,16 @@ end
 # Construct from foodweb with a favourite consumer class.
 mutable struct Favour <: Blueprint
     favourite::Symbol
-    Favour(favourite) = new(check_favour(favourite))
+    @bp_construct Favour
 end
 NF.register_blueprint(Favour, "favourite consumer class"; d)
+NF.construct(::Type{Favour}, input) = (check_favour(input),)
 NF.bp_early_check(bp::Favour) = check_favour(bp.favourite)
 
 function NF.expand!(md::Model, ::Favour, favourite)
     f = favourite == :all_invertebrates ? :invertebrate : :ectotherm
     classes = [(is_prod ? :producer : f) for is_prod in md.producers.mask]
-    NF.expand!(d, md, classes)
+    NF.expand!(md, d, classes)
 end
 
 # ==========================================================================================

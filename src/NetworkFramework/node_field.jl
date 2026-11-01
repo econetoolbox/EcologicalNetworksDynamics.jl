@@ -276,7 +276,7 @@ _late_check(md::Model, d::D.AbstractNodeField, x, mref::MRef) =
         if !(e isa CheckError)
             e = CheckError(e)
         end
-        e.mref = ModelRef((mref,))
+        e.ref = ModelRef((mref,))
         rethrow(e)
     end
 

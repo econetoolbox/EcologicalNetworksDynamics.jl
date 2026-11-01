@@ -38,18 +38,12 @@ const d, _D = D.NodeField(:species, :body_mass)
     # Expansion failures.
     noneg = "Cannot calculate body masses from trophic levels with a negative value of Z."
     @bpfails(Model(fw, BodyMass(; Z = -1)),
-        BodyMass.Z, :construct, (d, -1.0, :whole, nothing, noneg))
+        BodyMass.Z, :construct, (d, -1.0, :uwhole, noneg))
     bp.Z *= -1
-    addfails.@check(Model(fw, bp), [],
-        (BodyMass.Z, :early, (d, -2.8, :whole, nothing, noneg)))
+    addfails.@check(Model(fw, bp), [], (BodyMass.Z, :early, (d, -2.8, :uwhole, noneg)))
     addfails.@missingrequired(Model(bp), Species, BodyMass, [BodyMass.Z], nothing)
-    addfails.@missingrequired(
-        Model(Species(3), bp),
-        Foodweb,
-        nothing,
-        [BodyMass.Z],
-        nothing
-    )
+    addfails.@missingrequired(Model(Species(3), bp),
+        Foodweb, nothing, [BodyMass.Z], nothing)
 
     # Input guards.
     @argfails(BodyMass(), "Either 'M' or 'Z' must be provided to define body masses.")

@@ -201,7 +201,9 @@ end
 function name_among(expected, input)
     name = convert(Symbol, input)
     name in expected && return name
-    checkerr(name, "Expected one of $(join_elided(expected, ", ", " or ")).")
+    exp = join_elided(map(e -> "$green$(repr(e))$reset", expected),
+        ", ", " or "; repr = false)
+    checkerr(name, "Expected one of $exp.")
 end
 
 # Pick symbols from an aliased dict.
