@@ -26,7 +26,8 @@ function define_subnode_field_component(
         (
             quote
                 module $Value_
-                import EcologicalNetworksDynamics.NetworkFramework: F, NF, D, @bp_construct
+                import EcologicalNetworksDynamics.NetworkFramework:
+                    F, NF, D, @bp_construct, SparseVector
                 using SparseArrays
                 const Class, d, T = $ClassComponent, $d, $T
                 const _Class = typeof(Class)
@@ -48,8 +49,10 @@ function define_subnode_field_component(
         NF.register_blueprint(Raw, "raw values"; d)
     end)
 
+    # TODO: from a sparse vector whose structure is assumed to match parent class?
+
     #---------------------------------------------------------------------------------------
-    # From a node-indexed map.
+    # From a node-indexed map (never including parent refs).
 
     bpmod.eval(quote
         mutable struct Map <: NF.SubnodeFieldMapBlueprint
@@ -142,15 +145,6 @@ end
 # Only redefine parts that do not already work with regular NodeField.
 
 #-------------------------------------------------------------------------------------------
-#Late-check.
-
-# Index maps happens against the *parent* nodes indices.
-late_check_expected_index_refs(md::Model, d::D.SubnodeField) =
-    N.indices(N.class(md, d).restriction)
-late_check_is_index_ref(md::Model, d::D.SubnodeField, i::Int) =
-    i in N.class(md, d).restriction
-
-#-------------------------------------------------------------------------------------------
 # Obtain.
 # The index is expected to stand within parent class.
 # Yield zero when off-subclass.
@@ -174,6 +168,8 @@ end
 # The index is expected to stand within parent class.
 # Ignore when off-subclass: rejected during late-check if nonzero.
 
+mut_late_check(md::Model, d::D.SubnodeField, early) = late_check(md, d, early, N.parent)
+
 function mut_late_check(md::Model, d::D.SubnodeField, (i,)::Tuple{Int}, x)
     rs = N.class(md, d).restriction
     if i in rs
@@ -185,6 +181,28 @@ function mut_late_check(md::Model, d::D.SubnodeField, (i,)::Tuple{Int}, x)
         x === zero(T) && return x
         c = D.snake_case_singular(first(D.Class(d)))
         checkerr(x, "Not a null value for a non-$green$c$reset.")
+    end
+end
+
+function mutate!(md::Model, d::D.SubnodeField, ::_WholeData, raw)
+    rs = N.class(md, d).restriction
+    entry = N.entry(md, d)
+    N.mutate!(entry) do nodes
+        for (i_local, i_parent) in enumerate(N.indices(rs))
+            nodes[i_local] = raw[i_parent]
+        end
+    end
+end
+
+function mutate!(md::Model, d::D.SubnodeField, ::_WholeData, map::Map)
+    cl = N.class(md, d)
+    entry = N.entry(md, d)
+    N.mutate!(entry) do nodes
+        for (label, x) in map
+            i_parent = N.to_index(cl.index, label)
+            i_local = N.tolocal(cl.restriction, i_parent)
+            nodes[i_local] = x
+        end
     end
 end
 

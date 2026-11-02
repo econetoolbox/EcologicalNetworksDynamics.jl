@@ -135,13 +135,12 @@ end
 
 "Upgrade from either to both."
 to_mref(uref::Ref, ix::N.Index) = (N.to_index(ix, uref), N.to_label(ix, uref))
-to_mref((i,)::Tuple{Ref}, md::Model, d::D.NodeLevel) =
-    ModelRef((to_mref(i, N.class(md, d).index),))
+to_mref((i,)::Tuple{Ref}, md::Model, d::D.NodeLevel, refclass = N.class) =
+    ModelRef((to_mref(i, refclass(md, d).index),))
 to_mref((i, j)::Tuple{Ref,Ref}, md::Model, d::D.EdgeLevel) =
-    ModelRef(to_mref.((i, j), map(cl -> cl.index, N.sides(md, d))))
+    ModelRef(to_mref.((i, j), map(((s, _),) -> N.class(md, s).index, D.sides(md, d))))
 to_mref(::_WholeData, ::Model, ::Dispatcher) = ModelRef(WholeData)
-to_mref((i,)::Tuple{Ref}, md::Model, d::D.SubnodeLevel) =
-    ModelRef((to_mref(i, N.parent(md, d).index),))
+to_mref((i,)::Tuple{Ref}, md::Model, d::D.SubnodeLevel) = to_mref((i,), md, d, N.parent)
 
 "Upgrade underlying error with outer uref context."
 urefguard(fn::Function, uref) =

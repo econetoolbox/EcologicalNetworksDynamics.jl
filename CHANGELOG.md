@@ -21,6 +21,22 @@
   with `extract` *e.g.*
   `extract(m.A)`, `extract(m.M)`, `extract(m.species.names)` *etc.*
 
+- Views now cover a larger surface of the abstract array interface, *e.g.*:
+  ```jl
+  model.body_mass[model.body_mass .> 5] # Index with boolean masks to filter.
+  model.body_mass[[2, 5, 6]] # Only select the given species.
+  model.body_mass[[:b, :e, :f]] # Use node labels instead.
+  ```
+
+- Field mutation now works as expected with "reassignment-like" syntax. *E.g.*:
+  ```jl
+  model.body_mass = [4, 5, 6] # Replace all values.
+  model.body_mass = [:b => 7, :c => 8] # Replace the given values.
+  ```
+  Careful: the above results in *values replacement* within internal storage,
+  departing from traditional Julia field assignment semantics for this syntax.
+  In particular `model.body_mass` does *not* become an alias for the RHS input.
+
 # Breaking
 
 - Subclasses of nodes are also classes of their own right.

@@ -352,13 +352,19 @@ end
 
     # Guard against de-nulling non-structural values.
     @mutfails(v[1] += 1, (d, 1.0, (:m, ((1, :a),)), "Not a null value for a non-producer."))
-    @mutfails(v[:c] += 2, (d, 2.0, (:m, ((3, :c),)), "Not a null value for a non-producer."))
+    @mutfails(
+        v[:c] += 2,
+        (d, 2.0, (:m, ((3, :c),)), "Not a null value for a non-producer.")
+    )
 
+    # Use whole property to reassign.
     input = [0, 4, 0, 6]
-    # HERE: clarify checking against parent vs. subclass, depending on the pipeline..
-    # and possibly the blueprint?
-    # Feature a `SubnodeField.Sparse` blueprint, that would match the parent size?
     m.producers.growth = input
+    @test v == w == m.producers.growth == [0, 4, 0, 6]
+    @test a == alt.producers.growth == [0, 5, 0, 8]
+    input[2] *= 10
+    @test input == [0, 40, 0, 6]
+    @test v == w == m.producers.growth == [0, 4, 0, 6] # Not aliasing reassignment.
 
     # ======================================================================================
     # ↑ ↑ ↑ HERE upgrade tests ↑ ↑ ↑
@@ -660,5 +666,8 @@ end
     )
 
 end
+
+# HERE: feature a `SubnodeField.Sparse` blueprint, that would match the parent size.
+# Also feature a `model.field.dense` view, with the usual rules.
 
 end

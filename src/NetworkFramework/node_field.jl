@@ -304,10 +304,15 @@ _late_check(md::Model, d::D.AbstractNodeField, x, mref::MRef) =
     end
 
 # Lower to a fresh vector while checking.
-function late_check(md::Model, d::D.AbstractNodeField, vec::Vector)
+function late_check(
+    md::Model,
+    d::D.AbstractNodeField,
+    vec::Vector,
+    refclass::Function = N.class,
+)
     # Check plain number of provided values.
-    cl = N.class(md, d)
-    exp, act = N.n_nodes(cl), length(vec)
+    cl = refclass(md, d)
+    exp, act = length.((cl, vec))
     exp == act || checkerr(vec,
         "Wrong number of values received: expected $exp, got $cyan$act$reset.")
     # Then check values one by one.
@@ -327,9 +332,8 @@ function late_check_refs(
     map::Map{<:Any,Symbol};
     complete = true,
 )
-    nw = N.network(md)
-    c = D.class(d)
-    labels = N.node_labels(nw, c)
+    ix = N.class(md, d).index
+    labels = N.labels(ix)
     exp = Set(labels)
     act = Set(keys(map))
     render(set) = join_elided(
@@ -356,9 +360,10 @@ function late_check_refs(
     map::Map{<:Any,Int};
     complete = true,
 )
-    n = late_check_expected_index_refs(md, d)
+    rs = N.class(md, d).restriction
+    n = length(rs)
     miss = Int[]
-    for exp in late_check_expected_index_refs(md, d)
+    for exp in N.indices(rs)
         haskey(map, exp) && continue
         push!(miss, exp)
     end
@@ -374,7 +379,7 @@ function late_check_refs(
         empty!(miss)
     end
     for act in keys(map)
-        late_check_is_index_ref(md, d, act) && continue
+        act in rs && continue
         push!(unexp, act)
     end
     if !isempty(unexp)
@@ -387,10 +392,6 @@ function late_check_refs(
     end
     nothing
 end
-# These details in the above change when considering subnode fields.
-late_check_expected_index_refs(md::Model, d::D.AbstractNodeField) = 1:length(N.class(md, d))
-late_check_is_index_ref(md::Model, d::D.AbstractNodeField, i::Int) =
-    i in 1:length(N.class(md, d))
 
 # When obtaining a map (expansion pipeline: all values required), lower to a vector.
 function bp_late_check(md::Model, bp::AbstractNodeFieldMapBlueprint, map::Map)

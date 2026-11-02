@@ -205,6 +205,7 @@ function mut_set!(md::Model, d::Dispatcher, iref::TrustedIndexRef, rhs)
         rethrow(MutationError(e))
     end
     mutate!(md, d, iref, low)
+    rhs # (julia habit)
 end
 
 # ==========================================================================================
