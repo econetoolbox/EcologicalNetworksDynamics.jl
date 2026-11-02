@@ -118,7 +118,7 @@ const d, _D = D.NodeField(:species, :metabolic_class)
     # Expand.
 
     # Requires a foodweb to be checked against.
-    addfails.@missingrequired(Model(MetabolicClass([:i, :e, :p])),
+    addfails.@missing(Model(MetabolicClass([:i, :e, :p])),
         Foodweb, MetabolicClass, [MetabolicClass.Raw], nothing)
 
 end

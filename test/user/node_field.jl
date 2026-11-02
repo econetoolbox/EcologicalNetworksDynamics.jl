@@ -168,8 +168,7 @@ const View = V.NodeFieldView{d,Float64}
                 "Missing: no value provided for :b and :c.")))
     addfails.@check(Model(Species("a"), BodyMass([:a => 1, :x => 2])), [],
         (BodyMass.Map, :late,
-            (d, OrderedDict([:a => 1.0, :x => 2.0]), :mwhole,
-                "Not a :species name: :x.")))
+            (d, OrderedDict([:a => 1.0, :x => 2.0]), :mwhole, "Not a species name: :x.")))
     addfails.@check(Model(Species(3), BodyMass([1 => 5])), [],
         (BodyMass.Map, :late,
             (d, OrderedDict([1 => 5.0]), :mwhole,

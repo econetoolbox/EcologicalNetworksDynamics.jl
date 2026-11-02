@@ -39,13 +39,17 @@
 
 # Breaking
 
-- Subclasses of nodes are also classes of their own right.
-  Raw blueprints to construct them
-  now expect dense collections with one value per node in the subclass,
+- Subclasses of nodes are now classes of their own right,
+  and their corresponding fields are accordingly __dense__ within local index.
+  This means that raw blueprints to construct them expect dense
+  collections with one value per node in the subclass:
   no need to fill it up with zeros. For instance:
   ```julia
   m = Model(Foodweb([:a => :b, :c => :d]), GrowthRate([5, 8])) # Only 2 producers.
-  m.growth_rate # Sparse view: [·, 5.0, ·, 8.0].
+  ```
+  This also means that views into these fields are dense.
+  ```julia
+  m.growth_rate # Dense view: [5.0, 8.0].
   ```
 
 - `Raw` blueprint for edge fields now expect a dense *vector* or raw values.

@@ -59,7 +59,7 @@ module Calls
         define_component(:Zav; blueprints = [:b => Zav_b])
 
         s = System{Value}()
-        addfails.@missingrequired((s + Zav.b()), _Vkl, nothing, [Zav.b], "Zav likes Vkl")
+        addfails.@missing((s + Zav.b()), _Vkl, nothing, [Zav.b], "Zav likes Vkl")
         s += Vkl.b()
         # Now it's okay.
         s += Zav.b()
@@ -70,7 +70,7 @@ module Calls
         struct Ovm_b <: Blueprint{Value} end
         define_blueprint(Ovm_b, ""; depends = [Vkl])
         define_component(:Ovm; blueprints = [:b => Ovm_b])
-        addfails.@missingrequired((System{Value}(Ovm.b())), _Vkl, nothing, [Ovm.b], nothing)
+        addfails.@missing((System{Value}(Ovm.b())), _Vkl, nothing, [Ovm.b], nothing)
 
         @bluefails(
             define_blueprint(Vector{Int}),

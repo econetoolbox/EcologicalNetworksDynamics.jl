@@ -41,9 +41,8 @@ const d, _D = D.NodeField(:species, :body_mass)
         BodyMass.Z, :construct, (d, -1.0, :uwhole, noneg))
     bp.Z *= -1
     addfails.@check(Model(fw, bp), [], (BodyMass.Z, :early, (d, -2.8, :uwhole, noneg)))
-    addfails.@missingrequired(Model(bp), Species, BodyMass, [BodyMass.Z], nothing)
-    addfails.@missingrequired(Model(Species(3), bp),
-        Foodweb, nothing, [BodyMass.Z], nothing)
+    addfails.@missing(Model(bp), Species, BodyMass, [BodyMass.Z], nothing)
+    addfails.@missing(Model(Species(3), bp), Foodweb, nothing, [BodyMass.Z], nothing)
 
     # Input guards.
     @argfails(BodyMass(), "Either 'M' or 'Z' must be provided to define body masses.")

@@ -17,34 +17,32 @@ query_check(vw::NodeView, q) = node_check(NF.model(vw), dispatcher(vw), q)
 query_check(vw::EdgeView, q) = edge_check(NF.model(vw), dispatcher(vw), q)
 
 # Views into subclasses are indexed within their parents.
-query_check(vw::Union{NodeMaskView,SubnodeFieldView}, q) =
-    node_check(NF.model(vw), dispatcher(vw), q; class = N.parent)
+query_check(vw::NodeMaskView, q) =
+    node_check(NF.model(vw), dispatcher(vw), q; refclass = N.parent)
 
 # These ones, apparently specialized within julia, need disambiguation?
 # TODO: that is fragile to internal julia changes,
 # can we make better without having to support all the interface ourselves, or list it here?
-for V in (NodeMaskView, SubnodeFieldView)
-    for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
-        eval(
-            quote
-                Base.getindex(vw::$V, q::$Q) =
-                    invoke(getindex, Tuple{AbstractView,Any}, vw, q)
-            end,
-        )
-    end
+for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
+    eval(
+        quote
+            Base.getindex(vw::NodeMaskView, q::$Q) =
+                invoke(getindex, Tuple{AbstractView,Any}, vw, q)
+        end,
+    )
 end
 
 # Single-value access, using either indices or labels.
-function node_check(md::Model, d::D.NodeLevel, (i,)::Tuple{Int}; class = N.class)
-    n = length(class(md, d))
+function node_check(md::Model, d::D.NodeLevel, (i,)::Tuple{Int}; refclass = N.class)
+    n = length(refclass(md, d))
     1 <= i <= n && return (i,)
     n, s, are = nsa(n)
     throw(V.Error((i,), CheckError(i, "There $are $n node$s in this class."; d)))
 end
 
-function node_check(md::Model, d::D.NodeLevel, (q,)::Tuple{Label}; class = N.class)
+function node_check(md::Model, d::D.NodeLevel, (q,)::Tuple{Label}; refclass = N.class)
     l = Symbol(q)
-    ix = class(md, d).index
+    ix = refclass(md, d).index
     N.is_ref(ix, l) && return (N.to_index(ix, l),)
     throw(
         V.Error((l,), CheckError(l, "No node in this class is labeled $(repr(l))."; d)),
@@ -62,9 +60,9 @@ function node_check(
     md::Model,
     d::D.NodeLevel,
     (labels,)::Tuple{AbstractVector{<:Label}};
-    class = N.class,
+    refclass = N.class,
 )
-    ix = class(md, d).index
+    ix = refclass(md, d).index
     res = sizehint!(Int[], length(labels))
     for (i, raw) in pairs(labels)
         l = Symbol(raw)

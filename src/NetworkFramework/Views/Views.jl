@@ -88,7 +88,7 @@ include("edges.jl")
 const TopologyView{d} = Union{NodeTopologyView{d},EdgeMaskView{d}}
 
 # Common to nodes or edge field views.
-const FieldView{d,T} = Union{AbstractNodeFieldView{d,T},EdgeFieldView{d,T}}
+const FieldView{d,T} = Union{NodeFieldView{d,T},EdgeFieldView{d,T}}
 let S = FieldView
     D.field(s::S) = s |> dispatcher |> D.field # Associated fieldname.
     N.view(s::S) = getfield(s, :view) # Underlying network data view.

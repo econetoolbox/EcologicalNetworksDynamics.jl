@@ -4,14 +4,6 @@ function inline_info(v::NodeFieldView)
     "<$class:$field>"
 end
 
-function inline_info(v::SubnodeFieldView)
-    class = D.class(v)
-    parent = D.parent(v)
-    parent = isnothing(parent) ? ":" : parent
-    field = D.field(v)
-    "<$parent:$class:$field>"
-end
-
 function inline_info(v::NodeNameView)
     class = D.class(v)
     "<$class>"
@@ -32,12 +24,6 @@ function display_info(v::NodeFieldView)
     "NodeFieldView$fc$info$rs{$T}"
 end
 
-function display_info(v::SubnodeFieldView)
-    T = eltype(v)
-    info = inline_info(v)
-    "SubnodesFieldView$fc$info$rs{$T}"
-end
-
 function display_info(v::NodeNameView)
     T = eltype(v)
     info = inline_info(v)
@@ -51,7 +37,6 @@ function display_info(v::NodeMaskView)
 end
 
 type_info(::Type{<:NodeFieldView}) = "nodes"
-type_info(::Type{<:SubnodeFieldView}) = "sub-nodes"
 type_info(::Type{<:NodeNameView}) = "nodes names"
 type_info(::Type{<:NodeMaskView}) = "nodes mask"
 type_info(v::AbstractView) = type_info(typeof(v))
@@ -63,29 +48,6 @@ function Base.show(io::IO, v::NodeFieldView)
         for (i, v) in enumerate(raw)
             print(io, repr(v))
             if i < length(raw)
-                print(io, ", ")
-            end
-        end
-    end
-    print(io, ']')
-end
-
-function Base.show(io::IO, v::SubnodeFieldView)
-    print(io, inline_info(v))
-    print(io, '[')
-    n = length(v)
-    mask = N.mask(N.network(v), D.class(v), D.parent(v))
-    read(N.entry(v)) do raw
-        i_raw = 0
-        for (i_m, m) in enumerate(mask)
-            if m
-                i_raw += 1
-                v = raw[i_raw]
-                print(io, repr(v))
-            else
-                print(io, '·')
-            end
-            if i_m < n
                 print(io, ", ")
             end
         end
@@ -132,28 +94,6 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodeFieldView)
         for v in raw
             print(io, "\n ")
             print(io, repr(v))
-        end
-    end
-end
-
-function Base.show(io::IO, ::MIME"text/plain", v::SubnodeFieldView)
-    print(io, display_info(v))
-    mask = N.mask(N.network(v), D.class(v), D.parent(v))
-    n, _ = ns(length(v))
-    w = D.readonly(v) ? " (readonly)" : ""
-    read(N.entry(v)) do raw
-        (nz, s) = ns(length(raw))
-        print(io, " ($nz/$n$w value$s)")
-        i_raw = 0
-        for m in mask
-            print(io, "\n ")
-            if m
-                i_raw += 1
-                v = raw[i_raw]
-                print(io, repr(v))
-            else
-                print(io, '·')
-            end
         end
     end
 end

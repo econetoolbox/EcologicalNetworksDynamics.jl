@@ -7,13 +7,10 @@ by specializing implementations for their particular component.
 """
 module Dispatchers
 
-using EcologicalNetworksDynamics: N, Networks, Display, unimplemented
-using EcologicalNetworksDynamics.NetworkFramework: Model
+using EcologicalNetworksDynamics: N, Networks, Display, unimplemented, Option
+using EcologicalNetworksDynamics.NetworkFramework: Model, Ref
 using .Display: cyan, reset
 const D = Dispatchers
-
-const Option{T} = Union{Nothing,T}
-const Ref = Union{Int,Symbol}
 
 "For convenience, initial constructors (from symbols) return both instance and type."
 abstract type Dispatcher end
@@ -148,8 +145,6 @@ function Base.show(io::IO, s::S)
     print(io, "<$web>")
 end
 
-# TODO: do we need a "Subweb"? Maybe refactor components first to figure this.
-
 # ==========================================================================================
 # Graph-level data field.
 """
@@ -211,38 +206,6 @@ function Base.show(io::IO, s::S)
 end
 
 # ==========================================================================================
-# Subnode field data, expanded within a parent class.
-
-"""
-Dispatch extension point to particular class field data
-from the perspective of a parent class.
-"""
-struct SubnodeField{class,field,parent} <: Dispatcher end
-function SubnodeField(class::Symbol, field::Symbol, parent::Option{Symbol})
-    T = SubnodeField{class,field,parent}
-    T(), T
-end
-S = SubnodeField # 'Self'
-content(::S{class,field,parent}) where {class,field,parent} = (class, field, parent)
-class(s::S) = first(content(s))
-field(s::S) = content(s)[2]
-parent(s::S) = last(content(s))
-type(s::S) = throw("Data type unspecified for $s.")
-
-"""
-Obtain dispatchers to underlying class, mask, field.
-"""
-Class(s::S) = Class(class(s))
-Subclass(s::S) = Subclass(class(s), parent(s))
-NodeField(s::S) = NodeField(class(s), field(s))
-
-# Display.
-function Base.show(io::IO, s::S)
-    class, field, parent = content(s)
-    print(io, "<$parent:$class:$field>")
-end
-
-# ==========================================================================================
 # Web field.
 
 """
@@ -270,14 +233,9 @@ function Base.show(io::IO, s::S)
 end
 
 # ==========================================================================================
-# Abstract over either node field category.
-const AbstractNodeField{class,field} =
-    Union{NodeField{class,field},SubnodeField{class,field}}
-
-# ==========================================================================================
 # Abstract over either field category.
 const AbstractField{field} =
-    Union{GraphField{field},<:AbstractNodeField{<:Any,field},<:EdgeField{<:Any,field}}
+    Union{GraphField{field},<:NodeField{<:Any,field},<:EdgeField{<:Any,field}}
 S = AbstractField
 readonly(::S) = false # By default, or specialize.
 viewtype(s::S) = unimplemented(viewtype, s) # The data view for this field.
@@ -300,13 +258,12 @@ short_field_name(s::S) = name_variants(s)[5]
 
 # ==========================================================================================
 # Abstract over topology-related data.
-const Topology = Union{Class,Subclass,Web}
+const Topology = Union{Class,Web}
 
 # ==========================================================================================
 # Abstract over levels.
 const GraphLevel = GraphField
-const NodeLevel = Union{Class,Subclass,NodeField,SubnodeField}
-const SubnodeLevel = Union{Subclass,SubnodeField}
+const NodeLevel = Union{Class,NodeField,Subclass}
 const EdgeLevel = Union{Web,EdgeField}
 dim(::GraphField) = 0
 dim(::NodeLevel) = 1
@@ -319,16 +276,20 @@ level(::EdgeLevel) = "edge"
 # Use dispatcher as static index into underlying data.
 
 N.class(md::Model, d::NodeLevel) = N.class(N.network(md), class(d))
-N.parent(md::Model, d::SubnodeLevel) = N.parent(N.network(md), class(d))
 N.web(md::Model, d::Web) = N.web(N.network(md), web(d))
 N.sides(md::Model, d::Web) = N.sides(N.network(md), web(d))
 N.source(md::Model, d::Web) = N.source(N.network(md), web(d))
 N.target(md::Model, d::Web) = N.target(N.network(md), web(d))
 N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
 N.entry(md::Model, d::NodeField) = N.class(md, d).data[field(d)]
-N.entry(md::Model, d::SubnodeField) = N.class(md, d).data[field(d)]
 N.entry(md::Model, d::EdgeField) = N.web(md, d).data[field(d)]
 
+"In this context, root classes admit themselves as their own parents."
+function N.parent(md::Model, d::Subclass)
+    p = parent(d)
+    par = isnothing(p) ? class(d) : p
+    N.class(N.network(md), par)
+end
 
 # Wide display.
 Base.show(io::IO, ::MIME"text/plain", d::Dispatcher) = print(io, "$cyan$d$reset")

@@ -47,7 +47,7 @@ Return that module.
 """
 function define_allometry_blueprints(
     mod::Module,
-    d::D.AbstractNodeField,
+    d::D.NodeField,
     allometric_template::Allometry,
     temperature_template::@NamedTuple{E_a::Float64, allometry::Allometry},
 )
@@ -82,7 +82,7 @@ function define_allometry_blueprints(
             export Allometric
             NF.register_blueprint(Allometric, "allometric rates";
                 depends = [EN.BodyMass, EN.MetabolicClass])
-            NF.allometry_template(::Allometric) = $allometry_template
+            NF.allometry_template(::Allometric) = $allometric_template
         end)
 
     # Temperature-dependent allometry relations.
@@ -128,7 +128,7 @@ construct(BP::Type{<:TemperatureAllometricBlueprint}, E_a; kw...) =
 allometry_template(bp::AllometricBlueprint) = unimplemented(allometry_template, bp)
 
 function early_check(
-    d::D.AbstractNodeField,
+    d::D.NodeField,
     bp::Union{AllometricBlueprint,TemperatureAllometricBlueprint},
 )
     template = allometry_template(d)
@@ -195,10 +195,9 @@ end
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-expand!(md::Model, d::D.AbstractNodeField, bp::AllometricBlueprint) =
-    expand!(md, d, bp.allometry)
+expand!(md::Model, d::D.NodeField, bp::AllometricBlueprint) = expand!(md, d, bp.allometry)
 
-function expand!(md::Model, d::D.AbstractNodeField, bp::TemperatureAllometricBlueprint)
+function expand!(md::Model, d::D.NodeField, bp::TemperatureAllometricBlueprint)
     (; E_a, allometry) = bp
     T = md.T
     expand!(md, d, allometry; E_a, T)
@@ -210,18 +209,6 @@ function expand!(md::Model, d::D.NodeField, al::Allometry; kwargs...)
     class = N.class(md, d)
     data = allometric_rates(al, md.M, md.metabolic_class; kwargs...)
     N.add_field!(class, f, data)
-end
-
-# Expand for sparse nodes.
-function expand!(md::Model, d::D.SubnodeField, al::Allometry; kwargs...)
-    f = D.field(d)
-    cl = N.class(md, d)
-    r = cl.restriction
-    inds = N.indices(r)
-    M = (md.M[i] for i in inds)
-    mc = (md.metabolic_class[i] for i in inds)
-    data = allometric_rates(al, M, mc; kwargs...)
-    N.add_field!(cl, f, data)
 end
 
 #-------------------------------------------------------------------------------------------

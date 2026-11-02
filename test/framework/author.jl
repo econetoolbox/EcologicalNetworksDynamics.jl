@@ -279,7 +279,7 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # Cannot add component if requirement is missing.
         e = System{Value}() # Empty.
-        addfails.@missingrequired(
+        addfails.@missing(
             e + B.Raw([8, 8, 8]), # Size is brought, but not A.
             _A, _B, [B.Raw], nothing,
         )
@@ -333,7 +333,7 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         # Blueprint expansion may require other components
         # without its component itself requiring them.
-        addfails.@missingrequired(
+        addfails.@missing(
             s + ReflectFromB(), # .. although reflection does not require B in general.
             _A, nothing, [ReflectFromB], nothing,
         )

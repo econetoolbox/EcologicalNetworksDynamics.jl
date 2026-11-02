@@ -9,7 +9,7 @@ module GrowthRateDef
 
 using EcologicalNetworksDynamics.NetworkFramework: EN, D, NF, Allometry, @alias
 
-const d, _D = D.SubnodeField(:producers, :growth, :species)
+const d, _D = D.NodeField(:producers, :growth)
 D.name_variants(::_D) = (:growth_rate, :growth_rates, :GrowthRate, :GrowthRates, :r)
 D.type(::_D) = Float64
 NF.early_check(::_D, growth::Real) = NF.non_negative(Float64, growth)
@@ -30,8 +30,7 @@ NF.construct(::Type{albp.Temperature}, lit::Symbol) =
 # ==========================================================================================
 # Component.
 
-const GrowthRate, _GrowthRate =
-    NF.define_subnode_field_component(EN, d; blueprints = [albp])
+const GrowthRate, _GrowthRate = NF.define_node_field_component(EN, d; blueprints = [albp])
 
 @alias producers.growth growth_rate
 

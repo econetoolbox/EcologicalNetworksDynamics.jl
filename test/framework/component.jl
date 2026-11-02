@@ -92,7 +92,7 @@ module Calls
 
         s = System{Value}()
         # Cannot add Zjz without Cvh.
-        addfails.@missingrequired((s + Zjz.b()), _Cvh, _Zjz, [Zjz_b], nothing)
+        addfails.@missing((s + Zjz.b()), _Cvh, _Zjz, [Zjz_b], nothing)
         s += Cvh.b() # Meet the requirement.
         s += Zjz.b() # Now it's okay.
         @test collect(F.components(s)) == [Cvh, Zjz]
@@ -113,7 +113,7 @@ module Calls
         @test collect(F.requires(Lev)) == [_Dsy => nothing]
 
         s = System{Value}()
-        addfails.@missingrequired((s + Lev.b()), _Dsy, _Lev, [Lev_b], nothing)
+        addfails.@missing((s + Lev.b()), _Dsy, _Lev, [Lev_b], nothing)
         s += Dsy.b() + Lev.b()
         @test collect(F.components(s)) == [Dsy, Lev]
 
@@ -326,7 +326,7 @@ module Abstracts
         define_blueprint(Ahv_b)
         define_component(:Ahv; blueprints = [:b => Ahv_b], requires = [A])
         # It is an error to attempt to expand with no `A` component.
-        addfails.@missingrequired(S(Ahv_b()), A, _Ahv, [Ahv_b], nothing)
+        addfails.@missing(S(Ahv_b()), A, _Ahv, [Ahv_b], nothing)
         # But any concrete component is good.
         sb = S(B.b(), Ahv_b())
         sc = S(C.b(), Ahv_b())

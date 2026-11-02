@@ -1,6 +1,3 @@
-# This abstracts over both subclass/sparse and root/dense fields,
-# but any code easily moved to `subnode_field.jl` lives there.
-
 """
 Raise to produce a 'Flat' blueprint
 expanding the same scalar value to the whole class or web,
@@ -10,37 +7,17 @@ If raised, provide the argument type for component-call constructor.
 flat(d::D.AbstractField) = D.type(d)
 may_flat(d::D.AbstractField) = !isnothing(flat(d))
 
-"Share (much) code with subnode field."
-abstract type AbstractNodeFieldBlueprint <: Blueprint end
-
 "Expand to a class field."
-abstract type NodeFieldBlueprint <: AbstractNodeFieldBlueprint end
+abstract type NodeFieldBlueprint <: Blueprint end
+
 "Expand to a class field from a vector of raw values."
 abstract type NodeFieldRawBlueprint <: NodeFieldBlueprint end
+
 "Expand to a class field from mapped values."
 abstract type NodeFieldMapBlueprint <: NodeFieldBlueprint end
+
 "Expand to a class field from a single value."
 abstract type NodeFieldFlatBlueprint <: NodeFieldBlueprint end
-
-#-------------------------------------------------------------------------------------------
-# Should live in `subnode_field.jl`, but need to be declared earlier :\
-"Expand to a subclass field."
-abstract type SubnodeFieldBlueprint <: AbstractNodeFieldBlueprint end
-"Expand into a subclass field from a raw vector, one element per node in the subclass."
-abstract type SubnodeFieldRawBlueprint <: SubnodeFieldBlueprint end
-"Expand into a subclass field from mapped values."
-abstract type SubnodeFieldMapBlueprint <: SubnodeFieldBlueprint end
-"Expand into a subclass field from a single value."
-abstract type SubnodeFieldFlatBlueprint <: SubnodeFieldBlueprint end
-
-"Either kind of raw blueprint for (sub)node fields."
-const AbstractNodeFieldRawBlueprint = Union{NodeFieldRawBlueprint,SubnodeFieldRawBlueprint}
-"Either kind of map blueprint for (sub)node fields."
-const AbstractNodeFieldMapBlueprint = Union{NodeFieldMapBlueprint,SubnodeFieldMapBlueprint}
-"Either kind of flat blueprint for (sub)node fields."
-const AbstractNodeFieldFlatBlueprint =
-    Union{NodeFieldFlatBlueprint,SubnodeFieldFlatBlueprint}
-#-------------------------------------------------------------------------------------------
 
 "Typical setup for a component bringing a new class field to the network."
 function define_node_field_component(
@@ -194,7 +171,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Construct.
 
-function construct(d::D.AbstractNodeField, Field::Component, input, args...; kwargs...)
+function construct(d::D.NodeField, Field::Component, input, args...; kwargs...)
     T = D.type(d)
     tries = (
         Vector{T} => x -> Field.Raw(x, args...; kwargs...),
@@ -215,7 +192,7 @@ function construct(d::D.AbstractNodeField, Field::Component, input, args...; kwa
 end
 
 # Allow passing values as separate arguments.
-construct(BP::Type{<:Union{AbstractNodeFieldRawBlueprint,AbstractNodeFieldMapBlueprint}},
+construct(BP::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
     first, second, rest...) = construct(BP, (first, second, rest...))
 
 #-------------------------------------------------------------------------------------------
@@ -226,12 +203,12 @@ Extension point per node value.
 May return transformed/lowered value (*e.g.* MetabolicDict),
 to be collected (`bp`, `mut`) or not (`cst`) depending on the pipeline.
 """
-early_check(d::D.AbstractNodeField, x, ::Ref) = early_check(d, x)
+early_check(d::D.NodeField, x, ::Ref) = early_check(d, x)
 
 # On construction, check all values without creating anything new.
 # (It has been checked that the compiler is eliding the whole loop
 #  in case `early_check` is defaulting to no-op.)
-function cst_early_check(BP::Type{<:AbstractNodeFieldBlueprint}, data::Union{Vector,Map})
+function cst_early_check(BP::Type{<:NodeFieldBlueprint}, data::Union{Vector,Map})
     d = dispatcher(BP)
     for (ref, x) in pairs(data)
         urefguard((ref,)) do
@@ -243,7 +220,7 @@ function cst_early_check(BP::Type{<:AbstractNodeFieldBlueprint}, data::Union{Vec
 end
 
 # Index-maps need to be dense: they cannot be holed for root classes.
-check_dense_ref(::Type{<:AbstractNodeFieldBlueprint}, ref, _) = ref
+check_dense_ref(::Type{<:NodeFieldBlueprint}, ref, _) = ref
 function check_dense_ref(::Type{<:NodeFieldBlueprint}, i::Int, map::Map{<:Any,Int})
     n = length(map)
     i <= n && return i
@@ -252,9 +229,7 @@ function check_dense_ref(::Type{<:NodeFieldBlueprint}, i::Int, map::Map{<:Any,In
 end
 
 # On expansion checked values (possibly lowered) are collected.
-function bp_early_check(
-    bp::Union{AbstractNodeFieldRawBlueprint,AbstractNodeFieldMapBlueprint},
-)
+function bp_early_check(bp::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint})
     d, data = dispatcher(bp), NF.data(bp)
     collect_checked(data) do ref, x
         urefguard((ref,)) do
@@ -288,10 +263,10 @@ end
 # Extension point, checking individual values against the model,
 # having both index and label model ref available.
 # Raise simple `checkerr` on failure, the report will be upgraded anyway.
-late_check(::Model, ::D.AbstractNodeField, x, ::MRef) = x
+late_check(::Model, ::D.NodeField, x, ::MRef) = x
 
 # Guarding the above to upgrade exceptions.
-_late_check(md::Model, d::D.AbstractNodeField, x, mref::MRef) =
+_late_check(md::Model, d::D.NodeField, x, mref::MRef) =
     try
         late_check(md, d, x, mref)
     catch e
@@ -304,9 +279,9 @@ _late_check(md::Model, d::D.AbstractNodeField, x, mref::MRef) =
     end
 
 # Lower to a fresh vector while checking.
-function late_check(md::Model, d::D.AbstractNodeField, vec::Vector; refclass = N.class)
+function late_check(md::Model, d::D.NodeField, vec::Vector)
     # Check plain number of provided values.
-    cl = refclass(md, d)
+    cl = N.class(md, d)
     exp, act = length.((cl, vec))
     exp == act || checkerr(vec,
         "Wrong number of values received: expected $exp, got $cyan$act$reset.")
@@ -321,12 +296,7 @@ end
 # Late check, when obtaining maps.
 
 "Check (only) label references against the model."
-function late_check_refs(
-    md::Model,
-    d::D.AbstractNodeField,
-    map::Map{<:Any,Symbol};
-    complete = true,
-)
+function late_check_refs(md::Model, d::D.NodeField, map::Map{<:Any,Symbol}; complete = true)
     ix = N.class(md, d).index
     labels = N.labels(ix)
     exp = Set(labels)
@@ -341,7 +311,8 @@ function late_check_refs(
     end
     unexp = setdiff(act, exp)
     if !isempty(unexp)
-        a, s, sn = length(unexp) == 1 ?
+        a, s, sn =
+            length(unexp) == 1 ?
             (" a", "", D.snake_case_singular) :
             ("", "s", D.snake_case_plural)
         c = sn(first(D.Class(d)))
@@ -351,12 +322,7 @@ function late_check_refs(
 end
 
 "Check (only) index references against the model."
-function late_check_refs(
-    md::Model,
-    d::D.AbstractNodeField,
-    map::Map{<:Any,Int};
-    complete = true,
-)
+function late_check_refs(md::Model, d::D.NodeField, map::Map{<:Any,Int}; complete = true)
     rs = N.class(md, d).restriction
     n = length(rs)
     miss = Int[]
@@ -391,7 +357,7 @@ function late_check_refs(
 end
 
 # When obtaining a map (expansion pipeline: all values required), lower to a vector.
-function bp_late_check(md::Model, bp::AbstractNodeFieldMapBlueprint, map::Map)
+function bp_late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map)
     d = dispatcher(bp)
     late_check_refs(md, d, map; complete = true)
     ix = N.class(md, d).index
@@ -412,20 +378,20 @@ get_from_map(map::Map{<:Any,Symbol}, ::Int, l::Symbol) = map[l]
 #-------------------------------------------------------------------------------------------
 # Late check, on mutation pipeline.
 
-function mut_late_check(md::Model, d::D.AbstractNodeField, (i,)::Tuple{Int}, x)
+function mut_late_check(md::Model, d::D.NodeField, (i,)::Tuple{Int}, x)
     ix = N.class(md, d).index
     l = N.to_label(ix, i)
     _late_check(md, d, x, (i, l))
 end
 
 # When obtaining a map (mutation pipeline: not all values are required): lower to a map.
-function mut_late_check(md::Model, d::D.AbstractNodeField, map::Map)
+function mut_late_check(md::Model, d::D.NodeField, map::Map)
     late_check_refs(md, d, map; complete = false)
     late_check_map_values(md, d, map)
 end
 
 # Just read to check on index-maps.
-function late_check_map_values(md::Model, d::D.AbstractNodeField, map::Map{<:Any,Int})
+function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Int})
     ix = N.class(md, d).index
     for (i, early) in pairs(map)
         l = N.to_label(ix, i)
@@ -435,7 +401,7 @@ function late_check_map_values(md::Model, d::D.AbstractNodeField, map::Map{<:Any
 end
 
 # Read and convert for symbol-maps.
-function late_check_map_values(md::Model, d::D.AbstractNodeField, map::Map{<:Any,Symbol})
+function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Symbol})
     ix = N.class(md, d).index
     T = valtype(map)
     res = Map{T,Int}()
@@ -450,13 +416,13 @@ end
 #-------------------------------------------------------------------------------------------
 # Implied class.
 
-function implied_class(::D.NodeField, Class, bp::AbstractNodeFieldRawBlueprint)
+function implied_class(::D.NodeField, Class, bp::NodeFieldRawBlueprint)
     raw = data(bp)
     n = length(raw)
     Class.Number(n)
 end
 
-implied_class(d::D.NodeField, Class, bp::AbstractNodeFieldMapBlueprint) =
+implied_class(d::D.NodeField, Class, bp::NodeFieldMapBlueprint) =
     implied_class(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
 
 function implied_class(::D.NodeField, Class, map::Map{<:Any,Symbol})
@@ -473,7 +439,7 @@ end
 # Expand.
 
 # Raw.
-function expand!(md::Model, d::D.AbstractNodeField, vec::Vector)
+function expand!(md::Model, d::D.NodeField, vec::Vector)
     # Even with the .Raw blueprint,
     # early+late-checking guarantee that lowered data is fresh = not aliased by user.
     nw, (c, f) = (N.network(md), D.content(d))
@@ -482,7 +448,7 @@ function expand!(md::Model, d::D.AbstractNodeField, vec::Vector)
 end
 
 # Map.
-function expand!(md::Model, d::D.AbstractNodeField, map::Map)
+function expand!(md::Model, d::D.NodeField, map::Map)
     # Reorder into the final vector.
     R = reftype(map)
     ix = N.class(md, d).index
@@ -491,7 +457,7 @@ function expand!(md::Model, d::D.AbstractNodeField, map::Map)
 end
 
 # Flat.
-function expand!(md::Model, d::D.AbstractNodeField, flat)
+function expand!(md::Model, d::D.NodeField, flat)
     nw, cl = N.network(md), D.class(d)
     n = N.n_nodes(nw, cl)
     vec = fill(flat, n)
@@ -514,7 +480,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Converting RHS.
 
-function convert(d::D.AbstractNodeField, input)
+function convert(d::D.NodeField, input)
     T = D.type(d)
     try_convert(input, T, Vector{T}, Map{T})
 end
@@ -522,14 +488,14 @@ end
 #-------------------------------------------------------------------------------------------
 # Targetting whole data the "reassign-like" way: `m.property = rhs`.
 
-function mutate!(md::Model, d::D.AbstractNodeField, ::_WholeData, raw) # (vec or flat)
+function mutate!(md::Model, d::D.NodeField, ::_WholeData, raw) # (vec or flat)
     entry = N.entry(md, d)
     N.mutate!(entry) do nodes
         nodes .= raw
     end
 end
 
-function mutate!(md::Model, d::D.AbstractNodeField, ::_WholeData, map::Map)
+function mutate!(md::Model, d::D.NodeField, ::_WholeData, map::Map)
     ix = N.class(md, d).index
     entry = N.entry(md, d)
     N.mutate!(entry) do nodes
@@ -543,14 +509,14 @@ end
 #-------------------------------------------------------------------------------------------
 # Targetting individual node the `setindex!` way: `view[index] = rhs`.
 
-function mutate!(md::Model, d::D.AbstractNodeField, (i,)::Tuple{Int}, x)
+function mutate!(md::Model, d::D.NodeField, (i,)::Tuple{Int}, x)
     entry = N.entry(md, d)
     N.mutate!(entry) do nodes
         nodes[i] = x
     end
 end
 
-function mutate!(md::Model, d::D.AbstractNodeField, (l,)::Tuple{Symbol}, x)
+function mutate!(md::Model, d::D.NodeField, (l,)::Tuple{Symbol}, x)
     ix = N.class(md, d).index
     i = N.to_index(ix, l)
     mutate!(md, d, (i,), x)

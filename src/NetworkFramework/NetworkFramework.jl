@@ -24,8 +24,6 @@ so it mostly falls into three categories:
 
   - Class (node-level) data:
     - Vector: *eg.* `[4, 5, 6]`
-    - Sparse vector for subclasses considered from the perspective of a parent class:
-      *eg.* `[·, 4, ·, ·, 5, ·, 6]`
     - Map (key-value pairs) of the form:
       - `[:a => u, :c => v]`   (using nodes labels)
       - `[1 => u, 3 => v]`     (using node indices, in the context of one particular class)
@@ -175,7 +173,6 @@ include("./graph_field.jl")
 include("./class.jl")
 include("./web.jl")
 include("./node_field.jl")
-include("./subnode_field.jl")
 #  include("./edge_field.jl")
 
 # Typical allometry-related blueprints.
