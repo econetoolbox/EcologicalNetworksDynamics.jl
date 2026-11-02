@@ -23,7 +23,7 @@ binzer2016() =
 albp = NF.define_allometry_blueprints(EN, d, miele2019(), binzer2016())
 
 NF.construct(::Type{albp.Allometric}, lit::Symbol) =
-    NF.from_name(lit, :Miele2019 => miele2019)
+    (NF.from_name(lit, :Miele2019 => miele2019),)
 NF.construct(::Type{albp.Temperature}, lit::Symbol) =
     NF.from_name(lit, :Binzer2016 => binzer2016)
 
@@ -35,11 +35,10 @@ const GrowthRate, _GrowthRate = NF.define_node_field_component(EN, d; blueprints
 @alias producers.growth growth_rate
 
 # Default constructor.
-(::_GrowthRate)(default::Symbol) = NF.from_name(
-    default,
+(::_GrowthRate)(default::Symbol) = NF.from_name(default,
     :Miele2019 => () -> GrowthRate.Allometric(default),
     :Binzer2016 => () -> GrowthRate.Temperature(default),
-)
+    ; d)
 
 end
 

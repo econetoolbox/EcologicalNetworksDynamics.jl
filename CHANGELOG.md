@@ -157,6 +157,9 @@ m.M = [:a => 3, :b => 2, :c => 1] # Map-form allowed.
 m.M = 5 # Allowed at least for component with a .Flat blueprint.
 ```
 
+Temperature can now be set using standard Celcius unit:
+*e.g.* `Temperature(; celc = 20)`.
+
 ## Improvements
 
 - Improved display for sparse graph data views (see example above).

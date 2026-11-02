@@ -1,6 +1,4 @@
-"""
-Direct view into *dense* web data.
-"""
+"Direct view into *dense* web data."
 struct DenseEdgeFieldView{d,T} <: AbstractMatrix{T} # d::D.Web (sparse)
     model::Model
     view::N.EdgeView{T}
@@ -9,9 +7,7 @@ let S = DenseEdgeFieldView
     V.extract(s::S; kw...) = N.to_dense(N.view(s); kw...)
 end
 
-"""
-Direct view into *sparse* web data.
-"""
+"Direct view into *sparse* web data."
 struct SparseEdgeFieldView{d,T} <: AbstractSparseMatrix{T,Int} # d::Web (dense)
     model::Model
     view::N.EdgeView{T}
@@ -52,9 +48,7 @@ end
 # ==========================================================================================
 # Topology mask.
 
-"""
-View into edges topology (a binary masks), read-only.
-"""
+"View into edges topology (a binary masks), read-only."
 struct EdgeMaskView{d} <: AbstractSparseMatrix{Bool,Int} # d::D.Web
     model::Model
     web::N.Web # Cache an alias to underlying web.

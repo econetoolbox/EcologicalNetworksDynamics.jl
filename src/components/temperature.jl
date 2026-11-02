@@ -10,11 +10,11 @@ NF.early_check(::_D, T) = NF.non_negative(Float64, T)
 
 # Generate and execute the code to generate blueprints and component.
 # Execute this within toplevel module to still expose the component.
-NF.define_graph_field(EN, d)
+const Temperature, _Temperature = NF.define_graph_field(EN, d)
+
+# Append constructor: default value + celcius unit.
+(::_Temperature)(; celc = 20) = Temperature.Raw(NF.convert(Float64, celc) + 273.15)
 
 end
 local Temperature, _Temperature # (reassure JuliaLS)
-
-# Append constructor: default value.
-(::_Temperature)() = Temperature.Raw(293.15)
 export Temperature

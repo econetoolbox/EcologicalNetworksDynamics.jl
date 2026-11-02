@@ -140,11 +140,14 @@ function define_node_field_component(
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework: V, NF, D, Network, Model
+                using EcologicalNetworksDynamics.NetworkFramework:
+                    V, N, NF, D, Network, Model
                 const d, prop, CP = $d, $prop, $CP
                 D.viewtype(::typeof(d)) = V.NodeFieldView
                 get_value(::Network, md::Model) = V.field_view(d, md)
+                get_entry(::Network, md::Model) = N.entry(md, d)
                 NF.define_method(get_value; read_as = prop, depends = [CP])
+                NF.define_method(get_entry; read_as = Symbol.((:_,), prop), depends = [CP])
                 if !D.readonly(d)
                     set_value!(::Network, md::Model, input) =
                         NF.mut_set!(md, d, NF.WholeData, input)
@@ -301,9 +304,7 @@ function late_check_refs(md::Model, d::D.NodeField, map::Map{<:Any,Symbol}; comp
     labels = N.labels(ix)
     exp = Set(labels)
     act = Set(keys(map))
-    render(set) = join_elided(
-        sort!(collect(I.map(ref -> "$cyan$(repr(ref))$reset", set))),
-        ", ", " and "; repr = false)
+    render(set) = join_elided(sort!(collect(set)), ", ", " and "; coleach = cyan)
     if complete
         miss = setdiff(exp, act)
         isempty(miss) ||
@@ -330,9 +331,7 @@ function late_check_refs(md::Model, d::D.NodeField, map::Map{<:Any,Int}; complet
         haskey(map, exp) && continue
         push!(miss, exp)
     end
-    render(set) = join_elided(
-        I.map(ref -> "$green$(repr(ref))$reset", set),
-        ", ", " and "; repr = false)
+    render(set) = join_elided(set, ", ", " and "; coleach = green)
     unexp = if isempty(miss)
         miss
     elseif complete
@@ -533,6 +532,7 @@ function nodes_shortline(io::IO, md::Model, d::D.NodeField)
     cl = N.class(nw, c)
     entry = cl.data[f]
     N.read(entry) do data
-        print(io, "$cc$Field$rs: $fc[$(join_elided(data, ", "))]$rs")
+        dat = join_elided(data, ", "; coleach = fc)
+        print(io, "$cc$Field$rs: [$(dat)]")
     end
 end

@@ -13,16 +13,12 @@ struct Class
     data::Dict{Symbol,Entry{<:Vector}}
 end
 
-"""
-Construct a subclass.
-"""
+"Construct a subclass."
 function Class(name, parent_name::Option{Symbol}, parent_index::Index, r::Restriction)
     Class(name, parent_name, r, Index(parent_index, r), Dict())
 end
 
-"""
-Fork class, called when COW-pying the whole network.
-"""
+"Fork class, called when COW-pying the whole network."
 function fork(c::Class)
     (; name, parent, restriction, index, data) = c
     Class(name, parent, restriction, index, fork(data))
@@ -34,27 +30,23 @@ entries(c::Class) = values(c.data)
 #-------------------------------------------------------------------------------------------
 # Base queries.
 
-"""
-Number of nodes in the class.
-"""
+"Number of nodes in the class."
 n_nodes(c::Class) = length(c.restriction)
 Base.length(c::Class) = n_nodes(c)
 export n_nodes
 
-"""
-Obtain iterable through all nodes labels in the class, in order.
-"""
+"Obtain iterable through all nodes labels in the class, in order."
 node_labels(c::Class) = keys(c.index)
 export node_labels
 
-"""
-Obtain iterable through all node indices of the class, in its parent scope.
-"""
+"Obtain iterable through all node indices of the class, in its parent scope."
 node_indices(c::Class) = indices(c.restriction)
 export node_indices
 
-"""
-Number of fields in the class.
-"""
+"Number of fields in the class."
 n_fields(c::Class) = length(c.data)
 export n_fields
+
+"True if the class has no parent."
+is_root(c::Class) = isnothing(c.parent)
+export is_root

@@ -22,23 +22,28 @@ eprint(args...; kwargs...) = print(stderr, args...; kwargs...)
 eprintln(args...; kwargs...) = println(stderr, args...; kwargs...)
 
 "Elide elements from vector if too numerous."
-function join_elided(vec, args...; max = 5, repr = true, kwargs...)
+function join_elided(vec, args...; max = 5, repr = true, coleach = nothing, kwargs...)
     vec = if length(vec) > max
         a, b = vec[1:(max-1)], vec[end:end]
-        a, b = dot_display.((a, b), repr)
+        a, b = dot_display.((a, b), repr, coleach)
         vcat(a, "...", b)
     else
-        dot_display(vec, repr)
+        dot_display(vec, repr, coleach)
     end
     join(vec, args...; kwargs...)
 end
 
 "Special-case sparse vectors so it special-displays missing values."
-dot_display(vec, use_repr = true) = use_repr ? repr.(vec) : ["$e" for e in vec]
-function dot_display(vec::AbstractSparseVector, use_repr = true)
+function dot_display(vec, use_repr = true, col = nothing)
+    res = use_repr ? repr.(vec) : ["$e" for e in vec]
+    isnothing(col) || return map(x -> "$col$x$reset", res)
+    res
+end
+function dot_display(vec::AbstractSparseVector, use_repr = true, col = nothing)
     res = repeat(["·"], length(vec))
     nzi, nzv = findnz(vec)
     res[nzi] = use_repr ? repr.(nzv) : map(e -> "$e", nzv)
+    isnothing(col) || return map(x -> "$col$x$reset", res)
     res
 end
 

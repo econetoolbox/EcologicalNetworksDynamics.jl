@@ -16,7 +16,7 @@ using Test
 const d, _D = D.Class(:species)
 const Sp = @PropertySpace(species, Network)
 
-@testset "Class component: blueprints" begin
+@testset "Class components: blueprints" begin
 
     # Blueprints available from component.
     @test Species isa Component
@@ -148,7 +148,7 @@ const Sp = @PropertySpace(species, Network)
 
 end
 
-@testset "Class component: properties" begin
+@testset "Class components: properties" begin
 
     # Not available if the component is missing.
     @propfails(Model().species.names,
@@ -182,7 +182,7 @@ end
 
 end
 
-@testset "Class component: names view" begin
+@testset "Class components: names view" begin
 
     View = Views.NodeNameView{d}
     bp = Species([:a, :b, :c])
@@ -279,7 +279,7 @@ end
 
 end
 
-@testset "Class component: expansion semantics" begin
+@testset "Class components: expansion semantics" begin
 
     # This was indirectly checked above (from display and views).
     # Check it explicitly now that the views are proven to work.

@@ -284,6 +284,9 @@ N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
 N.entry(md::Model, d::NodeField) = N.class(md, d).data[field(d)]
 N.entry(md::Model, d::EdgeField) = N.web(md, d).data[field(d)]
 
+# TODO: this should resolve statically without a query to `md` :\
+N.is_root(md::Model, d::NodeLevel) = N.class(md, d) |> N.is_root
+
 "In this context, root classes admit themselves as their own parents."
 function N.parent(md::Model, d::Subclass)
     p = parent(d)

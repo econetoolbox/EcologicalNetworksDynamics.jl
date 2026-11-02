@@ -15,7 +15,7 @@ using Test
 
 const d, _D = D.GraphField(:temperature)
 
-@testset "Typical GraphScalar component" begin
+@testset "GraphField components" begin
 
     # Blueprints available from the component.
     @test Temperature isa Component

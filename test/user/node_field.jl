@@ -1,7 +1,7 @@
 "Test all aspects of typical NodeField component, using body mass as an example."
 module NodeFieldTest
 
-# Much inspired by `Class`.
+# Much inspired by `ClassTest`.
 
 using EcologicalNetworksDynamics
 
@@ -16,7 +16,7 @@ using Test
 const d, _D = D.NodeField(:species, :body_mass)
 const View = V.NodeFieldView{d,Float64}
 
-@testset "NodeField component: blueprints" begin
+@testset "NodeField components: blueprints" begin
 
     @test BodyMass isa Component # Etc.
     @test BodyMass.Z <: Blueprint # Extension point for extra BP worked, but test Z later.
@@ -264,7 +264,7 @@ const View = V.NodeFieldView{d,Float64}
     addfails.@missing(Model(bp), Species, BodyMass, [BodyMass.Flat], nothing)
 end
 
-@testset "NodeField component: view" begin
+@testset "NodeField components: view" begin
 
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
     v = m.body_mass
@@ -328,7 +328,7 @@ end
 
 end
 
-@testset "NodeField component: mutate" begin
+@testset "NodeField components: mutate" begin
 
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
     v = m.body_mass
@@ -448,7 +448,7 @@ end
 
 end
 
-@testset "NodeField component: sparse extract" begin
+@testset "NodeField components: sparse extract" begin
 
     # Obtain legacy sparse data from view into subnodes field.
     m = Model(Foodweb([:a => :b, :c => (:b, :d)]), GrowthRate([5, 8]), BodyMass(2))

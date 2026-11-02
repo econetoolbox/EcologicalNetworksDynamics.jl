@@ -96,4 +96,5 @@ let S = NodeView
     D.class(s::S) = D.class(dispatcher(s))
     N.class(s::S) = N.class(N.network(s), D.class(s))
     N.index(s::S) = N.class(s).index
+    N.is_root(s::S) = s |> N.class |> N.is_root
 end

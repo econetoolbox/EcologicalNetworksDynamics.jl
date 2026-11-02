@@ -30,7 +30,7 @@ using EcologicalNetworksDynamics:
     EN, N, F, I, SparseMatrix, errwith, withcontext
 using EcologicalNetworksDynamics.Display:
     rept, render_input, yellow, black, cyan, reset, italics
-using EcologicalNetworksDynamics.NetworkFramework: NF, D, V
+using EcologicalNetworksDynamics.NetworkFramework: NF, D, V, AD
 
 using .Strings:
     showcompare,
@@ -147,7 +147,7 @@ module addfails
 end
 
 #-------------------------------------------------------------------------------------------
-# Exposed library errors.
+# Special-case uncomfortable comparisons.
 
 """
 Test report ref values,
@@ -195,6 +195,13 @@ test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
     FieldsCompare.value(exp, D.content(act))
 
 const ref = compare_refs
+
+FieldsCompare.default(exp::NamedTuple, act::NF.Allometry) =
+    FieldsCompare.default(NF.Allometry(; exp...), act)
+
+#-------------------------------------------------------------------------------------------
+# Exposed library errors.
+
 @genfailsmacro convfails NF.ConvertError (; mess, ref)
 @genfailsmacro listfails NF.ListError (;
     mess, tag = nothing, path = FieldsCompare.value)

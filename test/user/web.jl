@@ -15,7 +15,7 @@ const d, _D = D.Web(:trophic)
 const Tr = F.@PropertySpace(trophic, N.Network)
 const View = Views.EdgeMaskView{d}
 
-@testset "Web component: blueprints" begin
+@testset "Web components: blueprints" begin
 
     @test_disp(
         Foodweb,
@@ -240,7 +240,7 @@ const View = Views.EdgeMaskView{d}
 
 end
 
-@testset "Web component: properties" begin
+@testset "Web components: properties" begin
 
     @propfails(Model().trophic.matrix,
         Tr, :matrix, "Component <Foodweb> is required to read this property.")
@@ -339,7 +339,7 @@ end
 
 end
 
-@testset "Web component: mask view" begin
+@testset "Web components: mask view" begin
 
     bp = Foodweb([:a => (:b, :c), (:b, :d) => (:c, :e)])
     m = Model(Species("abcde"), bp)
@@ -462,7 +462,7 @@ end
 
 end
 
-@testset "Web component: expansion semantics" begin
+@testset "Web components: expansion semantics" begin
 
     # Same matrix.
     @test Model(Foodweb([0; 1;; 0; 0])).trophic.matrix == [0; 1;; 0; 0]

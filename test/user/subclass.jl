@@ -13,7 +13,7 @@ using Test
 const d, _D = D.Subclass(:producers, :species)
 const View = Views.NodeMaskView{d} # Tested view type.
 
-@testset "Subclass component: properties & views" begin
+@testset "Subclass components: properties & views" begin
 
     m = Model(Foodweb([:a => (:b, :c), :d => :e]))
 
@@ -78,7 +78,7 @@ const View = Views.NodeMaskView{d} # Tested view type.
         """)
 end
 
-@testset "Degenerate self-parent mask" begin
+@testset "Subclass components: degenerate self-parent mask" begin
 
     # Mask within the parent class (no parent class with this root example).
     m = Model(Species("abc"))

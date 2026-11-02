@@ -31,6 +31,7 @@ include("./body_mass.jl")
 include("./metabolic_class.jl")
 
 # Nodes data only relevant to a sub-class.
+# Possibly constructed from allometric blueprints.
 include("./growth_rate.jl")
 
 # Graph-level data.

@@ -204,6 +204,6 @@ function class_shortline(d::D.Class, io::IO, md::Model)
     Class = D.CamelCaseSingular(d)
     names = getproperty(md, class)._names
     n = length(names)
-    names = join_elided(I.map(n -> "$green$(repr(n))$reset", names), ", "; repr = false)
+    names = join_elided(names, ", "; coleach = green)
     print(io, "$cc$Class$rs: $fc$n$rs ($names)")
 end

@@ -209,14 +209,15 @@ Execute one or the other block named by end user.
 ]
 ```
 """
-function from_name(input, tries...)
+function from_name(input, tries...; kw...)
     name = convert(Symbol, input)
     expected = Symbol[]
     for (attempt, fn) in tries
         name == attempt && return fn()
         push!(expected, attempt)
     end
-    checkerr(input, "Expected one of [$(join_elided(expected, ", ", " or "))].")
+    exp = join_elided(expected, ", ", " or "; coleach = green)
+    checkerr(input, "Expected one of [$exp]."; kw...)
 end
 
 # ==========================================================================================
