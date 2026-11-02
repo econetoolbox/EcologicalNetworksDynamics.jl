@@ -428,10 +428,9 @@ end
     # On assignment.
     @mutfails(m.body_mass = [1, 5],
         (d, [1.0, 5.0], :mwhole, "Wrong number of values received: expected 3, got 2."))
-    input = [:x => 1, :y => 2]
+    input = [:x => 1.0, :y => 2.0]
     @mutfails(m.body_mass = input,
-        (d, OrderedDict(:x => 1.0, :y => 2.0), :mwhole,
-            "Not :species names: :x and :y."))
+        (d, OrderedDict(input), :mwhole, "Not species names: :x and :y."))
     @mutfails(m.body_mass = [:a => 1, :c => -2],
         (d, -2.0, (:u, (:c,)), "Value cannot be negative."))
 

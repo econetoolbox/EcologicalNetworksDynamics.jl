@@ -304,12 +304,7 @@ _late_check(md::Model, d::D.AbstractNodeField, x, mref::MRef) =
     end
 
 # Lower to a fresh vector while checking.
-function late_check(
-    md::Model,
-    d::D.AbstractNodeField,
-    vec::Vector,
-    refclass::Function = N.class,
-)
+function late_check(md::Model, d::D.AbstractNodeField, vec::Vector; refclass = N.class)
     # Check plain number of provided values.
     cl = refclass(md, d)
     exp, act = length.((cl, vec))
@@ -346,9 +341,11 @@ function late_check_refs(
     end
     unexp = setdiff(act, exp)
     if !isempty(unexp)
-        a, s = length(unexp) == 1 ? (" a", "") : ("", "s")
-        c = D.snake_case_singular(first(D.Class(d)))
-        checkerr(map, "Not$a $green$(repr(c))$reset name$s: $(render(unexp)).")
+        a, s, sn = length(unexp) == 1 ?
+            (" a", "", D.snake_case_singular) :
+            ("", "s", D.snake_case_plural)
+        c = sn(first(D.Class(d)))
+        checkerr(map, "Not$a $green$c$reset name$s: $(render(unexp)).")
     end
     nothing
 end

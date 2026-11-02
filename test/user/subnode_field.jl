@@ -175,7 +175,7 @@ const View = Views.SubnodeFieldView{d,Float64}
     bp = GrowthRate([:c => 7, l...])
     addfails.@check(base + bp, [],
         (GrowthRate.Map, :late,
-            (d, bp.growth, :mwhole, "Not a :producer name: :c.")))
+            (d, bp.growth, :mwhole, "Not a producer name: :c.")))
 
     pop!(bpi.growth, 2)
     addfails.@check(base + bpi, [],
@@ -351,11 +351,8 @@ end
     @test a == alt.producers.growth == [0, 5, 0, 8]
 
     # Guard against de-nulling non-structural values.
-    @mutfails(v[1] += 1, (d, 1.0, (:m, ((1, :a),)), "Not a null value for a non-producer."))
-    @mutfails(
-        v[:c] += 2,
-        (d, 2.0, (:m, ((3, :c),)), "Not a null value for a non-producer.")
-    )
+    @mutfails(v[1] += 1, (d, 1.0, (:m, ((1, :a),)), "Non-producers must get null values."))
+    @mutfails(v[:c] += 2, (d, 2.0, (:m, ((3, :c),)), "Non-producers must get null values."))
 
     # Use whole property to reassign.
     input = [0, 4, 0, 6]
@@ -365,6 +362,53 @@ end
     input[2] *= 10
     @test input == [0, 40, 0, 6]
     @test v == w == m.producers.growth == [0, 4, 0, 6] # Not aliasing reassignment.
+    m.producers.growth = (; b = 7) # Map-like.
+    @test v == w == m.producers.growth == [0, 7, 0, 6]
+    m.producers.growth = 2 # Flat-like.
+    @test v == w == m.producers.growth == [0, 2, 0, 2]
+
+    # AbstractArray utils.
+    v[2:3] = [1, 0]
+    @test v == w == m.producers.growth == [0, 1, 0, 2]
+    v[1:4 .> 2] = [0, 3]
+    @test v == w == m.producers.growth == [0, 1, 0, 3]
+    v[4:4] .= 4 # (weak broadcast example, nevermind)
+    @test v == w == m.producers.growth == [0, 1, 0, 4]
+    v[[2, 4]] = [6, 7]
+    @test v == w == m.producers.growth == [0, 6, 0, 7]
+
+    # Extra.
+    v[[:b, :d]] = [8, 9]
+    @test v == w == m.producers.growth == [0, 8, 0, 9]
+
+    @test a == alt.producers.growth == [0, 5, 0, 8] # Still unchanged.
+
+    # Index-checking is also enabled via `setindex!`.
+    @viewfails(v[-5] = 8, (d, -5, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[5] = 8, (d, 5, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[end+1] = 8, (d, 5, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[:x] = 8, (d, :x, :uwhole, "No node in this class is labeled :x."))
+
+    # Value early check.
+    @mutfails(v[2] = -5, (d, -5.0, (:m, ((2, :b),)), "Value cannot be negative."))
+    @mutfails(v[:d] = -5, (d, -5.0, (:m, ((4, :d),)), "Value cannot be negative."))
+
+    # That also *includes* late-checking.
+    @mutfails(v[1] = 5, (d, 5.0, (:m, ((1, :a),)), "Non-producers must get null values."))
+    @mutfails(v .= 5, (d, 5.0, (:m, ((1, :a),)), "Non-producers must get null values."))
+    @mutfails(v[2:3] .= [5, 8],
+        (d, 8.0, (:m, ((3, :c),)), "Non-producers must get null values."))
+    @mutfails(v[2:4] .= 5,
+        (d, 5.0, (:m, ((3, :c),)), "Non-producers must get null values."))
+
+    # On assignment.
+    @mutfails(m.producers.growth = [5, 8],
+        (d, [5.0, 8.0], :mwhole, "Wrong number of values received: expected 4, got 2."))
+    input = [:x => 1.0, :y => 2.0]
+    @mutfails(m.producers.growth = input,
+        (d, OrderedDict(input), :mwhole, "Not producers names: :x and :y."))
+    @mutfails(m.producers.growth = [:b => 1, :d => -2], # HERE: should fail :\
+          (d, -2.0, (:m, ((:d),)), "Value cannot be negative."))
 
     # ======================================================================================
     # ↑ ↑ ↑ HERE upgrade tests ↑ ↑ ↑
@@ -484,7 +528,7 @@ end
     @bpfails(
         m.growth_rate = Dict(:c => 2),
         "When attempting to assign to <species:producers:growth> node field:\n\
-         Not a :producers name: :c.",
+         Not a producer name: :c.",
     )
     @bpfails(
         m.growth_rate = -1,
@@ -568,7 +612,7 @@ end
             late,
             [GrowthRate.Map],
             "When checking <species:producers:growth> blueprint against model:\n\
-             Not :producers names: :x and :y.",
+             Not producers names: :x and :y.",
         )
     )
 

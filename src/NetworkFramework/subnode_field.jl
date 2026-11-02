@@ -168,7 +168,10 @@ end
 # The index is expected to stand within parent class.
 # Ignore when off-subclass: rejected during late-check if nonzero.
 
-mut_late_check(md::Model, d::D.SubnodeField, early) = late_check(md, d, early, N.parent)
+mut_late_check(md::Model, d::D.SubnodeField, early::Vector) =
+    late_check(md, d, early; refclass = N.parent)
+mut_late_check(md::Model, d::D.SubnodeField, map::Map) =
+    @invoke mut_late_check(md, d::D.AbstractNodeField, map) # (unfortunately required? :\)
 
 function mut_late_check(md::Model, d::D.SubnodeField, (i,)::Tuple{Int}, x)
     rs = N.class(md, d).restriction
@@ -179,12 +182,12 @@ function mut_late_check(md::Model, d::D.SubnodeField, (i,)::Tuple{Int}, x)
     else
         T = D.type(d)
         x === zero(T) && return x
-        c = D.snake_case_singular(first(D.Class(d)))
-        checkerr(x, "Not a null value for a non-$green$c$reset.")
+        c = D.snake_case_plural(first(D.Class(d)))
+        checkerr(x, "Non-$green$c$reset must get null values.")
     end
 end
 
-function mutate!(md::Model, d::D.SubnodeField, ::_WholeData, raw)
+function mutate!(md::Model, d::D.SubnodeField, ::_WholeData, raw::Vector)
     rs = N.class(md, d).restriction
     entry = N.entry(md, d)
     N.mutate!(entry) do nodes
