@@ -107,6 +107,6 @@ export interactions_names, multiplex_parameters_names
 
 using .NetworkFramework
 export Blueprint, Component, Model, has_component
-export extract
+export extract, spextract
 
 end

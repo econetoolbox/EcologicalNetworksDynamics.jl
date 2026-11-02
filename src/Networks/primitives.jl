@@ -216,7 +216,7 @@ function restriction(n::Network, class::Symbol, super::Symbol, ::Type{Internal})
     # Find parent class.
     parent = class
     while true
-        isnothing(class.parent) &&
+        (isnothing(class.parent) || !haskey(n.classes, parent.parent)) &&
             err("Node class $(repr(super)) does not superclass $(repr(class.name)).")
         parent = n.classes[parent.parent]
         parent.name == super && break

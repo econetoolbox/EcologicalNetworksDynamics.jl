@@ -213,6 +213,6 @@ aliasing_symbol(dict, input) =
     end
 
 using .Views
-export extract
+export extract, spextract
 
 end

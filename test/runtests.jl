@@ -13,7 +13,6 @@ import CompatHelperLocal
 import EcologicalNetworksDynamics: Display
 import .Display: blue, bold, reset
 
-
 # Draw separator.
 sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$reset")
 

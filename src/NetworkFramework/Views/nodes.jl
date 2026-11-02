@@ -3,17 +3,36 @@ struct NodeFieldView{d,T} <: AbstractVector{T} # d::D.NodeField
     model::Model
     view::N.NodeView{T}
 end
-let S = NodeFieldView
-    N.restriction(s::S) = N.class(s).restriction
-    Base.size(s::S) = (s |> N.view |> length,)
-    V.extract(s::S) = read(collect, N.entry(s))
-    N.class(s::S) = s |> N.view |> N.class
-end
 
 function field_view(d::D.NodeField, m::Model)
     view = N.nodes_view(N.network(m), D.class(d), D.field(d))
     T = eltype(view)
     NodeFieldView{d,T}(m, view)
+end
+
+let S = NodeFieldView
+    N.restriction(s::S) = N.class(s).restriction
+    Base.size(s::S) = (s |> N.view |> length,)
+    V.extract(s::S) = read(collect, N.entry(s))
+    N.class(s::S) = s |> N.view |> N.class
+
+    # Extract legacy sparse view.
+    function V.spextract(s::S, parent::Option{Symbol} = nothing)
+        nw, cl = N.network(s), N.class(s)
+        par, rs = if isnothing(parent)
+            # Default: pick direct parent from underlying model.
+            isnothing(cl.parent) && argerr("Cannot sparse-extract from a root class: \
+                                            $green$(repr(cl.name))$reset.")
+            cl.parent, cl.restriction
+        else
+            parent, N.restriction(nw, D.class(s), parent)
+        end
+        T = eltype(s)
+        n = length(N.class(nw, par))
+        read(N.entry(s)) do data
+            N.expand(T, rs, n, data)
+        end
+    end
 end
 
 # ==========================================================================================

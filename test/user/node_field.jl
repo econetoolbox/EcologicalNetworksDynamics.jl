@@ -8,7 +8,7 @@ using EcologicalNetworksDynamics
 using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF, D, V
 using EcologicalNetworksDynamics.Tests:
     @test_err, @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
-    @propfails, @viewfails, @mutfails, @viewfails
+    @propfails, @viewfails, @mutfails, @viewfails, @argfails, @netfails
 using OrderedCollections
 using SparseArrays
 using Test
@@ -445,6 +445,30 @@ end
     #                                 *v*
     @test v == w == m.body_mass == [8, 1, 9]
     @test a == alt.body_mass == [4, 5, 6]
+
+end
+
+@testset "NodeField component: sparse extract" begin
+
+    # Obtain legacy sparse data from view into subnodes field.
+    m = Model(Foodweb([:a => :b, :c => (:b, :d)]), GrowthRate([5, 8]), BodyMass(2))
+
+    @test m.producers.growth == [5, 8] # Dense.
+
+    # Dense extract.
+    e = extract(m.producers.growth)
+    @test e isa Vector{Float64}
+    @test e == [5, 8]
+
+    # Sparse extract, within its parent.
+    e = spextract(m.producers.growth)
+    @test e isa SparseVector{Float64}
+    @test e == [0, 5, 0, 8]
+
+    @netfails(spextract(m.producers.growth, :x), "Not a class in the network: :x.")
+    @netfails(spextract(m.producers.growth, :tops),
+        "Node class :tops does not superclass :producers.")
+    @argfails(spextract(m.body_mass), "Cannot sparse-extract from a root class: :species.")
 
 end
 

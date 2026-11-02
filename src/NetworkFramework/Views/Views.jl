@@ -34,8 +34,8 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics:
-    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith
-import .Display: join_elided, render_input, ns, reset, cyan, yellow, nsa
+    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith, argerr
+import .Display: join_elided, render_input, ns, reset, cyan, green, yellow, nsa
 import .NetworkFramework:
     NF, D, Model, can_convert, CheckError, checkerr, LibError, dispatcher, Ref,
     WholeData, _WholeData, UserRef, ModelRef
@@ -75,11 +75,13 @@ using Crayons
 # Don't expect Revise to correctly track changes within this module because of this.
 # But I still think the readability/mantainability gain it's worth that cost.
 
-"""
-Extract an owned copy of the viewed data under a regular dense/sparse vector/matrix form.
-"""
+"Extract an owned copy of the viewed data under a regular dense/sparse vector/matrix form."
 function extract end
 export extract
+
+"Extract an owned copy of the viewed data as a sparse array within parent class."
+function spextract end
+export spextract
 
 include("nodes.jl")
 include("edges.jl")

@@ -51,6 +51,10 @@
   ```julia
   m.growth_rate # Dense view: [5.0, 8.0].
   ```
+  Extract the corresponding legacy sparse view by explicitly requesting it:
+  ```julia
+  spextract(m.growth_rate) # Sparse view: [·, 5.0, ·, 8.0].
+  ```
 
 - `Raw` blueprint for edge fields now expect a dense *vector* or raw values.
   If you want to input a matrix instead. Use the `Matrix` blueprint.
