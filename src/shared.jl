@@ -1,8 +1,5 @@
 # A collection of small utils shared throughout the project.
 
-const Option{T} = Union{T,Nothing}
-const SparseMatrix{T} = SparseMatrixCSC{T,Int}
-
 #-------------------------------------------------------------------------------------------
 "Filter + map over iterator. The last argument explains which values to filter out."
 filter_map(f, it, filter = !isnothing) = I.map(something, I.filter(filter, I.map(f, it)))

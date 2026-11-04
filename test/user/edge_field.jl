@@ -5,8 +5,9 @@ module EdgeFieldTest
 
 using EcologicalNetworksDynamics
 
-import EcologicalNetworksDynamics.Tests: EN, N, F, NF, D, V,
-    @test_repr, @test_disp, @bpfails, addfails, @viewfails
+import EcologicalNetworksDynamics.Tests:
+    EN, N, F, NF, D, V,
+    @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails
 using Test
 
 const d, _D = D.EdgeField(:trophic, :efficiency)
@@ -16,15 +17,14 @@ const View = V.SparseEdgeFieldView{d,Float64}
 @testset "EdgeField components: blueprints" begin
 
     @test Efficiency isa Component
-    @test is_repr(Efficiency, "Efficiency")
-    @test is_disp(
-        Efficiency,
+    @test_disp(Efficiency,
         """
         Efficiency (component for $(N.Network), expandable from:
           Raw: raw values,
           Matrix: a sparse matrix,
           Adjacency: [species => [species => efficiency]] adjacency list,
           Flat: uniform value,
+          Miele2019: herbivorous/carnivorous efficiencies,
         )\
         """,
     )
@@ -32,93 +32,87 @@ const View = V.SparseEdgeFieldView{d,Float64}
     @test Efficiency.Adjacency <: EN.Blueprint
     @test Efficiency.Flat <: EN.Blueprint
 
-    base = Model(Foodweb([:a => :b, :b => :c, :d => (:a, :c)]))
+    base = Model(Foodweb([
+        :a => :b,
+        :b => :c,
+        :d => (:a, :c),
+    ]))
 
     # ======================================================================================
-    # Raw blueprint.
+    # From raw values.
 
     #---------------------------------------------------------------------------------------
-    # Construct, regardless of input type.
+    # Construct.
 
     bp = Efficiency.Raw([2, 5, 8, 4] / 10)
-    @test Efficiency.Raw(Bool[1, 0, 1, 0]) == Efficiency.Raw([1.0, 0.0, 1.0, 0.0])
-    @test bp == Efficiency([2, 5, 8, 4] / 10) # Implicit constructor.
-    @test Efficiency(Bool[1, 0, 1, 0]) == Efficiency([1.0, 0.0, 1.0, 0.0])
-    @test is_repr(bp, "<Efficiency>:Raw(e: [0.2, 0.5, 0.8, 0.4])")
-    @test is_disp(
-        bp,
+    @test bp.e isa Vector{Float64}
+    @test bp == Efficiency([2, 5, 8, 4] / 10)
+    @test Efficiency.Raw(Bool[0, 1, 0, 1]).e == [0, 1, 0, 1]
+    @test Efficiency(Bool[0, 1, 0, 1]).e == [0, 1, 0, 1]
+    @test_repr(bp, "<Efficiency>:Raw(e: [0.2, 0.5, 0.8, 0.4])")
+    @test_disp(bp,
         """
         blueprint for <Efficiency>: Raw {
           e: [0.2, 0.5, 0.8, 0.4],
         }\
-        """,
-    )
-    @bpfails(
-        Efficiency('x'),
-        "Cannot convert input to either:\n  \
-          - $Float64\n  \
-          - $Vector{$Float64}\n  \
-          - $(SparseMatrix{Float64})\n  \
-          - $(Adjacency{Float64})",
-        'x',
-    )
-    @bpfails(
-        Efficiency([0.1, 1.5, 0.3]),
-        "When constructing <trophic:efficiency> from raw values:\n\
-         At raw edge value [2]:\n\
-         Value must belong to [0, 1].",
-        1.5
-    )
+        """,)
+
+    alias = bp.e
+    @test alias === Efficiency.Raw(alias).e
+    @test alias === Efficiency(alias).e
+
+    invalid = [4, 5, :x]
+    @bpfails(Efficiency.Raw(invalid), Efficiency.Raw, :construct,
+        (d, :x, (:u, (3,)), "Cannot convert to `$Float64`:\nConversion not implemented."))
+    @checkfails(Efficiency(invalid), d, invalid, :uwhole,
+        """
+        Cannot convert input to either:
+          - $(Float64)
+          - $(Vector{Float64})
+          - $(NF.SparseMatrix{Float64})
+          - $(NF.Adjacency{Float64})
+        (see attempts down the stacktrace)\
+        """)
 
     #---------------------------------------------------------------------------------------
     # Early check.
 
-    addfails.@check(
-        let
-            b = deepcopy(bp)
-            b.e[2] *= 10
-            base + b
-        end,
-        Check(
-            early,
-            [Efficiency.Raw],
-            """
-            When checking <trophic:efficiency> blueprint data:
-            At raw edge value [2]:
-            Value must belong to [0, 1].
-            Received: 5.0\
-            """,
-        )
-    )
+    @bpfails(Efficiency([0.1, 1.5, 0.3]), Efficiency.Raw, :construct,
+        (d, 1.5, (:u, (2,)), "Value must belong to [0, 1]."))
+    alias[3] *= -1
+    addfails.@check(base + bp, [],
+        (Efficiency.Raw, :early, (d, -0.8, (:u, (3,)), "Value must belong to [0, 1].")))
 
     #---------------------------------------------------------------------------------------
     # Late check.
 
-    addfails.@check(
-        base + Efficiency([0.5, 0.8]),
-        Check(
-            late,
-            [Efficiency.Raw],
-            """
-            When checking <trophic:efficiency> blueprint against model:
-            Wrong number of values received: expected 4, got 2.\
-            """,
-        )
-    )
+    addfails.@check(base + Efficiency([0.1, 0.2, 0.3]), [],
+        (Efficiency.Raw, :late,
+            (d, [0.1, 0.2, 0.3], :mwhole,
+                "There are 4 edges to valuate, but the vector is of size 3.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
 
+    bp = Efficiency.Raw([2, 5, 8, 4] / 10)
     m = base + bp
-    @test is_disp(
-        m,
+    @test has_component(m, Efficiency)
+    @test_disp(m,
         """
-        Model (alias for $(F.System){$(N.Network)}) with 3 components:
+        Model (alias for $Model) with 3 components:
           - Species: 4 (:a, :b, :c, :d)
           - Foodweb: 4 links, 1 producer, 3 consumers, 3 preys, 1 top.
           - Efficiency: 0.2 to 0.8 (4 values).\
-        """,
-    )
+        """)
+
+    # The web is required.
+    addfails.@missing(Model(bp), Foodweb, Efficiency, [Efficiency.Raw], nothing)
+
+    # ======================================================================================
+    # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
+    # ======================================================================================
+    error("STOP HERE")
+
 
     # The result is col-wise, as a julia user would expect.
     @test extract(m.efficiency) == [
@@ -144,8 +138,8 @@ const View = V.SparseEdgeFieldView{d,Float64}
     @test Efficiency.Matrix(Bool[0 1; 1 0]) == Efficiency.Matrix([0.0 1.0; 1.0 0.0])
     @test bp == Efficiency.Matrix(Matrix(mat)) # From a dense matrix as well.
     @test bp == Efficiency(mat) # Implicit constructor.
-    @test is_repr(bp, "<Efficiency>:Matrix(e: 4×4:4 [0.1:0.4])")
-    @test is_disp(
+    @test_repr(bp, "<Efficiency>:Matrix(e: 4×4:4 [0.1:0.4])")
+    @test_disp(
         bp,
         """
         blueprint for <Efficiency>: Matrix {
@@ -262,15 +256,15 @@ const View = V.SparseEdgeFieldView{d,Float64}
     # Implicit constructor.
     @test bp_r == Efficiency(adj_r)
     @test bp_i == Efficiency(adj_i)
-    @test is_repr(
+    @test_repr(
         bp_r,
         "<Efficiency>:Adjacency(e: {a: {b: 0.2}, b: {c: 0.3}, d: {a: 0.1, c: 0.4}})",
     )
-    @test is_repr(
+    @test_repr(
         bp_i,
         "<Efficiency>:Adjacency(e: {1: {2: 0.2}, 2: {3: 0.3}, 4: {1: 0.1, 3: 0.4}})",
     )
-    @test is_disp(
+    @test_disp(
         bp_r,
         """
         blueprint for <Efficiency>: Adjacency {
@@ -278,7 +272,7 @@ const View = V.SparseEdgeFieldView{d,Float64}
         }\
         """,
     )
-    @test is_disp(
+    @test_disp(
         bp_i,
         """
         blueprint for <Efficiency>: Adjacency {
@@ -424,8 +418,8 @@ const View = V.SparseEdgeFieldView{d,Float64}
     @test Efficiency.Flat(true) == Efficiency.Flat(1.0) # Input conversion.
     @test bp == Efficiency(0.5) # Implicit constructor.
     @test Efficiency(true) == Efficiency(1.0)
-    @test is_repr(bp, "<Efficiency>:Flat(e: 0.5)")
-    @test is_disp(
+    @test_repr(bp, "<Efficiency>:Flat(e: 0.5)")
+    @test_disp(
         bp,
         "blueprint for <Efficiency>: Flat {\n  \
            e: 0.5,\n\
@@ -495,8 +489,8 @@ const View = V.SparseEdgeFieldView{d,Float64}
     v = m.efficiency
     @test v isa View
     @test v isa AbstractMatrix{Float64}
-    @test is_repr(v, "<trophic:efficiency>(4×4: 4 values ranging from 0.1 to 0.4)")
-    @test is_disp(
+    @test_repr(v, "<trophic:efficiency>(4×4: 4 values ranging from 0.1 to 0.4)")
+    @test_disp(
         v,
         """
         EdgeDataView<trophic:efficiency>{Float64} (4×4: 4 values)
@@ -595,6 +589,10 @@ const View = V.SparseEdgeFieldView{d,Float64}
     # TODO: once all tests pass here, do cleanup view indexing code,
     # could be much more compact with check_ref, to_index, _is_edge etc.
 
+end
+
+@testset "WebField components: expansion semantics" begin
+    # TODO: check that .Raw expansion is column-wise.
 end
 
 end

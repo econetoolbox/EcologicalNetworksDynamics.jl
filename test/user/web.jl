@@ -17,15 +17,14 @@ const View = Views.EdgeMaskView{d}
 
 @testset "Web components: blueprints" begin
 
-    @test_disp(
-        Foodweb,
+    @test Foodweb isa Component
+    @test_disp(Foodweb,
         """
         Foodweb (component for $(N.Network), expandable from:
           Matrix: boolean matrix of foodweb links,
           Adjacency: adjacency list of foodweb links,
         )\
-        """,
-    )
+        """)
 
     # ======================================================================================
     # From a matrix.
@@ -118,7 +117,7 @@ const View = Views.EdgeMaskView{d}
     @test has_component(m, Species)
     @test_disp(m,
         """
-        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+        Model (alias for $Model) with 2 components:
           - Species: 3 (:s1, :s2, :s3)
           - Foodweb: 3 links, 1 producer, 2 consumers, 2 preys, 1 top.\
         """)
@@ -233,8 +232,8 @@ const View = Views.EdgeMaskView{d}
     @checkfails(Foodweb(input), d, input, :uwhole,
         """
         Cannot convert input to either:
-          - $(SparseMatrix{Bool})
-          - $(EN.BinAdjacency)
+          - $(NF.SparseMatrix{Bool})
+          - $(NF.BinAdjacency)
         (see attempts down the stacktrace)\
         """)
 

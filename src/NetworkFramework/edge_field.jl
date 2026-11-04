@@ -58,7 +58,7 @@ function define_web_field_component(
             @bp_construct Raw
         end
         export Raw
-        NF.register_blueprint(Raw, "raw values"; d, depends = [Web])
+        NF.register_blueprint(Raw, "raw values"; d)
     end)
 
     #---------------------------------------------------------------------------------------
@@ -71,8 +71,7 @@ function define_web_field_component(
                 @bp_construct Matrix
             end
             export Matrix
-            NF.register_blueprint(Matrix, "a $(sparse ? "sparse " : "")matrix"; d,
-                depends = [Web])
+            NF.register_blueprint(Matrix, "a $(sparse ? "sparse " : "")matrix"; d)
         end,
     )
 
@@ -87,7 +86,7 @@ function define_web_field_component(
             end
             export Adjacency
             NF.register_blueprint(Adjacency,
-                $"[$src => [$tgt => $field]] adjacency list"; d, depends = [Web])
+                $"[$src => [$tgt => $field]] adjacency list"; d)
         end,
     )
 
@@ -102,7 +101,7 @@ function define_web_field_component(
                     @bp_construct Flat
                 end
                 export Flat
-                NF.register_blueprint(Flat, "uniform value"; d, depends = [Web])
+                NF.register_blueprint(Flat, "uniform value"; d)
             end,
         )
     end
@@ -116,7 +115,7 @@ function define_web_field_component(
             NF.define_component(
                 $(Meta.quot(Value)),
                 $mod;
-                requires = $requires,
+                requires = ($Web, $(requires...)),
                 blueprints = [$bpmod, $(blueprints...)],
             )
         end,
@@ -240,8 +239,9 @@ function cst_early_check(
 )
     d = dispatcher(BP)
     D.is_symmetric(first(D.Web(d))) && check_symmetric(d, data)
-    for (ref, x) in edge_pairs(data)
-        urefguard(Tuple(ref)) do
+    for (r, x) in edge_pairs(data)
+        ref = Tuple(r)
+        urefguard(ref) do
             D.is_dense(d) && check_dense_ref(BP, ref, data)
             early_check(d, x, ref)
         end
@@ -550,11 +550,12 @@ end
 
 function edges_shortline(io::IO, md::Model, d::D.EdgeField)
     cc, fc, rs = F.component_color, F.field_color, reset
+    fr(x) = "$fc$x$rs"
     Field = D.CamelCaseSingular(d)
     n, s = N.web(md, d).topology |> N.n_edges |> ns
     N.read(N.entry(md, d)) do data
         min, max = extrema(data)
-        vals = min == max ? "$min" : "$min to $max"
-        print(io, "$cc$Field$rs: $fc$vals$rs ($fc$n$rs value$s).")
+        vals = min == max ? fr(min) : "$(fr(min)) to $(fr(max))"
+        print(io, "$cc$Field$rs: $vals ($(fr(n)) value$s).")
     end
 end

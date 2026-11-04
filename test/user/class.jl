@@ -105,7 +105,7 @@ const Sp = @PropertySpace(species, Network)
     @test has_component(m, Species)
     @test_disp(m,
         """
-        Model (alias for $(F.System){$Network}) with 1 component:
+        Model (alias for $Model) with 1 component:
           - Species: 3 (:a, :b, :c)\
         """)
 
@@ -142,7 +142,7 @@ const Sp = @PropertySpace(species, Network)
     @test has_component(m, Species)
     @test_disp(m,
         """
-        Model (alias for $(F.System){$Network}) with 1 component:
+        Model (alias for $Model) with 1 component:
           - Species: 3 (:s1, :s2, :s3)\
         """)
 
@@ -290,7 +290,7 @@ end
     function empty(m)
         @test_disp(m,
             """
-            Model (alias for $(F.System){$Network}) with 1 component:
+            Model (alias for $Model) with 1 component:
               - Species: 0 ()\
             """)
         @test m.species.names == []

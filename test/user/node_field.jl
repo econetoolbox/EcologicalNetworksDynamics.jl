@@ -18,8 +18,17 @@ const View = V.NodeFieldView{d,Float64}
 
 @testset "NodeField components: blueprints" begin
 
-    @test BodyMass isa Component # Etc.
+    @test BodyMass isa Component
     @test BodyMass.Z <: Blueprint # Extension point for extra BP worked, but test Z later.
+    @test_disp(BodyMass,
+        """
+        BodyMass (component for $(N.Network), expandable from:
+          Raw: raw values,
+          Map: [species => body_mass] map,
+          Flat: uniform value,
+          Z: trophic levels,
+        )\
+        """)
 
     # ======================================================================================
     # From raw values.
@@ -36,14 +45,12 @@ const View = V.NodeFieldView{d,Float64}
     @test BodyMass(Bool[1, 0, 1]) == BodyMass([1.0, 0.0, 1.0])
     @test bp == BodyMass.Raw(4, 5.0, 6)
     @test_repr(bp, "<BodyMass>:Raw(M: [4.0, 5.0, 6.0])")
-    @test_disp(
-        bp,
+    @test_disp(bp,
         """
         blueprint for <BodyMass>: Raw {
           M: [4.0, 5.0, 6.0],
         }\
-        """
-    )
+        """)
 
     alias = bp.M
     @test alias === BodyMass.Raw(alias).M
@@ -57,12 +64,11 @@ const View = V.NodeFieldView{d,Float64}
     @checkfails(BodyMass(invalid), d, invalid, :uwhole,
         """
         Cannot convert input to either:
-          - $Float64
-          - $Vector{$Float64}
-          - $OrderedDict{R, $Float64} where R
+          - $(Float64)
+          - $(Vector{Float64})
+          - $(NF.Map{Float64})
         (see attempts down the stacktrace)\
-        """
-    )
+        """)
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -92,7 +98,7 @@ const View = V.NodeFieldView{d,Float64}
     @test m.species.names == [:s1, :s2, :s3]
     @test_disp(m,
         """
-        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+        Model (alias for $Model) with 2 components:
           - Species: 3 (:s1, :s2, :s3)
           - BodyMass: [4.0, 5.0, 6.0]\
         """)
@@ -195,13 +201,13 @@ const View = V.NodeFieldView{d,Float64}
     @test mi.species.names == [:s1, :s2, :s3]
     @test_disp(m,
         """
-        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+        Model (alias for $Model) with 2 components:
           - Species: 3 (:a, :b, :c)
           - BodyMass: [4.0, 5.0, 6.0]\
         """)
     @test_disp(mi,
         """
-        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+        Model (alias for $Model) with 2 components:
           - Species: 3 (:s1, :s2, :s3)
           - BodyMass: [4.0, 5.0, 6.0]\
         """)
@@ -255,7 +261,7 @@ const View = V.NodeFieldView{d,Float64}
     @test has_component(m, BodyMass)
     @test_disp(m,
         """
-        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+        Model (alias for $Model) with 2 components:
           - Species: 3 (:a, :b, :c)
           - BodyMass: [5.0, 5.0, 5.0]\
         """)

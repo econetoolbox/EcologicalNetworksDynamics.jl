@@ -18,9 +18,7 @@ abstract type Dispatcher end
 # ==========================================================================================
 # Class.
 
-"""
-Dispatch to a particular class.
-"""
+"Dispatch to a particular class."
 struct Class{class} <: Dispatcher end
 function Class(class::Symbol)
     T = Class{class}
@@ -45,9 +43,7 @@ snake_case_plural(s::S) = name_variants(s)[3]
 CamelCaseSingular(s::S) = name_variants(s)[4]
 CamelCasePlural(s::S) = name_variants(s)[5]
 
-"""
-Obtain the component providing the class.
-"""
+"Obtain the component providing the class."
 component(s::S) = throw("Component unspeficied for $s.")
 
 # Display.
@@ -59,9 +55,7 @@ end
 # ==========================================================================================
 # Node mask.
 
-"""
-Dispatch to a particular class from the perspective of a parent class.
-"""
+"Dispatch to a particular class from the perspective of a parent class."
 struct Subclass{class,parent} <: Dispatcher end
 function Subclass(class::Symbol, parent::Option{Symbol})
     T = Subclass{class,parent}
@@ -72,9 +66,7 @@ content(::S{class,parent}) where {class,parent} = (class, parent)
 class(s::S) = first(content(s))
 parent(s::S) = last(content(s))
 
-"""
-Obtain dispatcher to underlying class.
-"""
+"Obtain dispatcher to underlying class."
 Class(s::S) = Class(class(s))
 
 # Display.
@@ -86,9 +78,7 @@ end
 # ==========================================================================================
 # Web.
 
-"""
-Dispatch to a particular web.
-"""
+"Dispatch to a particular web."
 struct Web{web} <: Dispatcher end
 function Web(web::Symbol)
     T = Web{web}
@@ -103,8 +93,6 @@ is_symmetric(s::S) =
     is_reflexive(s) ? throw("Unspecified whether $s reflexive web topology is symmetric.") :
     false # No need to implement for non-reflexive webs.
 is_sparse(s::S) = unimplemented(is_sparse, s) # Always need to specify.
-is_dense(s::S) = !is_sparse(s)
-
 
 """
 Obtain name variants for the web, in order:
@@ -116,26 +104,18 @@ name_variants(s::S) = throw("Name variants unspecified for $s.")
 snake_case(s::S) = name_variants(s)[1]
 CamelCase(s::S) = name_variants(s)[2]
 
-"""
-Property name, if different from the web name.
-"""
+"Property name, if different from the web name."
 propnames(s::S) = (snake_case(s), CamelCase(s))
 
-"""
-Obtain the component providing the web.
-"""
+"Obtain the component providing the web."
 component(s::S) = throw("Component unspecified for $s.")
 
-"""
-Names of the (source, target) classes.
-"""
+"Names of the (source, target) classes."
 sidenames(s::S) = throw("Source and target classes unspecified for $s.")
 sourcename(s::S) = first(sidenames(s))
 targetname(s::S) = last(sidenames(s))
 
-"""
-Obtain dispatchers to the source/target classes.
-"""
+"Obtain dispatchers to the source/target classes."
 sides(s::S) = Class.(sidenames(s))
 source(s::S) = Class(sourcename(s))
 target(s::S) = Class(targetname(s))
@@ -148,9 +128,7 @@ end
 
 # ==========================================================================================
 # Graph-level data field.
-"""
-Dispatch to a particular global network field.
-"""
+"Dispatch to a particular global network field."
 struct GraphField{field} <: Dispatcher end
 function GraphField(field::Symbol)
     T = GraphField{field}
@@ -181,9 +159,7 @@ end
 # ==========================================================================================
 # Node field.
 
-"""
-Dispatch extension point to particular class field data.
-"""
+"Dispatch extension point to particular class field data."
 struct NodeField{class,field} <: Dispatcher end
 function NodeField(class::Symbol, field::Symbol)
     T = NodeField{class,field}
@@ -195,9 +171,7 @@ class(s::S) = first(content(s))
 field(s::S) = last(content(s))
 type(s::S) = throw("Data type unspecified for $s.") # Underlying data type.
 
-"""
-Obtain dispatcher to underlying class.
-"""
+"Obtain dispatcher to underlying class."
 Class(s::S) = Class(class(s))
 
 # Display.
@@ -209,9 +183,7 @@ end
 # ==========================================================================================
 # Web field.
 
-"""
-Dispatch extension point to particular web field data.
-"""
+"Dispatch extension point to particular web field data."
 struct EdgeField{web,field} <: Dispatcher end
 function EdgeField(web::Symbol, field::Symbol)
     T = EdgeField{web,field}
@@ -222,10 +194,10 @@ content(::S{web,field}) where {web,field} = (web, field)
 web(s::S) = first(content(s))
 field(s::S) = last(content(s))
 
-"""
-Obtain dispatcher to underlying web.
-"""
+"Obtain dispatcher to underlying web."
 Web(s::S) = Web(web(s))
+
+is_sparse(s::S) = is_sparse(first(Web(s)))
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -272,6 +244,8 @@ dim(::EdgeLevel) = 2
 level(::GraphField) = "graph"
 level(::NodeLevel) = "node"
 level(::EdgeLevel) = "edge"
+
+is_dense(d::EdgeLevel) = !is_sparse(d)
 
 # ==========================================================================================
 # Use dispatcher as static index into underlying data.

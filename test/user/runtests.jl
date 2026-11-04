@@ -14,10 +14,11 @@ include("class.jl")
 include("web.jl")
 include("subclass.jl")
 include("node_field.jl")
-#  include("edge_field.jl")
 include("allometric_node_field.jl")
 #  include("indexing_guards.jl")
 include("components.jl")
 #  include("kwargs.jl")
+
+include("edge_field.jl")
 
 end
