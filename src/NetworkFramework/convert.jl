@@ -229,7 +229,7 @@ mutable struct ConvertError <: LibError
     ref::InputRef
     mess::String
 end
-converr(T::Type, value, mess::String, throw = Base.throw; ref = UserRef(WholeData)) =
+converr(T::Type, value, mess::String, throw = Base.throw; ref = UserRef(wholedata)) =
     throw(ConvertError(T, value, ref, mess))
 
 function CheckError(e::ConvertError)

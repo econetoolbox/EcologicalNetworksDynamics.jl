@@ -94,7 +94,7 @@ function Base.showerror(io::IO, e::Error)
     (; mess, value, d, ref) = src
     (; ref) = ref
     function report() # Return true if value was displayed.
-        if ref !== WholeData
+        if ref !== wholedata
             if !irrelevant_uref(query, ref)
                 # Uref is always expected to at least start with the index dimension here.
                 dim, rest... = ref
@@ -158,5 +158,5 @@ Raise if locating problematic input within the index is trivial,
 resulting in the report being too noisy.
 """
 irrelevant_uref(query, uref) =
-    uref isa _WholeData || query isa Tuple{Any} && uref == (1,)
+    uref isa WholeData || query isa Tuple{Any} && uref == (1,)
 

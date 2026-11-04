@@ -103,6 +103,7 @@ is_symmetric(s::S) =
     is_reflexive(s) ? throw("Unspecified whether $s reflexive web topology is symmetric.") :
     false # No need to implement for non-reflexive webs.
 is_sparse(s::S) = unimplemented(is_sparse, s) # Always need to specify.
+is_dense(s::S) = !is_sparse(s)
 
 
 """
@@ -276,10 +277,10 @@ level(::EdgeLevel) = "edge"
 # Use dispatcher as static index into underlying data.
 
 N.class(md::Model, d::NodeLevel) = N.class(N.network(md), class(d))
-N.web(md::Model, d::Web) = N.web(N.network(md), web(d))
-N.sides(md::Model, d::Web) = N.sides(N.network(md), web(d))
-N.source(md::Model, d::Web) = N.source(N.network(md), web(d))
-N.target(md::Model, d::Web) = N.target(N.network(md), web(d))
+N.web(md::Model, d::EdgeLevel) = N.web(N.network(md), web(d))
+N.sides(md::Model, d::EdgeLevel) = N.sides(N.network(md), web(d))
+N.source(md::Model, d::EdgeLevel) = N.source(N.network(md), web(d))
+N.target(md::Model, d::EdgeLevel) = N.target(N.network(md), web(d))
 N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
 N.entry(md::Model, d::NodeField) = N.class(md, d).data[field(d)]
 N.entry(md::Model, d::EdgeField) = N.web(md, d).data[field(d)]

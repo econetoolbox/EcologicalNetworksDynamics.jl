@@ -62,7 +62,7 @@ mutable struct CheckError <: LibError
         ref = take_either!(
             :uref => UserRef,
             :mref => ModelRef;
-            none = () -> UserRef(WholeData),
+            none = () -> UserRef(wholedata),
         )
         no_unused_arguments()
         new(d, value, ref, mess)
@@ -99,8 +99,8 @@ struct ModelRef{T} <: InputRef
 end
 
 "The invalid value targets all corresponding inner model data."
-struct _WholeData end
-const WholeData = _WholeData()
+struct WholeData end
+const wholedata = WholeData()
 
 "Abstract over indices and labels."
 const Ref = Union{Int,Symbol}
@@ -139,7 +139,7 @@ to_mref((i,)::Tuple{Ref}, md::Model, d::D.NodeLevel) =
     ModelRef((to_mref(i, N.class(md, d).index),))
 to_mref((i, j)::Tuple{Ref,Ref}, md::Model, d::D.EdgeLevel) =
     ModelRef(to_mref.((i, j), map(((s, _),) -> N.class(md, s).index, D.sides(md, d))))
-to_mref(::_WholeData, ::Model, ::Dispatcher) = ModelRef(WholeData)
+to_mref(::WholeData, ::Model, ::Dispatcher) = ModelRef(wholedata)
 
 "Upgrade underlying error with outer uref context."
 urefguard(fn::Function, uref) =
@@ -147,7 +147,7 @@ urefguard(fn::Function, uref) =
         fn()
     catch e
         e isa CheckError || rethrow(e)
-        if e.ref isa UserRef{_WholeData}
+        if e.ref isa UserRef{WholeData}
             e.ref = UserRef(uref)
         end
         rethrow(e)
@@ -158,7 +158,7 @@ urefguard(fn::Function, uref) =
 
 function Base.showerror(io::IO, e::CheckError)
     (; mess, value, d, ref) = e
-    at(::Union{UserRef{_WholeData},ModelRef}) = "" # (reported as mref then)
+    at(::Union{UserRef{WholeData},ModelRef}) = "" # (reported as mref then)
     at(uref) = " at " * print_ref(uref)
     targetting(::Nothing, _) = ""
     targetting(_, ::UserRef) = ""
@@ -166,19 +166,19 @@ function Base.showerror(io::IO, e::CheckError)
     targetting(d::Dispatcher, mref::ModelRef) = " targetting " * modelvalue(d, mref)
     for_d(::Nothing) = ""
     for_d(d) = " for $green$d$reset"
-    skip = isnothing(d) && ref.ref == WholeData # Uninformative line then.
+    skip = isnothing(d) && ref.ref == wholedata # Uninformative line then.
     skip || println(io, "In the provided input$(at(ref))$(targetting(d, ref))$(for_d(d)):")
     println(io, mess)
     render_input(io, value)
 end
 
 modelvalue(::Nothing, mref) = print_ref(mref)
-modelvalue(::D.GraphField, ::ModelRef{_WholeData}) = "network value"
-modelvalue(::D.Class, ::ModelRef{_WholeData}) = "node values"
-modelvalue(::D.Web, ::ModelRef{_WholeData}) = "edge values"
+modelvalue(::D.GraphField, ::ModelRef{WholeData}) = "network value"
+modelvalue(::D.Class, ::ModelRef{WholeData}) = "node values"
+modelvalue(::D.Web, ::ModelRef{WholeData}) = "edge values"
 modelvalue(::D.Class, mref) = "name for node " * print_ref(mref)
 modelvalue(::D.Web, mref) = "topology for edge " * print_ref(mref)
-modelvalue(d::D.AbstractField, ::ModelRef{_WholeData}) = "$(D.level(d)) values"
+modelvalue(d::D.AbstractField, ::ModelRef{WholeData}) = "$(D.level(d)) values"
 function modelvalue(d::D.AbstractField, mref)
     level = D.level(d)
     mr = print_ref(mref)

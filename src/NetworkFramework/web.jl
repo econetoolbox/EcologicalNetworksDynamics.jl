@@ -219,6 +219,28 @@ function construct(d::D.Web, Web::Component, input, args...; kwargs...)
 end
 
 #-------------------------------------------------------------------------------------------
+# Implied class blueprint.
+
+function implied(::D.Web, Class::Component, bp::ReflexiveWebMatrixBlueprint)
+    (; A) = bp
+    n = size(A, 1)
+    Class.Number(n)
+end
+
+implied(d::D.Web, Class::Component, bp::ReflexiveWebAdjacencyBlueprint) =
+    implied(d, Class, bp.A) # Dispatch over ref type: indices or labels.
+
+function implied(::D.Web, Class::Component, adj::BinAdjacency{Symbol})
+    refs = NF.all_refs(adj)
+    Class.Names(collect(refs))
+end
+
+function implied(::D.Web, Class::Component, adj::BinAdjacency{Int})
+    refs = NF.all_refs(adj)
+    Class.Number(last(refs))
+end
+
+#-------------------------------------------------------------------------------------------
 # Early check.
 
 function early_check(::D.Web, A::SparseMatrix{Bool})
@@ -289,28 +311,6 @@ function check_refs(check::Function, ::D.Web, adj::BinAdjacency)
         rethrow(e)
     end
     adj
-end
-
-#-------------------------------------------------------------------------------------------
-# Implied class blueprint.
-
-function implied_class(::D.Web, Class, bp::ReflexiveWebMatrixBlueprint)
-    (; A) = bp
-    n = size(A, 1)
-    Class.Number(n)
-end
-
-implied_class(d::D.Web, Class, bp::ReflexiveWebAdjacencyBlueprint) =
-    implied_class(d, Class, bp.A) # Dispatch over ref type: indices or labels.
-
-function implied_class(::D.Web, Class, adj::BinAdjacency{Symbol})
-    refs = NF.all_refs(adj)
-    Class.Names(collect(refs))
-end
-
-function implied_class(::D.Web, Class, adj::BinAdjacency{Int})
-    refs = NF.all_refs(adj)
-    Class.Number(last(refs))
 end
 
 #-------------------------------------------------------------------------------------------

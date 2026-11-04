@@ -150,7 +150,7 @@ end
 listerr(tag, value, path, mess, throw = Base.throw) =
     throw(ListError(tag, value, isnothing(path) ? [] : deepcopy(path), mess))
 CheckError(e::ListError) =
-    CheckError(e.value, e.mess; uref = isempty(e.path) ? WholeData : e.path)
+    CheckError(e.value, e.mess; uref = isempty(e.path) ? wholedata : e.path)
 Base.showerror(io::IO, e::ListError) = showerror(io, CheckError(e))
 
 # Pick the report with highest priority,
@@ -839,7 +839,7 @@ convert(::Type{Adjacency{T}}, i::Adjacency{T,<:Ref}) where {T} = i
 #-------------------------------------------------------------------------------------------
 # Extract binary maps/adjacency from regular ones.
 
-function parse(::Type{BinMap}, input::Map)
+function convert(::Type{BinMap}, input::Map)
     R = reftype(input)
     res = BinMap{R}()
     for (k, _) in input
@@ -848,7 +848,7 @@ function parse(::Type{BinMap}, input::Map)
     res
 end
 
-function parse(::Type{BinAdjacency}, input::Adjacency)
+function convert(::Type{BinAdjacency}, input::Adjacency)
     R = reftype(input)
     res = BinAdjacency{R}()
     for (i, sub) in input

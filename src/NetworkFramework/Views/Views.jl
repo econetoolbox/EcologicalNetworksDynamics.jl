@@ -38,7 +38,7 @@ import EcologicalNetworksDynamics:
 import .Display: join_elided, render_input, ns, reset, cyan, green, yellow, nsa
 import .NetworkFramework:
     NF, D, Model, can_convert, CheckError, checkerr, LibError, dispatcher, Ref,
-    WholeData, _WholeData, UserRef, ModelRef
+    wholedata, WholeData, UserRef, ModelRef
 const V = Views
 
 using SparseArrays

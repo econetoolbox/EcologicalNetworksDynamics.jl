@@ -161,7 +161,7 @@ function define_node_field_component(
     # Display.
     NF.eval(
         quote
-            F.shortline(io::IO, model::Model, ::$CP) = NF.nodes_shortline(io, model, $d)
+            F.shortline(io::IO, md::Model, ::$CP) = nodes_shortline(io, md, $d)
         end,
     )
 
@@ -181,13 +181,16 @@ function construct(d::D.NodeField, Field::Component, input, args...; kwargs...)
         Map{T} => x -> Field.Map(x, args...; kwargs...),
     )
     if may_flat(d)
-        tries = (T => x -> Field.Flat(x, args...; kwargs...), tries...) # (try flat first)
+        tries = (
+            T => x -> Field.Flat(x, args...; kwargs...),
+            tries...,
+        )
     end
     try
         try_convert(input, tries...)
     catch e
-        e isa BlueprintError && rethrow(e)
-        e isa LibError || rethrow(e)
+        e isa BlueprintError && rethrow(e) # Thrown by underlying constructor: already ok.
+        e isa LibError || rethrow(e) # Otherwise upgrade.
         e = CheckError(e)
         e.d = d
         rethrow(e)
@@ -197,6 +200,28 @@ end
 # Allow passing values as separate arguments.
 construct(BP::Type{<:Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint}},
     first, second, rest...) = construct(BP, (first, second, rest...))
+
+#-------------------------------------------------------------------------------------------
+# Implied class.
+
+function implied(::D.NodeField, Class::Component, bp::NodeFieldRawBlueprint)
+    raw = data(bp)
+    n = length(raw)
+    Class.Number(n)
+end
+
+implied(d::D.NodeField, Class::Component, bp::NodeFieldMapBlueprint) =
+    implied(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
+
+function implied(::D.NodeField, Class::Component, map::Map{<:Any,Symbol})
+    refs = NF.keys(map)
+    Class.Names(collect(refs))
+end
+
+function implied(::D.NodeField, Class::Component, map::Map{<:Any,Int})
+    n = length(map)
+    Class.Number(n)
+end
 
 #-------------------------------------------------------------------------------------------
 # Early check.
@@ -222,19 +247,10 @@ function cst_early_check(BP::Type{<:NodeFieldBlueprint}, data::Union{Vector,Map}
     data
 end
 
-# Index-maps need to be dense: they cannot be holed for root classes.
-check_dense_ref(::Type{<:NodeFieldBlueprint}, ref, _) = ref
-function check_dense_ref(::Type{<:NodeFieldBlueprint}, i::Int, map::Map{<:Any,Int})
-    n = length(map)
-    i <= n && return i
-    n, s, are = nsa(n)
-    checkerr(i, "There $are only $n value$s in the given map so no index can be $i.")
-end
-
-# On expansion checked values (possibly lowered) are collected.
+# On expansion, checked values (possibly lowered) are collected.
 function bp_early_check(bp::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint})
     d, data = dispatcher(bp), NF.data(bp)
-    collect_checked(data) do ref, x
+    early_lower(d, data) do ref, x
         urefguard((ref,)) do
             check_dense_ref(typeof(bp), ref, data)
             early_check(d, x, ref) # <- Lowering may happen here.
@@ -243,15 +259,25 @@ function bp_early_check(bp::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint})
 end
 
 # On mutation, don't check for density.
-mut_early_check(d::D.NodeField, data::Union{Vector,Map}) = collect_checked(data) do ref, x
+mut_early_check(d::D.NodeField, data::Union{Vector,Map}) = early_lower(d, data) do ref, x
     urefguard((ref,)) do
         early_check(d, x, ref)
     end
 end
 
-# "Collect" either means into a fresh vector or a fresh map.
-collect_checked(fn::Function, data::Vector) = [fn(ref, x) for (ref, x) in pairs(data)]
-function collect_checked(fn::Function, data::Map)
+# Index-maps need to be dense: they cannot be holed.
+check_dense_ref(::Type{<:NodeFieldBlueprint}, ref, _) = ref
+function check_dense_ref(::Type{<:NodeFieldBlueprint}, i::Int, map::Map{<:Any,Int})
+    n = length(map)
+    i <= n && return i
+    n, s, are = nsa(n)
+    checkerr(i, "There $are only $n value$s in the given map so no index can be $i.")
+end
+
+# "Lower" either means into a fresh vector or a fresh map.
+# TODO: skip reallocation if the early_check extension point does not convert values?
+early_lower(fn::Function, ::D.NodeField, vec::Vector) = [fn(i, x) for (i, x) in pairs(vec)]
+function early_lower(fn::Function, ::D.NodeFiel, data::Map)
     M = typeof(data)
     res = M()
     for (ref, x) in pairs(data)
@@ -268,7 +294,7 @@ end
 # Raise simple `checkerr` on failure, the report will be upgraded anyway.
 late_check(::Model, ::D.NodeField, x, ::MRef) = x
 
-# Guarding the above to upgrade exceptions.
+# Guard the above to upgrade exceptions.
 _late_check(md::Model, d::D.NodeField, x, mref::MRef) =
     try
         late_check(md, d, x, mref)
@@ -413,37 +439,14 @@ function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Symbol}
 end
 
 #-------------------------------------------------------------------------------------------
-# Implied class.
-
-function implied_class(::D.NodeField, Class, bp::NodeFieldRawBlueprint)
-    raw = data(bp)
-    n = length(raw)
-    Class.Number(n)
-end
-
-implied_class(d::D.NodeField, Class, bp::NodeFieldMapBlueprint) =
-    implied_class(d, Class, data(bp)) # Dispatch to either symbol or integer refs.
-
-function implied_class(::D.NodeField, Class, map::Map{<:Any,Symbol})
-    refs = NF.keys(map)
-    Class.Names(collect(refs))
-end
-
-function implied_class(::D.NodeField, Class, map::Map{<:Any,Int})
-    n = length(map) # (assuming no hole) TODO: how is that enforced?
-    Class.Number(n)
-end
-
-#-------------------------------------------------------------------------------------------
 # Expand.
 
 # Raw.
 function expand!(md::Model, d::D.NodeField, vec::Vector)
     # Even with the .Raw blueprint,
     # early+late-checking guarantee that lowered data is fresh = not aliased by user.
-    nw, (c, f) = (N.network(md), D.content(d))
-    class = N.class(nw, c)
-    N.add_field!(class, f, vec)
+    cl, f = N.class(md, d), D.field(d)
+    N.add_field!(cl, f, vec)
 end
 
 # Map.
@@ -457,8 +460,7 @@ end
 
 # Flat.
 function expand!(md::Model, d::D.NodeField, flat)
-    nw, cl = N.network(md), D.class(d)
-    n = N.n_nodes(nw, cl)
+    n = N.n_nodes(N.class(md, d), cl)
     vec = fill(flat, n)
     expand!(md, d, vec)
 end
@@ -487,17 +489,15 @@ end
 #-------------------------------------------------------------------------------------------
 # Targetting whole data the "reassign-like" way: `m.property = rhs`.
 
-function mutate!(md::Model, d::D.NodeField, ::_WholeData, raw) # (vec or flat)
-    entry = N.entry(md, d)
-    N.mutate!(entry) do nodes
+function mutate!(md::Model, d::D.NodeField, ::WholeData, raw) # (vec or flat)
+    N.mutate!(N.entry(md, d)) do nodes
         nodes .= raw
     end
 end
 
-function mutate!(md::Model, d::D.NodeField, ::_WholeData, map::Map)
+function mutate!(md::Model, d::D.NodeField, ::WholeData, map::Map)
     ix = N.class(md, d).index
-    entry = N.entry(md, d)
-    N.mutate!(entry) do nodes
+    N.mutate!(N.entry(md, d)) do nodes
         for (label, x) in map
             i = N.to_index(ix, label)
             nodes[i] = x
@@ -527,11 +527,7 @@ end
 function nodes_shortline(io::IO, md::Model, d::D.NodeField)
     cc, fc, rs = F.component_color, F.field_color, reset
     Field = D.CamelCaseSingular(d)
-    c, f = D.content(d)
-    nw = N.network(md)
-    cl = N.class(nw, c)
-    entry = cl.data[f]
-    N.read(entry) do data
+    N.read(N.entry(md, d)) do data
         dat = join_elided(data, ", "; coleach = fc)
         print(io, "$cc$Field$rs: [$(dat)]")
     end

@@ -137,8 +137,8 @@ _bp_late_check(md::Model, bp::Blueprint, early) =
         if isnothing(e.d)
             e.d = dispatcher(bp)
         end
-        if e.ref === UserRef(WholeData)
-            e.ref = ModelRef(WholeData)
+        if e.ref === UserRef(wholedata)
+            e.ref = ModelRef(wholedata)
         end
         rethrow(BlueprintError(B, :late, e))
     end
@@ -199,7 +199,7 @@ function mut_set!(md::Model, d::Dispatcher, iref::TrustedIndexRef, rhs)
         e isa LibError || rethrow(e)
         e = CheckError(e)
         e.d = d
-        if e.ref === UserRef(WholeData)
+        if e.ref === UserRef(wholedata)
             e.ref = to_mref(iref, md, d)
         end
         rethrow(MutationError(e))
@@ -214,7 +214,7 @@ function register_blueprint(
     BP::Type{<:Blueprint},
     shortline::String;
     d = nothing,
-    implied = (),
+    implied = [],
     depends = [],
 )
     F.define_blueprint(BP, shortline; depends)
@@ -222,12 +222,12 @@ function register_blueprint(
         eval(quote
             F.implied(::$BP) = $implied
         end)
-        for i in implied
-            I = typeof(i)
+        for cpi in implied
+            CPI = typeof(cpi)
             eval(
                 quote
-                    F.implied_blueprint_for(b::$BP, ::Type{$I}) =
-                        NF.implied_class($d, $i, b)
+                    F.implied_blueprint_for(bp::$BP, ::Type{$CPI}) =
+                        NF.implied($d, $cpi, bp)
                 end,
             )
         end

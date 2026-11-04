@@ -142,6 +142,7 @@ using .Framework: bpdisplay, bpcol
 using Crayons
 using OrderedCollections
 using SparseArrays
+using Itertools
 
 const NF = NetworkFramework
 
@@ -173,7 +174,7 @@ include("./graph_field.jl")
 include("./class.jl")
 include("./web.jl")
 include("./node_field.jl")
-#  include("./edge_field.jl")
+include("./edge_field.jl")
 
 # Typical allometry-related blueprints.
 include("./allometry.jl")
