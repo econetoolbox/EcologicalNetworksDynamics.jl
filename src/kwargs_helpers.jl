@@ -5,6 +5,9 @@ The following functions get defined,
 they work on a local copy of the given kwargs,
 which gets consumed during the analysis.
 
+    with_defaults!(defaults...)
+      Complete the arguments with default values, not overriding the originals if given.
+
     alias!(args::Symbol...)
       Consider these arguments as aliases:
       check that no redudant aliased values have been given,
@@ -38,9 +41,6 @@ which gets consumed during the analysis.
       Error if several of them is provided.
       Unless `none` is given, error if none is provided.
 
-    populate!(defaults...)
-      Complete the arguments with default values, not overriding the originals if given.
-
     no_unused_arguments()
       Raise an error if there some arguments have been left unused,
       indicating possible mispelling or semantic error.
@@ -67,7 +67,7 @@ macro kwargs_helpers(kwargs)
         take!,
         take_or!,
         take_either!,
-        populate!,
+        with_defaults!,
         no_unused_arguments,
     ) =
         esc.((
@@ -80,7 +80,7 @@ macro kwargs_helpers(kwargs)
             :take!,
             :take_or!,
             :take_either!,
-            :populate!,
+            :with_defaults!,
             :no_unused_arguments,
         ))
     quote
@@ -191,7 +191,7 @@ macro kwargs_helpers(kwargs)
             fn(v)
         end
 
-        $populate!(; defs...) =
+        $with_defaults!(; defs...) =
             for (k, v) in defs
                 $given(k) && continue
                 push!(ks, k)
@@ -215,10 +215,10 @@ function left end
 function miss end
 function no_unused_arguments end
 function peek end
-function populate! end
 function take! end
 function take_either! end
 function take_or! end
+function with_defaults! end
 
 export @kwargs_helpers
 export alias!
@@ -227,9 +227,9 @@ export left
 export miss
 export no_unused_arguments
 export peek
-export populate!
 export take!
 export take_either!
 export take_or!
+export with_defaults!
 
 end

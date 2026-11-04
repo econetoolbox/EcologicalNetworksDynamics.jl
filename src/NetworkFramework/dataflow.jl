@@ -42,7 +42,10 @@ mut_convert(d::Dispatcher, input) =
 "Default early check, for either pipeline."
 early_check(::Dispatcher, data) = data # Defaults to just accepting & aliasing the value.
 
-"Early check for blueprint construction: must alias."
+"""
+Early check for blueprint construction: must alias.
+(only useful if relying on the default `construct` implementation)
+"""
 cst_early_check(BP::Type{<:Blueprint}, data) = early_check(dispatcher(BP), data)
 
 "Early check for blueprint expansion: may start lowering."

@@ -14,7 +14,7 @@ abstract type EdgeFieldAdjacencyBlueprint <: EdgeFieldBlueprint end
 abstract type EdgeFieldFlatBlueprint <: EdgeFieldBlueprint end
 
 "Typical setup for a component bringing a new web field to the network."
-function define_reflexive_web_field_component(
+function define_web_field_component(
     mod::Module,
     d::D.EdgeField;
     blueprints = [], # Extra blueprints for the component.
@@ -487,6 +487,14 @@ function expand!(md::Model, d::D.EdgeField, flat)
     n = N.n_edges(N.web(md, d))
     vec = fill(flat, n)
     epand!(md, d, vec)
+end
+
+# If not, then just trust whoever only lowered to a matrix yet.
+function lower(md::Model, d::D.EdgeField, mat::AbstractMatrix)
+    D.is_dense(d) && return mat[:]
+    mat isa SparseMatrix && return nonzeros(mat)
+    tp = N.web(md, d).topology
+    [mat[i, j] for (i, j) in N.edges(tp)]
 end
 
 #-------------------------------------------------------------------------------------------

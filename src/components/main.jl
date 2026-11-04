@@ -34,11 +34,11 @@ include("./metabolic_class.jl")
 # Possibly constructed from allometric blueprints.
 include("./growth_rate.jl")
 
+# First example of edges data.
+include("./efficiency.jl")
+
 # Graph-level data.
 #  include("./hill_exponent.jl")
-
-# Edge-level data.
-#  include("./efficiency.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
