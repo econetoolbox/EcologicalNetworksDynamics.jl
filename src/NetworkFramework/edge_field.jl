@@ -20,7 +20,7 @@ function define_web_field_component(
     blueprints = [], # Extra blueprints for the component.
     requires = [], # Extra requirements for the component.
 )
-    w = D.Web(d)
+    w, _ = D.Web(d)
     Web = D.CamelCase(w)
     web, field = D.content(d)
     src, tgt = D.sourcename(w), D.targetname(w)
@@ -110,6 +110,7 @@ function define_web_field_component(
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
+    _D = typeof(d)
     cp = mod.eval(
         quote
             NF.define_component(

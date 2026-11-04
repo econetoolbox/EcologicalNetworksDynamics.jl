@@ -152,7 +152,7 @@ end
 """
 Test report ref values,
 using `:u` and `:m` to refer to either `UserRef` or `ModelRef`,
-and `:whole` to expect `$(NF.WholeData)`.
+and `:whole` to expect `$(NF.wholedata)`.
 """
 function compare_refs((type, ref)::Tuple{Symbol,Any}, act)
     T = if type == :u
@@ -168,7 +168,7 @@ function compare_refs((type, ref)::Tuple{Symbol,Any}, act)
         showcompare(io, T, act)
     end
     if ref == :whole
-        ref = NF.WholeData
+        ref = NF.wholedata
     end
     FieldsCompare.value(ref, act.ref)
 end

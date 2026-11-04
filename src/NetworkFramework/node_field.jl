@@ -150,7 +150,7 @@ function define_node_field_component(
                 NF.define_method(get_entry; read_as = Symbol.((:_,), prop), depends = [CP])
                 if !D.readonly(d)
                     set_value!(::Network, md::Model, input) =
-                        NF.mut_set!(md, d, NF.WholeData, input)
+                        NF.mut_set!(md, d, NF.wholedata, input)
                     NF.define_method(set_value!; write_as = prop, depends = [CP])
                 end
                 end
@@ -277,7 +277,7 @@ end
 # "Lower" either means into a fresh vector or a fresh map.
 # TODO: skip reallocation if the early_check extension point does not convert values?
 early_lower(fn::Function, ::D.NodeField, vec::Vector) = [fn(i, x) for (i, x) in pairs(vec)]
-function early_lower(fn::Function, ::D.NodeFiel, data::Map)
+function early_lower(fn::Function, ::D.NodeField, data::Map)
     M = typeof(data)
     res = M()
     for (ref, x) in pairs(data)
@@ -460,7 +460,7 @@ end
 
 # Flat.
 function expand!(md::Model, d::D.NodeField, flat)
-    n = N.n_nodes(N.class(md, d), cl)
+    n = N.class(md, d) |> N.n_nodes
     vec = fill(flat, n)
     expand!(md, d, vec)
 end

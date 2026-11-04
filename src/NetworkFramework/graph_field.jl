@@ -67,13 +67,13 @@ function define_graph_field(mod::Module, d::D.GraphField)
             quote
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework:
-                    NF, D, Network, Model, wholedata
+                    NF, D, Network, Model
                 const d, CP, props = $d, $CP, $props
                 get_value(::Network, md::Model) = NF.get_value(md, d)
                 NF.define_method(get_value; read_as = props, depends = [CP])
                 if !D.readonly(d)
                     set_value!(::Network, md::Model, input) =
-                        NF.mut_set!(md, d, WholeData, input)
+                        NF.mut_set!(md, d, NF.wholedata, input)
                     NF.define_method(set_value!; write_as = props, depends = [CP])
                 end
                 end

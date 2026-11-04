@@ -34,7 +34,7 @@ end
 # ==========================================================================================
 # Define component.
 
-const BodyMass, _BodyMass = NF.define_node_field_component(EN, d; blueprints = [:Z => Z])
+const BodyMass, _BodyMass = NF.define_node_field_component(EN, d; blueprints = [Z])
 @alias M body_mass
 
 # Extra constructor dispatch to the extra blueprint.

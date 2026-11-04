@@ -190,7 +190,7 @@ mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mre
 Guarded entrypoint into the whole mutation pipeline,
 with trusted `ref` query (local indices).
 """
-const TrustedIndexRef = Union{Tuple{Int},Tuple{Int,Int},_WholeData}
+const TrustedIndexRef = Union{Tuple{Int},Tuple{Int,Int},WholeData}
 function mut_set!(md::Model, d::Dispatcher, iref::TrustedIndexRef, rhs)
     low = try
         conv = mut_convert(d, rhs)

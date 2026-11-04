@@ -1,23 +1,21 @@
-"""
-Test all aspects of typical EdgeField component, using efficiency as an example.
-"""
+"Test all aspects of typical EdgeField component, using efficiency as an example."
 module EdgeFieldTest
 
-# What the end user should have to import.
+# Much inspired by `NodeFieldTest`.
+
 using EcologicalNetworksDynamics
-using SparseArrays
 
-# Additional imports only used here for testing purpose.
+import EcologicalNetworksDynamics.Tests: EN, N, F, NF, D, V,
+    @test_repr, @test_disp, @bpfails, addfails, @viewfails
 using Test
-using EcologicalNetworksDynamics: EN, N, F, NF, V, EdgeField, SparseMatrix, Adjacency
-import Main: is_repr, is_disp, Value, @inputfails, @sysfails, @viewfails
-const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
 
+const d, _D = D.EdgeField(:trophic, :efficiency)
+const View = V.SparseEdgeFieldView{d,Float64}
 # TODO: test for dense constructs when such a component shows up.
 
-@testset "Typical EdgeField component" begin
+@testset "EdgeField components: blueprints" begin
 
-    @test Efficiency isa EN.Component
+    @test Efficiency isa Component
     @test is_repr(Efficiency, "Efficiency")
     @test is_disp(
         Efficiency,
@@ -55,7 +53,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
         }\
         """,
     )
-    @inputfails(
+    @bpfails(
         Efficiency('x'),
         "Cannot convert input to either:\n  \
           - $Float64\n  \
@@ -64,7 +62,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
           - $(Adjacency{Float64})",
         'x',
     )
-    @inputfails(
+    @bpfails(
         Efficiency([0.1, 1.5, 0.3]),
         "When constructing <trophic:efficiency> from raw values:\n\
          At raw edge value [2]:\n\
@@ -75,7 +73,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     #---------------------------------------------------------------------------------------
     # Early check.
 
-    @sysfails(
+    addfails.@check(
         let
             b = deepcopy(bp)
             b.e[2] *= 10
@@ -96,7 +94,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     #---------------------------------------------------------------------------------------
     # Late check.
 
-    @sysfails(
+    addfails.@check(
         base + Efficiency([0.5, 0.8]),
         Check(
             late,
@@ -156,7 +154,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
         """,
     )
 
-    @inputfails(
+    @bpfails(
         Efficiency([0.1 0.5; -1 0.2]),
         "When constructing <trophic:efficiency> from a matrix:\n\
          On edge [2, 1]:\n\
@@ -167,7 +165,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     #---------------------------------------------------------------------------------------
     # Early check.
 
-    @sysfails(
+    addfails.@check(
         let
             b = deepcopy(bp)
             b.e[5] *= 10
@@ -188,7 +186,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     #---------------------------------------------------------------------------------------
     # Late check.
 
-    @sysfails(
+    addfails.@check(
         base + Efficiency(zeros(2, 3)),
         Check(
             late,
@@ -201,7 +199,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
         )
     )
 
-    @sysfails(
+    addfails.@check(
         base + Efficiency(zeros(4, 4)),
         Check(
             late,
@@ -213,7 +211,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
         )
     )
 
-    @sysfails(
+    addfails.@check(
         base + Efficiency(ones(4, 4)),
         Check(
             late,
@@ -289,13 +287,13 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
         """,
     )
 
-    @inputfails(
+    @bpfails(
         Efficiency.Adjacency([:a => (:b => :x)]),
         "When constructing <trophic:efficiency> from an adjacency list:\n\
          Expected values of type '$Float64', \
          received instead at [1][right][right]: :x ::$Symbol."
     )
-    @inputfails(
+    @bpfails(
         Efficiency.Adjacency([1 => (2 => -1)]),
         "When constructing <trophic:efficiency> from an adjacency list:\n\
          On edge [1, 2]:\n\
@@ -306,7 +304,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     #---------------------------------------------------------------------------------------
     # Early check.
 
-    @sysfails(
+    addfails.@check(
         let
             b = deepcopy(bp_r)
             b.e[:d][:a] *= 15
@@ -324,7 +322,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
         )
     )
 
-    @sysfails(
+    addfails.@check(
         let
             b = deepcopy(bp_i)
             b.e[4][1] *= 15
@@ -343,7 +341,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     )
 
     # Break adjacency list (guarded by a reparse).
-    @sysfails(
+    addfails.@check(
         let
             b = deepcopy(bp_i)
             b.e[1][-1] = 0.8
@@ -361,7 +359,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     #---------------------------------------------------------------------------------------
     # Late check.
 
-    @sysfails(
+    addfails.@check(
         let
             b = deepcopy(bp_r)
             pop!(b.e, :d)
@@ -375,7 +373,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
         )
     )
 
-    @sysfails(
+    addfails.@check(
         let
             b = deepcopy(bp_i)
             b.e[1][3] = 0.5
@@ -434,7 +432,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
          }",
     )
 
-    @inputfails(
+    @bpfails(
         Efficiency(5),
         "When constructing <trophic:efficiency> from a flat value:\n\
          Value must belong to [0, 1].",
@@ -444,7 +442,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     #---------------------------------------------------------------------------------------
     # Early check.
 
-    @sysfails(
+    addfails.@check(
         let
             b = deepcopy(bp)
             b.e = 5
@@ -482,7 +480,7 @@ const View = V.SparseEdgeFieldView{EdgeField(:trophic, :efficiency),Float64}
     # Views.
 
     # Cannot access without the data.
-    @sysfails(
+    addfails.@check(
         Model().efficiency,
         Property(
             efficiency,

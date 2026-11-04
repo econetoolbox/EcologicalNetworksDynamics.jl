@@ -5,17 +5,16 @@ using MacroTools
 using OrderedCollections
 using SparseArrays
 
-# Common throughout the code.
 const EN = EcologicalNetworksDynamics
 const I = Iterators
-const Option{T} = Union{T,Nothing}
-const SparseMatrix{T} = SparseMatrixCSC{T,Int}
-
-# TODO: drop all internal 'export' statements and harmonize all namespacing shenanigans.
 
 #-------------------------------------------------------------------------------------------
 # Common utils.
 
+const Option{T} = Union{T,Nothing}
+const SparseMatrix{T} = SparseMatrixCSC{T,Int}
+
+include("./shared.jl")
 include("./display.jl")
 include("./errors.jl")
 include("./codegen.jl")

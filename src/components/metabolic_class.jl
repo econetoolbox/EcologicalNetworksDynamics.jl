@@ -72,10 +72,7 @@ end
 # Component.
 
 const MetabolicClass, _MetabolicClass = NF.define_node_field_component(
-    EN, d;
-    requires = [Foodweb],
-    blueprints = [:Favour => Favour],
-)
+    EN, d; requires = [Foodweb], blueprints = [Favour])
 
 # Dispatch constructor to the extra blueprint.
 (::_MetabolicClass)(f::Union{Symbol,AbstractString}) = Favour(f)

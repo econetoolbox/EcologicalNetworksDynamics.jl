@@ -63,6 +63,10 @@ function define_component(
     blueprints = map(enumerate(blueprints)) do (i, bp)
         if bp isa Module
             bp
+        elseif bp isa Type{<:Blueprint}
+            # The default component field name is the blueprint type name.
+            # TODO: this has not been purely tested (outside the component library).
+            (bp.name.name, bp)
         else
             name, bp = try
                 a, b = bp

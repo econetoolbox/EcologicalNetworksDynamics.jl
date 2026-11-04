@@ -93,7 +93,7 @@ Don't produce views into mutable data that could otherwise break the COW-pattern
 module Networks
 
 import EcologicalNetworksDynamics:
-    EN, I, errwrap, Display, Option, SparseMatrix, unimplemented
+    EN, I, errwrap, Display, Option, SparseMatrix, unimplemented, stopwhen
 import .Display: join_elided
 const N = Networks
 
@@ -101,7 +101,6 @@ using Crayons
 using OrderedCollections
 using SparseArrays
 
-include("./iterators.jl")
 include("./errors.jl")
 
 include("./data.jl")
