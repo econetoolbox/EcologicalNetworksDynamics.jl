@@ -9,6 +9,8 @@ for col in [:red, :green, :blue, :cyan, :yellow, :black, :bold, :italics, :reset
     end)
 end
 local red, green, blue, cyan, yellow, black, bold, italics, reset # (reassure JuliaLS)
+col(c) = x -> "$c$x$reset"
+colr(c) = x -> "$c$(repr(x))$reset"
 
 "Report value along with its type."
 rept(x) = "$cyan$(repr(x))$reset  ::$(typeof(x))"

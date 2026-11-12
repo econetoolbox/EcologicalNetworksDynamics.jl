@@ -71,7 +71,9 @@ function define_web_field_component(
                 @bp_construct Matrix
             end
             export Matrix
-            NF.register_blueprint(Matrix, "a $(sparse ? "sparse " : "")matrix"; d)
+            NF.register_blueprint(Matrix, "a $(sparse ? "sparse " : "")matrix"; d,
+                implied = [Web], # Imply web from matrix structure.
+            )
         end,
     )
 
@@ -381,8 +383,13 @@ function late_check(md::Model, d::D.EdgeField, vec::Vector)
     wb = N.web(md, d)
     exp, act = N.n_edges(wb), length(vec)
     if exp != act
+        gr, cy = col.((green, cyan))
         _, s, are = nsa(exp)
-        checkerr(vec, "There $are $exp edge$s to valuate, but the vector is of size $act.")
+        checkerr(
+            vec,
+            "There $are $(gr(exp)) edge$s to valuate, \
+             but the vector is of size $(gr(act)).",
+        )
     end
     # Then check values one by one.
     tp = wb.topology
@@ -396,13 +403,14 @@ end
 # When obtaining a matrix.
 function late_check(md::Model, d::D.EdgeField, mat::AbstractMatrix)
     # Check dimensions.
-    (src, tgt) = N.web(md, d), N.sides(md, d)
+    (src, tgt) = N.sides(md, d)
     exp, act = length.((src, tgt)), size(mat)
     if exp != act
         (ns, ss), (nt, st) = NF.ns.(exp)
+        gr, cy = col.((green, cyan))
         checkerr(mat,
-            "There are $ns source$ss and $nt target$st, \
-             but the matrix received is of size $act.")
+            "There are $(gr(ns)) source$ss and $(gr(nt)) target$st, \
+             but the matrix received is of size $(cy(act)).")
     end
     # Then check values one by one as we lower into a linear vector.
     late_lower(md, d, mat)
@@ -434,7 +442,7 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
         elseif exp === MissingEdge
             false # Unexpected edge.
         else
-            (act, x) = act
+            (act..., x) = act
             if exp == act
                 # Ok, received as expected.
                 push!(res, x)
@@ -447,8 +455,8 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
             (i, j) = exp
             f = D.field(d)
             expl = explicit_null(data, f, i, j)
-            checkerr(spm,
-                "Missing (structural) edge value. To explicitly make it null, \
+            checkerr(data,
+                "Missing (structural) edge value.\nTo explicitly make it null, \
                  try something along $black`$expl`$reset (or equivalent).";
                 d, mref = to_mref((i, j), md, d))
         else
@@ -464,9 +472,9 @@ end
 
 # Iterate both expected and actual edges at the same time to compare topologies.
 zip_exp_act(tp::N.Topology, spm::SparseMatrix) =
-    zip_longest(N.edges(tp), zip(findnz(spm)...); default = MissingEdge)
+    zip_longest(N.edges(tp), zip(findnz(spm)...); pad = MissingEdge)
 zip_exp_act(tp::N.Topology, adj::Adjacency) =
-    zip_longest(N.edges(tp), iter(adj); default = MissingEdge)
+    zip_longest(N.edges(tp), iter(adj); pad = MissingEdge)
 
 # Have this private to future-proof against collisions.
 struct MissingEdge end

@@ -52,7 +52,7 @@ which gets consumed during the analysis.
 module KwargsHelpers
 
 import EcologicalNetworksDynamics: argerr
-import EcologicalNetworksDynamics.Display: join_elided, green, cyan, reset
+import EcologicalNetworksDynamics.Display: join_elided, green, cyan, reset, colr
 
 const K = KwargsHelpers
 
@@ -164,7 +164,7 @@ macro kwargs_helpers(kwargs)
             none = missing,
         )
             pick = nothing
-            gr(a) = "$green$(repr(a))$reset"
+            gr = colr(green)
             args() = join_elided(map(a -> gr(first(a)), alternates),
                 ", ", " or "; repr = false)
             for (arg, fn) in alternates

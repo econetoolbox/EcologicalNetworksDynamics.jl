@@ -145,9 +145,7 @@ function cst_early_check( BP::Type{<:AllometryBlueprint}, allometry)
     MC = MetabolicClassDict
     AP = AllometricParametersDict
     field = D.snake_case_plural(d)
-    gr(x) = "$green$x$reset"
-    yl(x) = "$yellow$x$reset"
-    cy(x) = "$cyan$x$reset"
+    gr, yl, cy = col.((green, yellow, cyan))
 
     expected_classes = Set(k for (k, sub) in template if !isempty(sub))
     for (mc, sub) in allometry

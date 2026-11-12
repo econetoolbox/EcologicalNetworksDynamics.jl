@@ -96,6 +96,7 @@ typically using both indices and labels: `((i, a),)` or `((i, a), (j, b))`.
 struct ModelRef{T} <: InputRef
     ref::T
     ModelRef(ref::T) where T = new{T}(ref)
+    ModelRef(mref::ModelRef) = mref # Avoid nesting when bubbling up.
 end
 
 "The invalid value targets all corresponding inner model data."
@@ -138,7 +139,7 @@ to_mref(uref::Ref, ix::N.Index) = (N.to_index(ix, uref), N.to_label(ix, uref))
 to_mref((i,)::Tuple{Ref}, md::Model, d::D.NodeLevel) =
     ModelRef((to_mref(i, N.class(md, d).index),))
 to_mref((i, j)::Tuple{Ref,Ref}, md::Model, d::D.EdgeLevel) =
-    ModelRef(to_mref.((i, j), map(((s, _),) -> N.class(md, s).index, D.sides(md, d))))
+    ModelRef(to_mref.((i, j), map(cl -> cl.index, N.sides(md, d))))
 to_mref(::WholeData, ::Model, ::Dispatcher) = ModelRef(wholedata)
 
 "Upgrade underlying error with outer uref context."
@@ -176,17 +177,14 @@ modelvalue(::Nothing, mref) = print_ref(mref)
 modelvalue(::D.GraphField, ::ModelRef{WholeData}) = "network value"
 modelvalue(::D.Class, ::ModelRef{WholeData}) = "node values"
 modelvalue(::D.Web, ::ModelRef{WholeData}) = "edge values"
-modelvalue(::D.Class, mref) = "name for node " * print_ref(mref)
-modelvalue(::D.Web, mref) = "topology for edge " * print_ref(mref)
+modelvalue(::D.Class, mref) = "name for node $cyan$(print_ref(mref))$reset"
+modelvalue(::D.Web, mref) = "topology for edge $cyan$(print_ref(mref))$reset"
 modelvalue(d::D.AbstractField, ::ModelRef{WholeData}) = "$(D.level(d)) values"
 function modelvalue(d::D.AbstractField, mref)
     level = D.level(d)
     mr = print_ref(mref)
-    s = plural(mref)
-    "$level value$s $mr"
+    "$level value $cyan$mr$reset"
 end
-plural(::Any) = "s"
-plural(::ModelRef{Tuple{MRef}}) = ""
 
 # ==========================================================================================
 

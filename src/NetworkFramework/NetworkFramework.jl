@@ -134,7 +134,8 @@ module NetworkFramework
 using EcologicalNetworksDynamics:
     EN, Networks, N, Framework, F, I, argerr, SparseMatrix, Option, AD,
     FailedAttempts, Display, errwith, unimplemented, paste_paths, AliasingDicts, zip_longest
-using .Display: render_input, yellow, green, cyan, black, reset, join_elided, rept, ns, nsa
+using .Display:
+    render_input, yellow, green, cyan, black, reset, join_elided, rept, ns, nsa, col, colr
 using EcologicalNetworksDynamics.KwargsHelpers
 using .Networks: Topology
 using .Framework: bpdisplay, bpcol

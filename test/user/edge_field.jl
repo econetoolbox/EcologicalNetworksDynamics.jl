@@ -4,6 +4,7 @@ module EdgeFieldTest
 # Much inspired by `NodeFieldTest`.
 
 using EcologicalNetworksDynamics
+using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
     EN, N, F, NF, D, V,
@@ -162,15 +163,62 @@ const View = V.SparseEdgeFieldView{d,Float64}
         (see attempts down the stacktrace)\
         """)
 
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
+    @bpfails(Efficiency([0.1 0.2; 3 0.4]), Efficiency.Matrix, :construct,
+        (d, 3.0, (:u, (2, 1)), "Value must belong to [0, 1]."))
+    alias[4, 3] *= 10
+    addfails.@check(base + bp, [],
+        (Efficiency.Matrix, :early,
+            (d, 4.0, (:u, (4, 3)), "Value must belong to [0, 1].")))
+
+    #---------------------------------------------------------------------------------------
+    # Late check.
+
+    addfails.@check(base + Efficiency([0.1 0.2; 0.3 0.4]), [],
+        (Efficiency.Matrix, :late,
+            (d, sparse([0.1 0.2; 0.3 0.4]), :mwhole,
+                "There are 4 sources and 4 targets, \
+                 but the matrix received is of size (2, 2).")))
+
+    bp = Efficiency(e)
+    bp.e[2, 3] = 0
+    droptol!(bp.e, 0)
+    addfails.@check(base + bp, [],
+        (Efficiency.Matrix, :late,
+             (d, bp.e, (:m, ((2, :b), (3, :c))),
+                """
+                Missing (structural) edge value.
+                To explicitly make it null, \
+                try something along `efficiency[2, 3] = 0` (or equivalent).\
+                """)))
+
+    bp = Efficiency(e)
+    bp.e[2, 4] = 0.5
+    addfails.@check(base + bp, [],
+        (Efficiency.Matrix, :late,
+             (d, 0.5, (:m, ((2, :b), (4, :d))),
+                "Received unexpected edge value: there is no such trophic edge.")))
+
+    #---------------------------------------------------------------------------------------
+    # Expand.
+
+    bp = Efficiency(e)
+    m = base + bp
+    @test has_component(m, Efficiency)
+
+    # The web is inferred..
+    m = Model(bp)
+    @test has_component(m, Species) # .. and therefore the nodes.
+    @test has_component(m, Foodweb)
+    @test m.species.names == [:s1, :s2, :s3, :s4]
+    @test m.trophic.matrix == (e .> 0)
+
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
     # ======================================================================================
     error("STOP HERE")
-
-    #---------------------------------------------------------------------------------------
-    # Early check.
-
-    @bpfails(Efficiency([0.1 0.2; 3 0.4]), Efficiency.Matrix)
 
 
     # The result is col-wise, as a julia user would expect.
