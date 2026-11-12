@@ -251,7 +251,7 @@ function cst_early_check(
     data
 end
 edge_pairs(data) = pairs(data)
-edge_pairs(adj::Adjacency) = I.map(((src, tgt, x)) -> ((src, tgt), x), iter(adj))
+edge_pairs(adj::Adjacency) = I.map(((src, tgt, x),) -> ((src, tgt), x), iter(adj))
 
 # On expansion, checked values (possibly lowered) are collected into a linearized vec.
 function bp_early_check(
@@ -433,24 +433,28 @@ end
 # TODO: this should not check for completeness on mutation pipeline, right?
 # And then it should not even lower to a vector :|
 function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacency})
+    # HERE: this is wrong for Adjacency and not reusable. Use another strategy.
     tp = N.web(md, d).topology
     T = D.type(d)
     res = sizehint!(T[], N.n_edges(tp))
-    for (exp, act) in zip_exp_act(tp, data)
+    for (exp, act) in zip_exp_act(md, d, tp, data)
+        println("exp: $(repr(exp))")
+        println("act: $(repr(act))")
         miss = if act === MissingEdge
             true # Missing edge.
         elseif exp === MissingEdge
             false # Unexpected edge.
         else
-            (act..., x) = act
-            if exp == act
+            (ij..., x) = act
+            if exp == ij
                 # Ok, received as expected.
                 push!(res, x)
                 continue
             else
-                exp < act # Missing if 'act' went further.
+                exp < ij # Missing if 'act' went further.
             end
         end
+        println("miss: $(repr(miss))")
         if miss
             (i, j) = exp
             f = D.field(d)
@@ -470,11 +474,67 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
     res
 end
 
+function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacency})
+    T = D.type(d)
+    # Expected set of edges.
+    tp = N.web(md, d).topology
+    exp = tp |> N.edges |> Set
+    # Actual set of edges.
+    act = Dict{Tuple{Int,Int},eltype(data)}()
+    for (i, j, x) in actual_edges(md, d, data)
+        act[(i, j)] = x
+    end
+    render(set) = join_elided(sort(collect(set)), ", ", " and "; coleach = green)
+    miss = setdiff(exp, keys(act))
+    if !isempty(miss)
+        s = length(miss) == 1 ? "" : "s"
+        checkerr(map, "Missing: no value provided for edge$s $(render(miss)).")
+    end
+    unexp = setdiff(keys(act), exp)
+    if !isempty(unexp)
+        w = D.web(d)
+        a, s =
+            length(unexp) == 1 ?
+            (" a", "", D.snake_case_singular) :
+            ("", "s", D.snake_case_plural)
+        checkerr(data, "Not$a $green$(repr(w))$reset edge$s: $(render(unex)).")
+    end
+    # HERE: collect to lower into a vector?
+end
+
+actual_edges(::Model, ::D.EdgeField, spm::SparseMatrix) = zip(findnz(spm)...)
+function actual_edges(md::Model, d::D.EdgeField, adj::Adjacency{<:Any,Int})
+    m, n = length.(N.sides(md, d))
+    I.map(iter(adj)) do (i, j, x)
+        1 <= i <= m && 1 <= j <= n && return (i, j, x)
+        checkerr((i, j),
+            "Not an edge reference among $green$m × $n$reset nodes.";
+            uref = (i, j))
+    end
+end
+function actual_edges(md::Model, d::D.EdgeField, adj::Adjacency{<:Any,Symbol})
+    src, tgt = map(cl -> cl.index, N.sides(md, d))
+    I.map(iter(adj)) do (a, b, x)
+        a in src && b in tgt && return (N.to_index.((src, tgt), (a, b))..., x)
+        s, t = D.sidenames(d)
+        checkerr((a, b),
+            "Not an edge reference among $green$(repr(s)) × $(repr(t))$reset labels.";
+            uref = (a, b))
+    end
+end
+
 # Iterate both expected and actual edges at the same time to compare topologies.
-zip_exp_act(tp::N.Topology, spm::SparseMatrix) =
+zip_exp_act(::Model, ::Dispatcher, tp::N.Topology, spm::SparseMatrix) =
     zip_longest(N.edges(tp), zip(findnz(spm)...); pad = MissingEdge)
-zip_exp_act(tp::N.Topology, adj::Adjacency) =
+zip_exp_act(::Model, ::Dispatcher, tp::N.Topology, adj::Adjacency{<:Any,Int}) =
     zip_longest(N.edges(tp), iter(adj); pad = MissingEdge)
+function zip_exp_act(md::Model, d::Dispatcher, tp::N.Topology, adj::Adjacency{<:Any,Symbol})
+    src, tgt = map(cl -> cl.index, N.sides(md, d))
+    it = I.map(iter(adj)) do (a, b, x)
+        (N.to_index.((src, tgt), (a, b))..., x)
+    end
+    zip_longest(N.edges(tp), it; pad = MissingEdge)
+end
 
 # Have this private to future-proof against collisions.
 struct MissingEdge end

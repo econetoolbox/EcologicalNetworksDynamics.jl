@@ -357,7 +357,7 @@ function late_check_refs(md::Model, d::D.NodeField, map::Map{<:Any,Int}; complet
         haskey(map, exp) && continue
         push!(miss, exp)
     end
-    render(set) = join_elided(set, ", ", " and "; coleach = green)
+    render(set) = join_elided(sort!(collect(set)), ", ", " and "; coleach = green)
     unexp = if isempty(miss)
         miss
     elseif complete

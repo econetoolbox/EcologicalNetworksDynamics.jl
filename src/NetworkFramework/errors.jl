@@ -160,7 +160,7 @@ urefguard(fn::Function, uref) =
 function Base.showerror(io::IO, e::CheckError)
     (; mess, value, d, ref) = e
     at(::Union{UserRef{WholeData},ModelRef}) = "" # (reported as mref then)
-    at(uref) = " at " * print_ref(uref)
+    at(uref) = " at $cyan$(print_ref(uref))$reset"
     targetting(::Nothing, _) = ""
     targetting(_, ::UserRef) = ""
     targetting(::Nothing, ::UserRef) = ""

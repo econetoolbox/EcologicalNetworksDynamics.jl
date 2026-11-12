@@ -149,13 +149,14 @@ Model(
 ```
 
 Properties can now be used to set all values at once:
-XXX: There is no risk of aliasing anymore, but throrough test is still required.
 ```julia
 m = Model(Foodweb([(:a, :b) => :c]), BodyMass(; Z=2))
 m.M = [1, 2, 3] # Reset all values.
 m.M = [:a => 3, :b => 2, :c => 1] # Map-form allowed.
 m.M = 5 # Allowed at least for component with a .Flat blueprint.
 ```
+
+TODO: extract adjacency lists with *e.g.* `m.trophic.adjacency`.
 
 Temperature can now be set using standard Celcius unit:
 *e.g.* `Temperature(; celc = 20)`.
