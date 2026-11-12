@@ -27,7 +27,7 @@ include("./errors.jl")
 const T = Tests
 
 using EcologicalNetworksDynamics:
-    EN, N, F, I, SparseMatrix, errwith, withcontext
+    EN, N, F, I, SparseMatrix, SparseVector, errwith, withcontext
 using EcologicalNetworksDynamics.Display:
     rept, render_input, yellow, black, cyan, reset, italics
 using EcologicalNetworksDynamics.NetworkFramework: NF, D, V, AD

@@ -7,7 +7,7 @@ using EcologicalNetworksDynamics
 
 import EcologicalNetworksDynamics.Tests:
     EN, N, F, NF, D, V,
-    @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails
+    @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails, SparseMatrix
 using Test
 
 const d, _D = D.EdgeField(:trophic, :efficiency)
@@ -74,6 +74,13 @@ const View = V.SparseEdgeFieldView{d,Float64}
         (see attempts down the stacktrace)\
         """)
 
+    # In particular, reject non-1D arrays.
+    invalid = [0.1 0.2; 0.3 0.4]
+    @bpfails(Efficiency.Raw(invalid), Efficiency.Raw, :construct,
+        (d, invalid, :uwhole,
+            "Cannot convert to `$(Vector{Float64})`:\n\
+             Would not convert vector to matrix, vice-versa or etc."))
+
     #---------------------------------------------------------------------------------------
     # Early check.
 
@@ -109,9 +116,61 @@ const View = V.SparseEdgeFieldView{d,Float64}
     addfails.@missing(Model(bp), Foodweb, Efficiency, [Efficiency.Raw], nothing)
 
     # ======================================================================================
+    # From a matrix.
+
+    e = [
+        0 5 0 0
+        0 0 8 0
+        0 0 0 0
+        2 0 4 0
+    ] / 10
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
+
+    bp = Efficiency.Matrix(e)
+    @test bp.e isa NF.SparseMatrix{Float64}
+    @test bp == Efficiency(e)
+    @test Efficiency.Matrix(Bool[0 1; 1 0]).e == [0 1; 1 0]
+    @test Efficiency(Bool[0 1; 1 0]).e == [0 1; 1 0]
+    @test_repr(bp, "<Efficiency>:Matrix(e: 4×4:4 [0.2:0.8])")
+    @test_disp(bp,
+        """
+        blueprint for <Efficiency>: Matrix {
+          e: 4×4 sparse matrix with 4 values (0.2 to 0.8),
+        }\
+       """
+    )
+
+    alias = bp.e
+    @test alias === Efficiency.Matrix(alias).e
+    @test alias === Efficiency(alias).e
+
+    invalid = [0.4 0.5; :x 0.8]
+    @bpfails(Efficiency.Matrix(invalid), Efficiency.Matrix, :construct,
+        (d, :x, (:u, (2, 1)),
+            "Cannot convert to `$(SparseMatrix{Float64})`:\n\
+             Element cannot be compared to null/zero."))
+
+    @checkfails(Efficiency(invalid), d, invalid, :uwhole,
+        """
+        Cannot convert input to either:
+          - $(Float64)
+          - $(Vector{Float64})
+          - $(NF.SparseMatrix{Float64})
+          - $(NF.Adjacency{Float64})
+        (see attempts down the stacktrace)\
+        """)
+
+    # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
     # ======================================================================================
     error("STOP HERE")
+
+    #---------------------------------------------------------------------------------------
+    # Early check.
+
+    @bpfails(Efficiency([0.1 0.2; 3 0.4]), Efficiency.Matrix)
 
 
     # The result is col-wise, as a julia user would expect.

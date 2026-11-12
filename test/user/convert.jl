@@ -32,6 +32,10 @@ function conv(T, pairs...) # Either.
     true
 end
 
+# Try with arbitrary iterators.
+idmap(x) = Iterators.map(identity, x) # Size known.
+filt(x) = Iterators.filter(_ -> true, idmap(x)) # Size unknown.
+
 @testset "Input conversions." begin
 
     #---------------------------------------------------------------------------------------
@@ -52,7 +56,10 @@ end
 
     @test conv(Float64, 5 => 5.0)
     @test conv(Vector{Float64}, [5, 8] => [5.0, 8.0])
+    @test conv(Vector{Float64}, idmap([5, 8]) => [5.0, 8.0])
+    @test conv(Vector{Float64}, filt([5, 8]) => [5.0, 8.0])
     @test conv(SparseVector{Float64}, [5, 8] => sparse([5.0, 8.0]))
+    @test conv(SparseVector{Float64}, idmap([5, 8]) => sparse([5.0, 8.0]))
     @test conv(Matrix{Float64}, [5 8; 8 5] => [5.0 8.0; 8.0 5.0])
     @test conv(SparseMatrix{Float64}, [5 8; 8 5] => sparse([5.0 8.0; 8.0 5.0]))
 
@@ -86,10 +93,13 @@ end
 
     v = [true, false]
     @test conv(Vector{Bool}, [1, 0] => v)
+    @test conv(Vector{Bool}, idmap([1, 0]) => v)
+    @test conv(Vector{Bool}, filt([1, 0]) => v)
     @test conv(Vector{Bool}, BitVector([1, 0]) => v)
     @test conv(Vector{Bool}, v => Alias)
     s = sparse(v)
     @test conv(SparseVector{Bool}, [1, 0] => s)
+    @test conv(SparseVector{Bool}, idmap([1, 0]) => s)
     @test conv(SparseVector{Bool}, BitVector([1, 0]) => s)
     @test conv(SparseVector{Bool}, s => Alias)
 
@@ -104,19 +114,7 @@ end
     # etc.
 
     #---------------------------------------------------------------------------------------
-    # Avoid downgrading dicts to vecs though.
-
-    for dict in (
-        Dict([:a => 0, :b => 1]),
-        OrderedDict([:a => 0, :b => 1]),
-        (; a = 1, b = 0),
-    )
-        @convfails(convert(Vector{Bool}, dict),
-            Vector{Bool}, dict, :uwhole, "Conversion not implemented.")
-    end
-
-    #---------------------------------------------------------------------------------------
-    # Exposed conversion failures.
+    # Conversion failures.
 
     input = [0, 1, 2]
     @convfails(convert(Vector{Bool}, input),
@@ -132,6 +130,11 @@ end
 
     @convfails(convert(Vector{Bool}, Type),
         Vector{Bool}, Type, :uwhole, "Input is not iterable.")
+    @convfails(convert(Matrix{Bool}, idmap(1:3)),
+        Matrix{Bool}, idmap(1:3), :uwhole, "Input is not iterable as an array.")
+    @convfails(convert(SparseMatrix{Bool}, idmap(1:3)),
+        SparseMatrix{Bool}, idmap(1:3), :uwhole, "Input is not iterable as an array.")
+
     @test_err(convert(Vector{Bool}, Type),
         """
         Cannot convert to `Vector{Bool}`:
@@ -139,10 +142,40 @@ end
         Received: $Type  ::$UnionAll\
         """)
 
+    # Reject key-values pairs where information would be lost.
+    keynot(T) = "Would not convert $T to an array: keys would be lost."
+    input = (; a = 5, b = 8)
+    @convfails(convert(Vector{Int}, input), Vector{Int}, input, :uwhole, keynot(NamedTuple))
+    input = Dict([:a => 5, :b => 8])
+    @convfails(convert(Vector{Int}, input),
+        Vector{Int}, input, :uwhole, keynot(AbstractDict))
+    input = OrderedDict(input)
+    @convfails(convert(Vector{Int}, input),
+        Vector{Int}, input, :uwhole, keynot(AbstractDict))
+
+    # Reject trans-dimension conversions.
+    dimnot = "Would not convert vector to matrix, vice-versa or etc."
+    @convfails(convert(Vector{Bool}, Bool[0 1; 1 0]),
+        Vector{Bool}, Bool[0 1; 1 0], :uwhole, dimnot)
+    @convfails(convert(Matrix{Bool}, Bool[0, 1, 1, 0]),
+        Matrix{Bool}, Bool[0, 1, 1, 0], :uwhole, dimnot)
+    @convfails(convert(SparseMatrix{Bool}, Bool[0, 1, 1, 0]),
+        SparseMatrix{Bool}, Bool[0, 1, 1, 0], :uwhole, dimnot)
+
     # Sparse arrays don't accept unclear 'zero' conversions.
     @test conv(Vector{Symbol}, ["a", "b"] => [:a, :b])
     @convfails(convert(SparseVector{Symbol}, ["a", "b"]),
-        SparseVector{Symbol}, ["a", "b"], :uwhole, "Conversion not implemented.")
+        SparseVector{Symbol}, ["a", "b"], :uwhole,
+        "Would not convert to a sparse structure \
+         when the element type (Symbol) has no null/zero value.")
+
+    @test conv(SparseVector{Float64}, idmap(1:3) => sparse(Float64[1, 2, 3]))
+    @convfails(convert(SparseVector{Float64}, filt(1:3)),
+        SparseVector{Float64}, filt(1:3), :uwhole,
+        "Would not convert to a sparse structure when the input has no `size`.")
+
+    @convfails(convert(SparseVector{Float64}, [1, :x, 3]),
+        SparseVector{Float64}, :x, (:u, (2,)), "Element cannot be compared to null/zero.")
 
     #---------------------------------------------------------------------------------------
     # Try several conversions at once, first match first served.

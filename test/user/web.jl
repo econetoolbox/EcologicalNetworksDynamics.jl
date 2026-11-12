@@ -71,7 +71,7 @@ const View = Views.EdgeMaskView{d}
         Foodweb.Matrix, :construct,
         (d, :a, :uwhole,
             "Cannot convert to `$(NF.SparseMatrix{Bool})`:\n\
-             Conversion not implemented."))
+             Would not convert to a sparse structure when the input has no `size`."))
 
     #---------------------------------------------------------------------------------------
     # Early check.

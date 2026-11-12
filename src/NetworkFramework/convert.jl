@@ -24,7 +24,7 @@
 
 "Get a static response whether the type *may* be converted."
 can_convert(::Type, ::Type) = false # Unless explicitly marked.
-can_convert(T::Type, input) = can_convert(T, typeof(input))
+can_convert(T::Type, x) = can_convert(T, typeof(x))
 
 function allow_convert(Target, Input, f = Target)
     eval(
@@ -44,7 +44,7 @@ ac = allow_convert
 
 # If the type is already correct, then an alias should be returned.
 can_convert(::Type{T}, ::T) where T = true
-convert(::Type{T}, input::T) where T = input
+convert(::Type{T}, x::T) where T = x
 
 # ==========================================================================================
 # Accepted implicit scalar conversions.
@@ -58,92 +58,124 @@ ac(Int, Integer)
 ac(Float64, Real)
 
 # ==========================================================================================
-# Simple collections conversions.
+# Convert to dense arrays.
 
 # From iterators.
-function convert(::Type{Vector{T}}, input) where {T}
-    hasmethod(iterate, Tuple{typeof(input)}) ||
-        converr(Vector{T}, input, "Input is not iterable.")
+has_iter(T::Type) = hasmethod(iterate, Tuple{T}) # Useful for arbitrary iterators.
+has_pairs(T::Type) = hasmethod(pairs, Tuple{IndexCartesian,T}) # Useful for n-D arrays.
+# The above is not actually called, but excludes e.g. `pair(Type)`.
+# https://julialang.zulipchat.com/#narrow/channel/274208-helpdesk-.28published.29/topic/pairs.28Type.29/with/639765958
+
+check_pairs(A, x) =
+    has_pairs(typeof(x)) || converr(A, x, "Input is not iterable as an array.")
+check_iter(A, x) = has_iter(typeof(x)) || converr(A, x, "Input is not iterable.")
+
+can_convert(::Type{<:AbstractArray}, x) = has_pairs(typeof(x))
+check_convert(A::Type{<:AbstractArray}, x) = check_pairs(A, x)
+function convert(A::Type{<:AbstractArray}, input)
+    check_convert(A, input)
+    T = eltype(A)
     T[
         try
             convert(T, x)
         catch e
             e isa ConvertError || rethrow(e)
-            e.ref = UserRef((i,))
+            e.ref = UserRef(Tuple(i))
             rethrow(e)
         end
-        for (i, x) in pairs(input)
+        for (i, x) in getpairs(input)
     ]
 end
+getpairs(x) = enumerate(x) # For arbitrary iterators.
+getpairs(x::AbstractArray) = pairs(x) # For arrays.
 
-# Blacklist a few unfortunate consequences of the above.
-for D in (AbstractDict, NamedTuple)
+# Vectors could be built from any kind of iterator.
+can_convert(::Type{<:AbstractVector}, x) = has_iter(typeof(x))
+check_convert(A::Type{<:AbstractVector}, x) = check_iter(A, x)
+
+convert(::Type{A}, a::A) where A<:AbstractArray = a
+
+#-------------------------------------------------------------------------------------------
+# Reject a few unfortunate consequences.
+
+# Key-based structures.
+can_convert(::Type{<:AbstractArray}, ::AbstractDict) = false
+can_convert(::Type{<:AbstractArray}, ::NamedTuple) = false
+check_convert(A::Type{<:AbstractArray}, x::AbstractDict) = keyerr(A, x, AbstractDict)
+check_convert(A::Type{<:AbstractArray}, x::NamedTuple) = keyerr(A, x, NamedTuple)
+keyerr(A, x, T) = converr(A, x, "Would not convert $T to an array: keys would be lost.")
+
+# Uneven number of dimensions.
+can_convert(A::Type{<:AbstractArray}, a::AbstractArray) = ndims(A) == ndims(a)
+check_convert(A::Type{<:AbstractArray}, a::AbstractArray) =
+    can_convert(A, a) || converr(A, a,
+        "Would not convert vector to matrix, vice-versa or etc.")
+
+# Rewire the above vector special-case :\
+for X in (AbstractDict, NamedTuple, AbstractArray)
     eval(
         quote
-            can_convert(::Type{Vector{T}}, ::$D) where T = false
-            convert(::Type{Vector{T}}, d::$D) where T =
-                @invoke convert(Vector{T}::Type, d::Any)
+            can_convert(A::Type{<:AbstractVector}, x::$X) =
+                @invoke can_convert(A::Type{<:AbstractArray}, x)
+            check_convert(A::Type{<:AbstractVector}, x::$X) =
+                @invoke check_convert(A::Type{<:AbstractArray}, x)
         end,
     )
 end
 
-to_dense(T) = array -> @invoke convert(Vector{T}, array::Any)
-function ac_dense(Target, inputs)
-    for Input in inputs
-        ac(Vector{Target}, Vector{<:Input}, to_dense(Target))
-        ac(Matrix{Target}, Matrix{<:Input}, to_dense(Target))
-    end
-    # Don't shadow the alias/identity case.
-    ac(Vector{Target}, Vector{Target}, identity)
-    ac(Matrix{Target}, Matrix{Target}, identity)
+# ==========================================================================================
+# Convert to sparse arrays.
+
+has_zero(T::Type) = hasmethod(zero, Tuple{T})
+has_size(T::Type) = hasmethod(size, Tuple{T})
+
+function check_zero(A::Type{<:AbstractArray}, x)
+    T = eltype(A)
+    has_zero(T) || converr(A, x,
+        "Would not convert to a sparse structure \
+         when the element type ($yellow$T$reset) has no null/zero value.")
 end
 
-# Textual values have no julia `zero` and don't make sense in sparse structures.
-ac_dense(String, (Symbol, Char))
-ac_dense(Symbol, (AbstractString, Char))
+function check_size(A, x)
+    has_size(typeof(x)) || converr(A, x,
+        "Would not convert to a sparse structure when the input has no `size`.")
+end
 
-# No custom conversion function for sparse arrays
-# because it does not necessarily translate in term of julia's `iszero`,
-# required for sparse structures.
-to_sparse(Target) =
-    array -> begin
-        res = spzeros(Target, size(array))
-        for (i, x) in pairs(array)
-            iszero(x) && continue
-            res[i] = try
-                Target(x)
-            catch _
-                converr(typeof(res), x, "(detail down the stacktrace)"; uref = Tuple(i))
-            end
+can_convert(A::Type{<:AbstractSparseArray}, x) = has_zero(eltype(A)) && has_size(typeof(x))
+function sparse_check_convert(A::Type{<:AbstractSparseArray}, x)
+    check_zero(A, x)
+    check_size(A, x)
+    check_convert(A, x)
+end
+
+function convert(A::Type{<:AbstractSparseArray}, input)
+    sparse_check_convert(A, input)
+    T = eltype(A)
+    res = spzeros(T, size(input))
+    for (i, x) in pairs(input)
+        has_zero(typeof(x)) ||
+            converr(A, x, "Element cannot be compared to null/zero.";
+                ref = UserRef(Tuple(i)))
+        iszero(x) && continue
+        res[i] = try
+            convert(T, x)
+        catch e
+            e isa ConvertError || rethrow(e)
+            e.ref = UserRef(Tuple(i))
+            rethrow(e)
         end
-        res
     end
-function ac_sparse(Target, Input)
-    ac(SparseVector{Target}, SparseVector{<:Input}, SparseVector{Target})
-    ac(SparseMatrix{Target}, SparseMatrix{<:Input}, SparseMatrix{Target})
-
-    ac(SparseVector{Target}, Vector{<:Input}, to_sparse(Target))
-    ac(SparseMatrix{Target}, Matrix{<:Input}, to_sparse(Target))
-
-    # Don't shadow the alias/identity case.
-    ac(SparseVector{Target}, SparseVector{Target}, identity)
-    ac(SparseMatrix{Target}, SparseMatrix{Target}, identity)
+    res
 end
+convert(::Type{A}, a::A) where A<:AbstractSparseArray = a
 
-function ac_all(Target, Input)
-    ac_dense(Target, (Input, Target))
-    ac_sparse(Target, Input)
+can_convert(A::Type{<:AbstractSparseArray}, a::AbstractArray) =
+    has_zero(eltype(A)) && @invoke can_convert(A::Type{<:AbstractArray}, a)
+
+function sparse_check_convert(A::Type{<:AbstractSparseArray}, a::AbstractArray)
+    check_zero(A, a)
+    check_convert(A::Type{<:AbstractArray}, a)
 end
-
-ac_all(Float64, Real)
-ac_all(Int, Integer)
-ac_all(Bool, Integer)
-
-# Special-case bitarrays.
-ac(Vector{Bool}, BitVector)
-ac(Matrix{Bool}, BitMatrix)
-ac(SparseVector{Bool}, BitVector)
-ac(SparseMatrix{Bool}, BitMatrix)
 
 # ==========================================================================================
 """
