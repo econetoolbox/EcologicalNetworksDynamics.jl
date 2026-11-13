@@ -88,7 +88,9 @@ function define_web_field_component(
             end
             export Adjacency
             NF.register_blueprint(Adjacency,
-                $"[$src => [$tgt => $field]] adjacency list"; d)
+                $"[$src => [$tgt => $field]] adjacency list"; d,
+                implied = [Web], # Imply web from adjacency list keys.
+            )
         end,
     )
 
@@ -393,9 +395,8 @@ function late_check(md::Model, d::D.EdgeField, vec::Vector)
     end
     # Then check values one by one.
     tp = wb.topology
-    src, tgt = N.sides(md, d)
     map(zip(N.edges(tp), vec)) do ((i, j), x)
-        a, b = N.to_label.((src.index, tgt.index), (i, j))
+        a, b = N.to_label(md, d, i, j)
         _late_check(md, d, x, ((i, a), (j, b)))
     end
 end
@@ -421,126 +422,95 @@ late_check(md::Model, d::D.EdgeField, mat::Adjacency) = late_lower(md, d, mat)
 
 # No topology check required for dense matrices.
 function late_lower(md::Model, d::D.EdgeField, mat::Matrix)
-    (src, tgt) = N.sides(md, d)
     map(pairs(mat)) do (ij, x) # Column-major as expected.
         (i, j) = tuple(ij)
-        a, b = N.to_label.((src.index, tgt.index), (i, j))
+        a, b = N.to_label(md, d, i, j)
         _late_check(md, d, x, ((i, a), (i, b)))
     end
 end
 
-# Topology check required for sparse data structures.
 # TODO: this should not check for completeness on mutation pipeline, right?
 # And then it should not even lower to a vector :|
-function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacency})
-    # HERE: this is wrong for Adjacency and not reusable. Use another strategy.
-    tp = N.web(md, d).topology
-    T = D.type(d)
-    res = sizehint!(T[], N.n_edges(tp))
-    for (exp, act) in zip_exp_act(md, d, tp, data)
-        println("exp: $(repr(exp))")
-        println("act: $(repr(act))")
-        miss = if act === MissingEdge
-            true # Missing edge.
-        elseif exp === MissingEdge
-            false # Unexpected edge.
-        else
-            (ij..., x) = act
-            if exp == ij
-                # Ok, received as expected.
-                push!(res, x)
-                continue
-            else
-                exp < ij # Missing if 'act' went further.
-            end
-        end
-        println("miss: $(repr(miss))")
-        if miss
-            (i, j) = exp
-            f = D.field(d)
-            expl = explicit_null(data, f, i, j)
-            checkerr(data,
-                "Missing (structural) edge value.\nTo explicitly make it null, \
-                 try something along $black`$expl`$reset (or equivalent).";
-                d, mref = to_mref((i, j), md, d))
-        else
-            (i, j, x) = act
-            w = D.web(d)
-            checkerr(x,
-                "Received unexpected edge value: there is no such $green$w$reset edge.";
-                d, mref = to_mref((i, j), md, d))
-        end
-    end
-    res
-end
-
 function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacency})
     T = D.type(d)
     # Expected set of edges.
     tp = N.web(md, d).topology
     exp = tp |> N.edges |> Set
     # Actual set of edges.
-    act = Dict{Tuple{Int,Int},eltype(data)}()
+    act = Dict{Tuple{Int,Int},valtype(data)}()
+    # Collect into a lower vector.
+    res = sizehint!(T[], N.n_edges(tp))
     for (i, j, x) in actual_edges(md, d, data)
         act[(i, j)] = x
+        push!(res, x)
     end
-    render(set) = join_elided(sort(collect(set)), ", ", " and "; coleach = green)
+    function render(set)
+        pairs = I.map(set) do (i, j)
+            a, b = N.to_label(md, d, i, j)
+            (i, a) => (j, b)
+        end |> collect |> sort!
+        join_elided(pairs, ", ", " and "; coleach = green)
+    end
     miss = setdiff(exp, keys(act))
     if !isempty(miss)
-        s = length(miss) == 1 ? "" : "s"
-        checkerr(map, "Missing: no value provided for edge$s $(render(miss)).")
+        s, them, etc = length(miss) == 1 ? ("", "it", "") : ("s", "them", " etc.")
+        f = D.field(d)
+        i, j = first(miss)
+        null = explicit_null(data, f, i, j)
+        checkerr(data,
+            "Missing: no (structural) value$s provided for edge$s $(render(miss)).\n\
+             To explicitly make $them null, \
+             try something along $black`$null`$reset$etc (or equivalent).")
     end
     unexp = setdiff(keys(act), exp)
     if !isempty(unexp)
         w = D.web(d)
-        a, s =
+        are, s =
             length(unexp) == 1 ?
-            (" a", "", D.snake_case_singular) :
-            ("", "s", D.snake_case_plural)
-        checkerr(data, "Not$a $green$(repr(w))$reset edge$s: $(render(unex)).")
+            ("is", "", D.snake_case_singular) :
+            ("are", "s", D.snake_case_plural)
+        nosuch = render(unexp)
+        unexp = I.map(unexp) do (i, j)
+            (i, j) => act[(i, j)]
+        end |> collect |> sort!
+        checkerr(unexp,
+            "Received unexpected value$s: \
+             there $are no such $green$(repr(w))$reset edge$s: $nosuch.")
     end
-    # HERE: collect to lower into a vector?
+    res
 end
+valtype(spm::SparseMatrix) = eltype(spm)
+explicit_null(::SparseMatrix, f, i, j) = "$f[$i, $j] = 0"
+explicit_null(::Adjacency, f, src, tgt) = "$f[$(repr(src))][$(repr(tgt))] = 0"
 
 actual_edges(::Model, ::D.EdgeField, spm::SparseMatrix) = zip(findnz(spm)...)
 function actual_edges(md::Model, d::D.EdgeField, adj::Adjacency{<:Any,Int})
-    m, n = length.(N.sides(md, d))
+    src, tgt = N.sides(md, d)
     I.map(iter(adj)) do (i, j, x)
-        1 <= i <= m && 1 <= j <= n && return (i, j, x)
-        checkerr((i, j),
-            "Not an edge reference among $green$m × $n$reset nodes.";
-            uref = (i, j))
+        map(zip((i, j), (src, tgt))) do (index, cl)
+            n = length(cl)
+            1 <= index <= n && return
+            c = "$green$(cl.name)$reset"
+            checkerr((i, j),
+                "Not an index among $green$n$reset $c nodes: $cyan$index$reset.";
+                uref = (i, j))
+        end
+        (i, j, x)
     end
 end
+
 function actual_edges(md::Model, d::D.EdgeField, adj::Adjacency{<:Any,Symbol})
-    src, tgt = map(cl -> cl.index, N.sides(md, d))
+    src, tgt = N.sides(md, d)
     I.map(iter(adj)) do (a, b, x)
-        a in src && b in tgt && return (N.to_index.((src, tgt), (a, b))..., x)
-        s, t = D.sidenames(d)
-        checkerr((a, b),
-            "Not an edge reference among $green$(repr(s)) × $(repr(t))$reset labels.";
-            uref = (a, b))
+        (i, j) = map(zip((a, b), (src, tgt))) do (l, cl)
+            ix = cl.index
+            l in ix && return N.to_index(ix, l)
+            c = "$green$(cl.name)$reset"
+            checkerr((a, b), "Not a $c node label: $cyan$(repr(l))$reset."; uref = (a, b))
+        end
+        (i, j, x)
     end
 end
-
-# Iterate both expected and actual edges at the same time to compare topologies.
-zip_exp_act(::Model, ::Dispatcher, tp::N.Topology, spm::SparseMatrix) =
-    zip_longest(N.edges(tp), zip(findnz(spm)...); pad = MissingEdge)
-zip_exp_act(::Model, ::Dispatcher, tp::N.Topology, adj::Adjacency{<:Any,Int}) =
-    zip_longest(N.edges(tp), iter(adj); pad = MissingEdge)
-function zip_exp_act(md::Model, d::Dispatcher, tp::N.Topology, adj::Adjacency{<:Any,Symbol})
-    src, tgt = map(cl -> cl.index, N.sides(md, d))
-    it = I.map(iter(adj)) do (a, b, x)
-        (N.to_index.((src, tgt), (a, b))..., x)
-    end
-    zip_longest(N.edges(tp), it; pad = MissingEdge)
-end
-
-# Have this private to future-proof against collisions.
-struct MissingEdge end
-
-explicit_null(::SparseMatrix, f, i, j) = "$f[$i, $j] = 0"
-explicit_null(::Adjacency, f, src, tgt) = "$f[$(repr(src))][$(repr(tgt))] = 0"
 
 # ==========================================================================================
 # Expand.
@@ -555,7 +525,7 @@ end
 function expand!(md::Model, d::D.EdgeField, flat)
     n = N.n_edges(N.web(md, d))
     vec = fill(flat, n)
-    epand!(md, d, vec)
+    expand!(md, d, vec)
 end
 
 # If not, then just trust whoever only lowered to a matrix yet.

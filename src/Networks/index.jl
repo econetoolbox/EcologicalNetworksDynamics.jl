@@ -23,6 +23,9 @@ is_index(s::S, i::Int) = 1 <= i <= length(s)
 is_ref(s::S, i::Int) = is_index(s, i)
 is_ref(s::S, l::Symbol) = is_label(s, l)
 
+Base.in(i::Int, s::S) = is_index(s, i)
+Base.in(l::Symbol, s::S) = is_label(s, l)
+
 "Iterate over all references of the given type in order."
 ordered(::Type{Int}, s::S) = 1:length(s)
 ordered(::Type{Symbol}, s::S) = s.reverse

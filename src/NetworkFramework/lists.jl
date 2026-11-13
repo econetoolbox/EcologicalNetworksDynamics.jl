@@ -852,7 +852,7 @@ function convert(::Type{BinAdjacency}, input::Adjacency)
     R = reftype(input)
     res = BinAdjacency{R}()
     for (i, sub) in input
-        res[i] = parse(BinMap, sub)
+        res[i] = convert(BinMap, sub)
     end
     res
 end

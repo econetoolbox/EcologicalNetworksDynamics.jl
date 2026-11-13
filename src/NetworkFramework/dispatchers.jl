@@ -12,6 +12,8 @@ using EcologicalNetworksDynamics.NetworkFramework: Model, Ref
 using .Display: cyan, reset
 const D = Dispatchers
 
+# TODO: `class -> classname`, `web -> webname` etc. Keep base name to obtain dispatchers.
+
 "For convenience, initial constructors (from symbols) return both instance and type."
 abstract type Dispatcher end
 
@@ -268,6 +270,14 @@ function N.parent(md::Model, d::Subclass)
     par = isnothing(p) ? class(d) : p
     N.class(N.network(md), par)
 end
+
+# Use it to shorten these frequent ones.
+N.to_label(md::Model, d::NodeLevel, i) = N.to_label(N.class(md, d).index, i)
+N.to_index(md::Model, d::NodeLevel, a) = N.to_index(N.class(md, d).index, a)
+N.to_label(md::Model, d::EdgeLevel, i, j) =
+    N.to_label.(map(cl -> cl.index, N.sides(md, d)), (i, j))
+N.to_index(md::Model, d::EdgeLevel, a, b) =
+    N.to_index.(map(cl -> cl.index, N.sides(md, d)), (a, b))
 
 # Wide display.
 Base.show(io::IO, ::MIME"text/plain", d::Dispatcher) = print(io, "$cyan$d$reset")

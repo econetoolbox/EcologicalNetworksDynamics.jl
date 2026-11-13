@@ -189,19 +189,32 @@ const View = V.SparseEdgeFieldView{d,Float64}
     droptol!(bp.e, 0)
     addfails.@check(base + bp, [],
         (Efficiency.Matrix, :late,
-            (d, bp.e, (:m, ((2, :b), (3, :c))),
+            (d, bp.e, :mwhole,
                 """
-                Missing (structural) edge value.
+                Missing: no (structural) value provided for edge (2, :b) => (3, :c).
                 To explicitly make it null, \
                 try something along `efficiency[2, 3] = 0` (or equivalent).\
+                """)))
+
+    bp.e[4, 3] = 0
+    droptol!(bp.e, 0)
+    addfails.@check(base + bp, [], # (pluralized)
+        (Efficiency.Matrix, :late,
+            (d, bp.e, :mwhole,
+                """
+                Missing: no (structural) values provided for edges \
+                (2, :b) => (3, :c) and (4, :d) => (3, :c).
+                To explicitly make them null, \
+                try something along `efficiency[2, 3] = 0` etc. (or equivalent).\
                 """)))
 
     bp = Efficiency(e)
     bp.e[2, 4] = 0.5
     addfails.@check(base + bp, [],
         (Efficiency.Matrix, :late,
-            (d, 0.5, (:m, ((2, :b), (4, :d))),
-                "Received unexpected edge value: there is no such trophic edge.")))
+            (d, [(2, 4) => 0.5], :mwhole,
+                "Received unexpected value: \
+                 there is no such :trophic edge: (2, :b) => (4, :d).")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -297,9 +310,51 @@ const View = V.SparseEdgeFieldView{d,Float64}
     pop!(bp_r.e, :b)
     pop!(bp_i.e, 2)
 
-    addfails.@check(base + bp_r, [], # HERE, fix: wrong diagnostic.
-        (Efficiency.Adjacency, :early,
-            (d, 4.0, (:u, (4, 3)), "Value must belong to [0, 1].")))
+    for bp in (bp_r, bp_i)
+        addfails.@check(base + bp, [],
+            (Efficiency.Adjacency, :late,
+                (d, bp.e, :mwhole,
+                    "Missing: no (structural) value provided for edge (2, :b) => (3, :c).\n\
+                     To explicitly make it null, \
+                     try something along `efficiency[2][3] = 0` (or equivalent).")))
+    end
+
+    bp_r.e[:x] = Efficiency(adj_r).e[:b] # TODO: better ergonomics to add superlevel entry?
+    bp_i.e[5] = Efficiency(adj_i).e[2]
+
+    addfails.@check(base + bp_r, [],
+        (Efficiency.Adjacency, :late,
+            (d, (:x, :c), (:u, (:x, :c)), "Not a species node label: :x.")))
+    addfails.@check(base + bp_i, [],
+        (Efficiency.Adjacency, :late,
+            (d, (5, 3), (:u, (5, 3)), "Not an index among 4 species nodes: 5.")))
+
+    #---------------------------------------------------------------------------------------
+    # Expand.
+
+    bp_r, bp_i = Efficiency.((adj_r, adj_i))
+    mr = base + bp_r
+    mi = base + bp_i
+    @test has_component(mr, Efficiency)
+    @test has_component(mi, Efficiency)
+
+    # The web is inferred.
+    mr = Model(bp_r)
+    mi = Model(bp_i)
+    @test has_component(mr, Efficiency)
+    @test has_component(mi, Efficiency)
+    @test has_component(mr, Foodweb)
+    @test has_component(mi, Foodweb)
+    @test has_component(mr, Species)
+    @test has_component(mi, Species)
+    @test mr.species.names == [:a, :b, :c, :d]
+    @test mi.species.names == [:s1, :s2, :s3, :s4]
+    @test mr.trophic.matrix == mi.trophic.matrix == [
+        0 1 0 0
+        0 0 1 0
+        0 0 0 0
+        1 0 1 0
+    ]
 
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
@@ -311,38 +366,6 @@ const View = V.SparseEdgeFieldView{d,Float64}
 
     #---------------------------------------------------------------------------------------
     # Construct (with labels or integer references).
-
-    @test Efficiency.Adjacency([:a => (:b => true, :c => false)]) ==
-          Efficiency.Adjacency([:a => (:b => 1.0, :c => 0.0)])
-    @test Efficiency.Adjacency([1 => (2 => true, 3 => false)]) ==
-          Efficiency.Adjacency([1 => (2 => 1.0, 3 => 0.0)])
-    # Implicit constructor.
-    @test bp_r == Efficiency(adj_r)
-    @test bp_i == Efficiency(adj_i)
-    @test_repr(
-        bp_r,
-        "<Efficiency>:Adjacency(e: {a: {b: 0.2}, b: {c: 0.3}, d: {a: 0.1, c: 0.4}})",
-    )
-    @test_repr(
-        bp_i,
-        "<Efficiency>:Adjacency(e: {1: {2: 0.2}, 2: {3: 0.3}, 4: {1: 0.1, 3: 0.4}})",
-    )
-    @test_disp(
-        bp_r,
-        """
-        blueprint for <Efficiency>: Adjacency {
-          e: {a: {b: 0.2}, b: {c: 0.3}, d: {a: 0.1, c: 0.4}},
-        }\
-        """,
-    )
-    @test_disp(
-        bp_i,
-        """
-        blueprint for <Efficiency>: Adjacency {
-          e: {1: {2: 0.2}, 2: {3: 0.3}, 4: {1: 0.1, 3: 0.4}},
-        }\
-        """,
-    )
 
     @bpfails(
         Efficiency.Adjacency([:a => (:b => :x)]),

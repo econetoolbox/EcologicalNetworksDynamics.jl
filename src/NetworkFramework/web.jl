@@ -322,10 +322,11 @@ function expand!(md::Model, d::D.Web, A::AbstractSparseMatrix)
 end
 
 function expand!(md::Model, d::D.Web, adj::BinAdjacency)
-    class = D.sourcename(d)
-    index = getproperty(md, class)._index
-    to_i(label) = N.to_index(index, label)
-    topology = N.SparseReflexive(length(index), I.map(adj) do (src, sub)
+    c = D.sourcename(d)
+    ix = getproperty(md, c)._index
+    n = length(ix)
+    to_i(l) = N.to_index(ix, l)
+    topology = N.SparseReflexive(n, I.map(adj) do (src, sub)
         (to_i(src), I.map(to_i, sub))
     end)
     expand!(md, d, topology)

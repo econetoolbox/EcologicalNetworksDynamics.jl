@@ -385,12 +385,11 @@ end
 function bp_late_check(md::Model, bp::NodeFieldMapBlueprint, map::Map)
     d = dispatcher(bp)
     late_check_refs(md, d, map; complete = true)
-    ix = N.class(md, d).index
     rs = N.class(md, d).restriction
     T = D.type(d)
     res = sizehint!(T[], length(map))
     for (i, parent_i) in enumerate(N.indices(rs)) # (reorder values)
-        l = N.to_label(ix, i)
+        l = N.to_label(md, d, i)
         early = get_from_map(map, parent_i, l)
         late = _late_check(md, d, early, (parent_i, l))
         push!(res, late)
@@ -404,8 +403,7 @@ get_from_map(map::Map{<:Any,Symbol}, ::Int, l::Symbol) = map[l]
 # Late check, on mutation pipeline.
 
 function mut_late_check(md::Model, d::D.NodeField, (i,)::Tuple{Int}, x)
-    ix = N.class(md, d).index
-    l = N.to_label(ix, i)
+    l = N.to_label(md, d, i)
     _late_check(md, d, x, (i, l))
 end
 
@@ -417,9 +415,8 @@ end
 
 # Just read to check on index-maps.
 function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Int})
-    ix = N.class(md, d).index
     for (i, early) in pairs(map)
-        l = N.to_label(ix, i)
+        l = N.to_label(md, d, i)
         _late_check(md, d, early, (i, l))
     end
     map
@@ -427,11 +424,10 @@ end
 
 # Read and convert for symbol-maps.
 function late_check_map_values(md::Model, d::D.NodeField, map::Map{<:Any,Symbol})
-    ix = N.class(md, d).index
     T = valtype(map)
     res = Map{T,Int}()
     for (l, early) in pairs(map)
-        i = N.to_index(ix, l)
+        i = N.to_index(md, d, l)
         late = _late_check(md, d, early, (i, l))
         res[i] = late
     end
@@ -496,10 +492,9 @@ function mutate!(md::Model, d::D.NodeField, ::WholeData, raw) # (vec or flat)
 end
 
 function mutate!(md::Model, d::D.NodeField, ::WholeData, map::Map)
-    ix = N.class(md, d).index
     N.mutate!(N.entry(md, d)) do nodes
         for (label, x) in map
-            i = N.to_index(ix, label)
+            i = N.to_index(md, d, label)
             nodes[i] = x
         end
     end
@@ -516,8 +511,7 @@ function mutate!(md::Model, d::D.NodeField, (i,)::Tuple{Int}, x)
 end
 
 function mutate!(md::Model, d::D.NodeField, (l,)::Tuple{Symbol}, x)
-    ix = N.class(md, d).index
-    i = N.to_index(ix, l)
+    i = N.to_index(md, d, l)
     mutate!(md, d, (i,), x)
 end
 

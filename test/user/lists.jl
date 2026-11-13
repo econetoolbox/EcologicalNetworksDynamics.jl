@@ -272,6 +272,23 @@ cv(type, input, ExpectedRefType) = convert(type, input; ExpectedRefType)
             ),
         ),
     )
+
+    # Downgrade valued lists to just their binary structure.
+    map = cv(Map{Float64}, [:a => 5, (:c, :d) => 8, (:e, :f) => 9])
+    @test conv(BinMap, map => OrderedSet([:a, :c, :d, :e, :f]))
+
+    adj = cv(Adjacency{Float64},
+        [:a => [:b => 5], (:c, :d) => (:e, 8), :f => [((:g, :h) => 9)]])
+    @test conv(
+        BinAdjacency,
+        adj => OrderedDict(
+            :a => OrderedSet([:b]),
+            :c => OrderedSet([:e]),
+            :d => OrderedSet([:e]),
+            :f => OrderedSet([:g, :h]),
+        ),
+    )
+
 end
 
 @testset "Parsing maps and adjacency lists: failures" begin
