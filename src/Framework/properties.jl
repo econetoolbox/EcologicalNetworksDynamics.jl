@@ -76,8 +76,9 @@ function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
     # Check for required components availability.
     miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
-        comp = isabstracttype(miss) ? "A component" : "Component"
-        properr(P, pname, "$comp $(compdisplay(miss)) is required to read this property.")
+        Component = isabstracttype(miss) ? "A component" : "Component"
+        c = compdisplay(miss; color = true)
+        properr(P, pname, "$Component $c is required to read this property.")
     end
     # Forward to method.
     fn(system(target))
@@ -89,9 +90,10 @@ function Base.setproperty!(target::P, pname::Symbol, rhs) where {P<:PropertyTarg
     # Check for required components availability.
     miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
-        comp = isabstracttype(miss) ? "A component" : "Component"
+        Component = isabstracttype(miss) ? "A component" : "Component"
+        c = compdisplay(miss; color = true)
         properr(P, pname,
-            "$comp $(compdisplay(miss)) is required to write to this property.")
+            "$Component $c is required to write to this property.")
     end
     # Invoke property method.
     fn(system(target), rhs)
@@ -297,7 +299,7 @@ function Base.showerror(io::IO, e::PropertyError)
     V = system_value_type(P)
     pth = path(P)
     isnothing(pth) && (pth = "")
-    print(io, "In property `$pth.$name` of `$(System{V})`:\n$mess")
+    print(io, "In property $blue$pth.$name$reset of `$(short(System{V}))`:\n$mess")
 end
 
 # ==========================================================================================

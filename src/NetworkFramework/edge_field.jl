@@ -20,7 +20,7 @@ function define_web_field_component(
     blueprints = [], # Extra blueprints for the component.
     requires = [], # Extra requirements for the component.
 )
-    w, _ = D.Web(d)
+    w = D.web(d)
     Web = D.CamelCase(w)
     web, field = D.content(d)
     src, tgt = D.sourcename(w), D.targetname(w)
@@ -242,7 +242,7 @@ function cst_early_check(
     data::Union{Vector,AbstractMatrix,Adjacency},
 )
     d = dispatcher(BP)
-    D.is_symmetric(first(D.Web(d))) && check_symmetric(d, data)
+    D.is_symmetric(D.web(d)) && check_symmetric(d, data)
     for (r, x) in edge_pairs(data)
         ref = Tuple(r)
         urefguard(ref) do
@@ -260,7 +260,7 @@ function bp_early_check(
     bp::Union{EdgeFieldRawBlueprint,EdgeFieldMatrixBlueprint,EdgeFieldAdjacencyBlueprint},
 )
     d, data = dispatcher(bp), NF.data(bp)
-    D.is_symmetric(first(D.Web(d))) && check_symmetric(d, data)
+    D.is_symmetric(D.web(d)) && check_symmetric(d, data)
     early_lower(d, data) do ref, x
         urefguard(ref) do
             D.is_dense(d) && check_dense_ref(typeof(bp), ref, data)
@@ -271,7 +271,7 @@ end
 
 # On mutation, don't check for density.
 function mut_early_check(d::D.EdgeField, data::Union{Vector,AbstractMatrix,Adjacency})
-    D.is_symmetric(first(D.Web(d))) && check_symmetric(d, data)
+    D.is_symmetric(D.web(d)) && check_symmetric(d, data)
     early_lower(d, data) do ref, x
         urefguard(ref) do
             early_check(d, x, ref)
@@ -465,7 +465,7 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
             length(miss) == 1 ?
             ("", "it", "exists", "") :
             ("s", "them", "exist", " etc.")
-        w, f = D.web(d), D.field(d)
+        w, f = D.webname(d), D.fieldname(d)
         i, j = first(miss)
         null = explicit_null(md, d, data, f, i, j)
         checkerr(data,
@@ -476,7 +476,7 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
     end
     unexp = setdiff(keys(act), exp)
     if !isempty(unexp)
-        w = D.web(d)
+        w = D.webname(d)
         are, s =
             length(unexp) == 1 ?
             ("is", "", D.snake_case_singular) :
@@ -540,7 +540,7 @@ end
 
 # Data should have already been lowered to the correct vector at this point.
 function expand!(md::Model, d::D.EdgeField, vec::Vector)
-    wb, f = N.web(md, d), D.field(d)
+    wb, f = N.web(md, d), D.fieldname(d)
     N.add_field!(wb, f, vec)
 end
 

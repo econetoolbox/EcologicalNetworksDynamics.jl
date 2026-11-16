@@ -420,7 +420,7 @@ end
     @test v[6] == true
     @test v[[3, 6, 9, 12, 15]] == [0, 1, 0, 1, 0]
 
-    (s, _), (t, _) = D.sides(d)
+    s, t = D.sides(d)
     @viewfails(v[-5, 2], (s, -5, :uwhole, "There are 5 nodes in this class."))
     @viewfails(v[6, 7], (s, 6, :uwhole, "There are 5 nodes in this class."))
     @viewfails(v[5, 7], (s, 7, :uwhole, "There are 5 nodes in this class."))

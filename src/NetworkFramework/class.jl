@@ -85,7 +85,7 @@ end
 # ==========================================================================================
 
 function define_class_properties(mod::Module, d::D.Class; depends = [])
-    c = D.class(d)
+    c = D.classname(d)
     short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
 
     NF.define_propspace(plural)
@@ -118,7 +118,7 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
                 get_parent_index(nw::Network) =
                     OrderedDict(l => i for (l, i) in zip(ref_names(nw), indices(nw)))
                 mask(nw::Network, md::Model) =
-                    V.mask_view(D.Subclass(c, N.class(nw, c).parent)[1], md)
+                    V.mask_view(D.subclass(c, N.class(nw, c).parent), md)
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)
@@ -175,7 +175,7 @@ end
 
 # From names.
 function expand!(md::Model, d::D.Class, names)
-    c = D.class(d)
+    c = D.classname(d)
     nw = N.network(md)
     N.add_class!(nw, c, names)
 end

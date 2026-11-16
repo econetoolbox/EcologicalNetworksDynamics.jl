@@ -9,12 +9,18 @@ using SparseArrays
 import EcologicalNetworksDynamics.Tests:
     EN, N, F, NF, D, V,
     @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails, SparseMatrix,
-    @test_err
+    @propfails, @test_err
 using Test
 
 const d, _D = D.EdgeField(:trophic, :efficiency)
 const View = V.SparseEdgeFieldView{d,Float64}
 # TODO: test for dense constructs when such a component shows up.
+
+base = Model(Foodweb([
+    :a => :b,
+    :b => :c,
+    :d => (:a, :c),
+]))
 
 @testset "EdgeField components: blueprints" begin
 
@@ -34,12 +40,6 @@ const View = V.SparseEdgeFieldView{d,Float64}
     @test Efficiency.Matrix <: EN.Blueprint
     @test Efficiency.Adjacency <: EN.Blueprint
     @test Efficiency.Flat <: EN.Blueprint
-
-    base = Model(Foodweb([
-        :a => :b,
-        :b => :c,
-        :d => (:a, :c),
-    ]))
 
     # ======================================================================================
     # From raw values.
@@ -434,10 +434,40 @@ end
 
 @testset "EdgeField components: views" begin
 
+    @propfails(Model().efficiency, Model, :efficiency,
+        "Component <Efficiency> is required to read this property.")
+
+    e = [
+        0 5 0 0
+        0 0 8 0
+        0 0 0 0
+        2 0 4 0
+    ] / 10
+    m = base + Efficiency(e)
+    v = m.efficiency
+    @test v isa View
+    @test_repr(v, "<trophic:efficiency>(4×4: 4 values ranging from 0.2 to 0.8)")
+    @test_disp(v,
+        """
+        EdgesFieldView<trophic:efficiency>{Float64} (4×4: 4 values)
+           · 0.5   · ·
+           ·   · 0.8 ·
+           ·   ·   · ·
+         0.2   · 0.4 ·\
+        """)
+
+    x = extract(v)
+    @test x isa SparseMatrix{Float64}
+    @test x == e
+    @test findnz(x) == findnz(sparse(e))
+
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
     # ======================================================================================
     error("STOP HERE")
+
+    # Basic indexing.
+    v[1]
 
     # ======================================================================================
     # Views.

@@ -51,8 +51,8 @@ end
 
 # Large underlying dispatch point (largest possible to avoid duplicating code).
 edge_check(md::Model, d::D.EdgeLevel, (a, b)::Tuple{Any,Any}) = (
-    node_check(md, D.source(d)[1], (a,))...,
-    node_check(md, D.target(d)[1], (b,))...,
+    node_check(md, D.source(d), (a,))...,
+    node_check(md, D.target(d), (b,))...,
 )
 
 # Multiple-labels accesses, useful to match `view[[i, j, k]]` arrays of indices.

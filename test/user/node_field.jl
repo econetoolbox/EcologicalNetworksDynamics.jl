@@ -270,7 +270,7 @@ const View = V.NodeFieldView{d,Float64}
     addfails.@missing(Model(bp), Species, BodyMass, [BodyMass.Flat], nothing)
 end
 
-@testset "NodeField components: view" begin
+@testset "NodeField components: views" begin
 
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
     v = m.body_mass

@@ -12,8 +12,6 @@ using EcologicalNetworksDynamics.NetworkFramework: Model, Ref
 using .Display: cyan, reset
 const D = Dispatchers
 
-# TODO: `class -> classname`, `web -> webname` etc. Keep base name to obtain dispatchers.
-
 "For convenience, initial constructors (from symbols) return both instance and type."
 abstract type Dispatcher end
 
@@ -22,12 +20,13 @@ abstract type Dispatcher end
 
 "Dispatch to a particular class."
 struct Class{class} <: Dispatcher end
-function Class(class::Symbol)
-    T = Class{class}
+function Class(c::Symbol)
+    T = Class{c}
     T(), T
 end
+class(c::Symbol) = c |> Class |> first
 S = Class # 'Self'
-class(::S{cl}) where {cl} = cl
+classname(::S{cl}) where {cl} = cl
 
 """
 Obtain name variants for nodes in the class, in order:
@@ -50,7 +49,7 @@ component(s::S) = throw("Component unspeficied for $s.")
 
 # Display.
 function Base.show(io::IO, s::S)
-    class = D.class(s)
+    class = D.classname(s)
     print(io, "<$class>")
 end
 
@@ -63,13 +62,14 @@ function Subclass(class::Symbol, parent::Option{Symbol})
     T = Subclass{class,parent}
     T(), T
 end
+subclass(c::Symbol, p::Option{Symbol}) = Subclass(c, p) |> first
 S = Subclass
 content(::S{class,parent}) where {class,parent} = (class, parent)
-class(s::S) = first(content(s))
-parent(s::S) = last(content(s))
+classname(s::S) = first(content(s))
+parentname(s::S) = last(content(s))
 
 "Obtain dispatcher to underlying class."
-Class(s::S) = Class(class(s))
+Class(s::S) = s |> classname |> Class
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -86,8 +86,9 @@ function Web(web::Symbol)
     T = Web{web}
     T(), T
 end
+web(w::Symbol) = w |> Web |> first
 S = Web # 'Self'
-web(::S{w}) where {w} = w
+webname(::S{w}) where {w} = w
 
 # Categorize webs.
 is_reflexive(s::S) = source(s) == target(s)
@@ -118,13 +119,13 @@ sourcename(s::S) = first(sidenames(s))
 targetname(s::S) = last(sidenames(s))
 
 "Obtain dispatchers to the source/target classes."
-sides(s::S) = Class.(sidenames(s))
-source(s::S) = Class(sourcename(s))
-target(s::S) = Class(targetname(s))
+sides(s::S) = class.(sidenames(s))
+source(s::S) = class(sourcename(s))
+target(s::S) = class(targetname(s))
 
 # Display.
 function Base.show(io::IO, s::S)
-    web = D.web(s)
+    web = D.webname(s)
     print(io, "<$web>")
 end
 
@@ -136,9 +137,10 @@ function GraphField(field::Symbol)
     T = GraphField{field}
     T(), T
 end
+graphfield(f::Symbol) = f |> GraphField |> first
 S = GraphField # 'Self'
 content(::S{fd}) where {fd} = (fd,)
-field(s::S) = s |> content |> first
+fieldname(s::S) = s |> content |> first
 
 """
 Obtain name variants for field data, in order:
@@ -154,7 +156,7 @@ CamelCaseSingular(s::S) = name_variants(s)[3]
 
 # Display.
 function Base.show(io::IO, s::S)
-    field = D.field(s)
+    field = D.fieldname(s)
     print(io, "<$field>")
 end
 
@@ -167,14 +169,15 @@ function NodeField(class::Symbol, field::Symbol)
     T = NodeField{class,field}
     T(), T
 end
+nodefield(c::Symbol, f::Symbol) = NodeField(c, f) |> first
 S = NodeField # 'Self'
 content(::S{class,field}) where {class,field} = (class, field)
-class(s::S) = first(content(s))
-field(s::S) = last(content(s))
+classname(s::S) = first(content(s))
+fieldname(s::S) = last(content(s))
 type(s::S) = throw("Data type unspecified for $s.") # Underlying data type.
 
 "Obtain dispatcher to underlying class."
-Class(s::S) = Class(class(s))
+class(s::S) = s |> classname |> class
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -191,15 +194,18 @@ function EdgeField(web::Symbol, field::Symbol)
     T = EdgeField{web,field}
     T(), T
 end
+edgefield(w::Symbol, f::Symbol) = EdgeField(w, f) |> first
 S = EdgeField # 'Self'
 content(::S{web,field}) where {web,field} = (web, field)
-web(s::S) = first(content(s))
-field(s::S) = last(content(s))
+webname(s::S) = first(content(s))
+fieldname(s::S) = last(content(s))
 
 "Obtain dispatcher to underlying web."
-Web(s::S) = Web(web(s))
+web(s::S) = s |> webname |> web
 
-is_sparse(s::S) = is_sparse(first(Web(s)))
+# Delegate.
+is_sparse(s::S) = s |> web |> is_sparse
+is_dense(s::S) = s |> web |> is_dense
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -252,22 +258,22 @@ is_dense(d::EdgeLevel) = !is_sparse(d)
 # ==========================================================================================
 # Use dispatcher as static index into underlying data.
 
-N.class(md::Model, d::NodeLevel) = N.class(N.network(md), class(d))
-N.web(md::Model, d::EdgeLevel) = N.web(N.network(md), web(d))
-N.sides(md::Model, d::EdgeLevel) = N.sides(N.network(md), web(d))
-N.source(md::Model, d::EdgeLevel) = N.source(N.network(md), web(d))
-N.target(md::Model, d::EdgeLevel) = N.target(N.network(md), web(d))
-N.entry(md::Model, d::GraphField) = N.network(md).data[field(d)]
-N.entry(md::Model, d::NodeField) = N.class(md, d).data[field(d)]
-N.entry(md::Model, d::EdgeField) = N.web(md, d).data[field(d)]
+N.class(md::Model, d::NodeLevel) = N.class(N.network(md), classname(d))
+N.web(md::Model, d::EdgeLevel) = N.web(N.network(md), webname(d))
+N.sides(md::Model, d::EdgeLevel) = N.sides(N.network(md), webname(d))
+N.source(md::Model, d::EdgeLevel) = N.source(N.network(md), webname(d))
+N.target(md::Model, d::EdgeLevel) = N.target(N.network(md), webname(d))
+N.entry(md::Model, d::GraphField) = N.network(md).data[fieldname(d)]
+N.entry(md::Model, d::NodeField) = N.class(md, d).data[fieldname(d)]
+N.entry(md::Model, d::EdgeField) = N.web(md, d).data[fieldname(d)]
 
 # TODO: this should resolve statically without a query to `md` :\
 N.is_root(md::Model, d::NodeLevel) = N.class(md, d) |> N.is_root
 
 "In this context, root classes admit themselves as their own parents."
 function N.parent(md::Model, d::Subclass)
-    p = parent(d)
-    par = isnothing(p) ? class(d) : p
+    p = parentname(d)
+    par = isnothing(p) ? classname(d) : p
     N.class(N.network(md), par)
 end
 

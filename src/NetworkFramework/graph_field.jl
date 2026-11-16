@@ -61,7 +61,7 @@ function define_graph_field(mod::Module, d::D.GraphField)
     # Queries.
 
     M = Symbol(Singular, :Methods)
-    props = [D.field(d), shortname]
+    props = [D.fieldname(d), shortname]
     mod.eval(
         (
             quote
@@ -91,7 +91,7 @@ end
 # because it has been checked for immutability anyway.
 
 function expand!(md::Model, d::D.GraphField, low)
-    nw, f = N.network(md), D.field(d)
+    nw, f = N.network(md), D.fieldname(d)
     N.add_field!(nw, f, low)
 end
 

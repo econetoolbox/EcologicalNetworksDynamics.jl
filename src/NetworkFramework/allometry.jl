@@ -51,7 +51,7 @@ function define_allometry_blueprints(
     allometric_template::Allometry,
     temperature_template::@NamedTuple{E_a::Float64, allometry::Allometry},
 )
-    nc, _ = D.Class(d)
+    nc = D.class(d)
     Class = D.CamelCaseSingular(nc)
     class, field = D.content(d)
     value, values, Value, Values, short = D.name_variants(d)
@@ -210,7 +210,7 @@ function expand!(md::Model, bp::TemperatureAllometricBlueprint, allometry)
 end
 
 function expand!(md::Model, d::D.NodeField, al::Allometry; kwargs...)
-    f = D.field(d)
+    f = D.fieldname(d)
     M, mc = if N.is_root(md, d)
         md.M, md.metabolic_class
     else

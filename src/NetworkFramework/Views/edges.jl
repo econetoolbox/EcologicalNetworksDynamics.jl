@@ -34,14 +34,13 @@ end
 const EdgeFieldView{d,T} = Union{DenseEdgeFieldView{d,T},SparseEdgeFieldView{d,T}}
 
 function field_view(d::D.EdgeField, m::Model)
-    view = N.edges_view(N.network(m), D.web(d), D.field(d))
+    view = N.edges_view(N.network(m), D.webname(d), D.fieldname(d))
     T = eltype(view)
     View = D.is_sparse(d) ? SparseEdgeFieldView : DenseEdgeFieldView
     View{d,T}(m, view)
 end
 
 let S = EdgeFieldView
-    D.web(s::S) = s |> dispatcher |> D.web
     N.web(s::S) = s |> N.view |> N.web
 end
 
@@ -55,13 +54,12 @@ struct EdgeMaskView{d} <: AbstractSparseMatrix{Bool,Int} # d::D.Web
 end
 
 function mask_view(d::D.Web, m::Model)
-    web = N.web(N.network(m), D.web(d))
+    web = N.web(N.network(m), D.webname(d))
     EdgeMaskView{d}(m, web)
 end
 
 let S = EdgeMaskView
     N.web(s::S) = getfield(s, :web)
-    D.web(s::S) = D.web(dispatcher(s))
     V.extract(s::S) = s |> N.topology |> N.to_mask
     # Duty to AbstractSparseMatrix..?
     SparseArrays.nonzeros(s::S) = ones(eltype(s), s |> N.web |> N.n_edges)
@@ -93,15 +91,16 @@ end
 
 const EdgeView{d} = Union{EdgeFieldView{d},EdgeMaskView{d}}
 let S = EdgeView
-    N.topology(s::S) = N.web(s).topology
-    D.source(s) = N.web(s).source
-    D.target(s) = N.web(s).target
-    N.source(s::S) = N.class(N.network(s), D.source(s))
-    N.target(s::S) = N.class(N.network(s), D.target(s))
-    N.source_index(s::S) = N.source_index(N.network(s), D.web(s))
-    N.target_index(s::S) = N.target_index(N.network(s), D.web(s))
-    Base.size(s::S) = s |> N.web |> size
+    D.web(s::S) = s |> dispatcher |> D.web
+    D.webname(s::S) = s |> dispatcher |> D.webname
+    D.source(s::S) = s |> dispatcher |> D.source
+    D.target(s::S) = s |> dispatcher |> D.target
+    D.sourcename(s::S) = s |> dispatcher |> D.sourcename
+    D.targetname(s::S) = s |> dispatcher |> D.targetname
 
+    N.web(s::S) = N.web(NF.model(s), dispatcher(s))
+    N.topology(s::S) = N.web(s).topology
+    Base.size(s::S) = s |> N.web |> size
     N.n_edges(s::S) = s |> N.topology |> N.n_edges
     N.edges(s::S) = s |> N.topology |> N.edges
     N.is_edge(s::S, i, j) = _is_edge(s, to_indices(s, i, j)...)

@@ -92,7 +92,7 @@ const TopologyView{d} = Union{NodeTopologyView{d},EdgeMaskView{d}}
 # Common to nodes or edge field views.
 const FieldView{d,T} = Union{NodeFieldView{d,T},EdgeFieldView{d,T}}
 let S = FieldView
-    D.field(s::S) = s |> dispatcher |> D.field # Associated fieldname.
+    D.fieldname(s::S) = s |> dispatcher |> D.fieldname # Associated fieldname.
     N.view(s::S) = getfield(s, :view) # Underlying network data view.
     N.entry(s::S) = s |> N.view |> N.entry # Corresponding entry.
 end

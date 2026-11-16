@@ -155,7 +155,7 @@ end
         Sp, :names, "Component <Species> is required to read this property.")
     @test_err(Model().species.names,
         """
-        In property `species.names` of `$(F.System){$Network}`:
+        In property species.names of `Model`:
         Component <Species> is required to read this property.\
         """)
 

@@ -20,6 +20,7 @@ D.sidenames(::_D) = (:species, :species)
 D.name_variants(::_D) = (:foodweb, :Foodweb)
 D.propnames(::_D) = (:trophic, :Trophic)
 D.is_symmetric(::_D) = false
+D.is_sparse(::_D) = true
 
 const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, d)
 
@@ -31,46 +32,45 @@ const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, d)
 # ==========================================================================================
 # Web-derived classes and webs.
 
-function NF.post_expand!(model::Model, d::_D)
-    network = N.network(model)
-    web = D.web(d)
-    topology = N.web(network, web).topology
+function NF.post_expand!(md::Model, d::_D)
+    nw = N.network(md)
+    topology = N.web(md, d).topology
 
     # Every node becomes associated with a trophic level.
     A = N.to_mask(topology)
     levels = trophic_levels(A)
-    N.add_field!(network, :species, :trophic_level, levels)
+    N.add_field!(nw, :species, :trophic_level, levels)
 
     # The foodweb defines new categories of species.
-    N.add_subclass!(network, :tops, :species, N.sources_mask(topology))
-    N.add_subclass!(network, :producers, :species, N.sinks_mask(topology))
-    N.add_subclass!(network, :preys, :species, N.nonsources_mask(topology))
-    N.add_subclass!(network, :consumers, :species, N.nonsinks_mask(topology))
+    N.add_subclass!(nw, :tops, :species, N.sources_mask(topology))
+    N.add_subclass!(nw, :producers, :species, N.sinks_mask(topology))
+    N.add_subclass!(nw, :preys, :species, N.nonsources_mask(topology))
+    N.add_subclass!(nw, :consumers, :species, N.nonsinks_mask(topology))
 
     # And also new webs with special trophic links highlighted.
-    (; S) = model
+    (; S) = md
 
     # Producers matrix.
-    prods = N.node_indices(network, :producers)
+    prods = N.node_indices(nw, :producers)
     mat = spzeros(Bool, S, S)
     for i in prods, j in prods
         mat[i, j] = true
     end
-    N.add_web!(network, :producers_web, (:species, :species), N.SparseSymmetric(mat))
+    N.add_web!(nw, :producers_web, (:species, :species), N.SparseSymmetric(mat))
 
     # Herbivory matrix: consumers-to-producers.
     mat = spzeros(Bool, S, S)
     for (pred, prey) in N.edges(topology)
         N.is_sink(topology, prey) && (mat[pred, prey] = true)
     end
-    N.add_web!(network, :herbivory, (:species, :species), N.SparseReflexive(mat))
+    N.add_web!(nw, :herbivory, (:species, :species), N.SparseReflexive(mat))
 
     # Carnivory matrix: consumers-to-consumers.
     mat = spzeros(Bool, S, S)
     for (pred, prey) in N.edges(topology)
         N.is_sink(topology, prey) || (mat[pred, prey] = true)
     end
-    N.add_web!(network, :carnivory, (:species, :species), N.SparseReflexive(mat))
+    N.add_web!(nw, :carnivory, (:species, :species), N.SparseReflexive(mat))
 end
 
 depends = (Foodweb,)

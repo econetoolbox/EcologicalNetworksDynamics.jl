@@ -5,7 +5,7 @@ struct NodeFieldView{d,T} <: AbstractVector{T} # d::D.NodeField
 end
 
 function field_view(d::D.NodeField, m::Model)
-    view = N.nodes_view(N.network(m), D.class(d), D.field(d))
+    view = N.nodes_view(N.network(m), D.classname(d), D.fieldname(d))
     T = eltype(view)
     NodeFieldView{d,T}(m, view)
 end
@@ -25,7 +25,7 @@ let S = NodeFieldView
                                             $green$(repr(cl.name))$reset.")
             cl.parent, cl.restriction
         else
-            parent, N.restriction(nw, D.class(s), parent)
+            parent, N.restriction(nw, D.classname(s), parent)
         end
         T = eltype(s)
         n = length(N.class(nw, par))
@@ -44,7 +44,7 @@ struct NodeNameView{d} <: AbstractVector{Symbol} # d::D.Class
     index::N.Index # Cache an alias to underlying class index.
 end
 function names_view(d::D.Class, m::Model)
-    index = N.class(N.network(m), D.class(d)).index
+    index = N.class(N.network(m), D.classname(d)).index
     NodeNameView{d}(m, index)
 end
 let S = NodeNameView
@@ -60,19 +60,19 @@ struct NodeMaskView{d} <: AbstractSparseVector{Bool,Int} # d::D.Subclass
     restriction::N.Restriction # Cache an alias to underlying restriction.
 end
 function mask_view(d::D.Subclass, m::Model)
-    r = N.restriction(N.network(m), D.class(d), D.parent(d))
+    r = N.restriction(N.network(m), D.classname(d), D.parentname(d))
     NodeMaskView{d}(m, r)
 end
 let S = NodeMaskView
     N.restriction(s::S) = getfield(s, :restriction)
-    D.parent(s::S) = s |> dispatcher |> D.parent
+    D.parentname(s::S) = s |> dispatcher |> D.parentname
     function N.parent(s::S) # Return self-class if no parent.
-        p = D.parent(s)
+        p = D.parentname(s)
         isnothing(p) ? N.class(s) : N.class(N.network(s), p)
     end
     function Base.size(s::S)
         net = N.network(s)
-        p = D.parent(s)
+        p = D.parentname(s)
         n = isnothing(p) ? N.n_nodes(net) : length(N.class(net, p))
         (n,)
     end
@@ -93,8 +93,9 @@ const DenseNodeView{d} = Union{NodeFieldView{d},NodeNameView{d},NodeMaskView{d}}
 const NodeView{d} = Union{NodeFieldView{d},NodeNameView{d},NodeMaskView{d}}
 
 let S = NodeView
-    D.class(s::S) = D.class(dispatcher(s))
-    N.class(s::S) = N.class(N.network(s), D.class(s))
+    D.class(s::S) = s |> dispatcher |> D.class
+    D.classname(s::S) = s |> dispatcher |> D.classname
+    N.class(s::S) = N.class(NF.model(s), dispatcher(s))
     N.index(s::S) = N.class(s).index
     N.is_root(s::S) = s |> N.class |> N.is_root
 end

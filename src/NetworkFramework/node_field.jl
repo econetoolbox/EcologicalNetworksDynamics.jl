@@ -30,7 +30,7 @@ function define_node_field_component(
     #---------------------------------------------------------------------------------------
     # Extract particular information for this (class, field) pair.
     _D = typeof(d)
-    cl, _ = D.Class(d)
+    cl = D.class(d)
     Class = D.component(cl)
     _Class = typeof(Class)
     class, field = D.content(d)
@@ -342,7 +342,7 @@ function late_check_refs(md::Model, d::D.NodeField, map::Map{<:Any,Symbol}; comp
             length(unexp) == 1 ?
             (" a", "", D.snake_case_singular) :
             ("", "s", D.snake_case_plural)
-        c = sn(first(D.Class(d)))
+        c = sn(D.class(d))
         checkerr(map, "Not$a $green$c$reset name$s: $(render(unexp)).")
     end
     nothing
@@ -372,7 +372,7 @@ function late_check_refs(md::Model, d::D.NodeField, map::Map{<:Any,Int}; complet
     end
     if !isempty(unexp)
         indices, s = length(unexp) == 1 ? ("index", "") : ("indices", "s")
-        c = D.class(d)
+        c = D.classname(d)
         checkerr(
             map,
             "Invalid $indices for class $(repr(c)) with $n node$s: $(render(unexp)).",
@@ -441,7 +441,7 @@ end
 function expand!(md::Model, d::D.NodeField, vec::Vector)
     # Even with the .Raw blueprint,
     # early+late-checking guarantee that lowered data is fresh = not aliased by user.
-    cl, f = N.class(md, d), D.field(d)
+    cl, f = N.class(md, d), D.fieldname(d)
     N.add_field!(cl, f, vec)
 end
 

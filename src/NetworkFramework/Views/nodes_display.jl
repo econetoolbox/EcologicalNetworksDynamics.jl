@@ -1,17 +1,17 @@
 function inline_info(v::NodeFieldView)
-    class = D.class(v)
-    field = D.field(v)
+    class = D.classname(v)
+    field = D.fieldname(v)
     "<$class:$field>"
 end
 
 function inline_info(v::NodeNameView)
-    class = D.class(v)
+    class = D.classname(v)
     "<$class>"
 end
 
 function inline_info(v::NodeMaskView)
-    class = D.class(v)
-    parent = D.parent(v)
+    class = D.classname(v)
+    parent = D.parentname(v)
     parent = isnothing(parent) ? "·" : parent
     "<$parent:$class>"
 end

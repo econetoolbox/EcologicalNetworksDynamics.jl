@@ -1,11 +1,11 @@
 function inline_info(v::EdgeFieldView)
-    web = D.web(v)
-    field = D.field(v)
+    web = D.webname(v)
+    field = D.fieldname(v)
     "<$web:$field>"
 end
 
 function inline_info(v::EdgeMaskView)
-    web = D.web(v)
+    web = D.webname(v)
     "<$web>"
 end
 

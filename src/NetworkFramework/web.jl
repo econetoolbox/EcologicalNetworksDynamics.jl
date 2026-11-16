@@ -13,7 +13,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
 
     _D = typeof(d)
     prop, Prop = D.propnames(d)
-    src, _ = D.source(d)
+    src = D.source(d)
     Class = D.component(src)
 
     web, Web = D.name_variants(d)
@@ -97,7 +97,7 @@ end
 # ==========================================================================================
 
 function define_web_properties(mod::Module, d::D.Web; depends = [])
-    w = D.web(d)
+    w = D.webname(d)
     web, Web = D.name_variants(d)
     prop, Prop = D.propnames(d)
 
@@ -254,7 +254,7 @@ end
 
 function late_check(md::Model, d::D.Web, A::SparseMatrix{Bool})
     a, b = size(A)
-    src, _ = D.source(d)
+    src = D.source(d)
     class = D.snake_case_singular(src)
     n = getproperty(md, class).number
     if !(n == a == b)
@@ -334,7 +334,7 @@ end
 
 function expand!(md::Model, d::D.Web, top::Topology)
     c = D.sourcename(d)
-    w = D.web(d)
+    w = D.webname(d)
     network = N.network(md)
     N.add_web!(network, w, (c, c), top)
     post_expand!(md, d)
