@@ -434,6 +434,8 @@ end
 
 @testset "EdgeField components: views" begin
 
+    # Inspired from Web views.
+
     @propfails(Model().efficiency, Model, :efficiency,
         "Component <Efficiency> is required to read this property.")
 
@@ -460,6 +462,78 @@ end
     @test x isa SparseMatrix{Float64}
     @test x == e
     @test findnz(x) == findnz(sparse(e))
+
+    # Basic indexing, with integers or labels (or convertable).
+    @test v[1, 1] == 0
+    @test v[0x1, 0x2] == 0.5
+    @test v[:d, :a] == 0.2
+    @test v['b', "c"] == 0.8
+    @test v[4, "c"] == 0.4
+    @test v[first(split("d")), 4] == 0
+
+    # Natural interface inherited from AbstractArray.
+    @test v isa AbstractSparseMatrix{Float64}
+    @test nnz(v) == 4
+    nz = nonzeros(v)
+    @test nz isa Vector{Float64}
+    @test nz == [0.2, 0.5, 0.8, 0.4] # (colwise)
+    sim = similar(v)
+    @test sim isa SparseMatrix{Float64}
+    @test sim == spzeros(Float64, (4, 4))
+    @test findnz(v) == findnz(sparse(e))
+    @test v[1, end] == 0
+    @test v[end, 1] == 0.2
+    a = v[2, 2:4]
+    b = v[1:(end-1), 3]
+    c = v[1:2, 2:4]
+    @test a isa Vector{Float64} # TODO have it be sparse (see web mask view tests).
+    @test b isa Vector{Float64}
+    @test c isa Matrix{Float64}
+    @test a == b == [0, 0.8, 0]
+    @test c == [0.5 0 0; 0 0.8 0]
+    mask = Bool[
+        0 0 0 0
+        1 0 1 0
+        0 1 1 0
+        1 0 1 1
+    ]
+    @test v[mask] isa Vector{Float64}
+    @test v[mask] == v[sparse(mask)] == [0, 0.2, 0, 0.8, 0, 0.4, 0]
+    @test v == collect(v) == [i for i in v] == e
+    # TODO: feature `v[:a, [:b, :c]]` etc.? (see idem).
+
+    # /!\ These (1D col-major) are (now) supported then. TODO: forbid? (see idem)
+    @test length(v) == 16
+    @test v[1] == 0
+    @test v[4] == 0.2
+    @test v[[5, 6]] == [0.5, 0]
+
+    s, t = D.sides(d)
+    @viewfails(v[-5, 2], (s, -5, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[6, 7], (s, 6, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[4, 7], (t, 7, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[:x, 3], (s, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[3, :y], (t, :y, :uwhole, "No node in this class is labeled :y."))
+    @viewfails(v[end+1, 2], (s, 5, :uwhole, "There are 4 nodes in this class."))
+    @test_err(v[4, 6],
+        """
+        Cannot index into <species> with [6]:
+        There are 4 nodes in this class.\
+        """)
+
+    @test_err(v[], "BoundsError: attempt to access 4×4 $View at index []")
+    @test_err(v[1, 2, 3], "BoundsError: attempt to access 4×4 $View at index [1, 2, 3]")
+    @test_err(v[true, false], "ArgumentError: invalid index: true of type Bool")
+    @test_err(v[(1, 2)], "ArgumentError: invalid index: (1, 2) of type Tuple{$Int, $Int}")
+    @test_err(v[0x8000000000000000, 2], "InexactError: convert($Int, 0x8000000000000000)")
+    @test_err(v[2, (end-1):(end+1)],
+        "BoundsError: attempt to access 4×4 $View at index [2, 3:5]")
+    @test_err(v[Bool[0 1 0]],
+        "BoundsError: attempt to access 4×4 $View at index [1×3 Matrix{Bool}]")
+
+end
+
+@testset "EdgeField components: mutate" begin
 
     # ======================================================================================
     # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑

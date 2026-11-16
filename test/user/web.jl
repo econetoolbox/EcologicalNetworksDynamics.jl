@@ -380,7 +380,7 @@ end
     @test v[:b, 1] == false
 
     # Natural interface inherited from AbstractArray.
-    @test v isa AbstractSparseMatrix{Bool,Int}
+    @test v isa AbstractSparseMatrix{Bool}
     @test nnz(v) == 6
     nz = nonzeros(v)
     @test nz isa Vector{Bool}
@@ -398,10 +398,7 @@ end
     @test c isa Matrix{Bool} #       pick a specific parse storage from abstract impl.
     @test a == [1, 0, 1] #           So I am afraid it would require whole surface coverage.
     @test b == [1, 1, 0, 1]
-    @test c == [
-        0 1
-        0 0
-    ]
+    @test c == [0 1; 0 0]
     mask = Bool[
         0 1 0 0 0
         0 0 1 0 1
@@ -423,9 +420,9 @@ end
     s, t = D.sides(d)
     @viewfails(v[-5, 2], (s, -5, :uwhole, "There are 5 nodes in this class."))
     @viewfails(v[6, 7], (s, 6, :uwhole, "There are 5 nodes in this class."))
-    @viewfails(v[5, 7], (s, 7, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[5, 7], (t, 7, :uwhole, "There are 5 nodes in this class."))
     @viewfails(v[:x, 3], (s, :x, :uwhole, "No node in this class is labeled :x."))
-    @viewfails(v[3, :y], (s, :y, :uwhole, "No node in this class is labeled :y."))
+    @viewfails(v[3, :y], (t, :y, :uwhole, "No node in this class is labeled :y."))
     @viewfails(v[end+1, 2], (s, 6, :uwhole, "There are 5 nodes in this class."))
 
     @test_err(v[5, 7], # TODO: improve on this report again leveraging `uref` (left :whole).

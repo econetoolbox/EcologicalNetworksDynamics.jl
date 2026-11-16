@@ -115,13 +115,6 @@ component(s::S) = throw("Component unspecified for $s.")
 
 "Names of the (source, target) classes."
 sidenames(s::S) = throw("Source and target classes unspecified for $s.")
-sourcename(s::S) = first(sidenames(s))
-targetname(s::S) = last(sidenames(s))
-
-"Obtain dispatchers to the source/target classes."
-sides(s::S) = class.(sidenames(s))
-source(s::S) = class(sourcename(s))
-target(s::S) = class(targetname(s))
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -204,6 +197,7 @@ fieldname(s::S) = last(content(s))
 web(s::S) = s |> webname |> web
 
 # Delegate.
+sidenames(s::S) = s |> web |> sidenames
 is_sparse(s::S) = s |> web |> is_sparse
 is_dense(s::S) = s |> web |> is_dense
 
@@ -253,7 +247,13 @@ level(::GraphField) = "graph"
 level(::NodeLevel) = "node"
 level(::EdgeLevel) = "edge"
 
-is_dense(d::EdgeLevel) = !is_sparse(d)
+S = EdgeLevel
+is_dense(s::S) = !is_sparse(s)
+sourcename(s::S) = s |> sidenames |> first
+targetname(s::S) = s |> sidenames |> last
+sides(s::S) = s |> sidenames .|> class
+source(s::S) = s |> sourcename |> class
+target(s::S) = s |> targetname |> class
 
 # ==========================================================================================
 # Use dispatcher as static index into underlying data.

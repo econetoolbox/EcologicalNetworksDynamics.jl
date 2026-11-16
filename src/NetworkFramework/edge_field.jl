@@ -563,12 +563,16 @@ end
 # Obtain.
 
 function obtain(vw::V.EdgeFieldView, (a, b)::Tuple{Ref,Ref})
-    wb = N.web(vw)
-    tp = wb.topology
-    i, j = N.to_index.(N.sides(wb), (a, b))
-    i_raw = N.edge(tp, i, j)
-    read(N.entry(vw)) do data
-        data[i_raw]
+    tp = N.topology(vw)
+    i, j = N.to_index(vw, a, b)
+    if D.is_sparse(vw) && !N.is_edge(tp, i, j)
+        T = eltype(vw)
+        zero(T)
+    else
+        i_raw = N.edge(tp, i, j)
+        read(N.entry(vw)) do data
+            data[i_raw]
+        end
     end
 end
 

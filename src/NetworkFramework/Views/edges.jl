@@ -91,24 +91,30 @@ end
 
 const EdgeView{d} = Union{EdgeFieldView{d},EdgeMaskView{d}}
 let S = EdgeView
-    D.web(s::S) = s |> dispatcher |> D.web
-    D.webname(s::S) = s |> dispatcher |> D.webname
-    D.source(s::S) = s |> dispatcher |> D.source
-    D.target(s::S) = s |> dispatcher |> D.target
-    D.sourcename(s::S) = s |> dispatcher |> D.sourcename
-    D.targetname(s::S) = s |> dispatcher |> D.targetname
+    for fn in [
+        D.web, D.webname,
+        D.source, D.sourcename,
+        D.target, D.targetname,
+        D.is_sparse, D.is_dense,
+    ]
+        eval(quote
+            (::$(typeof(fn)))(s::$S) = s |> dispatcher |> $fn
+        end)
+    end
 
     N.web(s::S) = N.web(NF.model(s), dispatcher(s))
     N.topology(s::S) = N.web(s).topology
+    N.to_index(s::S, a...; k...) = N.to_index(NF.model(s), dispatcher(s), a...; k...)
+    N.to_label(s::S, a...; k...) = N.to_label(NF.model(s), dispatcher(s), a...; k...)
     Base.size(s::S) = s |> N.web |> size
     N.n_edges(s::S) = s |> N.topology |> N.n_edges
     N.edges(s::S) = s |> N.topology |> N.edges
-    N.is_edge(s::S, i, j) = _is_edge(s, to_indices(s, i, j)...)
+    N.is_edge(s::S, i, j) = _is_edge(s, N.to_index(s, i, j)...)
     _is_edge(s::S, i::Int, j::Int) = N.is_edge(N.topology(s), i, j) # Unchecked.
     function N.edge(s::S, i::Ref, j::Ref)
-        i, j = to_indices(s, i, j)
+        i, j = N.to_index(s, i, j)
         _is_edge(s, i, j) || return nothing
-        top = N.topology(s)
-        N.edge(top, i, j)
+        tp = N.topology(s)
+        N.edge(tp, i, j)
     end
 end
