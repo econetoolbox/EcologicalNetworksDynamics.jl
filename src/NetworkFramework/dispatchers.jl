@@ -284,6 +284,9 @@ N.to_label(md::Model, d::EdgeLevel, i, j) =
     N.to_label.(map(cl -> cl.index, N.sides(md, d)), (i, j))
 N.to_index(md::Model, d::EdgeLevel, a, b) =
     N.to_index.(map(cl -> cl.index, N.sides(md, d)), (a, b))
+N.to_ref(R::Type, md::Model, d::Dispatcher, u) = N.to_ref(R, N.class(md, d).index, u)
+N.to_ref(R::Type, md::Model, d::Dispatcher, u, v) =
+    N.to_ref.((R,), map(cl -> cl.index, N.sides(md, d)), (u, v))
 
 # Wide display.
 Base.show(io::IO, ::MIME"text/plain", d::Dispatcher) = print(io, "$cyan$d$reset")

@@ -9,18 +9,12 @@ using SparseArrays
 import EcologicalNetworksDynamics.Tests:
     EN, N, F, NF, D, V,
     @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails, SparseMatrix,
-    @propfails, @test_err
+    @propfails, @test_err, @mutfails
 using Test
 
 const d, _D = D.EdgeField(:trophic, :efficiency)
 const View = V.SparseEdgeFieldView{d,Float64}
 # TODO: test for dense constructs when such a component shows up.
-
-base = Model(Foodweb([
-    :a => :b,
-    :b => :c,
-    :d => (:a, :c),
-]))
 
 @testset "EdgeField components: blueprints" begin
 
@@ -40,6 +34,12 @@ base = Model(Foodweb([
     @test Efficiency.Matrix <: EN.Blueprint
     @test Efficiency.Adjacency <: EN.Blueprint
     @test Efficiency.Flat <: EN.Blueprint
+
+    base = Model(Foodweb([
+        :a => :b,
+        :b => :c,
+        :d => (:a, :c),
+    ]))
 
     # ======================================================================================
     # From raw values.
@@ -445,7 +445,8 @@ end
         0 0 0 0
         2 0 4 0
     ] / 10
-    m = base + Efficiency(e)
+    m = Model(Species("abcd"), Efficiency(e))
+
     v = m.efficiency
     @test v isa View
     @test_repr(v, "<trophic:efficiency>(4×4: 4 values ranging from 0.2 to 0.8)")
@@ -535,138 +536,250 @@ end
 
 @testset "EdgeField components: mutate" begin
 
-    # ======================================================================================
-    # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
-    # ======================================================================================
-    error("STOP HERE")
+    # Inspired from Nodefield mutation tests.
 
-    # Basic indexing.
-    v[1]
-
-    # ======================================================================================
-    # Views.
-
-    # Cannot access without the data.
-    addfails.@check(
-        Model().efficiency,
-        Property(
-            efficiency,
-            "Component $(EN._Efficiency) is required to read this property.",
-        )
-    )
-
-    #---------------------------------------------------------------------------------------
-    # Read.
-
-    m = base + Efficiency(mat)
+    e = [
+        0 5 0 0
+        0 0 8 0
+        0 0 0 0
+        2 0 4 0
+    ] / 10
+    m = Model(Species("abcd"), Efficiency(e))
     v = m.efficiency
-    @test v isa View
-    @test v isa AbstractMatrix{Float64}
-    @test_repr(v, "<trophic:efficiency>(4×4: 4 values ranging from 0.1 to 0.4)")
-    @test_disp(
-        v,
-        """
-        EdgeDataView<trophic:efficiency>{Float64} (4×4: 4 values)
-           · 0.2   · ·
-           ·   · 0.3 ·
-           ·   ·   · ·
-         0.1   · 0.4 ·\
-         """,
-    )
 
-    # Basic matrix-like interface.
-    @test v == collect(v) == mat == [i for i in v]
-
-    # Extract as a regular sparse matrix.
-    e = extract(v)
-    @test e isa SparseMatrix{Float64}
-    @test e == v
-
-    # "same-type-value"
-    function stv(exp, act)
-        @test typeof(exp) == typeof(act)
-        @test exp == act
-    end
-
-    # Index with either integers or labels.
-    stv(v[4, 1], 0.1)
-    stv(v[1, 1], 0.0) # Obtain null values off-web.
-    stv(v[:a, :b], 0.2)
-    stv(v[:b, 3], 0.3)
-    stv(v[4, :c], 0.4)
-    stv(v[1:2, 3], sparse([0, 0.3]))
-    stv(v[1, 1:2], sparse([0, 0.2]))
-    stv(v[1:2, 2:3], sparse([0.2 0; 0 0.3]))
-    stv(v[2:(end-1), 3], sparse([0.3, 0]))
-    stv(v[2, 2:(end-1)], sparse([0, 0.3]))
-    stv(v[2:(end-1), 2:(end-1)], sparse([0 0.3; 0 0]))
-
-
-    @viewfails(v[], View, "Two indices are required to index into webs. Received 0: [].")
-    for single in (nothing, 1, :a)
-        @viewfails(
-            v[single],
-            View,
-            "Two indices are required to index into webs. Received 1: [$(repr(single))]."
-        )
-    end
-    @viewfails(
-        v[1, 2, 3],
-        View,
-        "Two indices are required to index into webs. Received 3: [1, 2, 3]."
-    )
-    for wrong in (0, 5)
-        @viewfails(
-            v[wrong, 2],
-            View,
-            "Cannot index with [$wrong, ·] into a :trophic web with 4 species source nodes."
-        )
-        @viewfails(
-            v[2, wrong],
-            View,
-            "Cannot index with [·, $wrong] into a :trophic web with 4 species target nodes."
-        )
-    end
-    @viewfails(
-        v[:x, 2],
-        View,
-        "Cannot index with [:x, ·] into this :trophic web \
-         because :x is not a node label in source class :species."
-    )
-    @viewfails(
-        v[2, :x],
-        View,
-        "Cannot index with [·, :x] into this :trophic web \
-         because :x is not a node label in target class :species."
-    )
-    for invalid in [() -> v[nothing, 1], () -> v[1, nothing]]
-        @viewfails(
-            invalid(),
-            View,
-            "Views are indexed with indices (::Int) or labels (::Symbol). \
-             Cannot index with: nothing ::Nothing."
-        )
-    end
-
-    #---------------------------------------------------------------------------------------
-    # Write.
-
+    # The field is *mutable* through the view.
     w = m.efficiency # Alternate view to the same model.
     alt = copy(m) # Forked model.
     a = alt.efficiency # Alternate view to the forked model.
-    @test a == w == mat
+    @test v == w == a == e # All synced (same underlying storage).
 
+    #---------------------------------------------------------------------------------------
     # Mutate, invoking COW.
-    #  v[1, 2] += .7 # HERE: make it work.
 
-    # TODO: once all tests pass here, do cleanup view indexing code,
-    # could be much more compact with check_ref, to_index, _is_edge etc.
+    v[1, 2] = 0.6
+    v[:b, :c] = 0.7
+    @test v == w == m.efficiency == [
+        0 6 0 0
+        0 0 7 0
+        0 0 0 0
+        2 0 4 0
+    ] / 10
+    @test a == alt.efficiency == e # Unchanged.
+
+    # Alternately use the whole property to mutate the 'reassign-like' way.
+    input = [
+        0 2 0 0
+        0 0 3 0
+        0 0 0 0
+        1 0 4 0
+    ] / 10
+    m.efficiency = input
+    @test v == w == m.efficiency == input
+
+    # Raw-vector style.
+    m.efficiency = [5, 6, 7, 8] / 10
+    @test v == w == m.efficiency == [
+        0 6 0 0
+        0 0 7 0
+        0 0 0 0
+        5 0 8 0
+    ] / 10
+
+    # Sophisticated reassign, adjacency-like.
+    m.efficiency = [:a => (; b = 0.1), :d => (:c, 0.2)] # (may be partial then)
+    @test v == w == m.efficiency == [
+        0 1 0 0
+        0 0 7 0
+        0 0 0 0
+        5 0 2 0
+    ] / 10
+    m.efficiency = [1 => (2 => 0.8), 4 => (3, 0.3)]
+    @test v == w == m.efficiency == [
+        0 8 0 0
+        0 0 7 0
+        0 0 0 0
+        5 0 3 0
+    ] / 10
+
+    # Or flat-like.
+    m.efficiency = 0.9
+    @test v == w == m.efficiency == 0.9 * m.trophic.mask
+
+    # Still unchanged.
+    @test a == alt.efficiency == e
+
+    #---------------------------------------------------------------------------------------
+    # Index-check.
+
+    s, t = D.sides(d)
+    @viewfails(v[-5, 2] = 8, (s, -5, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[6, 7] = 8, (s, 6, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[4, 6] = 8, (t, 6, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[:x, 3] = 8, (s, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[3, :y] = 8, (t, :y, :uwhole, "No node in this class is labeled :y."))
+    @viewfails(v[end+1, 2] = 8, (s, 5, :uwhole, "There are 4 nodes in this class."))
+    @test_err(v[] = 8, "BoundsError: attempt to access 4×4 $View at index []")
+    @test_err(v[1, 2, 3] = 8, "BoundsError: attempt to access 4×4 $View at index [1, 2, 3]")
+    @test_err(v[true, false] = 8, "ArgumentError: invalid index: true of type Bool")
+    @test_err(v[(1, 2)] = 8,
+        "ArgumentError: invalid index: (1, 2) of type Tuple{$Int, $Int}")
+    @test_err(v[0x8000000000000000, 2] = 8,
+        "InexactError: convert($Int, 0x8000000000000000)")
+    @test_err(v[2, (end-1):(end+1)] = 8,
+        "BoundsError: attempt to access 4×4 $View at index [2, 3:5]")
+    @test_err(v[Bool[0 1 0]] = 8,
+        "BoundsError: attempt to access 4×4 $View at index [1×3 Matrix{Bool}]")
+    @test_err(v[4:6] = 8,
+        "ArgumentError: indexed assignment with a single value to possibly many locations \
+         is not supported; perhaps use broadcasting `.=` instead?")
+
+    # Still unchanged (after failures).
+    @test v == w == m.efficiency == 0.9 * m.trophic.mask
+    @test a == alt.efficiency == e
+
+    #---------------------------------------------------------------------------------------
+    # Early-check.
+
+    # The value is still early-checked.
+    for (inv, ref) in [
+        (() -> v[1, 2] = 5, ((1, :a), (2, :b))),
+        (() -> v .= 5, ((1, :a), (1, :a))),
+        (() -> v[6:8] .= 5, ((2, :b), (2, :b))),
+    ]
+        @mutfails(inv(), (d, 5.0, (:m, ref), "Value must belong to [0, 1]."))
+    end
+
+    # Matrix.
+    wrong = [
+        0 2 0 0
+        0 0 30 0
+        0 0 0 0
+        1 0 4 0
+    ] / 10 |> sparse # (also covering sparse input)
+    @mutfails(m.efficiency = wrong, (d, 3.0, (:u, (2, 3)), "Value must belong to [0, 1]."))
+
+    # Raw.
+    @mutfails(m.efficiency = [5, 60, 7, 8] / 10,
+        (d, 6.0, (:u, (2,)), "Value must belong to [0, 1]."))
+
+    # Adjacency.
+    @mutfails(m.efficiency = [:a => (; b = 0.1), :d => (:c, 2)],
+        (d, 2.0, (:u, (:d, :c)), "Value must belong to [0, 1]."))
+
+    wrong = [1 => (-1 => 0.1), 4 => (3, 2)]
+    @test_err(m.efficiency = wrong,
+        """
+        While mutating model:
+        In the provided input targetting edge values for <trophic:efficiency>:
+        Cannot convert input to either:
+          - $Float64
+          - $(Vector{Float64})
+          - $(SparseMatrix{Float64})
+          - $(NF.Adjacency{Float64})
+        (see attempts down the stacktrace)
+        Received: $wrong  ::$(typeof(wrong))\
+        """)
+
+    # Flat.
+    @mutfails(m.efficiency = 9, (d, 9.0, :mwhole, "Value must belong to [0, 1]."))
+
+    # Still unchanged (after failures).
+    @test v == w == m.efficiency == 0.9 * m.trophic.mask
+    @test a == alt.efficiency == e
+
+    #---------------------------------------------------------------------------------------
+    # Late-check.
+
+    # Matrix.
+    wrong = [
+        0 2 0 0
+        0 0 3 0
+        0 0 0 9
+        1 0 4 0
+    ] / 10
+    @mutfails(m.efficiency = wrong,
+        (d, [(3, 4) => 0.9], :mwhole,
+            "Received unexpected value: \
+             there is no such trophic edge: (3, :c) => (4, :d)."))
+    wrong = [
+        0 2 0 0
+        0 0 0 0
+        0 0 0 0
+        1 0 4 0
+    ] / 10 |> sparse
+    @mutfails(m.efficiency = wrong,
+        (d, wrong, :mwhole,
+            "Missing: the trophic edge (2, :b) => (3, :c) exists, \
+             but no value is provided for it.\n\
+             To explicitly make it null, try something along \
+             `efficiency[2, 3] = 0` (or equivalent)."))
+
+    # Raw.
+    wrong = [4, 5, 6] / 10
+    @mutfails(m.efficiency = wrong,
+        (d, wrong, :mwhole, "There are 4 edges to valuate, but the vector is of size 3."))
+
+    # Adjacency.
+    wrong = [:a => (; c = 0.1), :d => (:c, 0.2)]
+    @mutfails(m.efficiency = wrong,
+        (d, [(:a, :c) => 0.1], :mwhole,
+            "Received unexpected value: \
+             there is no such trophic edge: (1, :a) => (3, :c)."))
+    wrong = [1 => (3 => 0.1), 4 => (3, 0.2)]
+    @mutfails(m.efficiency = wrong,
+        (d, [(1, 3) => 0.1], :mwhole,
+            "Received unexpected value: \
+             there is no such trophic edge: (1, :a) => (3, :c)."))
+
+    wrong = [:a => (; x = 0.1), :d => (:c, 0.2)]
+    @mutfails(m.efficiency = wrong,
+        (d, (:a, :x), (:u, (:a, :x)), "Not a species node label: :x."))
+
+    # Flat.
+    @mutfails(m.efficiency = 9, (d, 9.0, :mwhole, "Value must belong to [0, 1]."))
+
+    # Still unchanged (after failures).
+    @test v == w == m.efficiency == 0.9 * m.trophic.mask
+    @test a == alt.efficiency == e
 
 end
 
 @testset "WebField components: expansion semantics" begin
-    # TODO: check that .Raw expansion is column-wise.
-    # TODO: check .{Matrix,Adjacency,Flat} expansion results.
+
+    base = Model(Foodweb([
+        :a => :b,
+        :b => :c,
+        :d => (:a, :c),
+    ]))
+
+    # Column-wise raw vector.
+    bp = Efficiency.Raw([2, 5, 8, 4] / 10)
+    m = base + bp
+    @test m.efficiency == [
+        0 5 0 0
+        0 0 8 0
+        0 0 0 0
+        2 0 4 0
+    ] / 10
+
+    # Transparent matrix.
+    @test (base + Efficiency.Matrix(m.efficiency)).efficiency == m.efficiency
+
+    # Adjacency means source -> target.
+    adj_r = [:a => (:b => 0.5), :b => (:c => 0.8), :d => (:a => 0.2, :c => 0.4)]
+    adj_i = [1 => (2 => 0.5), 2 => (3 => 0.8), 4 => (1 => 0.2, 3 => 0.4)]
+    mr = base + Efficiency(adj_r)
+    mi = base + Efficiency(adj_i)
+    @test mi.efficiency == mr.efficiency == m.efficiency
+
+    # Flat means all values are the same.
+    @test (base + Efficiency.Flat(0.9)).efficiency == [
+        0 9 0 0
+        0 0 9 0
+        0 0 0 0
+        9 0 9 0
+    ] / 10
+
 end
 
 end

@@ -141,7 +141,7 @@ function check_err(fn, expected, frame::Option{String} = nothing)
         line = "$green$bold$('-' ^ 50)$reset"
         println(io, "Was expecting the following error message:")
         println(io, line)
-        print(io, expected)
+        println(io, expected)
         println(io, line)
         println(
             io,
@@ -205,9 +205,11 @@ macro gentest(variant)
                 try
                     $($fn)($(args...))
                 catch e
-                    $S.eprintln($S.lnline($(QuoteNode(src))))
                     e isa $($Expected) || rethrow(e)
                     # Display the obtained failure report but..
+                    if e isa $($UnexpectedSuccess)
+                        e = e.source
+                    end
                     showerror(stderr, e)
                     # ..downgrade to only a failed @test to keep the testsuite going.
                     $ftest

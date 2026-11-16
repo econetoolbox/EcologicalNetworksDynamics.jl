@@ -18,6 +18,10 @@ to_index(::S, i::Int) = i
 to_label(::S, l::Symbol) = l
 to_index(s::S, l::Symbol) = s.forward[l]
 to_label(s::S, i::Int) = s.reverse[i]
+to_ref(::Type{Int}, ::S, i::Int) = i
+to_ref(::Type{Int}, s::S, l::Symbol) = to_index(s, l)
+to_ref(::Type{Symbol}, ::S, l::Symbol) = l
+to_ref(::Type{Symbol}, s::S, i::Int) = to_label(s, i)
 is_label(s::S, l::Symbol) = haskey(s.forward, l)
 is_index(s::S, i::Int) = 1 <= i <= length(s)
 is_ref(s::S, i::Int) = is_index(s, i)

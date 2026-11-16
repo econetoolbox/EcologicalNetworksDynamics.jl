@@ -343,7 +343,7 @@ end
     w = m.body_mass # Alternate view to the same model.
     alt = copy(m) # Forked model.
     a = alt.body_mass # Alternate view to the forked model.
-    @test a == w == [4, 5, 6] # All synced (same underlying storage).
+    @test v == w == a == [4, 5, 6] # All synced (same underlying storage).
 
     # Mutate, invoking COW.
     v[1] *= 10
@@ -351,7 +351,7 @@ end
     @test v == w == m.body_mass == [40, 105, 6] # All views to model impacted, old and new.
     @test a == alt.body_mass == [4, 5, 6] # Forked model unchanged, or any view to it.
 
-    # Alternately use whole property to reassign.
+    # Alternately use the whole property to mutate the 'reassign-like' way.
     input = [9, 5, 1]
     m.body_mass = input
     @test v == w == m.body_mass == [9, 5, 1]
@@ -451,6 +451,7 @@ end
     #                                 *v*
     @test v == w == m.body_mass == [8, 1, 9]
     @test a == alt.body_mass == [4, 5, 6]
+    # Fixing that would require hooking all julia abstractarray interface, right?
 
 end
 

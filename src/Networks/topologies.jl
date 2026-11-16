@@ -58,7 +58,7 @@ Base.length(t::Topology) = n_edges(t)
 export n_edges
 
 "Get edge index, assuming it exists."
-function edge end
+edge(g::Topology, (i, j)::Tuple{Int,Int}) = edge(g, i, j)
 export edge
 
 "Obtain an iterable over edges as (source, target), in canonical edge order."

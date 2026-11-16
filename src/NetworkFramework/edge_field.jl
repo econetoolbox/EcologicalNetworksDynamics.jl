@@ -150,10 +150,11 @@ function define_web_field_component(
                 using EcologicalNetworksDynamics.NetworkFramework: V, NF, D, Network, Model
                 const d, prop, CP = $d, $prop, $CP
                 D.viewtype(::typeof(d)) = V.EdgeFieldView
-                get_value(::Network, m::Model) = V.field_view(d, m)
+                get_value(::Network, md::Model) = V.field_view(d, md)
                 NF.define_method(get_value; read_as = prop, depends = [CP])
                 if !D.readonly(d)
-                    set_value!(::Network, m::Model, input) = assign!(d, m, input)
+                    set_value!(::Network, md::Model, input) =
+                        NF.mut_set!(md, d, NF.wholedata, input)
                     NF.define_method(set_value!; write_as = prop, depends = [CP])
                 end
                 end
@@ -426,7 +427,9 @@ function late_check(md::Model, d::D.EdgeField, mat::AbstractMatrix)
 end
 
 # When obtaining an adjacency list.
-late_check(md::Model, d::D.EdgeField, mat::Adjacency) = late_lower(md, d, mat)
+late_check(md::Model, d::D.EdgeField, adj::Adjacency) = late_lower(md, d, adj)
+mut_late_check(md::Model, d::D.EdgeField, adj::Adjacency) =
+    late_lower(md, d, adj, Val(false))
 
 # No topology check required for dense matrices.
 function late_lower(md::Model, d::D.EdgeField, mat::Matrix)
@@ -437,9 +440,14 @@ function late_lower(md::Model, d::D.EdgeField, mat::Matrix)
     end
 end
 
-# TODO: this should not check for completeness on mutation pipeline, right?
-# And then it should not even lower to a vector :|
-function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacency})
+# Check edges consistency,
+# but also take this opportunity to lower sparse matrices into a raw vector.
+function late_lower(
+    md::Model,
+    d::D.EdgeField,
+    data::Union{SparseMatrix,Adjacency},
+    ::Val{complete} = Val(true),
+) where complete
     T = D.type(d)
     # Expected set of edges.
     tp = N.web(md, d).topology
@@ -447,10 +455,12 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
     # Actual set of edges.
     act = Dict{Tuple{Int,Int},valtype(data)}()
     # Collect into a lower vector.
-    res = sizehint!(T[], N.n_edges(tp))
+    lower = data isa SparseMatrix
+    low = lower ? sizehint!(T[], N.n_edges(tp)) : nothing
     for (i, j, x) in actual_edges(md, d, data)
         act[(i, j)] = x
-        push!(res, x)
+        lower || continue
+        push!(low, x)
     end
     function render(set)
         pairs = I.map(set) do (i, j)
@@ -460,7 +470,7 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
         join_elided(pairs, ", ", " and "; coleach = green)
     end
     miss = setdiff(exp, keys(act))
-    if !isempty(miss)
+    if complete && !isempty(miss)
         s, them, exist, etc =
             length(miss) == 1 ?
             ("", "it", "exists", "") :
@@ -494,7 +504,7 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
             "Received unexpected value$s: \
              there $are no such $green$w$reset edge$s: $nosuch.")
     end
-    res
+    lower ? low : data
 end
 valtype(spm::SparseMatrix) = eltype(spm)
 explicit_null(::Model, ::D.EdgeField, ::SparseMatrix, f, i, j) = "$f[$i, $j] = 0"
@@ -544,7 +554,22 @@ function expand!(md::Model, d::D.EdgeField, vec::Vector)
     N.add_field!(wb, f, vec)
 end
 
-# Except for flat values. Lower then.
+# Lowering adjacency lists, assuming everything checked.
+function expand!(md::Model, d::D.EdgeField, adj::Adjacency)
+    # Reorder values into canonical edge order.
+    R = reftype(adj)
+    tp = N.web(md, d).topology
+    vec = [
+        begin
+            i, j = N.to_ref(R, md, d, i, j)
+            adj[i][j]
+        end
+        for (i, j) in N.edges(tp)
+    ]
+    expand!(md, d, vec)
+end
+
+# Lowering flat values.
 function expand!(md::Model, d::D.EdgeField, flat)
     n = N.n_edges(N.web(md, d))
     vec = fill(flat, n)
@@ -607,6 +632,15 @@ function mutate!(md::Model, d::D.EdgeField, ::WholeData, adj::Adjacency)
             i = N.edge(tp, N.to_index.((src, tgt), (s, t)))
             edges[i] = x
         end
+    end
+end
+
+# Single-edge.
+function mutate!(md::Model, d::D.EdgeField, (i, j)::Tuple{Int,Int}, x)
+    tp = N.web(md, d).topology
+    i_edge = N.edge(tp, i, j)
+    N.mutate!(N.entry(md, d)) do edges
+        edges[i_edge] = x
     end
 end
 

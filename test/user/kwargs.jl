@@ -4,8 +4,8 @@ using EcologicalNetworksDynamics
 using SparseArrays
 using Random
 
+using EcologicalNetworksDynamics.Tests: @argfails
 using Test
-using Main: @argfails
 
 @testset "Random Foodweb as a typical example of kwargs processing." begin
 
