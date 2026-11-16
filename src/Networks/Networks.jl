@@ -94,7 +94,7 @@ module Networks
 
 import EcologicalNetworksDynamics:
     EN, I, errwrap, Display, Option, SparseMatrix, unimplemented, stopwhen
-import .Display: join_elided
+import .Display: join_elided, rept
 const N = Networks
 
 using Crayons

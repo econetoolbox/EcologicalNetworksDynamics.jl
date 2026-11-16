@@ -577,11 +577,12 @@ function expand!(md::Model, d::D.EdgeField, flat)
 end
 
 # If not, then just trust whoever only lowered to a matrix yet.
-function lower(md::Model, d::D.EdgeField, mat::AbstractMatrix)
+function expand!(md::Model, d::D.EdgeField, mat::AbstractMatrix)
     D.is_dense(d) && return mat[:]
     mat isa SparseMatrix && return nonzeros(mat)
     tp = N.web(md, d).topology
-    [mat[i, j] for (i, j) in N.edges(tp)]
+    vec = [mat[i, j] for (i, j) in N.edges(tp)]
+    expand!(md, d, vec)
 end
 
 #-------------------------------------------------------------------------------------------

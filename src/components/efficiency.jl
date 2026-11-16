@@ -1,6 +1,6 @@
 module EfficiencyDef
 
-using EcologicalNetworksDynamics: Foodweb
+using EcologicalNetworksDynamics: Foodweb, argerr
 using EcologicalNetworksDynamics.NetworkFramework:
     EN, F, NF, D, Blueprint, @bp_construct, Model, @alias
 using EcologicalNetworksDynamics.KwargsHelpers
@@ -22,23 +22,26 @@ end
 NF.register_blueprint(Miele2019, "herbivorous/carnivorous efficiencies";
     d, depends = [Foodweb])
 
-function NF.construct(::Type{Miele2019}; kw...)
+function NF.construct(::Type{Miele2019}, a...; kw...)
     @kwargs_helpers kw
+    alias!(:e_herbivorous, :herb)
+    alias!(:e_carnivorous, :carn)
     with_defaults!(; miele2019()...)
+    no_positional(a)
     eh = take!(:e_herbivorous)
     ec = take!(:e_carnivorous)
     no_unused_arguments()
-    NF.early_check.((eh, ec))
+    NF.early_check.((d,), (eh, ec))
 end
 
-# TODO: the error message will confusingly report the 'efficiency' field name, will it?
-NF.bp_early_check(bp::Miele2019) = NF.early_check(d, (bp.e_herbivorous, bp.e_carnivorous))
+NF.bp_early_check(bp::Miele2019) =
+    NF.early_check.((d,), (bp.e_herbivorous, bp.e_carnivorous))
 
 # Convert to an actual matrix..
-function NF.lower(md::Model, ::Miele2019, (eh, ec))
-    hA, cA = md.herbivory, md.carnivory
+function NF.expand!(md::Model, ::Miele2019, (eh, ec))
+    hA, cA = md.herbivory.matrix, md.carnivory.matrix
     e = eh * hA + ec * cA
-    NF.lower(md, d, e) # .. then rely on framework impl to lower further.
+    NF.expand!(md, d, e) # .. then rely on framework impl to lower further.
 end
 
 # Codegen + exec.

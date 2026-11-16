@@ -30,8 +30,7 @@ is_deepcopy(::SparseVector{T}) where T = is_deepcopy_type(T)
 is_deepcopy(::SparseMatrix{T}) where T = is_deepcopy_type(T)
 function check_value(v)
     is_deepcopy(v) && return v
-    T = typeof(v)
-    err("Cannot verify that this field can be deepcopied: $(repr(v)) ::$(typeof(T))")
+    err("Cannot verify that this field can be deepcopied: $(rept(v))")
     v
 end
 

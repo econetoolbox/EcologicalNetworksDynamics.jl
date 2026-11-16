@@ -148,6 +148,8 @@ _bp_late_check(md::Model, bp::Blueprint, early) =
 
 #-------------------------------------------------------------------------------------------
 # Lower.
+# TODO: is it actually useful/used to have it stand within the pipeline?
+# Maybe `expand` can do / is doing just that.
 
 "Default lowering, for either pipeline."
 lower(::Model, ::Dispatcher, late) = late # Default to just accept & alias.

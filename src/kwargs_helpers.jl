@@ -45,6 +45,9 @@ which gets consumed during the analysis.
       Raise an error if there some arguments have been left unused,
       indicating possible mispelling or semantic error.
 
+    no_positional(args)
+      If non-empty, raise an error suggesting either remaining named argument.
+
     left()
       Get reference to underlying consumable dict.
 """
@@ -52,7 +55,7 @@ which gets consumed during the analysis.
 module KwargsHelpers
 
 import EcologicalNetworksDynamics: argerr
-import EcologicalNetworksDynamics.Display: join_elided, green, cyan, reset, colr
+import EcologicalNetworksDynamics.Display: join_elided, green, cyan, black, reset, colr
 
 const K = KwargsHelpers
 
@@ -61,36 +64,40 @@ macro kwargs_helpers(kwargs)
         kwargs,
         alias!,
         given,
-        miss,
         left,
+        miss,
+        no_positional,
+        no_unused_arguments,
         peek,
         take!,
-        take_or!,
         take_either!,
+        take_or!,
         with_defaults!,
-        no_unused_arguments,
     ) =
         esc.((
             kwargs,
             :alias!,
             :given,
-            :miss,
             :left,
+            :miss,
+            :no_positional,
+            :no_unused_arguments,
             :peek,
             :take!,
-            :take_or!,
             :take_either!,
+            :take_or!,
             :with_defaults!,
-            :no_unused_arguments,
         ))
     quote
 
         # Copy of the provided kwargs to be consumed.
         kw = Dict{Symbol,Any}($kwargs)
         ks = Set{Symbol}(keys(kw)) # Keep unconsumed for `given`.
+        als = Dict{Symbol,Vector{Symbol}}()
 
         # Consider identical names for these arguments.
         function $alias!(ref::Symbol, aliases::Symbol...)
+            als[ref] = collect(aliases) # Record for possible later report.
             aliases = Set(aliases)
             found = nothing
             for k in ks
@@ -205,6 +212,28 @@ macro kwargs_helpers(kwargs)
             argerr("Unexpected argument: $green$k$reset = $cyan$(repr(v))$reset.")
         end
 
+        function $no_positional(args)
+            isempty(args) && return
+            mess = IOBuffer()
+            print(mess, "Unexpected positional argument.")
+            if isempty(kw)
+                println(mess)
+            else
+                print(mess, " Expected keyword arguments, for instance:")
+                for (k, v) in kw
+                    print(mess, "\n  $black$k$reset = $v")
+                    if haskey(als, k)
+                        print(mess, " (or ")
+                        print(mess,
+                            join_elided(als[k], ", ", " or "; coleach = black, repr = false))
+                        print(mess, ")")
+                    end
+                    haskey(als, k) || continue
+                end
+            end
+            argerr(String(Base.take!(mess)))
+        end
+
     end
 end
 
@@ -213,6 +242,7 @@ function alias! end
 function given end
 function left end
 function miss end
+function no_positional end
 function no_unused_arguments end
 function peek end
 function take! end
@@ -225,6 +255,7 @@ export alias!
 export given
 export left
 export miss
+export no_positional
 export no_unused_arguments
 export peek
 export take!
