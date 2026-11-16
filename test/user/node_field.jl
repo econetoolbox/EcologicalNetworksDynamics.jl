@@ -141,7 +141,7 @@ const View = V.NodeFieldView{d,Float64}
     end
 
     @bpfails(BodyMass.Map([:a => [5, 8]]), BodyMass.Map, :construct,
-        (d, [5, 8], (:u, [1, :right]), "Expected values of type '$Float64'."))
+        (d, [5, 8], (:u, [1, :right]), "Could not convert to `$Float64`."))
 
     #---------------------------------------------------------------------------------------
     # Early check.

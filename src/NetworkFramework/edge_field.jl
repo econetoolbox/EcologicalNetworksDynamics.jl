@@ -348,14 +348,22 @@ end
 function early_lower(fn::Function, ::D.EdgeField, adj::Adjacency)
     res = typeof(adj)()
     for (src, sub) in adj
+        early_check_ref(adj, src)
         s = typeof(sub)()
         for (tgt, x) in sub
+            early_check_ref(adj, src, tgt)
             s[tgt] = fn((src, tgt), x)
         end
         res[src] = s
     end
     res
 end
+# Indices can be early-checked for at least being positive.
+early_check_ref(::Adjacency, label...) = label
+early_check_ref(::Adjacency{<:Any,Int}, i::Int) = early_check_index(i, (i,))
+early_check_ref(::Adjacency{<:Any,Int}, i::Int, j::Int) = early_check_index(j, (i, j))
+early_check_index(i, uref) =
+    1 <= i || checkerr(i, "Integer reference must be a positive index."; uref)
 
 #-------------------------------------------------------------------------------------------
 # Late check.
@@ -453,12 +461,16 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
     end
     miss = setdiff(exp, keys(act))
     if !isempty(miss)
-        s, them, etc = length(miss) == 1 ? ("", "it", "") : ("s", "them", " etc.")
-        f = D.field(d)
+        s, them, exist, etc =
+            length(miss) == 1 ?
+            ("", "it", "exists", "") :
+            ("s", "them", "exist", " etc.")
+        w, f = D.web(d), D.field(d)
         i, j = first(miss)
-        null = explicit_null(data, f, i, j)
+        null = explicit_null(md, d, data, f, i, j)
         checkerr(data,
-            "Missing: no (structural) value$s provided for edge$s $(render(miss)).\n\
+            "Missing: the $green$w$reset edge$s $(render(miss)) $exist, \
+             but no value is provided for $them.\n\
              To explicitly make $them null, \
              try something along $black`$null`$reset$etc (or equivalent).")
     end
@@ -471,17 +483,28 @@ function late_lower(md::Model, d::D.EdgeField, data::Union{SparseMatrix,Adjacenc
             ("are", "s", D.snake_case_plural)
         nosuch = render(unexp)
         unexp = I.map(unexp) do (i, j)
-            (i, j) => act[(i, j)]
+            pair = if data isa Adjacency{<:Any,Symbol}
+                N.to_label(md, d, i, j)
+            else
+                (i, j)
+            end
+            pair => act[(i, j)]
         end |> collect |> sort!
         checkerr(unexp,
             "Received unexpected value$s: \
-             there $are no such $green$(repr(w))$reset edge$s: $nosuch.")
+             there $are no such $green$w$reset edge$s: $nosuch.")
     end
     res
 end
 valtype(spm::SparseMatrix) = eltype(spm)
-explicit_null(::SparseMatrix, f, i, j) = "$f[$i, $j] = 0"
-explicit_null(::Adjacency, f, src, tgt) = "$f[$(repr(src))][$(repr(tgt))] = 0"
+explicit_null(::Model, ::D.EdgeField, ::SparseMatrix, f, i, j) = "$f[$i, $j] = 0"
+function explicit_null(::Model, ::D.EdgeField, ::Adjacency{<:Any,Int}, f, src, tgt)
+    "$f[$(repr(src))][$(repr(tgt))] = 0"
+end
+function explicit_null(md::Model, d::D.EdgeField, ::Adjacency{<:Any,Symbol}, f, src, tgt)
+    a, b = N.to_label(md, d, src, tgt)
+    "$f[$(repr(a))][$(repr(b))] = 0"
+end
 
 actual_edges(::Model, ::D.EdgeField, spm::SparseMatrix) = zip(findnz(spm)...)
 function actual_edges(md::Model, d::D.EdgeField, adj::Adjacency{<:Any,Int})

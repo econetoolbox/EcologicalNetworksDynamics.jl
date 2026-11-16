@@ -446,7 +446,7 @@ end
 
     @listfails( #  :not_a_value
         cv(M, [(5, "a")]),
-        "a", [1, :right], "Expected values of type 'Float64'.")
+        "a", [1, :right], "Could not convert to `$Float64`.")
 
     @listfails( #  :duplicate_node
         cv(M, [[:a, :b] => 5, [:c, :a] => 8]),
@@ -649,7 +649,7 @@ end
 
     @listfails( # :not_a_value (plain source)
         cv(A, [(:a => 5im) => :b]),
-        5im, [1, :left, :right], "Expected values of type '$Float64'.")
+        5im, [1, :left, :right], "Could not convert to `$Float64`.")
 
     @listfails( # :not_a_pair (map source) : pick :not_a_ref
         cv(A, [[Type] => 5]),
@@ -701,7 +701,7 @@ end
 
     @listfails( # :not_a_value (plain source)
         cv(A, [[:a => 5im] => :b]),
-        5im, [1, :left, 1, :right], "Expected values of type '$Float64'.")
+        5im, [1, :left, 1, :right], "Could not convert to `$Float64`.")
 
     # TODO: better explain that the duplication comes from the boolean?
     # (although this really is a weird input)
@@ -739,7 +739,7 @@ end
 
     @listfails( # :not_a_value (plain target)
         cv(A, [:a => (:b => 5im)]),
-        5im, [1, :right, :right], "Expected values of type '$Float64'.")
+        5im, [1, :right, :right], "Could not convert to `$Float64`.")
 
     @listfails( # :not_a_pair (map target) : pick :not_a_ref
         cv(A, [5 => [Type]]),
@@ -768,7 +768,7 @@ end
 
     @listfails( # :not_a_value (plain target)
         cv(A, [:a => [:b => 5im]]),
-        5im, [1, :right, 1, :right], "Expected values of type '$Float64'.",)
+        5im, [1, :right, 1, :right], "Could not convert to `$Float64`.",)
 
     # # # Specific to Adjacency maps # # #
 

@@ -22,7 +22,8 @@ using EcologicalNetworksDynamics:
     I, Display, @ErrBrand, errwith, errwrap, withcontext, prepend_context!, OneShotReport,
     escall, Tests, Option
 using .Display:
-    blue, red, yellow, black, bold, italics, reset, rept, eprintln, render_input, wide_repr
+    blue, red, yellow, black, bold, italics, reset, rept, repT, eprintln, render_input,
+    wide_repr
 using .Tests.Strings: showcompare, showdiff, check_string, UnmatchedStrings, Ln, lnline
 
 using Test
@@ -313,7 +314,7 @@ end
 "Elementary functions testing exception fields."
 module FieldsCompare
     using ..R:
-        errwith, errwrap, showcompare, showdiff, WrongField, rept, check_string,
+        errwith, errwrap, showcompare, showdiff, WrongField, rept, repT, check_string,
         UnmatchedStrings
 
     "Default-compare exception fields for type and equality."
@@ -325,7 +326,7 @@ module FieldsCompare
     function type(exp, act)
         E, A = typeof.((exp, act))
         E === A || errwith(WrongField, "wrong type", rethrow) do io
-            showcompare(io, E, rept(act))
+            showcompare(io, repT(exp), repT(act))
         end
     end
 

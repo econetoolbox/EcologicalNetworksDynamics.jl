@@ -14,6 +14,7 @@ colr(c) = x -> "$c$(repr(x))$reset"
 
 "Report value along with its type."
 rept(x) = "$cyan$(repr(x))$reset  ::$(typeof(x))"
+repT(x) = "$(repr(x))  ::$cyan$(typeof(x))$reset" # (highlight type instead of value)
 
 "Typical plurals."
 ns(n) = (n, n > 1 ? "s" : "")

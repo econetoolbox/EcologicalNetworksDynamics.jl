@@ -279,7 +279,7 @@ parse_value(p::Parser, input) =
         convert(p.T, input)
     catch
         listerr(:not_a_value, input, p,
-            "Expected values of type '$(p.T)'.", rethrow)
+            "Could not convert to `$(p.T)`.", rethrow)
     end
 
 parse_iterable(p::Parser, input, what) =

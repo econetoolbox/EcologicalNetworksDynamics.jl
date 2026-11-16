@@ -191,7 +191,8 @@ const View = V.SparseEdgeFieldView{d,Float64}
         (Efficiency.Matrix, :late,
             (d, bp.e, :mwhole,
                 """
-                Missing: no (structural) value provided for edge (2, :b) => (3, :c).
+                Missing: the trophic edge (2, :b) => (3, :c) exists, \
+                but no value is provided for it.
                 To explicitly make it null, \
                 try something along `efficiency[2, 3] = 0` (or equivalent).\
                 """)))
@@ -202,8 +203,8 @@ const View = V.SparseEdgeFieldView{d,Float64}
         (Efficiency.Matrix, :late,
             (d, bp.e, :mwhole,
                 """
-                Missing: no (structural) values provided for edges \
-                (2, :b) => (3, :c) and (4, :d) => (3, :c).
+                Missing: the trophic edges (2, :b) => (3, :c) and (4, :d) => (3, :c) \
+                exist, but no value is provided for them.
                 To explicitly make them null, \
                 try something along `efficiency[2, 3] = 0` etc. (or equivalent).\
                 """)))
@@ -214,7 +215,7 @@ const View = V.SparseEdgeFieldView{d,Float64}
         (Efficiency.Matrix, :late,
             (d, [(2, 4) => 0.5], :mwhole,
                 "Received unexpected value: \
-                 there is no such :trophic edge: (2, :b) => (4, :d).")))
+                 there is no such trophic edge: (2, :b) => (4, :d).")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -235,6 +236,9 @@ const View = V.SparseEdgeFieldView{d,Float64}
 
     adj_r = [:a => (:b => 0.2), :b => (:c => 0.3), :d => (:a => 0.1, :c => 0.4)]
     adj_i = [1 => (2 => 0.2), 2 => (3 => 0.3), 4 => (1 => 0.1, 3 => 0.4)]
+
+    #---------------------------------------------------------------------------------------
+    # Construct.
 
     bp_r = Efficiency.Adjacency(adj_r)
     bp_i = Efficiency.Adjacency(adj_i)
@@ -269,6 +273,9 @@ const View = V.SparseEdgeFieldView{d,Float64}
     @bpfails(Efficiency.Adjacency(invalid), Efficiency.Adjacency, :construct,
         (d, 0.5, (:u, [1, :right, 1]),
             "Cannot interpret target reference as integer index or symbol label."))
+    @bpfails(Efficiency.Adjacency([:a => (:b => :x)]), Efficiency.Adjacency, :construct,
+        (d, :x, (:u, [1, :right, :right]), "Could not convert to `Float64`."))
+
     @checkfails(Efficiency(invalid), d, invalid, :uwhole,
         """
         Cannot convert input to either:
@@ -284,6 +291,8 @@ const View = V.SparseEdgeFieldView{d,Float64}
 
     @bpfails(Efficiency([:a => (:b, 5)]), Efficiency.Adjacency, :construct,
         (d, 5.0, (:u, (:a, :b)), "Value must belong to [0, 1]."))
+    @bpfails(Efficiency.Adjacency([1 => (2 => -1)]), Efficiency.Adjacency, :construct,
+        (d, -1.0, (:u, (1, 2)), "Value must belong to [0, 1]."))
     @test_err(Efficiency([:a => (:b, 5)]),
         """
         While constructing blueprint Efficiency.Adjacency:
@@ -303,6 +312,12 @@ const View = V.SparseEdgeFieldView{d,Float64}
         (Efficiency.Adjacency, :early,
             (d, 4.0, (:u, (4, 3)), "Value must belong to [0, 1].")))
 
+    bp_i.e[4][3] = 0.4 # Restore.
+    bp_i.e[4][-1] = 0.4 # Re-break.
+    addfails.@check(base + bp_i, [],
+        (Efficiency.Adjacency, :early,
+            (d, -1, (:u, (4, -1)), "Integer reference must be a positive index.")))
+
     #---------------------------------------------------------------------------------------
     # Late check.
 
@@ -310,13 +325,25 @@ const View = V.SparseEdgeFieldView{d,Float64}
     pop!(bp_r.e, :b)
     pop!(bp_i.e, 2)
 
-    for bp in (bp_r, bp_i)
+    for (bp, (i, j)) in [(bp_r, (:b, :c)), (bp_i, (2, 3))]
         addfails.@check(base + bp, [],
             (Efficiency.Adjacency, :late,
                 (d, bp.e, :mwhole,
-                    "Missing: no (structural) value provided for edge (2, :b) => (3, :c).\n\
-                     To explicitly make it null, \
-                     try something along `efficiency[2][3] = 0` (or equivalent).")))
+                    "Missing: the trophic edge (2, :b) => (3, :c) exists, \
+                     but no value is provided for it.\n\
+                     To explicitly make it null, try something along \
+                     `efficiency[$(repr(i))][$(repr(j))] = 0` (or equivalent).")))
+    end
+
+    bp_r, bp_i = Efficiency.((adj_r, adj_i))
+    bp_r.e[:a][:c] = 0.5
+    bp_i.e[1][3] = 0.5
+    for (bp, (i, j)) in [(bp_r, (:a, :c)), (bp_i, (1, 3))]
+        addfails.@check(base + bp, [],
+            (Efficiency.Adjacency, :late,
+                (d, [(i, j) => 0.5], :mwhole,
+                    "Received unexpected value: \
+                     there is no such trophic edge: (1, :a) => (3, :c).")))
     end
 
     bp_r.e[:x] = Efficiency(adj_r).e[:b] # TODO: better ergonomics to add superlevel entry?
@@ -357,204 +384,60 @@ const View = V.SparseEdgeFieldView{d,Float64}
     ]
 
     # ======================================================================================
-    # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
-    # ======================================================================================
-    error("STOP HERE")
-
-    # ======================================================================================
-    # Adjacency blueprint.
-
-    #---------------------------------------------------------------------------------------
-    # Construct (with labels or integer references).
-
-    @bpfails(
-        Efficiency.Adjacency([:a => (:b => :x)]),
-        "When constructing <trophic:efficiency> from an adjacency list:\n\
-         Expected values of type '$Float64', \
-         received instead at [1][right][right]: :x ::$Symbol."
-    )
-    @bpfails(
-        Efficiency.Adjacency([1 => (2 => -1)]),
-        "When constructing <trophic:efficiency> from an adjacency list:\n\
-         On edge [1, 2]:\n\
-         Value must belong to [0, 1].",
-        -1.0,
-    )
-
-    #---------------------------------------------------------------------------------------
-    # Early check.
-
-    addfails.@check(
-        let
-            b = deepcopy(bp_r)
-            b.e[:d][:a] *= 15
-            base + b
-        end,
-        Check(
-            early,
-            [Efficiency.Adjacency],
-            """
-            When checking <trophic:efficiency> blueprint data:
-            On edge :d => :a:
-            Value must belong to [0, 1].
-            Received: 1.5\
-            """,
-        )
-    )
-
-    addfails.@check(
-        let
-            b = deepcopy(bp_i)
-            b.e[4][1] *= 15
-            base + b
-        end,
-        Check(
-            early,
-            [Efficiency.Adjacency],
-            """
-            When checking <trophic:efficiency> blueprint data:
-            On edge [4, 1]:
-            Value must belong to [0, 1].
-            Received: 1.5\
-            """,
-        )
-    )
-
-    # Break adjacency list (guarded by a reparse).
-    addfails.@check(
-        let
-            b = deepcopy(bp_i)
-            b.e[1][-1] = 0.8
-            base + b
-        end,
-        Check(
-            early,
-            [Efficiency.Adjacency],
-            "When checking <trophic:efficiency> blueprint data:\n\
-             Integer reference must be a positive index. \
-             Received at [1][right][2][left]: -1 ::$Int.",
-        )
-    )
-
-    #---------------------------------------------------------------------------------------
-    # Late check.
-
-    addfails.@check(
-        let
-            b = deepcopy(bp_r)
-            pop!(b.e, :d)
-            base + b
-        end,
-        Check(
-            late,
-            [Efficiency.Adjacency],
-            "When checking <trophic:efficiency> blueprint against model:\n\
-             Edge [:d, :a] has no value in the provided adjacency list.",
-        )
-    )
-
-    addfails.@check(
-        let
-            b = deepcopy(bp_i)
-            b.e[1][3] = 0.5
-            base + b
-        end,
-        Check(
-            late,
-            [Efficiency.Adjacency],
-            "When checking <trophic:efficiency> blueprint against model:\n\
-             Edge [1, 3] does not exist in :trophic \
-             but the adjacency list provides a value for it: 0.5.",
-        )
-    )
-
-    #---------------------------------------------------------------------------------------
-    # Expand.
-
-    for bp in (bp_r, bp_i)
-        local m = base + bp_r
-        @test extract(m.efficiency) == sparse([
-            0 2 0 0
-            0 0 3 0
-            0 0 0 0
-            1 0 4 0
-        ] / 10)
-        # The underlying web and nodes can be implied from the lists.
-        m = Model(bp)
-        @test m.foodweb.A == [
-            0 1 0 0
-            0 0 1 0
-            0 0 0 0
-            1 0 1 0
-        ]
-        @test m.species.names == if NF.reftype(bp.e) === Symbol
-            [:a, :b, :c, :d]
-        else
-            [:s1, :s2, :s3, :s4]
-        end
-    end
-
-    # ======================================================================================
-    # Flat blueprint.
+    # From a single value.
 
     #---------------------------------------------------------------------------------------
     # Construct.
 
     bp = Efficiency.Flat(0.5)
-    @test Efficiency.Flat(true) == Efficiency.Flat(1.0) # Input conversion.
-    @test bp == Efficiency(0.5) # Implicit constructor.
-    @test Efficiency(true) == Efficiency(1.0)
+    @test bp.e isa Float64
+    @test bp == Efficiency(0.5)
+    @test Efficiency.Flat(1//4) == Efficiency(1//4) == Efficiency(0.25)
+    @test Efficiency.Flat(true) == Efficiency(true) == Efficiency(1)
     @test_repr(bp, "<Efficiency>:Flat(e: 0.5)")
-    @test_disp(
-        bp,
-        "blueprint for <Efficiency>: Flat {\n  \
-           e: 0.5,\n\
-         }",
-    )
+    @test_disp(bp,
+        """
+        blueprint for <Efficiency>: Flat {
+          e: 0.5,
+        }\
+        """)
 
-    @bpfails(
-        Efficiency(5),
-        "When constructing <trophic:efficiency> from a flat value:\n\
-         Value must belong to [0, 1].",
-        5.0
-    )
+    @bpfails(Efficiency.Flat(:x), Efficiency.Flat, :construct,
+        (d, :x, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
 
-    addfails.@check(
-        let
-            b = deepcopy(bp)
-            b.e = 5
-            base + b
-        end,
-        Check(
-            early,
-            [Efficiency.Flat],
-            """
-            When checking <trophic:efficiency> blueprint data:
-            Value must belong to [0, 1].
-            Received: 5.0\
-            """,
-        ),
-    )
+    @bpfails(Efficiency(5), Efficiency.Flat, :construct,
+        (d, 5.0, :uwhole, "Value must belong to [0, 1]."))
 
-    #---------------------------------------------------------------------------------------
-    # Late check.
-    # <no example to be tested yet>
+    bp.e *= 3
+    addfails.@check(base + bp, [],
+        (Efficiency.Flat, :early, (d, 1.5, :uwhole, "Value must belong to [0, 1].")))
 
+    # TODO: any example flat blueprint with anything to late check?
     #---------------------------------------------------------------------------------------
     # Expand.
 
+    bp = Efficiency(0.8)
     m = base + bp
-    #! format: off
-    @test extract(m.efficiency) == [
-         0 .5  0  0
-         0  0 .5  0
-         0  0  0  0
-        .5  0 .5  0
-    ]
-    #! format: on
+    @test has_component(m, Efficiency)
+    @test_disp(m, # Special flat-display.
+        """
+        Model (alias for $(NF.Model)) with 3 components:
+          - Species: 4 (:a, :b, :c, :d)
+          - Foodweb: 4 links, 1 producer, 3 consumers, 3 preys, 1 top.
+          - Efficiency: 0.8 (4 values).\
+        """)
+
+end
+
+@testset "EdgeField components: views" begin
+
+    # ======================================================================================
+    # ↑ ↑ ↑ HERE update tests ↑ ↑ ↑
+    # ======================================================================================
+    error("STOP HERE")
 
     # ======================================================================================
     # Views.
