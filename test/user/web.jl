@@ -7,12 +7,12 @@ using SparseArrays
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @bpfails, @checkfails, addfails, @propfails,
     @viewfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework: EN, D, N, F, NF, Views, SparseMatrix
+using EcologicalNetworksDynamics.NetworkFramework: EN, D, N, CS, NF, Views, SparseMatrix
 using OrderedCollections
 using Test
 
 const d, _D = D.Web(:trophic)
-const Tr = F.@PropertySpace(trophic, N.Network)
+const Tr = CS.@PropertySpace(trophic, N.Network)
 const View = Views.EdgeMaskView{d}
 
 @testset "Web components: blueprints" begin

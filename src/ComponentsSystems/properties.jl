@@ -77,8 +77,8 @@ function Base.getproperty(target::P, pname::Symbol) where {P<:PropertyTarget}
     miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
         Component = isabstracttype(miss) ? "A component" : "Component"
-        c = compdisplay(miss; color = true)
-        properr(P, pname, "$Component $c is required to read this property.")
+        cd = compdisplay(miss; color = true)
+        properr(P, pname, "$Component $cd is required to read this property.")
     end
     # Forward to method.
     fn(system(target))
@@ -91,9 +91,9 @@ function Base.setproperty!(target::P, pname::Symbol, rhs) where {P<:PropertyTarg
     miss = first_missing_dependency_for(fn, system(target))
     if !isnothing(miss)
         Component = isabstracttype(miss) ? "A component" : "Component"
-        c = compdisplay(miss; color = true)
+        cd = compdisplay(miss; color = true)
         properr(P, pname,
-            "$Component $c is required to write to this property.")
+            "$Component $cd is required to write to this property.")
     end
     # Invoke property method.
     fn(system(target), rhs)
@@ -206,7 +206,7 @@ Yield `(property_name, fn_read, Option{fn_write}, iterator{dependencies...})`.
 """
 function properties(P::PropertyTargetType)
     I.map(
-        I.filter(methods(read_property, Tuple{Type{P},Val}, Framework)) do mth
+        I.filter(methods(read_property, Tuple{Type{P},Val}, CS)) do mth
             mth.sig isa UnionAll && return false # Only consider concrete implementations.
             val = mth.sig.types[end]
             val <: Val ||

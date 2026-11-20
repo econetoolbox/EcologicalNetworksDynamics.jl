@@ -222,25 +222,25 @@ function register_blueprint(
     implied = [],
     depends = [],
 )
-    F.define_blueprint(BP, shortline; depends)
+    CS.define_blueprint(BP, shortline; depends)
     if !isempty(implied) > 0
         eval(quote
-            F.implied(::$BP) = $implied
+            CS.implied(::$BP) = $implied
         end)
         for cpi in implied
             CPI = typeof(cpi)
             eval(
                 quote
-                    F.implied_blueprint_for(bp::$BP, ::Type{$CPI}) =
+                    CS.implied_blueprint_for(bp::$BP, ::Type{$CPI}) =
                         NF.implied($d, $cpi, bp)
                 end,
             )
         end
     end
     eval(quote
-        F.early_check(bp::$BP) = NF._bp_early_check(bp)
-        F.late_check(md::Model, bp::$BP, data) = NF._bp_late_check(md, bp, data)
-        F.expand!(md::Model, bp::$BP, late) = NF.expand!(md, bp, late)
+        CS.early_check(bp::$BP) = NF._bp_early_check(bp)
+        CS.late_check(md::Model, bp::$BP, data) = NF._bp_late_check(md, bp, data)
+        CS.expand!(md::Model, bp::$BP, late) = NF.expand!(md, bp, late)
     end)
     isnothing(d) && return
     eval(quote

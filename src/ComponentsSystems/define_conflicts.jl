@@ -44,10 +44,10 @@ function define_conflicts(input...)
         end
 
         if isempty(entries)
-            C = check_component(comp, "First conflicting entry", err)
-            V = system_value_type(C)
+            CP = check_component(comp, "First conflicting entry", err)
+            V = system_value_type(CP)
         else
-            C = check_component(comp, V, "Conflicting entry [$i]", err)
+            CP = check_component(comp, V, "Conflicting entry [$i]", err)
         end
 
         reasons = map(enumerate(reasons)) do (j, reason)
@@ -62,7 +62,7 @@ function define_conflicts(input...)
             (Conf, mess)
         end
 
-        push!(entries, (C, reasons))
+        push!(entries, (CP, reasons))
     end
 
     length(entries) == 1 &&
@@ -154,10 +154,10 @@ function declare_conflicts_clique(err, components::Vector{<:CompType{V}}) where 
     end
 
     # Perform all the overrides at once.
-    for (C, (needs_override, conflicts)) in changes
+    for (CP, (needs_override, conflicts)) in changes
         if needs_override
             eval(quote
-                conflicts_(::Type{$C}) = $conflicts
+                conflicts_(::Type{$CP}) = $conflicts
             end)
         end
     end

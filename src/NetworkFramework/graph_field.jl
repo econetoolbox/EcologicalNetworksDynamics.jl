@@ -53,7 +53,7 @@ function define_graph_field(mod::Module, d::D.GraphField)
         quote
             D.component(::$_D) = $cp
             (::$CP)(input) = $cp.Raw(input)
-            F.shortline(io::IO, md::Model, ::$CP) = graph_scalar_shortline($d, io, md)
+            CS.shortline(io::IO, md::Model, ::$CP) = graph_scalar_shortline($d, io, md)
         end,
     )
 
@@ -111,8 +111,8 @@ end
 # Display.
 
 function graph_scalar_shortline(d::D.GraphField, io, md::Model)
-    cc = F.component_color
-    fc = F.field_color
+    cc = CS.component_color
+    fc = CS.field_color
     Field = D.CamelCaseSingular(d)
     entry = N.entry(md, d)
     read(entry) do value

@@ -34,7 +34,7 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics:
-    EN, N, F, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith, argerr
+    EN, N, CS, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith, argerr
 import .Display: join_elided, render_input, ns, reset, cyan, green, yellow, nsa
 import .NetworkFramework:
     NF, D, Model, can_convert, CheckError, checkerr, LibError, dispatcher, Ref,

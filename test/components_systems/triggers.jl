@@ -1,8 +1,8 @@
 # Not exactly sure how to best integrate this (late) feature into the other test files yet.
 module Triggers
 
-using EcologicalNetworksDynamics.Framework:
-    F, value, Blueprint, Component, System, define_blueprint, add_trigger!
+using EcologicalNetworksDynamics.ComponentsSystems:
+    CS, value, Blueprint, Component, System, define_blueprint, add_trigger!
 
 using EcologicalNetworksDynamics.Tests: @argfails
 using Test
@@ -14,7 +14,7 @@ end
 Base.copy(v::Value) = deepcopy(v)
 
 define_component(name, V = Value; kwargs...) =
-    F.define_component(name, V, Triggers; kwargs...)
+    CS.define_component(name, V, Triggers; kwargs...)
 
 @testset "Triggers." begin
 

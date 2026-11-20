@@ -1,50 +1,50 @@
 using .Networks: Network
-using .Framework: define_conflicts, has_component
+using .ComponentsSystems: define_conflicts, has_component
 export has_component
 
 # For component authors, this is what these should almost always mean.
-const Blueprint = F.Blueprint{Network}
-const BlueprintSum = F.BlueprintSum{Network}
-const CompType = F.CompType{Network}
-const Component = F.Component{Network}
+const Blueprint = CS.Blueprint{Network}
+const BlueprintSum = CS.BlueprintSum{Network}
+const CompType = CS.CompType{Network}
+const Component = CS.Component{Network}
 export Blueprint, Component
 
 # The central type for end users.
-const Model = F.System{Network}
+const Model = CS.System{Network}
 export Model
 
 # Access underlying network or model.
-N.network(m::Model) = F.value(m)
+N.network(m::Model) = CS.value(m)
 model(m::Model) = m # (override for views, solutions etc.)
 
 # Define items, always for the 'Network' type.
-define_component(Name, mod; kwargs...) = F.define_component(Name, Network, mod; kwargs...)
-define_method(fn; kwargs...) = F.define_method(fn, Network; kwargs...)
+define_component(Name, mod; kwargs...) = CS.define_component(Name, Network, mod; kwargs...)
+define_method(fn; kwargs...) = CS.define_method(fn, Network; kwargs...)
 
 # Skip _-prefixed properties when listing, and sort alphabetically.
 function properties(m::Model)
     res = []
-    for (name, _) in F.properties(m)
+    for (name, _) in CS.properties(m)
         startswith(String(name), '_') && continue
         push!(res, name)
     end
     sort!(res)
     res
 end
-non_underscore(p::F.PropertySpace) =
-    I.filter(F.properties(p)) do (name, _)
+non_underscore(p::CS.PropertySpace) =
+    I.filter(CS.properties(p)) do (name, _)
         !startswith(String(name), '_')
     end
-properties(p::F.PropertySpace) = collect(I.map(first, non_underscore(p)))
+properties(p::CS.PropertySpace) = collect(I.map(first, non_underscore(p)))
 Base.propertynames(m::Model) = properties(m)
-Base.propertynames(p::F.PropertySpace{name,P,Network}) where {name,P} = properties(p)
+Base.propertynames(p::CS.PropertySpace{name,P,Network}) where {name,P} = properties(p)
 
 # Property spaces default to Network.
 function define_propspace(path)
     get = Symbol(:get_, path)
     NF.eval(quote
-        $get(::Network, s::Model) = F.@PropertySpace($path, Network)(s)
-        F.define_method($get, Network; read_as = [$(Meta.quot(path))])
+        $get(::Network, s::Model) = CS.@PropertySpace($path, Network)(s)
+        CS.define_method($get, Network; read_as = [$(Meta.quot(path))])
     end)
 end
 # TODO: Should define_propspace() first be exposed as an underlying Framework primitive?
@@ -52,7 +52,7 @@ end
 # Property aliases default to network.
 macro alias(new, old)
     quote
-        F.@alias($new, $old, $Network)
+        CS.@alias($new, $old, $Network)
     end
 end
 

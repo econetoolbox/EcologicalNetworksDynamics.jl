@@ -2,7 +2,7 @@ module EfficiencyDef
 
 using EcologicalNetworksDynamics: Foodweb, argerr
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, F, NF, D, Blueprint, @bp_construct, Model, @alias
+    EN, CS, NF, D, Blueprint, @bp_construct, Model, @alias
 using EcologicalNetworksDynamics.KwargsHelpers
 
 const d, _D = D.EdgeField(:trophic, :efficiency)

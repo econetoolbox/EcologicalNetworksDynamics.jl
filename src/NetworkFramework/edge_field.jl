@@ -40,7 +40,7 @@ function define_web_field_component(
         (
             quote
                 module $Value_
-                import EcologicalNetworksDynamics.NetworkFramework: F, NF, D, @bp_construct
+                import EcologicalNetworksDynamics.NetworkFramework: NF, D, @bp_construct
                 const w, d, T, sparse, Mat = $w, $d, $T, $sparse, $Mat
                 const Web = D.component(w)
                 const _Web = typeof(Web)
@@ -165,7 +165,7 @@ function define_web_field_component(
     # Display.
     NF.eval(
         quote
-            F.shortline(io::IO, md::Model, ::$CP) = edges_shortline(io, md, $d)
+            CS.shortline(io::IO, md::Model, ::$CP) = edges_shortline(io, md, $d)
         end,
     )
 
@@ -649,7 +649,7 @@ end
 # Display.
 
 function edges_shortline(io::IO, md::Model, d::D.EdgeField)
-    cc, fc, rs = F.component_color, F.field_color, reset
+    cc, fc, rs = CS.component_color, CS.field_color, reset
     fr(x) = "$fc$x$rs"
     Field = D.CamelCaseSingular(d)
     n, s = N.web(md, d).topology |> N.n_edges |> ns

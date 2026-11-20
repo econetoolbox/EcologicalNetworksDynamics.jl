@@ -15,7 +15,7 @@ using Test
     @test_repr(Blueprint, "$Blueprint")
 
     # Simplified paths for these ones.
-    @test_disp(Component, "Framework.<Component> (component type for $Network)")
+    @test_disp(Component, "ComponentsSystems.<Component> (component type for $Network)")
     @test_disp(Blueprint, "Blueprint{Network}")
 end
 

@@ -4,7 +4,7 @@ using EcologicalNetworksDynamics
 using SparseArrays
 using Random
 
-using EcologicalNetworksDynamics.Tests: EN, N, F, NF, V, D, @immutfails, @test_disp
+using EcologicalNetworksDynamics.Tests: EN, N, CS, NF, V, D, @immutfails, @test_disp
 using Test
 
 @testset "Foodweb component." begin
@@ -22,7 +22,7 @@ using Test
     # Expanding the foodweb actually produces extra subclasses.
     @test_disp(m,
         """
-        Model (alias for $(F.System){$(N.Network)}) with 2 components:
+        Model (alias for $(CS.System){$(N.Network)}) with 2 components:
           - Species: 4 (:a, :b, :c, :d)
           - Foodweb: 4 links, 2 producers, 2 consumers, 3 preys, 1 top.\
         """)

@@ -6,7 +6,7 @@ Upgrades should be done by the framework by default,
 so that component authors should not have to worry about it
 unless they write very singular components.
 """
-abstract type LibError <: F.InputError end
+abstract type LibError <: CS.InputError end
 
 "Reference into problematic user input."
 abstract type InputRef end
@@ -201,7 +201,7 @@ end
 function Base.showerror(io::IO, e::BlueprintError)
     (; B, step, src) = e
     doing = if step == :construct
-        "constructing blueprint " * F.bpdisplay(B; color = true)
+        "constructing blueprint " * CS.bpdisplay(B; color = true)
     elseif step == :early
         "verifying blueprint"
     elseif step == :late

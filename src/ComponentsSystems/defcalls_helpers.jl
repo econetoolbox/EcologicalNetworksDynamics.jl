@@ -23,51 +23,51 @@ end
 # Special-case of the above when the expression is expected to evaluate
 # into a blueprint type for the given expected value type.
 function check_blueprint_type(value, V, ctx, err)
-    B = check_type(value, ctx, err, DataType)
+    BP = check_type(value, ctx, err, DataType)
     Sup = Blueprint{V}
-    if !(B <: Sup)
-        but = B <: Blueprint ? ", but `$(Blueprint{system_value_type(B)})`" : ""
-        err("$ctx:\n`$B` does not subtype `$Sup`$but.")
+    if !(BP <: Sup)
+        but = BP <: Blueprint ? ", but `$(Blueprint{system_value_type(BP)})`" : ""
+        err("$ctx:\n`$BP` does not subtype `$Sup`$but.")
     end
-    B
+    BP
 end
 
 # Special-case unexpected component value display.
-compr(c) = ": " * rept(c)
-compr(c::Component) = ": $(compdisplay(c))  ::$(compdisplay(typeof(c)))"
+compr(cp) = ": " * rept(cp)
+compr(cp::Component) = ": $(compdisplay(cp))  ::$(compdisplay(typeof(cp)))"
 
 # Same for a component type, but a singleton *instance* can be given instead.
-function check_component(C, V, ctx, err)
+function check_component(CP, V, ctx, err)
     Sup = Component{V}
-    if C isa Type
-        if !(C <: Sup)
-            comp = if C <: Component
-                "`$Component{$V}`, but of `$Component{$(system_value_type(C))}`"
+    if CP isa Type
+        if !(CP <: Sup)
+            comp = if CP <: Component
+                "`$Component{$V}`, but of `$Component{$(system_value_type(CP))}`"
             else
                 "`$Component`"
             end
-            err("$ctx:\nNot a subtype of $comp$(compr(C))")
+            err("$ctx:\nNot a subtype of $comp$(compr(CP))")
         end
-        C
+        CP
     else
-        c = C # Actually an instance.
-        if !(c isa Sup)
-            but = c isa Component ? ", but for `$(system_value_type(c))`" : ""
-            err("$ctx:\nNot a component for `$V`$but$(compr(C))")
+        cp = CP # Actually an instance.
+        if !(cp isa Sup)
+            but = cp isa Component ? ", but for `$(system_value_type(cp))`" : ""
+            err("$ctx:\nNot a component for `$V`$but$(compr(CP))")
         end
-        typeof(c)
+        typeof(cp)
     end
 end
 
 # Same, but without checking against a prior expectation for the system value type.
-function check_component(C, ctx, err)
-    if C isa Type
-        C <: Component || err("$ctx:\nNot a subtype of $Component$(compr(C))")
-        C
+function check_component(CP, ctx, err)
+    if CP isa Type
+        CP <: Component || err("$ctx:\nNot a subtype of $Component$(compr(CP))")
+        CP
     else
-        c = C # Actually an instance.
-        c isa Component || err("$ctx:\nNot a component$(compr(C))")
-        typeof(c)
+        cp = CP # Actually an instance.
+        cp isa Component || err("$ctx:\nNot a component$(compr(CP))")
+        typeof(cp)
     end
 end
 
@@ -83,8 +83,8 @@ function check_reasons(input, V, ctx, err)
             (req, nothing)
         end
         check_type(reason, "$ctx reasons[$i]", err, Option{String})
-        C = check_component(comp, V, ctx, err)
-        push!(res, C => reason)
+        CP = check_component(comp, V, ctx, err)
+        push!(res, CP => reason)
     end
     res
 end

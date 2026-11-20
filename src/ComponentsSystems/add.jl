@@ -74,8 +74,8 @@ struct AddState{V}
     #    from the `defaults_status(is_brought)` function provided by caller.
     #    where `is_brought` is a callable we provide to check whether
     #    the given component is found to be about to be added after the first forest visit.
-    #  - `if_unbrought(C, BP)` is a callable we provide to fill default sub-blueprints.
-    #    It either returns nothing if C is already brought
+    #  - `if_unbrought(CP, BP)` is a callable we provide to fill default sub-blueprints.
+    #    It either returns nothing if CP is already brought
     #    or it calls the caller-provided constructor `BP`.
     defaults::OrderedDict{CompType{V},Function}
 
@@ -88,9 +88,9 @@ struct AddState{V}
     AddState{V}(target::System{V}) where {V} =
         new(target, [], Dict(), OrderedDict(), OrderedDict(), Dict(), [])
 end
-is_excluded(add::AddState, c::CompRef) = any(X <: component_type(c) for X in add.excluded)
-is_brought(add::AddState, c::CompRef) =
-    any(B <: component_type(c) for B in keys(add.brought))
+is_excluded(add::AddState, cp::CompRef) = any(X <: component_type(cp) for X in add.excluded)
+is_brought(add::AddState, cp::CompRef) =
+    any(BP <: component_type(cp) for BP in keys(add.brought))
 
 #-------------------------------------------------------------------------------------------
 # Recursively create during first pass, pre-order,
@@ -101,58 +101,58 @@ function Node(blueprint::Blueprint, parent::Option{Node}, system::System, add::A
     # Create node and connect to parent, without its children yet.
     node = Node(blueprint, parent, [])
 
-    for C in componentsof(blueprint)
-        isabstracttype(C) &&
+    for CP in componentsof(blueprint)
+        isabstracttype(CP) &&
             throw(InternalAddError("No blueprint expands into an abstract component."))
 
-        is_excluded(add, C) && throw(ExcludedBrought(C, node))
+        is_excluded(add, CP) && throw(ExcludedBrought(CP, node))
 
         # Check for duplication.
         implied = !isnothing(parent)
-        !implied && has_component(system, C) && throw(BroughtAlreadyInValue(C, node))
+        !implied && has_component(system, CP) && throw(BroughtAlreadyInValue(CP, node))
 
         # Check for consistency with other possible blueprints bringing the same component.
-        if haskey(brought, C)
-            others = brought[C]
+        if haskey(brought, CP)
+            others = brought[CP]
             for other in others
                 blueprint == other.blueprint ||
-                    throw(InconsistentForSameComponent(C, node, other))
+                    throw(InconsistentForSameComponent(CP, node, other))
             end
             push!(others, node)
         else
-            brought[C] = [node]
+            brought[CP] = [node]
         end
     end
 
     # Recursively construct children.
-    B = typeof(blueprint)
+    BP = typeof(blueprint)
     comperr(m) = throw(ComponentError(m))
     report(v) = ": $(repr(v)) ::$(typeof(v))."
-    implied = F.implied(blueprint)
+    implied = CS.implied(blueprint)
     applicable(iterate, implied) ||
         comperr("Not an iterable list of component types$(report(implied))")
-    for C in implied
-        C isa Component && (C = typeof(C)) # (accepting component instances)
-        C isa CompType || comperr("Not a component type$(report(C))")
+    for CP in implied
+        CP isa Component && (CP = typeof(CP)) # (accepting component instances)
+        CP isa CompType || comperr("Not a component type$(report(CP))")
         eV = system_value_type(system)
-        aV = system_value_type(C)
-        eV === aV || comperr("Blueprint $(bd(B)) for values of `$eV` is \
-                             implying component $(cd(C)) for values of `$aV`.")
-        implies_blueprint_for(blueprint, C) || comperr(
-            "Blueprint $(bd(B)) is supposed to imply $(cd(C)) \
-             but the corresponding method is not defined: $F.$implied_blueprint_for.",
+        aV = system_value_type(CP)
+        eV === aV || comperr("Blueprint $(bd(BP)) for values of `$eV` is \
+                             implying component $(cd(CP)) for values of `$aV`.")
+        implies_blueprint_for(blueprint, CP) || comperr(
+            "Blueprint $(bd(BP)) is supposed to imply $(cd(CP)) \
+             but the corresponding method is not defined: $CS.$implied_blueprint_for.",
         )
         # Skip it if already brought or already present in the target system.
-        has_component(system, C) && continue
-        is_brought(add, C) && continue
-        bp = implied_blueprint_for(blueprint, C)
+        has_component(system, CP) && continue
+        is_brought(add, CP) && continue
+        bp = implied_blueprint_for(blueprint, CP)
         bp isa Blueprint ||
-            comperr("Implicit constructor to implying $(cd(C)) from $(bd(B)) \
+            comperr("Implicit constructor to implying $(cd(CP)) from $(bd(BP)) \
                      did not yield a blueprint but$(report(bp))")
         comps = componentsof(bp)
-        any(comp -> comp <: C, comps) || comperr("Blueprint $(bd(typeof(blueprint))) \
+        any(comp -> comp <: CP, comps) || comperr("Blueprint $(bd(typeof(blueprint))) \
                                                   is supposed to imply a blueprint \
-                                                  for $(cd(C)), \
+                                                  for $(cd(CP)), \
                                                   but it implied a blueprint for \
                                                   [$(join(map(cd, collect(comps)), ","))] \
                                                   instead.")
@@ -178,9 +178,9 @@ function check!(add::AddState, node::Node)
     # Check requirements.
     blueprint = node.blueprint
     reqs = []
-    for C in componentsof(blueprint)
-        for (R, reason) in requires(C)
-            push!(reqs, (R, reason, C))
+    for CP in componentsof(blueprint)
+        for (R, reason) in requires(CP)
+            push!(reqs, (R, reason, CP))
         end
     end
     for (R, reason) in checked_expands_from(blueprint)
@@ -210,16 +210,16 @@ function check!(add::AddState, node::Node)
     end
 
     # Guard against conflicts.
-    for C in componentsof(blueprint)
-        for (C_as, Other, reason) in all_conflicts(C)
+    for CP in componentsof(blueprint)
+        for (C_as, Other, reason) in all_conflicts(CP)
             if has_component(target, Other)
                 (Other, OtherAbstract) =
                     isabstracttype(Other) ? (first(abstract(target)[Other]), Other) :
                     (Other, nothing)
                 throw(
                     ConflictWithSystemComponent(
-                        C,
-                        C_as === C ? nothing : C_as,
+                        CP,
+                        C_as === CP ? nothing : C_as,
                         node,
                         Other,
                         OtherAbstract,
@@ -232,8 +232,8 @@ function check!(add::AddState, node::Node)
                     n, _ = checked[Chk]
                     throw(
                         ConflictWithBroughtComponent(
-                            C,
-                            C_as === C ? nothing : C_as,
+                            CP,
+                            C_as === CP ? nothing : C_as,
                             node,
                             Chk,
                             Chk === Other ? nothing : Other,
@@ -258,7 +258,7 @@ function check!(add::AddState, node::Node)
 
         # Record as a fully checked node, along with the list of nodes
         # to expand prior to itself.
-        checked[C] =
+        checked[CP] =
             (node, OrderedSet(R for (R, _, _) in reqs if !has_component(target, R)), data)
     end
 
@@ -315,7 +315,7 @@ function add!(
     # Construct caller state,
     # useful for them to decide their defaults
     # depending on the blueprints already brought.
-    is_brought_(C) = is_brought(add, component_type(C))
+    is_brought_(CP) = is_brought(add, component_type(CP))
     caller_state = defaults_status(is_brought_)
     # Based on this state,
     # ask the caller to construct their additional default blueprints.
@@ -350,9 +350,9 @@ function add!(
         #       every system would starts 'full' with all potential future triggers.
         triggers = OrderedDict()
         current_components = Set()
-        for C in component_types(system)
-            push!(current_components, C)
-            for sup in supertypes(C)
+        for CP in component_types(system)
+            push!(current_components, CP)
+            for sup in supertypes(CP)
                 push!(current_components, sup)
             end
         end
@@ -367,24 +367,24 @@ function add!(
         while !isempty(checked)
             # Search for the first component
             # whose bringer blueprint has all requirements met.
-            (C, (_, reqs, data)) = first(checked)
+            (CP, (_, reqs, data)) = first(checked)
             while true
                 for R in reqs
                     haskey(expand, R) && continue
-                    C = R
+                    CP = R
                     _, reqs, data = checked[R]
                     break
                 end
                 break
             end
             # Expand it before the others.
-            pop!(checked, C)
-            expand[C] = data
+            pop!(checked, CP)
+            expand[CP] = data
         end
 
         # Expand them all in correct order.
-        for (C, data) in expand
-            node = first(brought[C])
+        for (CP, data) in expand
+            node = first(brought[CP])
             blueprint = node.blueprint
 
             # Last check hook against current system value.
@@ -414,16 +414,16 @@ function add!(
 
             # Record.
             just_added = Set()
-            for C in componentsof(blueprint)
+            for CP in componentsof(blueprint)
                 crt, abs = concrete(system), abstract(system)
-                push!(crt, C)
-                push!(just_added, C)
-                for sup in supertypes(C)
-                    sup === C && continue
+                push!(crt, CP)
+                push!(just_added, CP)
+                for sup in supertypes(CP)
+                    sup === CP && continue
                     sup === Component{V} && break
                     sub = haskey(abs, sup) ? abs[sup] : (abs[sup] = Set{CompType{V}}())
-                    push!(sub, C)
-                    push!(just_added, C)
+                    push!(sub, CP)
+                    push!(just_added, CP)
                 end
             end
 

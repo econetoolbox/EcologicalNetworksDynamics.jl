@@ -1,7 +1,7 @@
 "Test the system behaviour when correcty setup by framework users = lib authors."
 module AuthorLib
 
-using EcologicalNetworksDynamics: F
+using EcologicalNetworksDynamics: CS
 
 # The aggregate value to wrap in a "system" in subsequent tests.
 # (loosely inspired from a 'dataframe': indexed collection of vectors of same length.
@@ -12,10 +12,10 @@ mutable struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 # Willing to enjoy wrapped value properties.
-Base.getproperty(v::Value, p::Symbol) = F.unchecked_getproperty(v, p)
-Base.setproperty!(v::Value, p::Symbol, rhs) = F.unchecked_setproperty!(v, p, rhs)
+Base.getproperty(v::Value, p::Symbol) = CS.unchecked_getproperty(v, p)
+Base.setproperty!(v::Value, p::Symbol, rhs) = CS.unchecked_setproperty!(v, p, rhs)
 
-struct CheckError <: F.InputError
+struct CheckError <: CS.InputError
     mess::String
 end
 checkfails(mess) = throw(CheckError(mess))
@@ -28,8 +28,8 @@ module Basics # Use submodules to not clash blueprints/components names.
 
     import ..AuthorLib: Value, checkfails
 
-    import EcologicalNetworksDynamics.Framework:
-        Framework, F, Blueprint, define_blueprint, define_component, define_method,
+    import EcologicalNetworksDynamics.ComponentsSystems:
+        CS, Blueprint, define_blueprint, define_component, define_method,
         define_conflicts, has_component
 
     #---------------------------------------------------------------------------------------
@@ -37,9 +37,9 @@ module Basics # Use submodules to not clash blueprints/components names.
     mutable struct NLines <: Blueprint{Value}
         n::Int64
     end
-    F.early_check(nl::NLines) =
+    CS.early_check(nl::NLines) =
         nl.n > 0 || checkfails("Not a positive number of lines: $(nl.n).")
-    F.expand!(s, nl::NLines, _) = (F.value(s)._n = nl.n)
+    CS.expand!(s, nl::NLines, _) = (CS.value(s)._n = nl.n)
     define_blueprint(NLines)
     define_component(:Size, Value, Basics; blueprints = [:N => NLines])
     local Size, _Size # (reassure JuliaLS)
@@ -55,26 +55,26 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         import ..Basics: Value, Size, _Size, NLines, checkfails
 
-        import EcologicalNetworksDynamics.Framework:
-            F, Blueprint, define_blueprint
+        import EcologicalNetworksDynamics.ComponentsSystems:
+            CS, Blueprint, define_blueprint
 
         mutable struct Uniform <: Blueprint{Value}
             value::Float64
         end
-        F.expand!(s, u::Uniform, _) = (F.value(s)._dict[:a] = [u.value for _ in 1:s.n])
+        CS.expand!(s, u::Uniform, _) = (CS.value(s)._dict[:a] = [u.value for _ in 1:s.n])
         define_blueprint(Uniform)
 
         mutable struct Raw <: Blueprint{Value}
             a::Vector{Float64}
         end
-        F.implied(::Raw) = (_Size,)
-        F.implied_blueprint_for(r::Raw, ::Type{_Size}) = NLines(length(r.a))
-        function F.late_check(s, raw::Raw, _)
+        CS.implied(::Raw) = (_Size,)
+        CS.implied_blueprint_for(r::Raw, ::Type{_Size}) = NLines(length(r.a))
+        function CS.late_check(s, raw::Raw, _)
             na = length(raw.a)
             nv = s.n
             na == nv || checkfails("Cannot expand $na 'a' values into $nv lines.")
         end
-        F.expand!(s, r::Raw, _) = (F.value(s)._dict[:a] = deepcopy(r.a))
+        CS.expand!(s, r::Raw, _) = (CS.value(s)._dict[:a] = deepcopy(r.a))
         define_blueprint(Raw)
 
     end # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -99,32 +99,32 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         import ..Basics: Basics, Value, Size, _Size, NLines, checkfails
 
-        import EcologicalNetworksDynamics.Framework:
-            F, Blueprint, define_blueprint
+        import EcologicalNetworksDynamics.ComponentsSystems:
+            CS, Blueprint, define_blueprint
 
 
         mutable struct Uniform <: Blueprint{Value}
             value::Float64
         end
-        F.late_check(s, u::Uniform, _) =
+        CS.late_check(s, u::Uniform, _) =
             maximum(s.a) <= u.value ||
             checkfails("Values 'b' not larger than maximum 'a' values.")
-        F.expand!(s, u::Uniform, _) = (F.value(s)._dict[:b] = [u.value for _ in 1:s.n])
+        CS.expand!(s, u::Uniform, _) = (CS.value(s)._dict[:b] = [u.value for _ in 1:s.n])
         define_blueprint(Uniform)
 
         mutable struct Raw <: Blueprint{Value}
             b::Vector{Float64}
         end
-        function F.late_check(v, raw::Raw, _)
+        function CS.late_check(v, raw::Raw, _)
             nb = length(raw.b)
             nv = v.n
             nb == nv || checkfails("Cannot expand $nb 'a' values into $nv lines.")
             maximum(v.a) <= minimum(raw.b) || checkfails("Values 'b' too small wrt 'a'.")
         end
-        F.expand!(s, r::Raw, _) = (F.value(s)._dict[:b] = deepcopy(r.b))
+        CS.expand!(s, r::Raw, _) = (CS.value(s)._dict[:b] = deepcopy(r.b))
         Basics.NLines(r::Raw) = NLines(length(r.b))
-        F.implied(::Raw) = (Size,) # (also works with singleton instance)
-        F.implied_blueprint_for(r::Raw, ::Type{_Size}) = NLines(length(r.b))
+        CS.implied(::Raw) = (Size,) # (also works with singleton instance)
+        CS.implied_blueprint_for(r::Raw, ::Type{_Size}) = NLines(length(r.b))
         define_blueprint(Raw)
 
     end # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -157,11 +157,11 @@ module Basics # Use submodules to not clash blueprints/components names.
     # One component whose expansion/checking depends on other components within the system.
 
     struct ReflectionMark <: Blueprint{Value} end
-    F.late_check(s, ::ReflectionMark, _) =
+    CS.late_check(s, ::ReflectionMark, _) =
         if !has_component(s, A) && !has_component(s, B)
             checkfails("Cannot reflect from no data.")
         end
-    function F.expand!(s, ::ReflectionMark, _)
+    function CS.expand!(s, ::ReflectionMark, _)
         rf = Char[]
         if has_component(s, A)
             push!(rf, 'A')
@@ -170,7 +170,7 @@ module Basics # Use submodules to not clash blueprints/components names.
             push!(rf, 'B')
         end
         rf = collect(Iterators.take(Iterators.cycle(rf), s.n))
-        F.value(s)._dict[:reflection] = rf
+        CS.value(s)._dict[:reflection] = rf
     end
     define_blueprint(ReflectionMark)
 
@@ -179,8 +179,8 @@ module Basics # Use submodules to not clash blueprints/components names.
     # so it does not *require* A,
     # but it needs A to expand.
     struct ReflectFromB <: Blueprint{Value} end
-    function F.expand!(s, ::ReflectFromB, _)
-        F.value(s)._dict[:reflection] =
+    function CS.expand!(s, ::ReflectFromB, _)
+        CS.value(s)._dict[:reflection] =
             collect(first.(repr.(Iterators.take(Iterators.cycle(s.a), s.n))))
     end
     define_blueprint(ReflectFromB; depends = [A])
@@ -207,11 +207,11 @@ module Basics # Use submodules to not clash blueprints/components names.
     # Test actual use of the system.
 
     # (what lib authors would need)
-    import EcologicalNetworksDynamics.Framework: Component, System, add!
+    import EcologicalNetworksDynamics.ComponentsSystems: Component, System, add!
 
     # (what's also required for testing here)
     import EcologicalNetworksDynamics.Tests:
-        EN, F, T, @test_err, @fails, @genfailsmacro, @jl_deffails, @propfails, @callfails,
+        EN, CS, T, @test_err, @fails, @genfailsmacro, @jl_deffails, @propfails, @callfails,
         addfails
     using Test
 
@@ -345,8 +345,8 @@ module Basics # Use submodules to not clash blueprints/components names.
         # List properties.
 
         # All possible system properties and their dependencies.
-        props = F.properties(typeof(sa))
-        @test sort(map(((n, r, w, g),) -> (n, r, w, F.singleton_instance.(g)), props)) == [
+        props = CS.properties(typeof(sa))
+        @test sort(map(((n, r, w, g),) -> (n, r, w, CS.singleton_instance.(g)), props)) == [
             (:a, get_a, nothing, Component[A]),
             (:b, get_b, nothing, Component[B]),
             (:n, get_n, nothing, Component[Size]),
@@ -356,12 +356,12 @@ module Basics # Use submodules to not clash blueprints/components names.
         ]
 
         # Only the ones available on this instance.
-        props = F.properties(sa)
+        props = CS.properties(sa)
         @test sort(collect(props)) == [(:a, get_a, nothing), (:n, get_n, nothing)]
 
         # Only the ones *missing* on this instance.
-        props = F.latent_properties(sa)
-        @test sort(map(((n, r, w, g),) -> (n, r, w, F.singleton_instance.(g)), props)) == [
+        props = CS.latent_properties(sa)
+        @test sort(map(((n, r, w, g),) -> (n, r, w, CS.singleton_instance.(g)), props)) == [
             (:b, get_b, nothing, Component[B]),
             (:ref, get_reflection, set_reflection!, Component[Reflection]),
             (:reflection, get_reflection, set_reflection!, Component[Reflection]),
@@ -420,7 +420,7 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         struct Llz_b <: Blueprint{Value} end
         define_blueprint(Llz_b)
-        F.lower(_, ::Llz_b, _) = throw("bug")
+        CS.lower(_, ::Llz_b, _) = throw("bug")
         define_component(:Llz, Value, Basics; blueprints = [:Llz => Llz_b])
 
         addfails.@lower(S(Llz_b()), [Llz_b])
@@ -437,7 +437,7 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         struct Sta_b <: Blueprint{Value} end
         define_blueprint(Sta_b)
-        F.expand!(_, ::Sta_b, _) = throw("bug")
+        CS.expand!(_, ::Sta_b, _) = throw("bug")
         define_component(:Sta, Value, Basics; blueprints = [:Sta => Sta_b])
         T.@errfails(S(Sta_b()),
             """\n\
@@ -457,12 +457,12 @@ module Basics # Use submodules to not clash blueprints/components names.
 
         init = System{Value}()
         s = copy(init)
-        @test collect(F.components(s)) == []
-        @test collect(F.properties(s)) == []
+        @test collect(CS.components(s)) == []
+        @test collect(CS.properties(s)) == []
 
         # Check that the original system is always empty.
         function test_empty(i)
-            @test isempty(collect(F.components(i)))
+            @test isempty(collect(CS.components(i)))
             @callfails(get_a(i), V, :get_a, "Requires component <A>.")
             @propfails(i.a, S, :a, "Component <A> is required to read this property.")
         end

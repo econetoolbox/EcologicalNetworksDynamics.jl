@@ -1,6 +1,6 @@
 module Methods
 
-using EcologicalNetworksDynamics.Framework: F
+using EcologicalNetworksDynamics.ComponentsSystems: CS
 
 # The plain value to wrap in a "system" in subsequent tests.
 # Every test module has its own one,
@@ -13,13 +13,13 @@ macro genvalue()
         end
         Base.copy(v::Value) = deepcopy(v)
         # Willing to enjoy wrapped value properties.
-        Base.getproperty(v::Value, p::Symbol) = $F.unchecked_getproperty(v, p)
+        Base.getproperty(v::Value, p::Symbol) = $CS.unchecked_getproperty(v, p)
         Base.setproperty!(v::Value, p::Symbol, rhs) =
-            $F.unchecked_setproperty!(v, p, rhs)
+            $CS.unchecked_setproperty!(v, p, rhs)
         # Convenience default for this test module.
-        define_method(fn, V = Value; kwargs...) = $F.define_method(fn, V; kwargs...)
+        define_method(fn, V = Value; kwargs...) = $CS.define_method(fn, V; kwargs...)
         const V = Value
-        const S = $F.System{Value}
+        const S = $CS.System{Value}
     end |> esc
 end
 
@@ -30,15 +30,15 @@ module Calls
     @genvalue
     local Value, V, S # (reassure JuliaLS)
 
-    using EcologicalNetworksDynamics.Framework:
-        F, Blueprint, Component, System, define_blueprint
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, Blueprint, Component, System, define_blueprint
 
     using EcologicalNetworksDynamics.Tests:
         @jl_callfails, addfails, @methfails, @callfails, @propfails
     using Test
 
     define_component(name, V = Value; kwargs...) =
-        F.define_component(name, V, Calls; kwargs...)
+        CS.define_component(name, V, Calls; kwargs...)
 
     @testset "Calls to `define_method()`." begin
 
@@ -49,7 +49,7 @@ module Calls
         struct Unf_b <: Blueprint{Value} end
         define_blueprint(Unf_b)
         define_component(:Unf; blueprints = [:b => Unf_b])
-        F.expand!(s, ::Unf_b, _) = (F.value(s)._member = 0)
+        CS.expand!(s, ::Unf_b, _) = (CS.value(s)._member = 0)
         s = System{Value}(Unf.b())
 
         # Simple valid invocation.
@@ -361,14 +361,14 @@ module Abstracts
     @genvalue
     local Value, V, S # (reassure JuliaLS)
 
-    using EcologicalNetworksDynamics.Framework:
-        F, Blueprint, System, Component, define_blueprint, add!
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, Blueprint, System, Component, define_blueprint, add!
 
     using EcologicalNetworksDynamics.Tests: @methfails, @callfails, @propfails
     using Test
 
     define_component(name, V = Value; kwargs...) =
-        F.define_component(name, V, Abstracts; kwargs...)
+        CS.define_component(name, V, Abstracts; kwargs...)
 
     @testset "Abstract component semantics for methods." begin
 
@@ -424,8 +424,8 @@ module Abstracts
         define_method(trt; depends = [A]) # Abstract.
         define_method(rrk; depends = [tai, trt])
         define_method(dgw; depends = [trt, tai]) # Order does not matter.
-        @test collect(F.depends(System{Value}, rrk)) == [A] # Only.
-        @test collect(F.depends(System{Value}, dgw)) == [A] # Only.
+        @test collect(CS.depends(System{Value}, rrk)) == [A] # Only.
+        @test collect(CS.depends(System{Value}, dgw)) == [A] # Only.
 
     end
 end
@@ -437,19 +437,19 @@ module PropertySpaces
     @genvalue
     local Value, V, S # (reassure JuliaLS)
 
-    using EcologicalNetworksDynamics.Framework:
-        F, Blueprint, System, define_blueprint, @PropertySpace
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, Blueprint, System, define_blueprint, @PropertySpace
 
     using EcologicalNetworksDynamics.Tests: T, @methfails, @callfails, @propfails
     using Test
 
     define_component(name, V = Value; kwargs...) =
-        F.define_component(name, V, PropertySpaces; kwargs...)
+        CS.define_component(name, V, PropertySpaces; kwargs...)
 
     @testset "Property spaces." begin
 
         function are_props(s, expected)
-            actual = sort(first.(F.properties(s)))
+            actual = sort(first.(CS.properties(s)))
             actual == expected && return true
             T.showcompare(stderr, expected, actual)
             false
@@ -461,8 +461,8 @@ module PropertySpaces
 
         # Util to define property subspace.
         @test @PropertySpace(a.b.c, Value) ===
-              F.PropertySpace{:c,
-            F.PropertySpace{:b,F.PropertySpace{:a,System{Value},Value},Value},Value}
+              CS.PropertySpace{:c,
+            CS.PropertySpace{:b,CS.PropertySpace{:a,System{Value},Value},Value},Value}
 
         # Create a property space, accessible itself via a root property.
         MRE = @PropertySpace(mre, Value)
@@ -566,18 +566,18 @@ module PropertySpaces
             set_htl!,
             "The property :(mre.a) cannot be marked 'write' \
              without having first been marked 'read' \
-             for target `$(F.PropertySpace){<.mre>, $Value}`."
+             for target `$(CS.PropertySpace){<.mre>, $Value}`."
         )
 
         # Finally succeed.
         define_method(set_htl!; write_as = [:(mre.htl)])
 
-        @test isnothing(F.value(s)._member)
+        @test isnothing(CS.value(s)._member)
         s.mre.htl = 5
-        @test F.value(s)._member == 5
+        @test CS.value(s)._member == 5
         mre = s.mre # Delayed access.
         mre.htl = 8
-        @test F.value(s)._member == 8
+        @test CS.value(s)._member == 8
 
         # Dependent write.
         struct Vnq_b <: Blueprint{Value} end
@@ -647,11 +647,11 @@ module PropertySpaces
             GYQ, :btt, "Component <Tkq> is required to write to this property.")
         s += Tkq.b()
         s.btt = 44
-        @test F.value(s)._member == 440
+        @test CS.value(s)._member == 440
         s.goa.btt = 55
-        @test F.value(s)._member == 550
+        @test CS.value(s)._member == 550
         s.goa.gyq.btt = 66
-        @test F.value(s)._member == 660
+        @test CS.value(s)._member == 660
 
     end
 

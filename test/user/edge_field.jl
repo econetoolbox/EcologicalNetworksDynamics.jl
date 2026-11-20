@@ -7,7 +7,7 @@ using EcologicalNetworksDynamics
 using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
-    EN, N, F, NF, D, V,
+    EN, N, CS, NF, D, V,
     @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails, SparseMatrix,
     @propfails, @test_err, @mutfails
 using Test

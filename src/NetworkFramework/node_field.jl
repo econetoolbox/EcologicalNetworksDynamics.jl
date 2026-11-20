@@ -49,7 +49,7 @@ function define_node_field_component(
         (
             quote
                 module $Singular_
-                import EcologicalNetworksDynamics.NetworkFramework: F, NF, D, @bp_construct
+                import EcologicalNetworksDynamics.NetworkFramework: NF, D, @bp_construct
                 const d, T, Class = $d, $T, $Class
                 end
             end
@@ -161,7 +161,7 @@ function define_node_field_component(
     # Display.
     NF.eval(
         quote
-            F.shortline(io::IO, md::Model, ::$CP) = nodes_shortline(io, md, $d)
+            CS.shortline(io::IO, md::Model, ::$CP) = nodes_shortline(io, md, $d)
         end,
     )
 
@@ -519,7 +519,7 @@ end
 # Display.
 
 function nodes_shortline(io::IO, md::Model, d::D.NodeField)
-    cc, fc, rs = F.component_color, F.field_color, reset
+    cc, fc, rs = CS.component_color, CS.field_color, reset
     Field = D.CamelCaseSingular(d)
     N.read(N.entry(md, d)) do data
         dat = join_elided(data, ", "; coleach = fc)

@@ -87,7 +87,7 @@ has_component(s, D) # False.
 
 This *may* make it useless to ever feature component removal.
 """
-module Framework
+module ComponentsSystems
 
 using EcologicalNetworksDynamics:
     I, Option, argerr, Display, is_identifier_path, collect_path, last_in_path
@@ -95,7 +95,7 @@ using .Display: rept, red, yellow, blue, cyan, black, italics, bold, reset
 
 using OrderedCollections
 
-const F = Framework
+const CS = ComponentsSystems
 
 # ==========================================================================================
 # Early small types declarations to avoid circular dependencies among code files.

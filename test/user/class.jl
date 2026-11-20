@@ -6,15 +6,14 @@ using EcologicalNetworksDynamics
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
     @viewfails, @propfails, addfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework: D, NF, Network, Views
-using EcologicalNetworksDynamics.Framework: F, @PropertySpace
+using EcologicalNetworksDynamics.NetworkFramework: D, CS, NF, Network, Views
 using OrderedCollections
 using SparseArrays
 using Test
 
 # The data kind, view type and property spaces tested here.
 const d, _D = D.Class(:species)
-const Sp = @PropertySpace(species, Network)
+const Sp = CS.@PropertySpace(species, Network)
 
 @testset "Class components: blueprints" begin
 

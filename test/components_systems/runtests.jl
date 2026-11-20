@@ -1,4 +1,4 @@
-module Framework
+module ComponentsSystems
 
 include("./author.jl")
 include("./blueprint.jl")

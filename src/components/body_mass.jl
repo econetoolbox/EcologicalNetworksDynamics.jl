@@ -2,7 +2,7 @@ module BodyMassDef
 
 using EcologicalNetworksDynamics: Foodweb, argerr
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, D, F, NF, Model, Blueprint, @alias, @bp_construct
+    EN, D, CS, NF, Model, Blueprint, @alias, @bp_construct
 
 const d, _D = D.NodeField(:species, :body_mass)
 D.name_variants(::_D) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)

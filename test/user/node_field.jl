@@ -5,7 +5,7 @@ module NodeFieldTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.NetworkFramework: EN, N, F, NF, D, V
+using EcologicalNetworksDynamics.NetworkFramework: EN, N, CS, NF, D, V
 using EcologicalNetworksDynamics.Tests:
     @test_err, @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
     @propfails, @viewfails, @mutfails, @viewfails, @argfails, @netfails

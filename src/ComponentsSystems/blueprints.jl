@@ -85,16 +85,16 @@ end
 """
 List implied blueprints by yielding the corresponding component types.
 Yielding components instances instead is supported.
-Expected signature for a component `C` of type `_C`:
-`function(::Blueprint)::"Iterable"{Union{C, _C}}`.
+Expected signature for a component `CP` of type `_CP`:
+`function(::Blueprint)::"Iterable"{Union{CP, _CP}}`.
 """
 implied(::Blueprint) = () # Default to nothing implied.
 
 """
 Implied blueprints need to be constructed from the focal blueprint value on-demand
 for every target component. This is called "implicit blueprint construction".
-Expected signature for a component `C` of type `_C`:
-`function(::Blueprint, ::Type{_C})::Blueprint`.
+Expected signature for a component `CP` of type `_CP`:
+`function(::Blueprint, ::Type{_CP})::Blueprint`.
 Ergonomy quirk: `Type{..}` is required here
 because it needs to work consistently with abstract components:
 the `add` procedure will only call the method with component types.
@@ -104,8 +104,8 @@ function implied_blueprint_for end
 # Define no default method to the above, so it can be queried
 # whether one has been set during `define_blueprint()` call.
 # (focal blueprint, component) -> blueprint for this component.
-implies_blueprint_for(b::Blueprint, C::CompType) =
-    hasmethod(implied_blueprint_for, Tuple{typeof(b),Type{C}})
+implies_blueprint_for(bp::Blueprint, CP::CompType) =
+    hasmethod(implied_blueprint_for, Tuple{typeof(bp),Type{CP}})
 
 #-------------------------------------------------------------------------------------------
 # Conflicts.
@@ -176,26 +176,26 @@ expand!(_, ::Blueprint, low) = low # Do nothing by default.
 
 # ==========================================================================================
 # Display.
-function Base.showerror(io::IO, ::UnspecifiedComponents{B}) where {B}
-    print(io, "Unspecified provided components for '$(repr(B))'.")
+function Base.showerror(io::IO, ::UnspecifiedComponents{BP}) where {BP}
+    print(io, "Unspecified provided components for '$(repr(BP))'.")
 end
 
 # Improve field name error.
-Base.getproperty(b::Blueprint, name::Symbol) =
-    if hasproperty(b, name)
-        @invoke getproperty(b::Any, name)
+Base.getproperty(bp::Blueprint, name::Symbol) =
+    if hasproperty(bp, name)
+        @invoke getproperty(bp::Any, name)
     else
-        error("blueprint $(typeof(b)) has no field $(repr(name))")
+        error("blueprint $(typeof(bp)) has no field $(repr(name))")
     end
 
 # Display extension points.
-function bpdisplay(io::IO, B::Type{<:Blueprint}; color = false)
+function bpdisplay(io::IO, BP::Type{<:Blueprint}; color = false)
     s, e = color ? (blueprint_color, reset) : ("", "")
-    print(io, "$s$(repr(B))$e")
+    print(io, "$s$(repr(BP))$e")
 end
-bpdisplay(B; kwargs...) = sprint(B) do io, B
-    bpdisplay(io, B; kwargs...)
+bpdisplay(BP; kwargs...) = sprint(BP) do io, BP
+    bpdisplay(io, BP; kwargs...)
 end
 
-bpcol(io::IO, B::Type{<:Blueprint}) = bpdisplay(io, B; color = true)
-bpcol(B) = bpdisplay(B; color = true)
+bpcol(io::IO, BP::Type{<:Blueprint}) = bpdisplay(io, BP; color = true)
+bpcol(BP) = bpdisplay(BP; color = true)

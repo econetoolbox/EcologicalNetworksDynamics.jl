@@ -33,7 +33,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
             quote
                 module $Web_
                 using EcologicalNetworksDynamics.NetworkFramework:
-                    F, NF, SparseMatrix, BinAdjacency, Model, @bp_construct
+                    NF, SparseMatrix, BinAdjacency, Model, @bp_construct
                 const d, src, Class = $d, $src, $Class
                 end
             end
@@ -393,7 +393,7 @@ end
 # ==========================================================================================
 # Display.
 
-function F.display_blueprint_field_long(
+function CS.display_blueprint_field_long(
     io::IO,
     adj::BinAdjacency,
     ::ReflexiveWebAdjacencyBlueprint,

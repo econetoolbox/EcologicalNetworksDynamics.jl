@@ -16,7 +16,7 @@ function inline_info(v::NodeMaskView)
     "<$parent:$class>"
 end
 
-const fc, rs = F.field_color, reset
+const fc, rs = CS.field_color, reset
 
 function display_info(v::NodeFieldView)
     T = eltype(v)

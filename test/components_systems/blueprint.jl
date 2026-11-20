@@ -1,6 +1,6 @@
 module Blueprints
 
-using EcologicalNetworksDynamics.Framework: F, System
+using EcologicalNetworksDynamics.ComponentsSystems: CS, System
 
 # Testing these definitions requires generating numerous new types
 # which are bound to constant julia variables.
@@ -15,22 +15,22 @@ struct Value
 end
 Base.copy(v::Value) = deepcopy(v)
 Base.getproperty(s::System{Value}, name::Symbol) =
-    name in fieldnames(System) ? getfield(s, name) : F.value(s).d[name]
+    name in fieldnames(System) ? getfield(s, name) : CS.value(s).d[name]
 
 # ==========================================================================================
 module Calls
 
     using ..Blueprints: Value
 
-    using EcologicalNetworksDynamics.Framework:
-        F, components, Blueprint, define_blueprint, System, has_component
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, components, Blueprint, define_blueprint, System, has_component
 
     using EcologicalNetworksDynamics.Tests: addfails, @test_err, @bluefails
     using Test
 
     comps(s) = collect(components(s))
     define_component(name, V = Value; kwargs...) =
-        F.define_component(name, V, Calls; kwargs...)
+        CS.define_component(name, V, Calls; kwargs...)
 
     @testset "Calls to define_blueprint()." begin
 
@@ -47,7 +47,7 @@ module Calls
         struct Fjr_b <: Blueprint{Value} end
         define_blueprint(Fjr_b, "description for Fjr_b")
         define_component(:Fjr; blueprints = [:b => Fjr_b])
-        @test sprint(F.shortline, Fjr_b) == "description for Fjr_b"
+        @test sprint(CS.shortline, Fjr_b) == "description for Fjr_b"
 
         # Add a expansion-time dependency.
         struct Vkl_b <: Blueprint{Value} end
@@ -110,8 +110,8 @@ module Abstracts
 
     using ..Blueprints: Value
 
-    using EcologicalNetworksDynamics.Framework:
-        F, Blueprint, Component, System, define_blueprint, components, has_component
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, Blueprint, Component, System, define_blueprint, components, has_component
 
     using EcologicalNetworksDynamics.Tests: @test_err, addfails
     using Test
@@ -120,7 +120,7 @@ module Abstracts
 
     comps(s) = sort(collect(components(s)); by = repr)
     define_component(name, V = Value; kwargs...) =
-        F.define_component(name, V, Abstracts; kwargs...)
+        CS.define_component(name, V, Abstracts; kwargs...)
 
     # (reassure JuliaLS)
     local B, C, D
@@ -153,11 +153,11 @@ module Abstracts
 
         # Indirect implementation to avoid `redefinition warnings` during testing.
         impl = Ref{Any}(nothing)
-        F.implied(::X_b) = impl[]
+        CS.implied(::X_b) = impl[]
 
         # .. implies another component.
         # Concrete component.
-        F.implied_blueprint_for(::X_b, ::Type{_B}) = B.b()
+        CS.implied_blueprint_for(::X_b, ::Type{_B}) = B.b()
         for comp in (_B, B) # (Works with either component type or component instance.)
             impl[] = (_B,)
             s = S(x)
@@ -166,7 +166,7 @@ module Abstracts
         end
 
         impl[] = (A,) # Abstract component.
-        F.implied_blueprint_for(::X_b, ::Type{A}) = C.b() # Can have any type.
+        CS.implied_blueprint_for(::X_b, ::Type{A}) = C.b() # Can have any type.
         s = S(x)
         @test has_component(s, X)
         @test has_component(s, C)
@@ -192,17 +192,17 @@ module Abstracts
         impl[] = (_D,)
         addfails.@component(S(x),
             "Blueprint $X_b is supposed to imply <D> \
-             but the corresponding method is not defined: $F.implied_blueprint_for.")
+             but the corresponding method is not defined: $CS.implied_blueprint_for.")
 
         # Wrong implicit constructors.
-        F.implied_blueprint_for(::X_b, ::Type{_D}) = :a
+        CS.implied_blueprint_for(::X_b, ::Type{_D}) = :a
         addfails.@component(S(x),
             "Implicit constructor to implying <D> from $X_b did not yield a blueprint \
              but: :a ::$Symbol.",
         )
 
         impl[] = (_C,)
-        F.implied_blueprint_for(::X_b, ::Type{_C}) = D.b()
+        CS.implied_blueprint_for(::X_b, ::Type{_C}) = D.b()
         addfails.@component(S(x),
             "Blueprint $X_b is supposed to imply a blueprint for <C>, \
              but it implied a blueprint for [<D>] instead.",

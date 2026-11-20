@@ -27,7 +27,7 @@ include("./errors.jl")
 const T = Tests
 
 using EcologicalNetworksDynamics:
-    EN, N, F, I, SparseMatrix, SparseVector, errwith, withcontext
+    EN, N, CS, I, SparseMatrix, SparseVector, errwith, withcontext
 using EcologicalNetworksDynamics.Display:
     rept, render_input, yellow, black, cyan, reset, italics
 using EcologicalNetworksDynamics.NetworkFramework: NF, D, V, AD
@@ -69,9 +69,9 @@ const mess = FieldsCompare.message
 #-------------------------------------------------------------------------------------------
 # Framework errors.
 
-@genfailsmacro propfails F.PropertyError (; mess)
-@genfailsmacro callfails F.MethodCallError (; mess)
-@genfailsmacro conflfails F.ConflictError (; mess)
+@genfailsmacro propfails CS.PropertyError (; mess)
+@genfailsmacro callfails CS.MethodCallError (; mess)
+@genfailsmacro conflfails CS.ConflictError (; mess)
 
 "Generate macros for failures in defining items."
 macro genitemfailsfor(itemtype, name)
@@ -83,15 +83,14 @@ macro genitemfailsfor(itemtype, name)
         end
     end
 end
-@genfailsmacro itemfails F.ItemError (; mess)
+@genfailsmacro itemfails CS.ItemError (; mess)
 @genitemfailsfor :blueprint bluefails
 @genitemfailsfor :component compfails
 @genitemfailsfor :method methfails
 
 "Test various possible failures during `Framework.add!()`."
 module addfails
-    using ..T: T, I, F, NF, @genfailsmacro, mess, rept, WrongField, italics, reset
-    using EcologicalNetworksDynamics.Framework: Component, CompType
+    using ..T: T, I, CS, NF, @genfailsmacro, mess, rept, WrongField, italics, reset
     # (erroring here is always in the context of rethrowing from `catch`ing the checked err)
     reerrwith(args...; kwargs...) = T.errwith(args..., rethrow; kwargs...)
     "The `node` fields on `AddError` is easily tested as a *path* of blueprint types."
@@ -100,10 +99,10 @@ module addfails
             reerrwith("not a path vector to compare against a node") do io
                 println(io, rept(exp))
             end
-        node isa F.Node || reerrwith(WrongField, "not an `add!` node") do io
+        node isa CS.Node || reerrwith(WrongField, "not an `add!` node") do io
             println(io, rept(node))
         end
-        act = F.path(node)
+        act = CS.path(node)
         if skip_first
             popfirst!(act)
         end
@@ -125,16 +124,16 @@ module addfails
         exp === act || reerrwith(WrongField, "wrong component") do io
             T.showcompare(io, exp, act)
         end
-    comp(exp::Component, act::CompType) = comp(typeof(exp), act)
-    @genfailsmacro bpconflict F.ConflictWithBroughtComponent (; node, other_node = node)
-    @genfailsmacro broughtalready F.BroughtAlreadyInValue (; node)
-    @genfailsmacro component F.ComponentError (; mess)
-    @genfailsmacro lower F.LoweringAborted (; node)
-    @genfailsmacro missing F.MissingRequiredComponent (;
+    comp(exp::CS.Component, act::CS.CompType) = comp(typeof(exp), act)
+    @genfailsmacro bpconflict CS.ConflictWithBroughtComponent (; node, other_node = node)
+    @genfailsmacro broughtalready CS.BroughtAlreadyInValue (; node)
+    @genfailsmacro component CS.ComponentError (; mess)
+    @genfailsmacro lower CS.LoweringAborted (; node)
+    @genfailsmacro missing CS.MissingRequiredComponent (;
         node, Miss = comp, Comp = comp)
-    @genfailsmacro sysconflict F.ConflictWithSystemComponent (; node)
+    @genfailsmacro sysconflict CS.ConflictWithSystemComponent (; node)
     # That one is more involved..
-    @genfailsmacro check F.HookCheckFailure (;
+    @genfailsmacro check CS.HookCheckFailure (;
         # ..because it's forwarding underlying library exception..
         err = T.errfield(NF.BlueprintError),
         # ..so this should always be redundant with the above's :early vs :late 'step':
@@ -143,7 +142,7 @@ module addfails
         node = (e, a) -> node(e, a; skip_first = true),
     )
     # Keep a simple one around to check the framework itself.
-    @genfailsmacro check_raw F.HookCheckFailure (; node, err = (e, a) -> mess(e, a.mess))
+    @genfailsmacro check_raw CS.HookCheckFailure (; node, err = (e, a) -> mess(e, a.mess))
 end
 
 #-------------------------------------------------------------------------------------------

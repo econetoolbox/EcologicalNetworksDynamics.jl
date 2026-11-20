@@ -1,6 +1,6 @@
 module FoodwebDef
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, N, F, NF, D, V, Network, Model, @alias, argerr
+    EN, N, CS, NF, D, V, Network, Model, @alias, argerr
 using EcologicalNetworksDynamics.KwargsHelpers
 using EcologicalNetworksDynamics.Display: reset
 
@@ -223,8 +223,8 @@ end
 # ==========================================================================================
 
 # Display.
-function F.shortline(io::IO, model::Model, ::_Foodweb)
-    cc, fc, rs = F.component_color, F.field_color, reset
+function CS.shortline(io::IO, model::Model, ::_Foodweb)
+    cc, fc, rs = CS.component_color, CS.field_color, reset
     l = model.trophic.n_links
     p = model.producers.number
     c = model.consumers.number

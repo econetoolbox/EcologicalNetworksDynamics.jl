@@ -31,15 +31,15 @@ at the cost of extending the `define_component()` function to produce abstract t
 Component
 
 # Retrieve type from either instance or the type itself.
-component_type(C::CompType) = C
-component_type(c::Component) = typeof(c)
+component_type(CP::CompType) = CP
+component_type(cp::Component) = typeof(cp)
 component_type(x::Any) =
     argerr("Not a component or a component type: $(repr(x)) ::$(typeof(x))")
 
 # Component types being singleton, we *can* infer the value from the type at runtime,
 # provided it is not abstract.
-singleton_instance(c::Component) = c
-singleton_instance(C::CompType) = throw("No concrete singleton instance of '$C'.")
+singleton_instance(cp::Component) = cp
+singleton_instance(CP::CompType) = throw("No concrete singleton instance of '$CP'.")
 
 # Extract underlying system wrapped value type from a component.
 system_value_type(::CompRef{V}) where {V} = V
@@ -61,11 +61,11 @@ const CompsReasons{V} = OrderedDict{CompType{V},Reason}
 
 # Specify which components are needed for the focal one to make sense.
 requires(::CompType{V}) where {V} = () # Require nothing by default.
-requires(c::Component) = requires(typeof(c))
+requires(cp::Component) = requires(typeof(cp))
 
 # List all possible blueprints types providing the component.
-blueprints(C::CompType{V}) where {V} = throw("No blueprint type specified for $C.")
-blueprints(c::Component{V}) where {V} = throw("No blueprint type specified for $c.")
+blueprints(CP::CompType{V}) where {V} = throw("No blueprint type specified for $CP.")
+blueprints(cp::Component{V}) where {V} = throw("No blueprint type specified for $cp.")
 
 # ==========================================================================================
 # Conflicts.
@@ -75,7 +75,7 @@ blueprints(c::Component{V}) where {V} = throw("No blueprint type specified for $
 # so they can all refer to each other
 # as a clique of incompatible nodes in the components graph.
 conflicts_(::CompType{V}) where {V} = CompsReasons{V}()
-conflicts_(c::Component) = conflicts_(typeof(c))
+conflicts_(cp::Component) = conflicts_(typeof(cp))
 # When specialized, the above method yields a reference to underlying value,
 # updated according to this module's own logic. Don't expose.
 
@@ -115,8 +115,8 @@ end
 # Iterate over all conflicts for one particular component.
 # yields (conflict_key, conflicting_component, reason)
 # The yielded conflict key may be a supercomponent of the focal one.
-function all_conflicts(C::CompType)
-    supers = I.filter(T -> T !== Any, supertypes(C))
+function all_conflicts(CP::CompType)
+    supers = I.filter(T -> T !== Any, supertypes(CP))
     Iterators.flatten(I.map(supers) do Sup
         entries = conflicts_(Sup)
         I.map(entries) do (k, v)
@@ -145,14 +145,14 @@ function add_trigger!(components, fn::Function)
     first = nothing
     set = Set()
     for comp in components
-        C = component_type(comp)
+        CP = component_type(comp)
 
         # Guard against inconsistent target values.
         if isnothing(V)
-            V = system_value_type(C)
+            V = system_value_type(CP)
             first = comp
         else
-            aV = system_value_type(C)
+            aV = system_value_type(CP)
             aV == V || argerr("Both components for '$V' and '$aV' \
                                provided within the same trigger: $first and $comp.")
         end
@@ -160,7 +160,7 @@ function add_trigger!(components, fn::Function)
         # Triangular-check against redundancies.
         for already in set
             vertical_guard(
-                C,
+                CP,
                 already,
                 () -> argerr("Component $comp specified twice in the same trigger."),
                 (sub, sup) -> argerr("Both component $sub and its supertype $sup \
@@ -168,7 +168,7 @@ function add_trigger!(components, fn::Function)
             )
         end
 
-        push!(set, C)
+        push!(set, CP)
     end
 
     # Guard against inconsistent signatures.
@@ -209,9 +209,9 @@ export add_trigger!
 # Display extension points.
 
 # Hide `_` prefix from type name in UI.
-cname(C::Type) = chopprefix(String(C.name.name), '_')
-compname(C::CompType) = "<$(cname(C))>" # Singletons *types* in brackets.
-compname(c::Component) = String(cname(typeof(c)))
+cname(CP::Type) = chopprefix(String(CP.name.name), '_')
+compname(CP::CompType) = "<$(cname(CP))>" # Singletons *types* in brackets.
+compname(cp::Component) = String(cname(typeof(cp)))
 function compdisplay(io::IO, cr::CompRef; color = false)
     s, e = color ? (component_color, reset) : ("", "")
     name = compname(cr)
@@ -221,34 +221,34 @@ compdisplay(cr; kwargs...) = sprint(cr) do io, cr
     compdisplay(io, cr; kwargs...)
 end
 
-function Base.show(io::IO, ::MIME"text/plain", C::Type{<:Component})
-    V = system_value_type(C)
-    compdisplay(io, C; color = true)
+function Base.show(io::IO, ::MIME"text/plain", CP::Type{<:Component})
+    V = system_value_type(CP)
+    compdisplay(io, CP; color = true)
     print(io, " $black(component type for $V)$reset")
 end
 
 # Helpful display resuming base blueprint types for this component,
 # assuming it has been generated by the above.
-function Base.show(io::IO, ::MIME"text/plain", c::Component)
-    V = system_value_type(c)
-    names = fieldnames(typeof(c))
-    cd = compdisplay(c; color = true)
+function Base.show(io::IO, ::MIME"text/plain", cp::Component)
+    V = system_value_type(cp)
+    names = fieldnames(typeof(cp))
+    cd = compdisplay(cp; color = true)
     print(io, "$cd $black(component for $V")
     if isempty(names)
         print(io, " with no base blueprint")
     else
         println(io, ", expandable from:")
         for name in names
-            B = getfield(c, name)
+            BP = getfield(cp, name)
             print(io, "  $blueprint_color$name$reset$black: $italics")
-            shortline(io, B)
+            shortline(io, BP)
             println(io, "$reset$black,")
         end
     end
     print(io, ")$reset")
 end
 
-shortline(io, B::Type{<:Blueprint}) = @invoke show(io, B::DataType)
+shortline(io, BP::Type{<:Blueprint}) = @invoke show(io, BP::DataType)
 
 # Toplevel escape hatch (union types have no name).
 Base.show(io::IO, ::Type{Component}) = @invoke show(io, Component::UnionAll)

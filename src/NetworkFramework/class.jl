@@ -26,7 +26,7 @@ function define_class_component(mod::Module, d::D.Class)
             quote
                 module $Plural_
                 import EcologicalNetworksDynamics.NetworkFramework:
-                    F, NF, D, Model, @bp_construct
+                    NF, D, Model, @bp_construct
                 const d = $d
                 end
             end
@@ -74,7 +74,7 @@ function define_class_component(mod::Module, d::D.Class)
 
     # Display.
     NF.eval(quote
-        F.shortline(io::IO, model::Model, ::$CP) = class_shortline($d, io, model)
+        CS.shortline(io::IO, model::Model, ::$CP) = class_shortline($d, io, model)
     end)
 
     define_class_properties(mod, d; depends = [CP])
@@ -199,7 +199,7 @@ obtain(vw::V.NodeMaskView, (r,)::Tuple{Int}) = r in N.class(vw).restriction
 # Display.
 
 function class_shortline(d::D.Class, io::IO, md::Model)
-    cc, fc, rs = F.component_color, F.field_color, reset
+    cc, fc, rs = CS.component_color, CS.field_color, reset
     class = D.snake_case_plural(d)
     Class = D.CamelCaseSingular(d)
     names = getproperty(md, class)._names

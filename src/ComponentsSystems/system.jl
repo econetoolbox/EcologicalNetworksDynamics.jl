@@ -63,8 +63,7 @@ abstract(s::System) = getfield(s, :_abstract)
 # Fork the system, recursively copying the wrapped value and every component.
 function Base.copy(s::System{V}) where {V}
     v = copy(value(s))
-    c = deepcopy(concrete(s))
-    a = deepcopy(abstract(s))
+    c, a = deepcopy.((concrete(s), abstract(s)))
     System{V}(RawConstruct, v, c, a)
 end
 
@@ -75,21 +74,21 @@ end
 component_types(s::System) = I.map(identity, concrete(s)) # (to not leak refs)
 components(s::System) = I.map(singleton_instance, component_types(s))
 # Restrict to the given component (super)type.
-components_types(system::System{V}, C::CompType{V}) where {V} =
-    if isabstracttype(C)
+components_types(system::System{V}, CP::CompType{V}) where {V} =
+    if isabstracttype(CP)
         d = abstract(system)
-        haskey(d, C) ? d[C] : ()
+        haskey(d, CP) ? d[CP] : ()
     else
         d = concrete(system)
-        C in d ? (C,) : ()
+        CP in d ? (CP,) : ()
     end
-components(s::System, C::CompType{V}) where {V} =
-    I.map(singleton_instance, components_types(s, C))
+components(s::System, CP::CompType{V}) where {V} =
+    I.map(singleton_instance, components_types(s, CP))
 
 # Basic check.
-has_component(s::System{V}, C::Type{<:Component{V}}) where {V} = !isempty(components(s, C))
-has_component(s::System{V}, c::Component{V}) where {V} = has_component(s, typeof(c))
-has_concrete_component(s::System{V}, c::Component{V}) where {V} = typeof(c) in concrete(s)
+has_component(s::System{V}, CP::CompType{V}) where {V} = !isempty(components(s, CP))
+has_component(s::System{V}, cp::Component{V}) where {V} = has_component(s, typeof(cp))
+has_concrete_component(s::System{V}, cp::Component{V}) where {V} = typeof(cp) in concrete(s)
 export has_component, has_concrete_component
 
 #-------------------------------------------------------------------------------------------
@@ -103,8 +102,8 @@ function equal_fields(a::T, b::T) where {T}
     true
 end
 Base.:(==)(a::System{U}, b::System{V}) where {U,V} = U == V && equal_fields(a, b)
-Base.:(==)(a::Blueprint{U}, b::Blueprint{V}) where {U,V} =
-    U == V && typeof(a) == typeof(b) && equal_fields(a, b)
+Base.:(==)(a::Blueprint{U}, bp::Blueprint{V}) where {U,V} =
+    U == V && typeof(a) == typeof(bp) && equal_fields(a, bp)
 
 # ==========================================================================================
 # Dedicated exceptions.
@@ -134,14 +133,14 @@ function Base.show(io::IO, ::MIME"text/plain", sys::System)
     S = typeof(sys)
     rs = repr(MIME("text/plain"), S)
     print(io, "$rs with $n component$(eol(n))")
-    for C in concrete(sys)
+    for CP in concrete(sys)
         print(io, "\n  - ")
-        shortline(io, sys, singleton_instance(C))
+        shortline(io, sys, singleton_instance(CP))
     end
 end
 s(n) = (n > 1) ? "s" : ""
 eol(n) = s(n) * (n == 0 ? "." : ":")
 
 # For specialization by framework users.
-shortline(io::IO, ::System, C::CompType) = @invoke show(io, C::CompType)
-shortline(io::IO, s::System, c::Component) = shortline(io, s, component_type(c))
+shortline(io::IO, ::System, CP::CompType) = @invoke show(io, CP::CompType)
+shortline(io::IO, s::System, cp::Component) = shortline(io, s, component_type(cp))

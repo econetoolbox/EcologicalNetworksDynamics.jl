@@ -23,8 +23,8 @@ include("./shared.jl")
 sep("Internal model representation.")
 include("./networks/runtests.jl")
 
-sep("System/Blueprints/Components framework.")
-include("./framework/runtests.jl")
+sep("Components/Systems framework.")
+include("./components_systems/runtests.jl")
 
 sep("Test API utils.")
 include("./aliasing_dicts.jl")

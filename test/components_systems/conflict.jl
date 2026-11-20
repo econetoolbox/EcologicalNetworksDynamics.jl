@@ -9,14 +9,14 @@ module Calls
 
     using ..Conflicts: Value
 
-    using EcologicalNetworksDynamics.Framework:
-        Framework, Blueprint, Component, System, define_blueprint, define_conflicts
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, Blueprint, Component, System, define_blueprint, define_conflicts
 
     using EcologicalNetworksDynamics.Tests: @test_err, addfails, @conflfails
     using Test
 
     define_component(name; kwargs...) =
-        Framework.define_component(name, Value, Calls; kwargs...)
+        CS.define_component(name, Value, Calls; kwargs...)
 
     # Generate many small "markers" components just to toy with'em.
     for letter in 'A':'Z'
@@ -62,8 +62,8 @@ module Calls
 
         confs(C) = sort(
             collect(
-                Iterators.map(Framework.all_conflicts(typeof(C))) do (a, b, r)
-                    (Framework.singleton_instance(a), Framework.singleton_instance(b), r)
+                Iterators.map(CS.all_conflicts(typeof(C))) do (a, b, r)
+                    (CS.singleton_instance(a), CS.singleton_instance(b), r)
                 end,
             );
             by = repr,
@@ -237,17 +237,17 @@ module Abstracts
 
     using ..Conflicts: Value
 
-    using EcologicalNetworksDynamics.Framework:
-        Framework, Blueprint, Component, System, define_blueprint, define_conflicts
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, Blueprint, Component, System, define_blueprint, define_conflicts
 
     using EcologicalNetworksDynamics.Tests: @test_err, addfails, @conflfails
     using Test
 
     const S = System{Value}
 
-    comps(s) = collect(Framework.components(s))
+    comps(s) = collect(CS.components(s))
     define_component(name; kwargs...) =
-        Framework.define_component(name, Value, Abstracts; kwargs...)
+        CS.define_component(name, Value, Abstracts; kwargs...)
 
     @testset "Abstract component conflicts semantics." begin
 
@@ -328,10 +328,10 @@ module Abstracts
 
         # Conflict with implied components.
         struct Crh_b <: Blueprint{Value} end
-        Framework.implied(::Crh_b) = (C,)
-        Framework.implied_blueprint_for(::Crh_b, ::Type{C}) = E.b()
+        CS.implied(::Crh_b) = (C,)
+        CS.implied_blueprint_for(::Crh_b, ::Type{C}) = E.b()
         define_blueprint(Crh_b)
-        Framework.componentsof(::Crh_b) = (_D,)
+        CS.componentsof(::Crh_b) = (_D,)
 
         crh = Crh_b()
         addfails.@bpconflict(S(crh), _D, B, [Crh_b], _E, C, [E.b, Crh_b], nothing)

@@ -12,7 +12,7 @@ module MetabolicClassDef
 
 using EcologicalNetworksDynamics: Foodweb
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, D, N, F, NF, AD, Blueprint, Model, MetabolicClassDict, @bp_construct
+    EN, D, N, CS, NF, AD, Blueprint, Model, MetabolicClassDict, @bp_construct
 using EcologicalNetworksDynamics.Display: cyan, reset
 
 const d, _D = D.NodeField(:species, :metabolic_class)

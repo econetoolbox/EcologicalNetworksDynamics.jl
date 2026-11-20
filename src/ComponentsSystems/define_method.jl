@@ -79,8 +79,8 @@ function define_method(
                                           is being defined for.")
                 Base.first(vals)
             else
-                C = dep # Then it must be a component.
-                system_value_type(C)
+                CP = dep # Then it must be a component.
+                system_value_type(CP)
             end
         else
             based = inferred ? " based on the first macro argument" : ""
@@ -91,12 +91,12 @@ function define_method(
                          but `$dep` has not been recorded \
                          as a system method for this type.")
             else
-                C = dep
-                if !(C <: Component{V})
-                    C_V = system_value_type(C)
+                CP = dep
+                if !(CP <: Component{V})
+                    C_V = system_value_type(CP)
                     err("Depends section: system value type \
                          is supposed to be `$V`$based, \
-                         but $(cd(C)) subtypes `$Component{$C_V}` \
+                         but $(cd(CP)) subtypes `$Component{$C_V}` \
                          and not `$Component{$V}`.")
                 end
             end
@@ -224,7 +224,7 @@ function define_method(
     deps = OrderedSet{CompType{V}}()
     for rdep in raw_deps
         subdeps = if rdep isa Function
-            F.depends(System{V}, typeof(rdep))
+            CS.depends(System{V}, typeof(rdep))
         else
             [rdep]
         end
@@ -290,7 +290,7 @@ function define_method(
     Fn = Type{typeof(fn)}
     Target = System{V}
     eval(quote
-        F.depends(::Type{$Target}, ::$Fn) = $deps
+        CS.depends(::Type{$Target}, ::$Fn) = $deps
     end)
 
     # Wrap the detected methods within checked methods receiving 'System' values.
@@ -348,13 +348,13 @@ function define_method(
 
     # Record as specified to avoid it being recorded again.
     eval(quote
-        $F.specified_as_method(::Type{$V}, ::$Fn) = true
+        $CS.specified_as_method(::Type{$V}, ::$Fn) = true
     end)
     vals = method_for_values(typeof(fn))
     if isempty(vals)
         # Specialize for this freshly created value.
         eval(quote
-            $F.method_for_values(::$Fn) = $vals
+            $CS.method_for_values(::$Fn) = $vals
         end)
     end
     push!(vals, V) # Append the new one in any case.

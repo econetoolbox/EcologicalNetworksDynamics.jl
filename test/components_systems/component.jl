@@ -15,21 +15,21 @@ module Calls
 
     using ..Components: Value
 
-    using EcologicalNetworksDynamics.Framework:
-        F, System, Blueprint, Component, define_blueprint, has_component
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, System, Blueprint, Component, define_blueprint, has_component
 
     using EcologicalNetworksDynamics.Tests: @test_err, @jl_callfails, addfails, @compfails
     using Test
 
-    comps(s) = collect(F.components(s))
+    comps(s) = collect(CS.components(s))
     define_component(name, V = Value; kwargs...) =
-        F.define_component(name, V, Calls; kwargs...)
+        CS.define_component(name, V, Calls; kwargs...)
 
     # Testing blueprint collection from module.
     # (must be declared at toplevel)
     module Plv_b
         using ..Calls: Value
-        using EcologicalNetworksDynamics.Framework: Blueprint, define_blueprint
+        using EcologicalNetworksDynamics.ComponentsSystems: Blueprint, define_blueprint
         struct Ibh_b <: Blueprint{Value} end # Collected.
         struct Fek_b <: Blueprint{Value} end # Collected.
         struct Zpp_b <: Blueprint{Value} end # Not collected (not exported)
@@ -87,15 +87,15 @@ module Calls
         define_component(:Cvh; blueprints = [:b => Cvh_b])
         define_component(:Zjz; blueprints = [:b => Zjz_b], requires = [Cvh])
 
-        @test collect(F.requires(Cvh)) == []
-        @test collect(F.requires(Zjz)) == [_Cvh => nothing]
+        @test collect(CS.requires(Cvh)) == []
+        @test collect(CS.requires(Zjz)) == [_Cvh => nothing]
 
         s = System{Value}()
         # Cannot add Zjz without Cvh.
         addfails.@missing((s + Zjz.b()), _Cvh, _Zjz, [Zjz_b], nothing)
         s += Cvh.b() # Meet the requirement.
         s += Zjz.b() # Now it's okay.
-        @test collect(F.components(s)) == [Cvh, Zjz]
+        @test collect(CS.components(s)) == [Cvh, Zjz]
 
         #-----------------------------------------------------------------------------------
         # Alternate syntax in blocks.
@@ -109,20 +109,20 @@ module Calls
         # Okay to use component *type* instead.
         define_component(:Lev; blueprints = [:b => Lev_b], requires = [_Dsy])
 
-        @test collect(F.requires(Dsy)) == []
-        @test collect(F.requires(Lev)) == [_Dsy => nothing]
+        @test collect(CS.requires(Dsy)) == []
+        @test collect(CS.requires(Lev)) == [_Dsy => nothing]
 
         s = System{Value}()
         addfails.@missing((s + Lev.b()), _Dsy, _Lev, [Lev_b], nothing)
         s += Dsy.b() + Lev.b()
-        @test collect(F.components(s)) == [Dsy, Lev]
+        @test collect(CS.components(s)) == [Dsy, Lev]
 
         #-----------------------------------------------------------------------------------
         # Explicit empty lists.
 
         define_component(:Nzo; blueprints = [], requires = [])
         @test fieldnames(_Nzo) == () # No blueprints listed.
-        @test collect(F.requires(Nzo)) == [] # No requirements.
+        @test collect(CS.requires(Nzo)) == [] # No requirements.
 
         # Test with a constructible one that it does require nothing.
         struct Lwk_b <: Blueprint{Value} end
@@ -290,17 +290,17 @@ module Abstracts
 
     using ..Components: Value
 
-    using EcologicalNetworksDynamics.Framework:
-        F, Blueprint, Component, System, define_blueprint, has_component
+    using EcologicalNetworksDynamics.ComponentsSystems:
+        CS, Blueprint, Component, System, define_blueprint, has_component
 
     using EcologicalNetworksDynamics.Tests: addfails
     using Test
 
     const S = System{Value}
 
-    comps(s) = sort(collect(F.components(s)); by = repr)
+    comps(s) = sort(collect(CS.components(s)); by = repr)
     define_component(name, V = Value; kwargs...) =
-        F.define_component(name, V, Abstracts; kwargs...)
+        CS.define_component(name, V, Abstracts; kwargs...)
 
     # Component type hierachy.
     #

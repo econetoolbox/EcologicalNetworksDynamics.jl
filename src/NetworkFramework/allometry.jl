@@ -65,7 +65,7 @@ function define_allometry_blueprints(
             quote
                 module $Mod
                 using EcologicalNetworksDynamics.NetworkFramework:
-                    EN, NF, F, Model, Allometry, @bp_construct
+                    EN, NF, Model, Allometry, @bp_construct
                 const d = $d
                 end
             end

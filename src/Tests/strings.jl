@@ -210,6 +210,7 @@ macro gentest(variant)
                     if e isa $($UnexpectedSuccess)
                         e = e.source
                     end
+                    println($($lnline)($(Meta.quot(src))))
                     showerror(stderr, e)
                     # ..downgrade to only a failed @test to keep the testsuite going.
                     $ftest

@@ -21,17 +21,20 @@ include("./codegen.jl")
 
 #-------------------------------------------------------------------------------------------
 # XXX: whenever ready, big rename:
-#   (Networks, N) -> (Data, D) 💥
-#   (Framework, F) -> (Systems, S)
-#   (NetworkFramework, NF) -> (FrontEnd, F) 💥
-#   (Dispatcher, D) -> (DataKind, K)
-# ->(Simulation/Code) -> (BackEnd, B)
+#   [.] (Framework, F) -> (ComponentsSystems, CS)
+#   [ ] (Dispatchers, D) -> (Selectors, S)
+#   [ ] (Networks, N) -> (Data, D) 💥
+#   [ ] (NetworkFramework, NF) -> (Frontend, F) 💥
+#   [ ] (Simulation/Code) -> (Backend, B)
+#
+#   => Library: list of components.
+#
 # In general:
 #   - one-letter for atomic, immutable values:
 #       - `c`lassname
 #       - `f`ieldname
 #       - `p`parent
-#       - `d`ispatcher
+#       - `s`elector
 #       - etc.
 #   - two-letters for wider structs, thick values, not refs:
 #       - `nw`: network
@@ -52,8 +55,8 @@ const N = Networks
 #  using .Differentials # XXX: move after components definitions so they may rely on dispatchers?
 
 #  # Interface: ergonomic model manipulation.
-include("./Framework/Framework.jl")
-const F = Framework
+include("./ComponentsSystems/ComponentsSystems.jl")
+const CS = ComponentsSystems
 
 # Additional utils to construct components interface.
 include("./kwargs_helpers.jl")
@@ -94,7 +97,7 @@ include("./diversity.jl")
 =#
 
 # Avoid Revise interruptions when redefining methods and properties.
-#  Framework.REVISING = true # XXX: still required?
+#  Components.REVISING = true # XXX: still required?
 
 include("Tests/Tests.jl")
 
@@ -107,5 +110,7 @@ export interactions_names, multiplex_parameters_names
 using .NetworkFramework
 export Blueprint, Component, Model, has_component, Allometry
 export extract, spextract
+
+# XXX: cleanup "onhold" files that would not have been deleted yet.
 
 end

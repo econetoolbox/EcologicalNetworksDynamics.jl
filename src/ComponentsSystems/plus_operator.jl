@@ -1,7 +1,7 @@
 # Fork by adding components with the + operator.
-function Base.:+(s::System{V}, b::Blueprint{V}) where {V}
+function Base.:+(s::System{V}, bp::Blueprint{V}) where {V}
     clone = copy(s)
-    add!(clone, b)
+    add!(clone, bp)
     clone
 end
 
@@ -13,13 +13,13 @@ struct BlueprintSum{V}
     BlueprintSum{V}(p) where {V} = new{V}(p)
     BlueprintSum{V}() where {V} = new{V}(Blueprint{V}[])
 end
-Base.:+(a::Blueprint{V}, b::Blueprint{V}) where {V} = BlueprintSum{V}([a, b])
-Base.:+(sum::BlueprintSum{V}, b::Blueprint{V}) where {V} =
-    BlueprintSum{V}(vcat(sum.pack, [b]))
-Base.:+(b::Blueprint{V}, sum::BlueprintSum{V}) where {V} =
-    BlueprintSum{V}(vcat([b], sum.pack))
-Base.:+(a::BlueprintSum{V}, b::BlueprintSum{V}) where {V} =
-    BlueprintSum{V}(vcat(a.pack, b.pack))
+Base.:+(a::Blueprint{V}, bp::Blueprint{V}) where {V} = BlueprintSum{V}([a, bp])
+Base.:+(sum::BlueprintSum{V}, bp::Blueprint{V}) where {V} =
+    BlueprintSum{V}(vcat(sum.pack, [bp]))
+Base.:+(bp::Blueprint{V}, sum::BlueprintSum{V}) where {V} =
+    BlueprintSum{V}(vcat([bp], sum.pack))
+Base.:+(a::BlueprintSum{V}, bp::BlueprintSum{V}) where {V} =
+    BlueprintSum{V}(vcat(a.pack, bp.pack))
 function Base.:+(s::System{V}, sum::BlueprintSum{V}) where {V}
     clone = copy(s)
     add!(clone, sum.pack...)
@@ -34,7 +34,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", sum::BlueprintSum)
     print(io, "   $(first(sum.pack))")
-    for b in sum.pack[2:end]
-        print(io, "\n + $b")
+    for bp in sum.pack[2:end]
+        print(io, "\n + $bp")
     end
 end
