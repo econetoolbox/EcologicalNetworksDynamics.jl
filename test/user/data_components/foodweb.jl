@@ -4,7 +4,7 @@ using EcologicalNetworksDynamics
 using SparseArrays
 using Random
 
-using EcologicalNetworksDynamics.Tests: EN, N, CS, NF, V, D, @immutfails, @test_disp
+using EcologicalNetworksDynamics.Tests: EN, N, CS, NF, V, SL, @immutfails, @test_disp
 using Test
 
 @testset "Foodweb component." begin
@@ -65,7 +65,7 @@ using Test
     @test m.trophic.carnivory == m.carnivory
 
     # Calculated trophic levels.
-    View = V.NodeFieldView{D.NodeField(:species,:trophic_level)[1],Float64}
+    View = V.NodeFieldView{SL.NodeField(:species,:trophic_level)[1],Float64}
     @test m.trophic.level ≈ [1, 2, 1, 2 + 1 / 3]
     @immutfails(m.trophic.level[:d] = 1, View)
 

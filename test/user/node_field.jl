@@ -5,7 +5,7 @@ module NodeFieldTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.NetworkFramework: EN, N, CS, NF, D, V
+using EcologicalNetworksDynamics.NetworkFramework: EN, N, CS, NF, SL, V
 using EcologicalNetworksDynamics.Tests:
     @test_err, @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
     @propfails, @viewfails, @mutfails, @viewfails, @argfails, @netfails
@@ -13,8 +13,8 @@ using OrderedCollections
 using SparseArrays
 using Test
 
-const d, _D = D.NodeField(:species, :body_mass)
-const View = V.NodeFieldView{d,Float64}
+const s, S = SL.NodeField(:species, :body_mass)
+const View = V.NodeFieldView{s,Float64}
 
 @testset "NodeField components: blueprints" begin
 
@@ -58,10 +58,10 @@ const View = V.NodeFieldView{d,Float64}
 
     invalid = [4, 5, :x]
     @bpfails(BodyMass.Raw(invalid),
-        BodyMass.Raw, :construct, (d, :x, (:u, (3,)),
+        BodyMass.Raw, :construct, (s, :x, (:u, (3,)),
         "Cannot convert to `$Float64`:\n\
          Conversion not implemented."))
-    @checkfails(BodyMass(invalid), d, invalid, :uwhole,
+    @checkfails(BodyMass(invalid), s, invalid, :uwhole,
         """
         Cannot convert input to either:
           - $(Float64)
@@ -74,18 +74,18 @@ const View = V.NodeFieldView{d,Float64}
     # Early check.
 
     @bpfails(BodyMass([4, -5, 6]),
-        BodyMass.Raw, :construct, (d, -5.0, (:u, (2,)), "Value cannot be negative."))
+        BodyMass.Raw, :construct, (s, -5.0, (:u, (2,)), "Value cannot be negative."))
 
     alias[3] *= -1
     addfails.@check(Model(bp), [],
-        (BodyMass.Raw, :early, (d, -6.0, (:u, (3,)), "Value cannot be negative.")))
+        (BodyMass.Raw, :early, (s, -6.0, (:u, (3,)), "Value cannot be negative.")))
 
     #---------------------------------------------------------------------------------------
     # Late check.
 
     addfails.@check(Model(Species("abc"), BodyMass([1, 2])), [],
         (BodyMass.Raw, :late,
-            (d, [1.0, 2.0], :mwhole,
+            (s, [1.0, 2.0], :mwhole,
                 "Wrong number of values received: expected 3, got 2.")))
 
     #---------------------------------------------------------------------------------------
@@ -141,28 +141,28 @@ const View = V.NodeFieldView{d,Float64}
     end
 
     @bpfails(BodyMass.Map([:a => [5, 8]]), BodyMass.Map, :construct,
-        (d, [5, 8], (:u, [1, :right]), "Could not convert to `$Float64`."))
+        (s, [5, 8], (:u, [1, :right]), "Could not convert to `$Float64`."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
 
     @bpfails(BodyMass([:a => -5]), BodyMass.Map, :construct,
-        (d, -5.0, (:u, (:a,)), "Value cannot be negative."))
+        (s, -5.0, (:u, (:a,)), "Value cannot be negative."))
     @bpfails(BodyMass([1 => -5]), BodyMass.Map, :construct,
-        (d, -5.0, (:u, (1,)), "Value cannot be negative."))
+        (s, -5.0, (:u, (1,)), "Value cannot be negative."))
     @bpfails(BodyMass([2 => 5]), BodyMass.Map, :construct,
-        (d, 2, (:u, (2,)), "There is only 1 value in the given map so no index can be 2."))
+        (s, 2, (:u, (2,)), "There is only 1 value in the given map so no index can be 2."))
 
     bp.M[:b] *= -1
     bpi.M[2] *= -1
     addfails.@check(Model(bp), [],
-        (BodyMass.Map, :early, (d, -5.0, (:u, (:b,)), "Value cannot be negative.")))
+        (BodyMass.Map, :early, (s, -5.0, (:u, (:b,)), "Value cannot be negative.")))
     addfails.@check(Model(bpi), [],
-        (BodyMass.Map, :early, (d, -5.0, (:u, (2,)), "Value cannot be negative.")))
+        (BodyMass.Map, :early, (s, -5.0, (:u, (2,)), "Value cannot be negative.")))
     pop!(bpi.M, 2)
     addfails.@check(Model(bpi), [],
         (BodyMass.Map, :early,
-            (d, 3, (:u, (3,)),
+            (s, 3, (:u, (3,)),
                 "There are only 2 values in the given map so no index can be 3.")))
 
     #---------------------------------------------------------------------------------------
@@ -170,14 +170,14 @@ const View = V.NodeFieldView{d,Float64}
 
     addfails.@check(Model(Species("abc"), BodyMass([:a => 1])), [],
         (BodyMass.Map, :late,
-            (d, OrderedDict([:a => 1.0]), :mwhole,
+            (s, OrderedDict([:a => 1.0]), :mwhole,
                 "Missing: no value provided for :b and :c.")))
     addfails.@check(Model(Species("a"), BodyMass([:a => 1, :x => 2])), [],
         (BodyMass.Map, :late,
-            (d, OrderedDict([:a => 1.0, :x => 2.0]), :mwhole, "Not a species name: :x.")))
+            (s, OrderedDict([:a => 1.0, :x => 2.0]), :mwhole, "Not a species name: :x.")))
     addfails.@check(Model(Species(3), BodyMass([1 => 5])), [],
         (BodyMass.Map, :late,
-            (d, OrderedDict([1 => 5.0]), :mwhole,
+            (s, OrderedDict([1 => 5.0]), :mwhole,
                 "Missing: no value provided for nodes 2 and 3.")))
 
     # (inconsistent indices map cannot even get through early check)
@@ -239,19 +239,19 @@ const View = V.NodeFieldView{d,Float64}
     )
 
     @bpfails(BodyMass.Flat(:a), BodyMass.Flat, :construct,
-        (d, :a, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
+        (s, :a, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
 
     @bpfails(BodyMass(-5), BodyMass.Flat, :construct,
-        (d, -5.0, :uwhole, "Value cannot be negative."))
+        (s, -5.0, :uwhole, "Value cannot be negative."))
 
     m = Model(Species("abc"))
 
     bp.M *= -1
     addfails.@check(m + bp, [],
-        (BodyMass.Flat, :early, (d, -5.0, :uwhole, "Value cannot be negative.")))
+        (BodyMass.Flat, :early, (s, -5.0, :uwhole, "Value cannot be negative.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -309,10 +309,10 @@ end
     @test v == collect(v) == [4, 5, 6] == [i for i in v]
     @test v[[:a, :c]] == [4, 6]
 
-    @viewfails(v[-5], (d, -5, :uwhole, "There are 3 nodes in this class."))
-    @viewfails(v[5], (d, 5, :uwhole, "There are 3 nodes in this class."))
-    @viewfails(v[:x], (d, :x, :uwhole, "No node in this class is labeled :x."))
-    @viewfails(v[end+1], (d, 4, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[-5], (s, -5, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[5], (s, 5, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[:x], (s, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[end+1], (s, 4, :uwhole, "There are 3 nodes in this class."))
 
     @test_err(v[5],
         """
@@ -390,10 +390,10 @@ end
     @test a == alt.body_mass == [4, 5, 6]
 
     # Index-checking is also enabled via `setindex!`.
-    @viewfails(v[-5] = 8, (d, -5, :uwhole, "There are 3 nodes in this class."))
-    @viewfails(v[5] = 8, (d, 5, :uwhole, "There are 3 nodes in this class."))
-    @viewfails(v[end+1] = 8, (d, 4, :uwhole, "There are 3 nodes in this class."))
-    @viewfails(v[:x] = 8, (d, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[-5] = 8, (s, -5, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[5] = 8, (s, 5, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[end+1] = 8, (s, 4, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[:x] = 8, (s, :x, :uwhole, "No node in this class is labeled :x."))
 
     @test_err(v[:x] = 8,
         """
@@ -426,18 +426,18 @@ end
     @test a == alt.body_mass == [4, 5, 6]
 
     # The value is still checked.
-    @mutfails(v .= -5, (d, -5.0, (:m, ((1, :a),)), "Value cannot be negative."))
-    @mutfails(v[:a] = -5, (d, -5.0, (:m, ((1, :a),)), "Value cannot be negative."))
-    @mutfails(v[2:3] = [1, -5], (d, -5.0, (:m, ((3, :c),)), "Value cannot be negative."))
+    @mutfails(v .= -5, (s, -5.0, (:m, ((1, :a),)), "Value cannot be negative."))
+    @mutfails(v[:a] = -5, (s, -5.0, (:m, ((1, :a),)), "Value cannot be negative."))
+    @mutfails(v[2:3] = [1, -5], (s, -5.0, (:m, ((3, :c),)), "Value cannot be negative."))
 
     # On assignment.
     @mutfails(m.body_mass = [1, 5],
-        (d, [1.0, 5.0], :mwhole, "Wrong number of values received: expected 3, got 2."))
+        (s, [1.0, 5.0], :mwhole, "Wrong number of values received: expected 3, got 2."))
     input = [:x => 1.0, :y => 2.0]
     @mutfails(m.body_mass = input,
-        (d, OrderedDict(input), :mwhole, "Not species names: :x and :y."))
+        (s, OrderedDict(input), :mwhole, "Not species names: :x and :y."))
     @mutfails(m.body_mass = [:a => 1, :c => -2],
-        (d, -2.0, (:u, (:c,)), "Value cannot be negative."))
+        (s, -2.0, (:u, (:c,)), "Value cannot be negative."))
 
     @test_err(v[2:3] = [1, -5],
         """

@@ -11,7 +11,7 @@ Base.show(io::IO, ::MIME"text/plain", p::CS.PropertySpace) =
 
 function CS.bpdisplay(io::IO, BP::Type{<:Blueprint}; color = false)
     (cc, bc, res) = color ? (CS.component_color, CS.blueprint_color, reset) : ("", "", "")
-    CP = D.component(dispatcher(BP)) # TODO: will fail on dispatchers without components.
+    CP = SL.component(selector(BP)) # TODO: will fail on selectors without components.
     CP = CS.compdisplay(CP)
     BP = BP.name.name
     print(io, "$cc$CP$res.$bc$BP$res")

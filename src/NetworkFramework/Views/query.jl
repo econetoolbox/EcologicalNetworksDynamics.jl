@@ -13,12 +13,12 @@ _query_check(vw::EdgeView, q::Tuple{Label,Label}) = query_check(vw, q)
 _query_check(vw::NodeView, q::Tuple{AbstractVector{<:Label}}) = query_check(vw, q)
 
 # Large underlying dispatch point (largest possible to avoid duplicating code).
-query_check(vw::NodeView, q) = node_check(NF.model(vw), dispatcher(vw), q)
-query_check(vw::EdgeView, q) = edge_check(NF.model(vw), dispatcher(vw), q)
+query_check(vw::NodeView, q) = node_check(NF.model(vw), selector(vw), q)
+query_check(vw::EdgeView, q) = edge_check(NF.model(vw), selector(vw), q)
 
 # Views into subclasses are indexed within their parents.
 query_check(vw::NodeMaskView, q) =
-    node_check(NF.model(vw), dispatcher(vw), q; refclass = N.parent)
+    node_check(NF.model(vw), selector(vw), q; refclass = N.parent)
 
 # These ones, apparently specialized within julia, need disambiguation?
 # TODO: that is fragile to internal julia changes,
@@ -33,43 +33,43 @@ for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
 end
 
 # Single-value access, using either indices or labels.
-function node_check(md::Model, d::D.NodeLevel, (i,)::Tuple{Int}; refclass = N.class)
-    n = length(refclass(md, d))
+function node_check(md::Model, sl::SL.NodeLevel, (i,)::Tuple{Int}; refclass = N.class)
+    n = length(refclass(md, sl))
     1 <= i <= n && return (i,)
     n, s, are = nsa(n)
-    throw(V.Error((i,), CheckError(i, "There $are $n node$s in this class."; d)))
+    throw(VW.Error((i,), CheckError(i, "There $are $n node$s in this class."; s = sl)))
 end
 
-function node_check(md::Model, d::D.NodeLevel, (q,)::Tuple{Label}; refclass = N.class)
+function node_check(md::Model, s::SL.NodeLevel, (q,)::Tuple{Label}; refclass = N.class)
     l = Symbol(q)
-    ix = refclass(md, d).index
+    ix = refclass(md, s).index
     N.is_ref(ix, l) && return (N.to_index(ix, l),)
     throw(
-        V.Error((l,), CheckError(l, "No node in this class is labeled $(repr(l))."; d)),
+        VW.Error((l,), CheckError(l, "No node in this class is labeled $(repr(l))."; s)),
     )
 end
 
 # Large underlying dispatch point (largest possible to avoid duplicating code).
-edge_check(md::Model, d::D.EdgeLevel, (a, b)::Tuple{Any,Any}) = (
-    node_check(md, D.source(d), (a,))...,
-    node_check(md, D.target(d), (b,))...,
+edge_check(md::Model, s::SL.EdgeLevel, (a, b)::Tuple{Any,Any}) = (
+    node_check(md, SL.source(s), (a,))...,
+    node_check(md, SL.target(s), (b,))...,
 )
 
 # Multiple-labels accesses, useful to match `view[[i, j, k]]` arrays of indices.
 function node_check(
     md::Model,
-    d::D.NodeLevel,
+    s::SL.NodeLevel,
     (labels,)::Tuple{AbstractVector{<:Label}};
     refclass = N.class,
 )
-    ix = refclass(md, d).index
+    ix = refclass(md, s).index
     res = sizehint!(Int[], length(labels))
     for (i, raw) in pairs(labels)
         l = Symbol(raw)
         N.is_ref(ix, l) || throw(
-            V.Error((labels,),
+            VW.Error((labels,),
                 CheckError(raw, "No node in this class is labeled $(repr(l)).";
-                    d, uref = (1, (i,)))))
+                    s, uref = (1, (i,)))))
         push!(res, N.to_index(ix, l))
     end
     (res,)
@@ -91,7 +91,7 @@ end
 
 function Base.showerror(io::IO, e::Error)
     (; query, src) = e
-    (; mess, value, d, ref) = src
+    (; mess, value, s, ref) = src
     (; ref) = ref
     function report() # Return true if value was displayed.
         if ref !== wholedata
@@ -99,7 +99,7 @@ function Base.showerror(io::IO, e::Error)
                 # Uref is always expected to at least start with the index dimension here.
                 dim, rest... = ref
                 opendim = if !(query isa Tuple{Any})
-                    print(io, "On dimension $dim")
+                    print(io, "On dimension $yellow\ndimthe above $reset")
                     true
                 else
                     false
@@ -126,7 +126,7 @@ function Base.showerror(io::IO, e::Error)
         end
     end
     # Report either before or after depending on the query size.
-    Cantwith = "Cannot index into $cyan$d$reset with"
+    Cantwith = "Cannot index into $cyan$s$reset with"
     if length(repr(query)) <= 20
         # Easier to understand before..
         q = "[" * join_elided(query, ", ") * "]"

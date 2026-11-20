@@ -3,10 +3,10 @@ module MetabolicClassTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    CS, N, D, @test_repr, @test_disp, @test_err, @bpfails, @mutfails, addfails
+    CS, N, SL, @test_repr, @test_disp, @test_err, @bpfails, @mutfails, addfails
 using Test
 
-const d, _D = D.NodeField(:species, :metabolic_class)
+const s, S = SL.NodeField(:species, :metabolic_class)
 
 @testset "Metabolic class component." begin
 
@@ -46,15 +46,15 @@ const d, _D = D.NodeField(:species, :metabolic_class)
     # NOTE: This is where per-value late_checking is tested (irrelevant for body_mass).
     addfails.@check(base + MetabolicClass([:p, :i, :e]), [],
         (MetabolicClass.Raw, :late,
-            (d, :producer, (:m, ((1, :a),)),
+            (s, :producer, (:m, ((1, :a),)),
                 "Metabolic class cannot be :producer for a consumer species.")))
     addfails.@check(base + MetabolicClass([:a => :i, :c => :e, :b => :p]), [],
         (MetabolicClass.Map, :late,
-            (d, :producer, (:m, ((2, :b),)),
+            (s, :producer, (:m, ((2, :b),)),
                 "Metabolic class cannot be :producer for a consumer species.")))
     addfails.@check(base + MetabolicClass([1 => :i, 3 => :e, 2 => :i]), [],
         (MetabolicClass.Map, :late,
-            (d, :ectotherm, (:m, ((3, :c),)),
+            (s, :ectotherm, (:m, ((3, :c),)),
                 "Metabolic class cannot be :ectotherm for a producer species.")))
 
     @test_err(base + MetabolicClass([:p, :i, :e]), # First report rendering `mref`.
@@ -72,11 +72,11 @@ const d, _D = D.NodeField(:species, :metabolic_class)
 
     # Also checked on mutation pipeline.
     @mutfails(m.metabolic_class[:c] = :i,
-        (d, :invertebrate, (:m, ((3, :c),)),
+        (s, :invertebrate, (:m, ((3, :c),)),
             "Metabolic class cannot be :invertebrate for a producer species.")
     )
     @mutfails(m.metabolic_class[:a] = :p,
-        (d, :producer, (:m, ((1, :a),)),
+        (s, :producer, (:m, ((1, :a),)),
             "Metabolic class cannot be :producer for a consumer species."))
 
     # ======================================================================================
@@ -104,14 +104,14 @@ const d, _D = D.NodeField(:species, :metabolic_class)
 
     @bpfails(MetabolicClass(:whatever),
         MetabolicClass.Favour, :construct,
-        (d, :whatever, :uwhole,
+        (s, :whatever, :uwhole,
             "Expected one of :all_invertebrates or :all_ectotherms."))
 
     bp.favourite = :corrupted
 
     addfails.@check((base + bp), [],
         (MetabolicClass.Favour, :early,
-            (d, :corrupted, :uwhole,
+            (s, :corrupted, :uwhole,
                 "Expected one of :all_invertebrates or :all_ectotherms.")))
 
     #---------------------------------------------------------------------------------------

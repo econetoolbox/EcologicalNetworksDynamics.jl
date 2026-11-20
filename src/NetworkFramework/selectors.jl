@@ -5,21 +5,20 @@ Phantom data types defined here are parametrized with particular class/web/field
 The purpose is that component authors may refine components behaviour
 by specializing implementations for their particular component.
 """
-module Dispatchers
+module Selectors
 
 using EcologicalNetworksDynamics: N, Networks, Display, unimplemented, Option
 using EcologicalNetworksDynamics.NetworkFramework: Model, Ref
 using .Display: cyan, reset
-const D = Dispatchers
 
 "For convenience, initial constructors (from symbols) return both instance and type."
-abstract type Dispatcher end
+abstract type Selector end
 
 # ==========================================================================================
 # Class.
 
 "Dispatch to a particular class."
-struct Class{class} <: Dispatcher end
+struct Class{class} <: Selector end
 function Class(c::Symbol)
     T = Class{c}
     T(), T
@@ -49,7 +48,7 @@ component(s::S) = throw("Component unspeficied for $s.")
 
 # Display.
 function Base.show(io::IO, s::S)
-    class = D.classname(s)
+    class = classname(s)
     print(io, "<$class>")
 end
 
@@ -57,7 +56,7 @@ end
 # Node mask.
 
 "Dispatch to a particular class from the perspective of a parent class."
-struct Subclass{class,parent} <: Dispatcher end
+struct Subclass{class,parent} <: Selector end
 function Subclass(class::Symbol, parent::Option{Symbol})
     T = Subclass{class,parent}
     T(), T
@@ -68,7 +67,7 @@ content(::S{class,parent}) where {class,parent} = (class, parent)
 classname(s::S) = first(content(s))
 parentname(s::S) = last(content(s))
 
-"Obtain dispatcher to underlying class."
+"Obtain selector to underlying class."
 Class(s::S) = s |> classname |> Class
 
 # Display.
@@ -81,7 +80,7 @@ end
 # Web.
 
 "Dispatch to a particular web."
-struct Web{web} <: Dispatcher end
+struct Web{web} <: Selector end
 function Web(web::Symbol)
     T = Web{web}
     T(), T
@@ -118,14 +117,14 @@ sidenames(s::S) = throw("Source and target classes unspecified for $s.")
 
 # Display.
 function Base.show(io::IO, s::S)
-    web = D.webname(s)
+    web = webname(s)
     print(io, "<$web>")
 end
 
 # ==========================================================================================
 # Graph-level data field.
 "Dispatch to a particular global network field."
-struct GraphField{field} <: Dispatcher end
+struct GraphField{field} <: Selector end
 function GraphField(field::Symbol)
     T = GraphField{field}
     T(), T
@@ -149,7 +148,7 @@ CamelCaseSingular(s::S) = name_variants(s)[3]
 
 # Display.
 function Base.show(io::IO, s::S)
-    field = D.fieldname(s)
+    field = fieldname(s)
     print(io, "<$field>")
 end
 
@@ -157,7 +156,7 @@ end
 # Node field.
 
 "Dispatch extension point to particular class field data."
-struct NodeField{class,field} <: Dispatcher end
+struct NodeField{class,field} <: Selector end
 function NodeField(class::Symbol, field::Symbol)
     T = NodeField{class,field}
     T(), T
@@ -169,7 +168,7 @@ classname(s::S) = first(content(s))
 fieldname(s::S) = last(content(s))
 type(s::S) = throw("Data type unspecified for $s.") # Underlying data type.
 
-"Obtain dispatcher to underlying class."
+"Obtain selector to underlying class."
 class(s::S) = s |> classname |> class
 
 # Display.
@@ -182,7 +181,7 @@ end
 # Web field.
 
 "Dispatch extension point to particular web field data."
-struct EdgeField{web,field} <: Dispatcher end
+struct EdgeField{web,field} <: Selector end
 function EdgeField(web::Symbol, field::Symbol)
     T = EdgeField{web,field}
     T(), T
@@ -193,7 +192,7 @@ content(::S{web,field}) where {web,field} = (web, field)
 webname(s::S) = first(content(s))
 fieldname(s::S) = last(content(s))
 
-"Obtain dispatcher to underlying web."
+"Obtain selector to underlying web."
 web(s::S) = s |> webname |> web
 
 # Delegate.
@@ -256,39 +255,39 @@ source(s::S) = s |> sourcename |> class
 target(s::S) = s |> targetname |> class
 
 # ==========================================================================================
-# Use dispatcher as static index into underlying data.
+# Use selector as static index into underlying data.
 
-N.class(md::Model, d::NodeLevel) = N.class(N.network(md), classname(d))
-N.web(md::Model, d::EdgeLevel) = N.web(N.network(md), webname(d))
-N.sides(md::Model, d::EdgeLevel) = N.sides(N.network(md), webname(d))
-N.source(md::Model, d::EdgeLevel) = N.source(N.network(md), webname(d))
-N.target(md::Model, d::EdgeLevel) = N.target(N.network(md), webname(d))
-N.entry(md::Model, d::GraphField) = N.network(md).data[fieldname(d)]
-N.entry(md::Model, d::NodeField) = N.class(md, d).data[fieldname(d)]
-N.entry(md::Model, d::EdgeField) = N.web(md, d).data[fieldname(d)]
+N.class(md::Model, s::NodeLevel) = N.class(N.network(md), classname(s))
+N.web(md::Model, s::EdgeLevel) = N.web(N.network(md), webname(s))
+N.sides(md::Model, s::EdgeLevel) = N.sides(N.network(md), webname(s))
+N.source(md::Model, s::EdgeLevel) = N.source(N.network(md), webname(s))
+N.target(md::Model, s::EdgeLevel) = N.target(N.network(md), webname(s))
+N.entry(md::Model, s::GraphField) = N.network(md).data[fieldname(s)]
+N.entry(md::Model, s::NodeField) = N.class(md, s).data[fieldname(s)]
+N.entry(md::Model, s::EdgeField) = N.web(md, s).data[fieldname(s)]
 
 # TODO: this should resolve statically without a query to `md` :\
-N.is_root(md::Model, d::NodeLevel) = N.class(md, d) |> N.is_root
+N.is_root(md::Model, s::NodeLevel) = N.class(md, s) |> N.is_root
 
 "In this context, root classes admit themselves as their own parents."
-function N.parent(md::Model, d::Subclass)
-    p = parentname(d)
-    par = isnothing(p) ? classname(d) : p
+function N.parent(md::Model, s::Subclass)
+    p = parentname(s)
+    par = isnothing(p) ? classname(s) : p
     N.class(N.network(md), par)
 end
 
 # Use it to shorten these frequent ones.
-N.to_label(md::Model, d::NodeLevel, i) = N.to_label(N.class(md, d).index, i)
-N.to_index(md::Model, d::NodeLevel, a) = N.to_index(N.class(md, d).index, a)
-N.to_label(md::Model, d::EdgeLevel, i, j) =
-    N.to_label.(map(cl -> cl.index, N.sides(md, d)), (i, j))
-N.to_index(md::Model, d::EdgeLevel, a, b) =
-    N.to_index.(map(cl -> cl.index, N.sides(md, d)), (a, b))
-N.to_ref(R::Type, md::Model, d::Dispatcher, u) = N.to_ref(R, N.class(md, d).index, u)
-N.to_ref(R::Type, md::Model, d::Dispatcher, u, v) =
-    N.to_ref.((R,), map(cl -> cl.index, N.sides(md, d)), (u, v))
+N.to_label(md::Model, s::NodeLevel, i) = N.to_label(N.class(md, s).index, i)
+N.to_index(md::Model, s::NodeLevel, a) = N.to_index(N.class(md, s).index, a)
+N.to_label(md::Model, s::EdgeLevel, i, j) =
+    N.to_label.(map(cl -> cl.index, N.sides(md, s)), (i, j))
+N.to_index(md::Model, s::EdgeLevel, a, b) =
+    N.to_index.(map(cl -> cl.index, N.sides(md, s)), (a, b))
+N.to_ref(R::Type, md::Model, s::Selector, u) = N.to_ref(R, N.class(md, s).index, u)
+N.to_ref(R::Type, md::Model, s::Selector, u, v) =
+    N.to_ref.((R,), map(cl -> cl.index, N.sides(md, s)), (u, v))
 
 # Wide display.
-Base.show(io::IO, ::MIME"text/plain", d::Dispatcher) = print(io, "$cyan$d$reset")
+Base.show(io::IO, ::MIME"text/plain", s::Selector) = print(io, "$cyan$s$reset")
 
 end

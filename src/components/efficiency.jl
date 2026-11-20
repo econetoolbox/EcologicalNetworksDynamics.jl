@@ -2,14 +2,14 @@ module EfficiencyDef
 
 using EcologicalNetworksDynamics: Foodweb, argerr
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, CS, NF, D, Blueprint, @bp_construct, Model, @alias
+    EN, CS, NF, SL, Blueprint, @bp_construct, Model, @alias
 using EcologicalNetworksDynamics.KwargsHelpers
 
-const d, _D = D.EdgeField(:trophic, :efficiency)
-D.name_variants(::_D) = (:efficiency, :efficiencies, :Efficiency, :Efficiencies, :e)
-D.type(::_D) = Float64
-D.is_sparse(::_D) = true
-NF.early_check(::_D, eff::Real) = NF.fraction(Float64, eff)
+const s, S = SL.EdgeField(:trophic, :efficiency)
+SL.name_variants(::S) = (:efficiency, :efficiencies, :Efficiency, :Efficiencies, :e)
+SL.type(::S) = Float64
+SL.is_sparse(::S) = true
+NF.early_check(::S, eff::Real) = NF.fraction(Float64, eff)
 
 miele2019() = (; e_herbivorous = 0.45, e_carnivorous = 0.85)
 
@@ -20,7 +20,7 @@ mutable struct Miele2019 <: Blueprint
     @bp_construct Miele2019
 end
 NF.register_blueprint(Miele2019, "herbivorous/carnivorous efficiencies";
-    d, depends = [Foodweb])
+    s, depends = [Foodweb])
 
 function NF.construct(::Type{Miele2019}, a...; kw...)
     @kwargs_helpers kw
@@ -31,26 +31,26 @@ function NF.construct(::Type{Miele2019}, a...; kw...)
     eh = take!(:e_herbivorous)
     ec = take!(:e_carnivorous)
     no_unused_arguments()
-    NF.early_check.((d,), (eh, ec))
+    NF.early_check.((s,), (eh, ec))
 end
 
 NF.bp_early_check(bp::Miele2019) =
-    NF.early_check.((d,), (bp.e_herbivorous, bp.e_carnivorous))
+    NF.early_check.((s,), (bp.e_herbivorous, bp.e_carnivorous))
 
 # Convert to an actual matrix..
 function NF.expand!(md::Model, ::Miele2019, (eh, ec))
     hA, cA = md.herbivory.matrix, md.carnivory.matrix
     e = eh * hA + ec * cA
-    NF.expand!(md, d, e) # .. then rely on framework impl to lower further.
+    NF.expand!(md, s, e) # .. then rely on framework impl to lower further.
 end
 
 # Codegen + exec.
-const Efficiency, _Efficiency = NF.define_web_field_component(EN, d;
+const Efficiency, _Efficiency = NF.define_web_field_component(EN, s;
     blueprints = [Miele2019])
 @alias e efficiency
 
 (::_Efficiency)(default::Symbol; kw...) =
-    NF.from_name(default, :Miele2019 => () -> Miele2019(; kw...); d)
+    NF.from_name(default, :Miele2019 => () -> Miele2019(; kw...); s)
 
 end
 

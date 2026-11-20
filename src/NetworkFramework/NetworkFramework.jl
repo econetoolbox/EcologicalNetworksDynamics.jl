@@ -150,9 +150,9 @@ const NF = NetworkFramework
 include("framework.jl")
 
 # Define extension points to customize the data flow behaviour with fine grain.
-include("dispatchers.jl")
-using .Dispatchers: Dispatcher
-const D = Dispatchers
+include("selectors.jl")
+using .Selectors: Selector
+const SL = Selectors
 
 include("errors.jl")
 

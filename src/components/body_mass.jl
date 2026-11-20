@@ -2,12 +2,12 @@ module BodyMassDef
 
 using EcologicalNetworksDynamics: Foodweb, argerr
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, D, CS, NF, Model, Blueprint, @alias, @bp_construct
+    EN, SL, CS, NF, Model, Blueprint, @alias, @bp_construct
 
-const d, _D = D.NodeField(:species, :body_mass)
-D.name_variants(::_D) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
-D.type(::_D) = Float64
-NF.early_check(::_D, mass::Real) = NF.non_negative(Float64, mass)
+const s, S = SL.NodeField(:species, :body_mass)
+SL.name_variants(::S) = (:body_mass, :body_masses, :BodyMass, :BodyMasses, :M)
+SL.type(::S) = Float64
+NF.early_check(::S, mass::Real) = NF.non_negative(Float64, mass)
 
 # ==========================================================================================
 # One extra blueprint to build from trophic levels.
@@ -16,7 +16,7 @@ mutable struct Z <: Blueprint
     Z::Float64
     @bp_construct Z
 end
-NF.register_blueprint(Z, "trophic levels"; d, depends = [Foodweb])
+NF.register_blueprint(Z, "trophic levels"; s, depends = [Foodweb])
 
 function NF.cst_early_check(::Type{Z}, x)
     x >= 0 && return x
@@ -28,13 +28,13 @@ function NF.expand!(md::Model, ::Z, Z)
     M = read(md.trophic._level) do level
         Z .^ (level .- 1) # Credit to Ismaël Lajaaiti.
     end
-    NF.expand!(md, d, M)
+    NF.expand!(md, s, M)
 end
 
 # ==========================================================================================
 # Define component.
 
-const BodyMass, _BodyMass = NF.define_node_field_component(EN, d; blueprints = [Z])
+const BodyMass, _BodyMass = NF.define_node_field_component(EN, s; blueprints = [Z])
 @alias M body_mass
 
 # Extra constructor dispatch to the extra blueprint.

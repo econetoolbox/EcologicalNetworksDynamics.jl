@@ -3,10 +3,10 @@ module BodyMassTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    D, N, @test_disp, @test_repr, addfails, @test_err, @bpfails, @argfails
+    SL, N, @test_disp, @test_repr, addfails, @test_err, @bpfails, @argfails
 using Test
 
-const d, _D = D.NodeField(:species, :body_mass)
+const s, S = SL.NodeField(:species, :body_mass)
 
 @testset "Body mass component." begin
 
@@ -38,9 +38,9 @@ const d, _D = D.NodeField(:species, :body_mass)
     # Expansion failures.
     noneg = "Cannot calculate body masses from trophic levels with a negative value of Z."
     @bpfails(Model(fw, BodyMass(; Z = -1)),
-        BodyMass.Z, :construct, (d, -1.0, :uwhole, noneg))
+        BodyMass.Z, :construct, (s, -1.0, :uwhole, noneg))
     bp.Z *= -1
-    addfails.@check(Model(fw, bp), [], (BodyMass.Z, :early, (d, -2.8, :uwhole, noneg)))
+    addfails.@check(Model(fw, bp), [], (BodyMass.Z, :early, (s, -2.8, :uwhole, noneg)))
     addfails.@missing(Model(bp), Species, BodyMass, [BodyMass.Z], nothing)
     addfails.@missing(Model(Species(3), bp), Foodweb, nothing, [BodyMass.Z], nothing)
 

@@ -1,10 +1,10 @@
 module SpeciesDef
-using EcologicalNetworksDynamics.NetworkFramework: EN, D, NF, @alias
+using EcologicalNetworksDynamics.NetworkFramework: EN, SL, NF, @alias
 
-const d, _D = D.Class(:species)
-D.name_variants(::_D) = (:s, :species, :species, :Species, :Species)
+const s, S = SL.Class(:species)
+SL.name_variants(::S) = (:s, :species, :species, :Species, :Species)
 
-const Species, _Species = NF.define_class_component(EN, d)
+const Species, _Species = NF.define_class_component(EN, s)
 
 # Extra aliases used by the community.
 @alias S species.number

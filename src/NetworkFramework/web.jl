@@ -8,16 +8,14 @@ abstract type ReflexiveWebMatrixBlueprint <: WebBlueprint end
 abstract type ReflexiveWebAdjacencyBlueprint <: WebBlueprint end
 
 "Typical setup for a component bringing a new reflexive web to the network."
-function define_reflexive_web_component(mod::Module, d::D.Web)
-    # TODO: have it generic over D.is_sparse(d) the day it's required.
+function define_reflexive_web_component(mod::Module, s::SL.Web)
+    S = typeof(s)
+    prop, Prop = SL.propnames(s)
+    src = SL.source(s)
+    Class = SL.component(src)
 
-    _D = typeof(d)
-    prop, Prop = D.propnames(d)
-    src = D.source(d)
-    Class = D.component(src)
-
-    web, Web = D.name_variants(d)
-    class, same = D.sidenames(d)
+    web, Web = SL.name_variants(s)
+    class, same = SL.sidenames(s)
     same == class || argerr("Reflexive webs must match source and target, \
                              here $(repr(class)) != $(repr(same)).")
     Web_ = Symbol(Web, :_) # Blueprints module name.
@@ -34,7 +32,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
                 module $Web_
                 using EcologicalNetworksDynamics.NetworkFramework:
                     NF, SparseMatrix, BinAdjacency, Model, @bp_construct
-                const d, src, Class = $d, $src, $Class
+                const s, src, Class = $s, $src, $Class
                 end
             end
         ).args |> last,
@@ -49,7 +47,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
                 @bp_construct Matrix
             end
             export Matrix
-            NF.register_blueprint(Matrix, "boolean matrix of $($w) links"; d,
+            NF.register_blueprint(Matrix, "boolean matrix of $($w) links"; s,
                 implied = [Class], # Infer number of class nodes from matrix size.
             )
         end,
@@ -64,7 +62,7 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
                 @bp_construct Adjacency
             end
             export Adjacency
-            NF.register_blueprint(Adjacency, "adjacency list of $($w) links"; d,
+            NF.register_blueprint(Adjacency, "adjacency list of $($w) links"; s,
                 implied = [Class], # Infer number or names of class nodes from the lists.
             )
         end,
@@ -85,21 +83,21 @@ function define_reflexive_web_component(mod::Module, d::D.Web)
     )
     CP = typeof(cp)
     NF.eval(quote
-        $D.component(::$_D) = $cp
-        (::$CP)(args...; kwargs...) = NF.construct($d, $cp, args...; kwargs...)
+        $SL.component(::$S) = $cp
+        (::$CP)(args...; kwargs...) = NF.construct($s, $cp, args...; kwargs...)
     end)
 
-    define_web_properties(mod, d; depends = [CP])
+    define_web_properties(mod, s; depends = [CP])
 
     (cp, CP)
 end
 
 # ==========================================================================================
 
-function define_web_properties(mod::Module, d::D.Web; depends = [])
-    w = D.webname(d)
-    web, Web = D.name_variants(d)
-    prop, Prop = D.propnames(d)
+function define_web_properties(mod::Module, s::SL.Web; depends = [])
+    w = SL.webname(s)
+    web, Web = SL.name_variants(s)
+    prop, Prop = SL.propnames(s)
 
     NF.define_propspace(prop)
     NF.define_propspace(:($prop.iter))
@@ -114,13 +112,13 @@ function define_web_properties(mod::Module, d::D.Web; depends = [])
             quote
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework:
-                    I, N, V, D, Network, Model
-                const d, defmeth, w = $d, $defmeth, $(Meta.quot(w))
+                    I, N, V, SL, Network, Model
+                const s, defmeth, w = $s, $defmeth, $(Meta.quot(w))
 
                 web(nw::Network) = N.web(nw, w)
                 topology(nw::Network) = web(nw).topology
                 number(nw::Network) = nw |> topology |> N.n_edges
-                mask(::Network, md::Model) = V.mask_view(d, md)
+                mask(::Network, md::Model) = V.mask_view(s, md)
 
                 defmeth(topology, [:_topology])
                 defmeth(mask, [:mask, :matrix])
@@ -199,7 +197,7 @@ end
 # Construct.
 
 # Pick blueprint depending on input conversion success.
-function construct(d::D.Web, Web::Component, input, args...; kwargs...)
+function construct(s::SL.Web, Web::Component, input, args...; kwargs...)
     try
         try_convert(
             input,
@@ -212,7 +210,7 @@ function construct(d::D.Web, Web::Component, input, args...; kwargs...)
             e = CheckError(e)
         end
         if e isa CheckError
-            e.d = d
+            e.s = s
         end
         rethrow(e)
     end
@@ -221,21 +219,21 @@ end
 #-------------------------------------------------------------------------------------------
 # Implied class blueprint.
 
-function implied(::D.Web, Class::Component, bp::ReflexiveWebMatrixBlueprint)
+function implied(::SL.Web, Class::Component, bp::ReflexiveWebMatrixBlueprint)
     (; A) = bp
     n = size(A, 1)
     Class.Number(n)
 end
 
-implied(d::D.Web, Class::Component, bp::ReflexiveWebAdjacencyBlueprint) =
-    implied(d, Class, bp.A) # Dispatch over ref type: indices or labels.
+implied(s::SL.Web, Class::Component, bp::ReflexiveWebAdjacencyBlueprint) =
+    implied(s, Class, bp.A) # Dispatch over ref type: indices or labels.
 
-function implied(::D.Web, Class::Component, adj::BinAdjacency{Symbol})
+function implied(::SL.Web, Class::Component, adj::BinAdjacency{Symbol})
     refs = NF.all_refs(adj)
     Class.Names(collect(refs))
 end
 
-function implied(::D.Web, Class::Component, adj::BinAdjacency{Int})
+function implied(::SL.Web, Class::Component, adj::BinAdjacency{Int})
     refs = NF.all_refs(adj)
     Class.Number(last(refs))
 end
@@ -243,7 +241,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Early check.
 
-function early_check(::D.Web, A::SparseMatrix{Bool})
+function early_check(::SL.Web, A::SparseMatrix{Bool})
     m, n = size(A)
     m == n && return A
     checkerr(A, "The adjacency matrix of size $((m, n)) is not squared.")
@@ -252,13 +250,13 @@ end
 #-------------------------------------------------------------------------------------------
 # Late check.
 
-function late_check(md::Model, d::D.Web, A::SparseMatrix{Bool})
+function late_check(md::Model, s::SL.Web, A::SparseMatrix{Bool})
     a, b = size(A)
-    src = D.source(d)
-    class = D.snake_case_singular(src)
+    src = SL.source(s)
+    class = SL.snake_case_singular(src)
     n = getproperty(md, class).number
     if !(n == a == b)
-        src = D.sourcename(d)
+        src = SL.sourcename(s)
         (are, s) = n == 1 ? ("is", "") : ("are", "s")
         checkerr(
             A,
@@ -269,26 +267,26 @@ function late_check(md::Model, d::D.Web, A::SparseMatrix{Bool})
     A
 end
 
-function late_check(md::Model, d::D.Web, adj::BinAdjacency{Symbol})
-    class = D.sourcename(d)
+function late_check(md::Model, s::SL.Web, adj::BinAdjacency{Symbol})
+    class = SL.sourcename(s)
     index = getproperty(md, class)._index
-    check_refs(d, adj) do side, lab
+    check_refs(s, adj) do side, lab
         N.is_label(index, lab) ||
             checkerr(lab, "Not a $side label among $(repr(class)).")
     end
 end
 
-function late_check(md::Model, d::D.Web, adj::BinAdjacency{Int})
-    class = D.sourcename(d)
+function late_check(md::Model, s::SL.Web, adj::BinAdjacency{Int})
+    class = SL.sourcename(s)
     index = getproperty(md, class)._index
     n = length(index)
-    check_refs(d, adj) do side, i
+    check_refs(s, adj) do side, i
         N.is_index(index, i) ||
             checkerr(i, "Not a valid $side $(repr(class)) index among $n nodes.")
     end
 end
 
-function check_refs(check::Function, ::D.Web, adj::BinAdjacency)
+function check_refs(check::Function, ::SL.Web, adj::BinAdjacency)
     path = Path()
     try
         for (i, (src, sub)) in enumerate(adj)
@@ -316,76 +314,76 @@ end
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-function expand!(md::Model, d::D.Web, A::AbstractSparseMatrix)
+function expand!(md::Model, s::SL.Web, A::AbstractSparseMatrix)
     topology = N.SparseReflexive(A)
-    expand!(md, d, topology)
+    expand!(md, s, topology)
 end
 
-function expand!(md::Model, d::D.Web, adj::BinAdjacency)
-    c = D.sourcename(d)
+function expand!(md::Model, s::SL.Web, adj::BinAdjacency)
+    c = SL.sourcename(s)
     ix = getproperty(md, c)._index
     n = length(ix)
     to_i(l) = N.to_index(ix, l)
     topology = N.SparseReflexive(n, I.map(adj) do (src, sub)
         (to_i(src), I.map(to_i, sub))
     end)
-    expand!(md, d, topology)
+    expand!(md, s, topology)
 end
 
-function expand!(md::Model, d::D.Web, top::Topology)
-    c = D.sourcename(d)
-    w = D.webname(d)
+function expand!(md::Model, s::SL.Web, top::Topology)
+    c = SL.sourcename(s)
+    w = SL.webname(s)
     network = N.network(md)
     N.add_web!(network, w, (c, c), top)
-    post_expand!(md, d)
+    post_expand!(md, s)
 end
 
 # Extension point.
-post_expand!(::Model, ::D.Web) = nothing
+post_expand!(::Model, ::SL.Web) = nothing
 
 #-------------------------------------------------------------------------------------------
 # Obtain.
 
-function obtain(md::Model, d::D.Web, (i, j)::Tuple{Int,Int})
-    top = N.web(md, d).topology
+function obtain(md::Model, s::SL.Web, (i, j)::Tuple{Int,Int})
+    top = N.web(md, s).topology
     N.is_edge(top, i, j)
 end
 
 # Accept mixtures of ranges and scalars.
-function obtain(md::Model, d::D.Web, (i, rj)::Tuple{Ref,UnitRange})
+function obtain(md::Model, s::SL.Web, (i, rj)::Tuple{Ref,UnitRange})
     res = spzeros(Bool, length(rj))
     for j in rj
         k = j - first(rj) + 1
-        res[k] = obtain(md, d, (i, j))
+        res[k] = obtain(md, s, (i, j))
     end
     res
 end
 
-function obtain(md::Model, d::D.Web, (ri, j)::Tuple{UnitRange,Ref})
+function obtain(md::Model, s::SL.Web, (ri, j)::Tuple{UnitRange,Ref})
     res = spzeros(Bool, length(ri))
     for i in ri
         k = i - first(ri) + 1
-        res[k] = obtain(md, d, (i, j))
+        res[k] = obtain(md, s, (i, j))
     end
     res
 end
 
-function obtain(md::Model, d::D.Web, (ri, rj)::Tuple{UnitRange,UnitRange})
+function obtain(md::Model, s::SL.Web, (ri, rj)::Tuple{UnitRange,UnitRange})
     res = spzeros(Bool, (length(ri), length(rj)))
     for i in ri, j in rj
         ki = i - first(ri) + 1
         kj = j - first(rj) + 1
-        res[ki, kj] = obtain(md, d, (i, j))
+        res[ki, kj] = obtain(md, s, (i, j))
     end
     res
 end
 
 # 2D indexing into edges mask.
-function obtain(md::Model, d::D.Web, (mat,)::Tuple{SparseMatrix{Bool}})
+function obtain(md::Model, s::SL.Web, (mat,)::Tuple{SparseMatrix{Bool}})
     is, js, _ = findnz(mat)
     res = spzeros(Bool, length(is))
     for (r, (i, j)) in enumerate(zip(is, js))
-        res[r] = obtain(md, d, (i, j))
+        res[r] = obtain(md, s, (i, j))
     end
     res
 end

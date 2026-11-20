@@ -8,12 +8,12 @@ module GraphField
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    EN, N, D, CS, @jl_basic_callfails, @test_repr, @test_disp, @test_err, @bpfails,
+    EN, N, SL, CS, @jl_basic_callfails, @test_repr, @test_disp, @test_err, @bpfails,
     @mutfails,
     addfails
 using Test
 
-const d, _D = D.GraphField(:temperature)
+const s, S = SL.GraphField(:temperature)
 
 @testset "GraphField components" begin
 
@@ -47,7 +47,7 @@ const d, _D = D.GraphField(:temperature)
     @jl_basic_callfails(Temperature(5, 8))
     @jl_basic_callfails(Temperature(5; a = 8))
     @bpfails(Temperature(-1),
-        Temperature.Raw, :construct, (d, -1.0, :uwhole, "Value cannot be negative."))
+        Temperature.Raw, :construct, (s, -1.0, :uwhole, "Value cannot be negative."))
     @test_err(Temperature(-1), # First time we test with @bpfails: check the actual report.
         """
         While constructing blueprint Temperature.Raw:
@@ -58,7 +58,7 @@ const d, _D = D.GraphField(:temperature)
     )
     @bpfails(Temperature(:a),
         Temperature.Raw, :construct,
-        (d, :a, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
+        (s, :a, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
 
     # Expand into a field component.
     m = Model(bp)
@@ -87,7 +87,7 @@ const d, _D = D.GraphField(:temperature)
     @test m.T == 244 # Current model updated.
 
     # Value is still checked.
-    @mutfails(m.T = -1, (d, -1.0, :mwhole, "Value cannot be negative."))
+    @mutfails(m.T = -1, (s, -1.0, :mwhole, "Value cannot be negative."))
     @test_err(m.T = -1, # First time with @mutfails.
         """
         While mutating model:
@@ -99,7 +99,7 @@ const d, _D = D.GraphField(:temperature)
 
     bp.T = -1 # Even after blueprint corruption.
     addfails.@check(Model(bp), [],
-        (Temperature.Raw, :early, (d, -1.0, :uwhole, "Value cannot be negative.")))
+        (Temperature.Raw, :early, (s, -1.0, :uwhole, "Value cannot be negative.")))
     @test_err(Model(bp), # First time nested within @check.
         """
         Blueprint value cannot be expanded:

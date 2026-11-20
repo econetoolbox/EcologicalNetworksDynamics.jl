@@ -21,30 +21,13 @@ include("./codegen.jl")
 
 #-------------------------------------------------------------------------------------------
 # XXX: whenever ready, big rename:
-#   [.] (Framework, F) -> (ComponentsSystems, CS)
-#   [ ] (Dispatchers, D) -> (Selectors, S)
+#   [x] (Framework, F) -> (ComponentsSystems, CS)
+#   [.] (Dispatchers, D) -> (Selectors, SL)
 #   [ ] (Networks, N) -> (Data, D) 💥
 #   [ ] (NetworkFramework, NF) -> (Frontend, F) 💥
 #   [ ] (Simulation/Code) -> (Backend, B)
 #
 #   => Library: list of components.
-#
-# In general:
-#   - one-letter for atomic, immutable values:
-#       - `c`lassname
-#       - `f`ieldname
-#       - `p`parent
-#       - `s`elector
-#       - etc.
-#   - two-letters for wider structs, thick values, not refs:
-#       - `nw`: network
-#       - `cl`: class
-#       - `pa`: parent
-#       - `fd`: field
-#       - `cp`: component
-#       _ `bp`: blueprint
-#       _ `md`: model
-#   - `x` for data values during lowering, as julian people like.
 
 # Data: parsimonious model memory representation.
 include("Networks/Networks.jl")

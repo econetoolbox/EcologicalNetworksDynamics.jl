@@ -7,13 +7,13 @@ using SparseArrays
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @bpfails, @checkfails, addfails, @propfails,
     @viewfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework: EN, D, N, CS, NF, Views, SparseMatrix
+using EcologicalNetworksDynamics.NetworkFramework: EN, SL, N, CS, NF, Views, SparseMatrix
 using OrderedCollections
 using Test
 
-const d, _D = D.Web(:trophic)
+const s, S = SL.Web(:trophic)
 const Tr = CS.@PropertySpace(trophic, N.Network)
-const View = Views.EdgeMaskView{d}
+const View = Views.EdgeMaskView{s}
 
 @testset "Web components: blueprints" begin
 
@@ -69,7 +69,7 @@ const View = Views.EdgeMaskView{d}
 
     @bpfails(Foodweb.Matrix(:a),
         Foodweb.Matrix, :construct,
-        (d, :a, :uwhole,
+        (s, :a, :uwhole,
             "Cannot convert to `$(NF.SparseMatrix{Bool})`:\n\
              Would not convert to a sparse structure when the input has no `size`."))
 
@@ -78,13 +78,13 @@ const View = Views.EdgeMaskView{d}
 
     @bpfails(Foodweb(zeros(Bool, 2, 3)),
         Foodweb.Matrix, :construct,
-        (d, spzeros(Bool, 2, 3), :uwhole,
+        (s, spzeros(Bool, 2, 3), :uwhole,
             "The adjacency matrix of size (2, 3) is not squared."))
 
     bp.A = zeros(Bool, 4, 5)
     addfails.@check(Model(bp), [],
         (Foodweb.Matrix, :early,
-            (d, spzeros(Bool, 4, 5), :uwhole,
+            (s, spzeros(Bool, 4, 5), :uwhole,
                 "The adjacency matrix of size (4, 5) is not squared.")))
 
     #---------------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ const View = Views.EdgeMaskView{d}
     m = Model(Species(3))
     addfails.@check(m + Foodweb(zeros(Bool, 2, 2)), [],
         (Foodweb.Matrix, :late,
-            (d, spzeros(Bool, 2, 2), :mwhole,
+            (s, spzeros(Bool, 2, 2), :mwhole,
                 "There are 3 :species nodes but the provided matrix is of size (2, 2).")))
     @test_err(m + Foodweb(zeros(Bool, 2, 2)), # First time with a :late error.
         """
@@ -174,7 +174,7 @@ const View = Views.EdgeMaskView{d}
     # All list parsing errors are reported here.
     @bpfails(Foodweb.Adjacency(:a),
         Foodweb.Adjacency, :construct,
-        (d, :a, :uwhole, "Input for binary adjacency map needs to be iterable."))
+        (s, :a, :uwhole, "Input for binary adjacency map needs to be iterable."))
     @test_err(Foodweb.Adjacency(:a), # First test with :list.
         """
         While constructing blueprint Foodweb.Adjacency:
@@ -188,10 +188,10 @@ const View = Views.EdgeMaskView{d}
 
     addfails.@check(Model(Species("axy"), Foodweb(A)), [],
         (Foodweb.Adjacency, :late,
-            (d, :b, (:u, [1, :right, 1]), "Not a target label among :species.")))
+            (s, :b, (:u, [1, :right, 1]), "Not a target label among :species.")))
     addfails.@check(Model(Species("xyz"), Foodweb(Ai)), [],
         (Foodweb.Adjacency, :late,
-            (d, 6, (:u, [1, :left]), "Not a valid source :species index among 3 nodes."),
+            (s, 6, (:u, [1, :left]), "Not a valid source :species index among 3 nodes."),
         ))
 
     @test_err(Model(Species("axy"), Foodweb(A)), # First time with path-within-list.
@@ -229,7 +229,7 @@ const View = Views.EdgeMaskView{d}
     # Generic construct failure.
 
     input = [1 => 2 0 1]
-    @checkfails(Foodweb(input), d, input, :uwhole,
+    @checkfails(Foodweb(input), s, input, :uwhole,
         """
         Cannot convert input to either:
           - $(NF.SparseMatrix{Bool})
@@ -261,8 +261,8 @@ end
     # Types.
     @test m.trophic.n_links isa Int
     @test m.trophic.n_edges isa Int
-    @test m.trophic.matrix isa Views.EdgeMaskView{d}
-    @test m.trophic.mask isa Views.EdgeMaskView{d}
+    @test m.trophic.matrix isa Views.EdgeMaskView{s}
+    @test m.trophic.mask isa Views.EdgeMaskView{s}
 
     # Edges iterators.
     c = collect
@@ -417,13 +417,13 @@ end
     @test v[6] == true
     @test v[[3, 6, 9, 12, 15]] == [0, 1, 0, 1, 0]
 
-    s, t = D.sides(d)
-    @viewfails(v[-5, 2], (s, -5, :uwhole, "There are 5 nodes in this class."))
-    @viewfails(v[6, 7], (s, 6, :uwhole, "There are 5 nodes in this class."))
-    @viewfails(v[5, 7], (t, 7, :uwhole, "There are 5 nodes in this class."))
-    @viewfails(v[:x, 3], (s, :x, :uwhole, "No node in this class is labeled :x."))
-    @viewfails(v[3, :y], (t, :y, :uwhole, "No node in this class is labeled :y."))
-    @viewfails(v[end+1, 2], (s, 6, :uwhole, "There are 5 nodes in this class."))
+    a, b = SL.sides(s)
+    @viewfails(v[-5, 2], (a, -5, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[6, 7], (a, 6, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[5, 7], (b, 7, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[:x, 3], (a, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[3, :y], (b, :y, :uwhole, "No node in this class is labeled :y."))
+    @viewfails(v[end+1, 2], (a, 6, :uwhole, "There are 5 nodes in this class."))
 
     @test_err(v[5, 7], # TODO: improve on this report again leveraging `uref` (left :whole).
         """

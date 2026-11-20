@@ -30,7 +30,7 @@ using EcologicalNetworksDynamics:
     EN, N, CS, I, SparseMatrix, SparseVector, errwith, withcontext
 using EcologicalNetworksDynamics.Display:
     rept, render_input, yellow, black, cyan, reset, italics
-using EcologicalNetworksDynamics.NetworkFramework: NF, D, V, AD
+using EcologicalNetworksDynamics.NetworkFramework: NF, SL, V, AD
 
 using .Strings:
     showcompare,
@@ -185,13 +185,13 @@ compare_refs(exp, _) =
         showcompare(io, "`(:u, ref)` or `(:m, ref)` or `:uwhole` or `:mwhole`", exp)
     end
 
-"Test datakind/dispatcher value, using tuples of symbols for their content."
-test_datakind(exp, ::D.Dispatcher) =
+"Test selector value, using tuples of symbols for their content."
+test_selector(exp, ::SL.Selector) =
     errwith("Not a tuple of symbols to compare against data kind:", rethrow) do io
         showcompare(io, "data kind spec like (:class, :field)", exp)
     end
-test_datakind(exp::Tuple{Vararg{Symbol}}, act::D.Dispatcher) =
-    FieldsCompare.value(exp, D.content(act))
+test_selector(exp::Tuple{Vararg{Symbol}}, act::SL.Selector) =
+    FieldsCompare.value(exp, SL.content(act))
 
 const ref = compare_refs
 

@@ -1,17 +1,17 @@
 function inline_info(v::NodeFieldView)
-    class = D.classname(v)
-    field = D.fieldname(v)
+    class = SL.classname(v)
+    field = SL.fieldname(v)
     "<$class:$field>"
 end
 
 function inline_info(v::NodeNameView)
-    class = D.classname(v)
+    class = SL.classname(v)
     "<$class>"
 end
 
 function inline_info(v::NodeMaskView)
-    class = D.classname(v)
-    parent = D.parentname(v)
+    class = SL.classname(v)
+    parent = SL.parentname(v)
     parent = isnothing(parent) ? "·" : parent
     "<$parent:$class>"
 end
@@ -88,7 +88,7 @@ end
 function Base.show(io::IO, ::MIME"text/plain", v::NodeFieldView)
     print(io, display_info(v))
     n, s = ns(length(v))
-    w = D.readonly(v) ? " readonly" : ""
+    w = SL.readonly(v) ? " readonly" : ""
     print(io, " ($n$w value$s)")
     read(N.entry(v)) do raw
         for v in raw

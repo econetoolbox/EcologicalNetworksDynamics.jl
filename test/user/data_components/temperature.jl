@@ -2,10 +2,10 @@ module TemperatureTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.Tests: D, @convfails, @bpfails
+using EcologicalNetworksDynamics.Tests: SL, @convfails, @bpfails
 using Test
 
-const d, _D = D.GraphField(:temperature)
+const s, S = SL.GraphField(:temperature)
 
 @testset "Temperature component." begin
 
@@ -21,7 +21,7 @@ const d, _D = D.GraphField(:temperature)
     @convfails(Temperature(; celc = :x),
         Float64, :x, :uwhole, "Conversion not implemented.")
     @bpfails(Temperature(; celc = -8000),
-        Temperature.Raw, :construct, (d, -7726.85, :uwhole, "Value cannot be negative."))
+        Temperature.Raw, :construct, (s, -7726.85, :uwhole, "Value cannot be negative."))
 
 end
 

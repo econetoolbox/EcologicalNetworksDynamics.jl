@@ -28,7 +28,7 @@ although they should implement the same interface (mutability aside):
       but these are not reified as underlying vectors and are immutable.
       Refer to them as `TopologyView`s and `MaskView`s.
 
-View types are parametrized with a matching dispatcher
+View types are parametrized with a matching selector
 so their behaviour can be fine-tuned by downstream component authors.
 """
 module Views
@@ -37,16 +37,16 @@ import EcologicalNetworksDynamics:
     EN, N, CS, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith, argerr
 import .Display: join_elided, render_input, ns, reset, cyan, green, yellow, nsa
 import .NetworkFramework:
-    NF, D, Model, can_convert, CheckError, checkerr, LibError, dispatcher, Ref,
+    NF, SL, Model, can_convert, CheckError, checkerr, LibError, selector, Ref,
     wholedata, WholeData, UserRef, ModelRef
-const V = Views
+const VW = Views
 
 using SparseArrays
 using Crayons
 
 # A lot of small accessors are defined and used within this module.
 # Namespace them with the module of their expected *result*.
-# For instance: `D.class(view)` will result in a symbol
+# For instance: `SL.class(view)` will result in a symbol
 # while `N.class(view)` will result in the actual underlying class value.
 # A lot of them are also shared among different types of views.
 # Use the following pattern to avoid having to heavily duplicate them:
@@ -87,32 +87,32 @@ include("nodes.jl")
 include("edges.jl")
 
 # Common to all topology-related = immutable views.
-const TopologyView{d} = Union{NodeTopologyView{d},EdgeMaskView{d}}
+const TopologyView{s} = Union{NodeTopologyView{s},EdgeMaskView{s}}
 
 # Common to nodes or edge field views.
-const FieldView{d,T} = Union{NodeFieldView{d,T},EdgeFieldView{d,T}}
-let S = FieldView
-    D.fieldname(s::S) = s |> dispatcher |> D.fieldname # Associated fieldname.
-    N.view(s::S) = getfield(s, :view) # Underlying network data view.
-    N.entry(s::S) = s |> N.view |> N.entry # Corresponding entry.
+const FieldView{s,T} = Union{NodeFieldView{s,T},EdgeFieldView{s,T}}
+let V = FieldView
+    SL.fieldname(v::V) = v |> selector |> SL.fieldname # Associated fieldname.
+    N.view(v::V) = getfield(v, :view) # Underlying network data view.
+    N.entry(v::V) = v |> N.view |> N.entry # Corresponding entry.
 end
 
 #  Common to all views.
-const AbstractView{d} = Union{NodeView{d},EdgeView{d}}
-let S = AbstractView
-    # Extract dispatcher and delegate some basic dispatcher interface.
-    NF.dispatcher(::Type{<:S{d}}) where {d} = d
-    NF.dispatcher(s::S) = s |> typeof |> dispatcher
-    D.readonly(s::S) = s |> dispatcher |> D.readonly
-    D.type(s::S) = s |> dispatcher |> D.type
+const AbstractView{s} = Union{NodeView{s},EdgeView{s}}
+let V = AbstractView
+    # Extract selector and delegate some basic selector interface.
+    NF.selector(::Type{<:V{s}}) where {s} = s
+    NF.selector(v::V) = v |> typeof |> selector
+    SL.readonly(v::V) = v |> selector |> SL.readonly
+    SL.type(v::V) = v |> selector |> SL.type
 
     # Underlying model and network.
-    NF.model(s::S) = getfield(s, :model)
-    N.network(s::S) = s |> NF.model |> N.network
+    NF.model(v::V) = getfield(v, :model)
+    N.network(v::V) = v |> NF.model |> N.network
 
     # Forbid any property access.
-    Base.setproperty!(s::S, y::Symbol) = getproperty(s, y)
-    Base.getproperty(::S, s::Symbol) =
+    Base.setproperty!(v::V, y::Symbol) = getproperty(v, y)
+    Base.getproperty(::V, s::Symbol) =
         errwith("No property to access on views:") do io
             print(io, "Tried to access $cyan$(repr(s))$reset.")
         end
@@ -128,7 +128,7 @@ include("query.jl")
 
 function Base.getindex(vw::AbstractView, query...)
     # (Pretty-much hand-made dispatching, right?)
-    md, d = NF.model(vw), dispatcher(vw)
+    md, s = NF.model(vw), selector(vw)
     # Check whether we have specialized for this query type,
     # or else just resort to AbstractArray implementation.
     ref = if applicable(_query_check, vw, query)
@@ -141,8 +141,8 @@ function Base.getindex(vw::AbstractView, query...)
     # or we just loop back in with the checked query.
     if applicable(NF.obtain, vw, ref)
         NF.obtain(vw, ref)
-    elseif applicable(NF.obtain, md, d, ref)
-        NF.obtain(md, d, ref)
+    elseif applicable(NF.obtain, md, s, ref)
+        NF.obtain(md, s, ref)
     else
         # .. careful though.
         if typeof(ref) == typeof(query)
@@ -162,7 +162,7 @@ end
 
 "Mutate fields through the view."
 function Base.setindex!(vw::FieldView, rhs, query...)
-    D.readonly(vw) && throw(ImmutableError(typeof(vw)))
+    SL.readonly(vw) && throw(ImmutableError(typeof(vw)))
     ref = if applicable(_query_check, vw, query)
         _query_check(vw, query)
     else
@@ -175,7 +175,7 @@ end
 # Circle back as long as the ref is not just two local integers.
 _mut_set!(vw::FieldView, ref, rhs) = setindex!(vw, rhs, ref...)
 _mut_set!(vw::FieldView, ref::NF.TrustedIndexRef, rhs) =
-    NF.mut_set!(NF.model(vw), dispatcher(vw), ref, rhs)
+    NF.mut_set!(NF.model(vw), selector(vw), ref, rhs)
 
 "Views into topological information cannot be used to mutate it."
 Base.setindex!(vw::TopologyView, _...) = throw(ImmutableError(typeof(vw)))
@@ -187,8 +187,8 @@ end
 function Base.showerror(io::IO, e::ImmutableError)
     (; V) = e
     i = type_info(V)
-    d = dispatcher(V)
-    print(io, "Cannot change $d $i once they have been set.")
+    s = selector(V)
+    print(io, "Cannot change $s $i once they have been set.")
 end
 
 end

@@ -6,12 +6,12 @@ Typical setup for a component bringing a new graph-level scalar data to the netw
 The data is passed as-is to the internals, so it is enforced to be immutable.
 Returns the defined component and its type.
 """
-function define_graph_field(mod::Module, d::D.GraphField)
-    _D = typeof(d)
-    shortname, singular, Singular = D.name_variants(d)
+function define_graph_field(mod::Module, s::SL.GraphField)
+    S = typeof(s)
+    shortname, singular, Singular = SL.name_variants(s)
     Singular_ = Symbol(Singular, :_)
 
-    T = D.type(d)
+    T = SL.type(s)
     N.is_deep_immutable(T) || throw(
         "Cannot pick this type for graph-level scalar data because it is mutable: $T.",
     )
@@ -26,14 +26,14 @@ function define_graph_field(mod::Module, d::D.GraphField)
             quote
                 module $Singular_
                 import EcologicalNetworksDynamics.NetworkFramework: NF, @bp_construct
-                const d, T = $d, $T
+                const s, T = $s, $T
 
                 mutable struct Raw <: NF.GraphScalarBlueprint
                     $field::T
                     @bp_construct Raw
                 end
                 export Raw
-                NF.register_blueprint(Raw, "raw $($("$singular")) value"; d)
+                NF.register_blueprint(Raw, "raw $($("$singular")) value"; s)
 
                 end
             end
@@ -51,9 +51,9 @@ function define_graph_field(mod::Module, d::D.GraphField)
     CP = typeof(cp)
     NF.eval(
         quote
-            D.component(::$_D) = $cp
+            SL.component(::$S) = $cp
             (::$CP)(input) = $cp.Raw(input)
-            CS.shortline(io::IO, md::Model, ::$CP) = graph_scalar_shortline($d, io, md)
+            CS.shortline(io::IO, md::Model, ::$CP) = graph_scalar_shortline($s, io, md)
         end,
     )
 
@@ -61,19 +61,19 @@ function define_graph_field(mod::Module, d::D.GraphField)
     # Queries.
 
     M = Symbol(Singular, :Methods)
-    props = [D.fieldname(d), shortname]
+    props = [SL.fieldname(s), shortname]
     mod.eval(
         (
             quote
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework:
-                    NF, D, Network, Model
-                const d, CP, props = $d, $CP, $props
-                get_value(::Network, md::Model) = NF.get_value(md, d)
+                    NF, SL, Network, Model
+                const s, CP, props = $s, $CP, $props
+                get_value(::Network, md::Model) = NF.get_value(md, s)
                 NF.define_method(get_value; read_as = props, depends = [CP])
-                if !D.readonly(d)
+                if !SL.readonly(s)
                     set_value!(::Network, md::Model, input) =
-                        NF.mut_set!(md, d, NF.wholedata, input)
+                        NF.mut_set!(md, s, NF.wholedata, input)
                     NF.define_method(set_value!; write_as = props, depends = [CP])
                 end
                 end
@@ -90,31 +90,31 @@ end
 # The data may be aliased throughout the default lowering pipeline,
 # because it has been checked for immutability anyway.
 
-function expand!(md::Model, d::D.GraphField, low)
-    nw, f = N.network(md), D.fieldname(d)
+function expand!(md::Model, s::SL.GraphField, low)
+    nw, f = N.network(md), SL.fieldname(s)
     N.add_field!(nw, f, low)
 end
 
-function get_value(md::Model, d::D.GraphField)
-    entry = N.entry(md, d)
+function get_value(md::Model, s::SL.GraphField)
+    entry = N.entry(md, s)
     N.read(entry) do value
         value # Just leak it: immutable.
     end
 end
 
-function mutate!(md::Model, d::D.GraphField, ::WholeData, low)
-    entry = N.entry(md, d)
+function mutate!(md::Model, s::SL.GraphField, ::WholeData, low)
+    entry = N.entry(md, s)
     N.reassign!(entry, low)
 end
 
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function graph_scalar_shortline(d::D.GraphField, io, md::Model)
+function graph_scalar_shortline(s::SL.GraphField, io, md::Model)
     cc = CS.component_color
     fc = CS.field_color
-    Field = D.CamelCaseSingular(d)
-    entry = N.entry(md, d)
+    Field = SL.CamelCaseSingular(s)
+    entry = N.entry(md, s)
     read(entry) do value
         print(io, "$cc$Field$reset: $fc$(repr(value))$reset")
     end

@@ -1,6 +1,6 @@
 module FoodwebDef
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, N, CS, NF, D, V, Network, Model, @alias, argerr
+    EN, N, CS, NF, SL, V, Network, Model, @alias, argerr
 using EcologicalNetworksDynamics.KwargsHelpers
 using EcologicalNetworksDynamics.Display: reset
 
@@ -15,14 +15,14 @@ using Graphs
 # of numerous other biorates and interaction layers.
 # Typically, many default values are calculated from this layer,
 # and values checks are performed against this layer.
-const d, _D = D.Web(:trophic)
-D.sidenames(::_D) = (:species, :species)
-D.name_variants(::_D) = (:foodweb, :Foodweb)
-D.propnames(::_D) = (:trophic, :Trophic)
-D.is_symmetric(::_D) = false
-D.is_sparse(::_D) = true
+const s, S = SL.Web(:trophic)
+SL.sidenames(::S) = (:species, :species)
+SL.name_variants(::S) = (:foodweb, :Foodweb)
+SL.propnames(::S) = (:trophic, :Trophic)
+SL.is_symmetric(::S) = false
+SL.is_sparse(::S) = true
 
-const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, d)
+const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, s)
 
 # Community consistency aliases.
 @alias foodweb trophic
@@ -32,9 +32,9 @@ const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, d)
 # ==========================================================================================
 # Web-derived classes and webs.
 
-function NF.post_expand!(md::Model, d::_D)
+function NF.post_expand!(md::Model, s::S)
     nw = N.network(md)
-    topology = N.web(md, d).topology
+    topology = N.web(md, s).topology
 
     # Every node becomes associated with a trophic level.
     A = N.to_mask(topology)
@@ -74,29 +74,29 @@ function NF.post_expand!(md::Model, d::_D)
 end
 
 depends = (Foodweb,)
-p, _P = D.Class(:producers)
-c, _C = D.Class(:consumers)
-t, _T = D.Class(:tops)
-r, _R = D.Class(:preys)
+p, _P = SL.Class(:producers)
+c, _C = SL.Class(:consumers)
+t, _T = SL.Class(:tops)
+r, _R = SL.Class(:preys)
 # TODO: fix that there is no need for a short prefix for them: subclasses.
-D.name_variants(::_P) = (:_, :producer, :producers, :Producer, :Producers)
-D.name_variants(::_C) = (:_, :consumer, :consumers, :Consumer, :Consumers)
-D.name_variants(::_T) = (:_, :top, :tops, :Top, :Tops)
-D.name_variants(::_R) = (:_, :prey, :preys, :Preys, :Preys)
-D.component(::Union{_P,_C,_T,_R}) = Foodweb
+SL.name_variants(::_P) = (:_, :producer, :producers, :Producer, :Producers)
+SL.name_variants(::_C) = (:_, :consumer, :consumers, :Consumer, :Consumers)
+SL.name_variants(::_T) = (:_, :top, :tops, :Top, :Tops)
+SL.name_variants(::_R) = (:_, :prey, :preys, :Preys, :Preys)
+SL.component(::Union{_P,_C,_T,_R}) = Foodweb
 NF.define_class_properties(EN, p; depends)
 NF.define_class_properties(EN, c; depends)
 NF.define_class_properties(EN, t; depends)
 NF.define_class_properties(EN, r; depends)
 
-p, _P = D.Web(:producers_web)
-h, _H = D.Web(:herbivory)
-c, _C = D.Web(:carnivory)
-D.name_variants(::_P) = (:producers_web, :ProducersWeb)
-D.name_variants(::_H) = (:herbivory, :Herbivory)
-D.name_variants(::_C) = (:carnivory, :Carnivory)
-D.component(::Union{_P, _H, _C}) = Foodweb
-D.sidenames(::Union{_P, _H, _C}) = (:species, :species)
+p, _P = SL.Web(:producers_web)
+h, _H = SL.Web(:herbivory)
+c, _C = SL.Web(:carnivory)
+SL.name_variants(::_P) = (:producers_web, :ProducersWeb)
+SL.name_variants(::_H) = (:herbivory, :Herbivory)
+SL.name_variants(::_C) = (:carnivory, :Carnivory)
+SL.component(::Union{_P, _H, _C}) = Foodweb
+SL.sidenames(::Union{_P, _H, _C}) = (:species, :species)
 NF.define_web_properties(EN, p; depends)
 NF.define_web_properties(EN, h; depends)
 NF.define_web_properties(EN, c; depends)
@@ -123,10 +123,10 @@ function trophic_levels(A::AbstractMatrix{Bool})
 end
 
 # Levels are pre-calculated on foodweb expansion, obtain a readonly view into them.
-const l, _L = D.NodeField(:species, :trophic_level)
-D.type(::_L) = Float64
-D.readonly(::_L) = true
-D.viewtype(::_L) = V.NodeFieldView # TODO: why is that necessary?
+const l, _L = SL.NodeField(:species, :trophic_level)
+SL.type(::_L) = Float64
+SL.readonly(::_L) = true
+SL.viewtype(::_L) = V.NodeFieldView # TODO: why is that necessary?
 level(::Network, md::Model) = V.field_view(l, md)
 level_entry(nw::Network) = N.class(nw, :species).data[:trophic_level]
 NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])

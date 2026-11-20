@@ -3,8 +3,8 @@
 # and open up extension points for particular component.
 
 "If relevant, obtain the data kind provided by the blueprint."
-dispatcher(BP::Type{<:Blueprint}) = unimplemented(dispatcher, BP)
-dispatcher(bp::Blueprint) = bp |> typeof |> dispatcher
+selector(BP::Type{<:Blueprint}) = unimplemented(selector, BP)
+selector(bp::Blueprint) = bp |> typeof |> selector
 
 #-------------------------------------------------------------------------------------------
 # Convert.
@@ -21,18 +21,18 @@ Following julia's behaviour:
 """
 # Generic default behaviour.
 convert(T::Type, input) = converr(T, input, "Conversion not implemented.")
-convert(T::Type, ::Dispatcher, input) = convert(T, input)
-convert(T::Type, BP::Type{<:Blueprint}, input) = convert(T, dispatcher(BP), input)
-convert(d::Dispatcher, input) = convert(D.type(d), d, input)
+convert(T::Type, ::Selector, input) = convert(T, input)
+convert(T::Type, BP::Type{<:Blueprint}, input) = convert(T, selector(BP), input)
+convert(s::Selector, input) = convert(SL.type(s), s, input)
 
 "Guarded entrypoint for mutation."
-mut_convert(d::Dispatcher, input) =
+mut_convert(s::Selector, input) =
     try
-        convert(d, input)
+        convert(s, input)
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
-        e.d = d
+        e.s = s
         rethrow(e)
     end
 
@@ -40,19 +40,19 @@ mut_convert(d::Dispatcher, input) =
 # Early check.
 
 "Default early check, for either pipeline."
-early_check(::Dispatcher, data) = data # Defaults to just accepting & aliasing the value.
+early_check(::Selector, data) = data # Defaults to just accepting & aliasing the value.
 
 """
 Early check for blueprint construction: must alias.
 (only useful if relying on the default `construct` implementation)
 """
-cst_early_check(BP::Type{<:Blueprint}, data) = early_check(dispatcher(BP), data)
+cst_early_check(BP::Type{<:Blueprint}, data) = early_check(selector(BP), data)
 
 "Early check for blueprint expansion: may start lowering."
 bp_early_check(bp::Blueprint) = cst_early_check(typeof(bp), data(bp))
 
 "Early check for mutation: may start lowering."
-mut_early_check(d::Dispatcher, data) = early_check(d, data)
+mut_early_check(s::Selector, data) = early_check(s, data)
 
 "Guarded entrypoint for the blueprint pipeline."
 _bp_early_check(bp::Blueprint) = # Entry point: the framework calls in there.
@@ -61,7 +61,7 @@ _bp_early_check(bp::Blueprint) = # Entry point: the framework calls in there.
     catch e
         e isa CheckError || rethrow(e)
         B = typeof(bp)
-        e.d = dispatcher(bp)
+        e.s = selector(bp)
         rethrow(BlueprintError(B, :early, e))
     end
 
@@ -82,7 +82,7 @@ Defaults to first field.
 data(bp::Blueprint) = getfield(bp, first(fieldnames(typeof(bp))))
 
 # Get the core corresponding field type.
-D.type(BP::Type{<:Blueprint}) = D.type(dispatcher(BP))
+SL.type(BP::Type{<:Blueprint}) = SL.type(selector(BP))
 
 """
 Guarded entrypoint into blueprint construction.
@@ -113,7 +113,7 @@ _construct(BP::Type{<:Blueprint}, args...; kwargs...) =
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
-        e.d = dispatcher(BP)
+        e.s = selector(BP)
         rethrow(BlueprintError(BP, :construct, e))
     end
 
@@ -121,14 +121,14 @@ _construct(BP::Type{<:Blueprint}, args...; kwargs...) =
 # Late check.
 
 "Default late check, for either pipeline."
-late_check(::Model, ::Dispatcher, early) = early # Default to just accept & alias.
+late_check(::Model, ::Selector, early) = early # Default to just accept & alias.
 
 "Late check for blueprint expansion."
-bp_late_check(md::Model, bp::Blueprint, early) = late_check(md, dispatcher(bp), early)
+bp_late_check(md::Model, bp::Blueprint, early) = late_check(md, selector(bp), early)
 
 "Late check for mutation."
-mut_late_check(md::Model, d::Dispatcher, early) = late_check(md, d, early)
-mut_late_check(md::Model, d::Dispatcher, _iref, early) = mut_late_check(md, d, early)
+mut_late_check(md::Model, s::Selector, early) = late_check(md, s, early)
+mut_late_check(md::Model, s::Selector, _iref, early) = mut_late_check(md, s, early)
 
 "Guarded entrypoint for the blueprint pipeline."
 _bp_late_check(md::Model, bp::Blueprint, early) =
@@ -137,8 +137,8 @@ _bp_late_check(md::Model, bp::Blueprint, early) =
     catch e
         e isa CheckError || rethrow(e)
         B = typeof(bp)
-        if isnothing(e.d)
-            e.d = dispatcher(bp)
+        if isnothing(e.s)
+            e.s = selector(bp)
         end
         if e.ref === UserRef(wholedata)
             e.ref = ModelRef(wholedata)
@@ -152,27 +152,27 @@ _bp_late_check(md::Model, bp::Blueprint, early) =
 # Maybe `expand` can do / is doing just that.
 
 "Default lowering, for either pipeline."
-lower(::Model, ::Dispatcher, late) = late # Default to just accept & alias.
+lower(::Model, ::Selector, late) = late # Default to just accept & alias.
 
 "Lowering for blueprint expansion."
-bp_lower(md::Model, bp::Blueprint, late) = lower(md, dispatcher(bp), late)
+bp_lower(md::Model, bp::Blueprint, late) = lower(md, selector(bp), late)
 
 "Lowering for mutation."
-mut_lower(md::Model, d::Dispatcher, _ref, ld) = lower(md, d, ld)
+mut_lower(md::Model, s::Selector, _ref, ld) = lower(md, s, ld)
 
 #-------------------------------------------------------------------------------------------
 # Expand.
 
 "Final stage of blueprint expansion."
-expand!(md::Model, d::Dispatcher, low) = unimplemented(expand!, md, d, low)
+expand!(md::Model, s::Selector, low) = unimplemented(expand!, md, s, low)
 expand!(md::Model, bp::Blueprint, late) =
-    expand!(md, dispatcher(bp), NF.bp_lower(md, bp, late))
+    expand!(md, selector(bp), NF.bp_lower(md, bp, late))
 
 # ==========================================================================================
 # Query values.
 
 """
-    obtain(md::Model, d::Dispatcher, mref)
+    obtain(md::Model, s::Selector, mref)
     obtain(vw::AbstractView, mref)
 
 Given a checked reference to inner model data, obtain a copy of it. Cannot fail.
@@ -186,30 +186,30 @@ function obtain end
 Actually perform mutation, assuming checked model reference (query) and lowered data.
 Cannot fail.
 """
-mutate!(md::Model, d::Dispatcher, mref, low) = unimplemented(mutate!, md, d, mref, low)
+mutate!(md::Model, s::Selector, mref, low) = unimplemented(mutate!, md, s, mref, low)
 
 """
 Guarded entrypoint into the whole mutation pipeline,
 with trusted `ref` query (local indices).
 """
 const TrustedIndexRef = Union{Tuple{Int},Tuple{Int,Int},WholeData}
-function mut_set!(md::Model, d::Dispatcher, iref::TrustedIndexRef, rhs)
+function mut_set!(md::Model, s::Selector, iref::TrustedIndexRef, rhs)
     low = try
-        conv = mut_convert(d, rhs)
-        early = mut_early_check(d, conv)
-        late = mut_late_check(md, d, iref, early)
-        low = mut_lower(md, d, iref, late)
+        conv = mut_convert(s, rhs)
+        early = mut_early_check(s, conv)
+        late = mut_late_check(md, s, iref, early)
+        low = mut_lower(md, s, iref, late)
         low
     catch e
         e isa LibError || rethrow(e)
         e = CheckError(e)
-        e.d = d
+        e.s = s
         if e.ref === UserRef(wholedata)
-            e.ref = to_mref(iref, md, d)
+            e.ref = to_mref(iref, md, s)
         end
         rethrow(MutationError(e))
     end
-    mutate!(md, d, iref, low)
+    mutate!(md, s, iref, low)
     rhs # (julia habit)
 end
 
@@ -218,7 +218,7 @@ end
 function register_blueprint(
     BP::Type{<:Blueprint},
     shortline::String;
-    d = nothing,
+    s = nothing,
     implied = [],
     depends = [],
 )
@@ -232,7 +232,7 @@ function register_blueprint(
             eval(
                 quote
                     CS.implied_blueprint_for(bp::$BP, ::Type{$CPI}) =
-                        NF.implied($d, $cpi, bp)
+                        NF.implied($s, $cpi, bp)
                 end,
             )
         end
@@ -242,9 +242,9 @@ function register_blueprint(
         CS.late_check(md::Model, bp::$BP, data) = NF._bp_late_check(md, bp, data)
         CS.expand!(md::Model, bp::$BP, late) = NF.expand!(md, bp, late)
     end)
-    isnothing(d) && return
+    isnothing(s) && return
     eval(quote
-        NF.dispatcher(::Type{$BP}) = $d
+        NF.selector(::Type{$BP}) = $s
     end)
 end
 

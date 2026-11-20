@@ -9,10 +9,10 @@ module AllometricBlueprintTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    N, D, AD, @test_repr, @test_disp, addfails, @bpfails, @checkfails
+    N, SL, AD, @test_repr, @test_disp, addfails, @bpfails, @checkfails
 using Test
 
-const d, _D = D.NodeField(:producers, :growth)
+const s, S = SL.NodeField(:producers, :growth)
 
 @testset "Nodefield components: allometry blueprint" begin
 
@@ -56,12 +56,12 @@ const d, _D = D.NodeField(:producers, :growth)
 
     @bpfails(GrowthRate.Allometric(5),
         GrowthRate.Allometric, :construct,
-        (d, 5, :uwhole, "Cannot convert to `Allometry`:\nConversion not implemented."))
+        (s, 5, :uwhole, "Cannot convert to `Allometry`:\nConversion not implemented."))
     @bpfails(GrowthRate.Allometric(:nap),
         GrowthRate.Allometric, :construct,
-        (d, :nap, :uwhole, "Expected one of [:Miele2019]."))
+        (s, :nap, :uwhole, "Expected one of [:Miele2019]."))
     @checkfails(GrowthRate(:nap),
-        d, :nap, :uwhole, "Expected one of [:Miele2019 or :Binzer2016].")
+        s, :nap, :uwhole, "Expected one of [:Miele2019 or :Binzer2016].")
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -85,11 +85,11 @@ const d, _D = D.NodeField(:producers, :growth)
         # On construction.
         @bpfails(GrowthRate.Allometric(; invalid...),
             GrowthRate.Allometric, :construct,
-            (d, invalid, :uwhole, mess))
+            (s, invalid, :uwhole, mess))
         # On expansion.
         bp.allometry = Allometry(; invalid...)
         addfails.@check(base + bp, [],
-            (GrowthRate.Allometric, :early, (d, invalid, :uwhole, mess)))
+            (GrowthRate.Allometric, :early, (s, invalid, :uwhole, mess)))
     end
     # XXX cannot obtain 'Missing allometric rates' with growth_rate, test with another.
 
@@ -142,10 +142,10 @@ end
 
     @bpfails(GrowthRate.Temperature(5im),
         GrowthRate.Temperature, :construct,
-        (d, 5im, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
+        (s, 5im, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
     @bpfails(GrowthRate.Temperature(:nap),
         GrowthRate.Temperature, :construct,
-        (d, :nap, :uwhole, "Expected one of [:Binzer2016]."))
+        (s, :nap, :uwhole, "Expected one of [:Binzer2016]."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
@@ -168,10 +168,10 @@ end
              in the context of calculating growth_rates: (a: 5.0)."),
     ]
         @bpfails(GrowthRate.Temperature(E_a; invalid...),
-            GrowthRate.Temperature, :construct, (d, invalid, :uwhole, mess))
+            GrowthRate.Temperature, :construct, (s, invalid, :uwhole, mess))
         bp.allometry = Allometry(; invalid...)
         addfails.@check(base + Temperature() + bp, [],
-            (GrowthRate.Temperature, :early, (d, invalid, :uwhole, mess)))
+            (GrowthRate.Temperature, :early, (s, invalid, :uwhole, mess)))
     end
     # XXX cannot obtain 'Missing allometric rates' with growth_rate, test with another.
 

@@ -3,10 +3,10 @@ module EfficiencyTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    D, @argfails, @test_repr, @test_disp, @bpfails, addfails
+    SL, @argfails, @test_repr, @test_disp, @bpfails, addfails
 using Test
 
-const d, _D = D.EdgeField(:trophic, :efficiency)
+const s, S = SL.EdgeField(:trophic, :efficiency)
 
 @testset "Efficiency component." begin
 
@@ -58,11 +58,11 @@ const d, _D = D.EdgeField(:trophic, :efficiency)
     # Early check.
 
     @bpfails(Efficiency(:Miele2019; herb = 2), Efficiency.Miele2019, :construct,
-        (d, 2.0, :uwhole, "Value must belong to [0, 1]."))
+        (s, 2.0, :uwhole, "Value must belong to [0, 1]."))
     bp.e_carnivorous = 5
     addfails.@check(base + bp, [], # TODO: report field name instead of 'efficiency'?
         (Efficiency.Miele2019, :early,
-            (d, 5.0, :uwhole, "Value must belong to [0, 1].")))
+            (s, 5.0, :uwhole, "Value must belong to [0, 1].")))
 
     #---------------------------------------------------------------------------------------
     # Expand depending on the underlying foodweb.

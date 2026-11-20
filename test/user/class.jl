@@ -6,13 +6,13 @@ using EcologicalNetworksDynamics
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
     @viewfails, @propfails, addfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework: D, CS, NF, Network, Views
+using EcologicalNetworksDynamics.NetworkFramework: SL, CS, NF, Network, Views
 using OrderedCollections
 using SparseArrays
 using Test
 
 # The data kind, view type and property spaces tested here.
-const d, _D = D.Class(:species)
+const s, S = SL.Class(:species)
 const Sp = CS.@PropertySpace(species, Network)
 
 @testset "Class components: blueprints" begin
@@ -67,12 +67,12 @@ const Sp = CS.@PropertySpace(species, Network)
 
     @bpfails(Species.Names(:a),
         Species.Names, :construct,
-        (d, :a, :uwhole, "Cannot convert to `$Vector{$Symbol}`:\nInput is not iterable."))
+        (s, :a, :uwhole, "Cannot convert to `$Vector{$Symbol}`:\nInput is not iterable."))
     @jl_basic_callfails(Species(:a)) # Preserve forward compatibility.
 
     @bpfails(Species([:a, :b, nothing]),
         Species.Names, :construct,
-        (d, nothing, (:u, (3,)),
+        (s, nothing, (:u, (3,)),
             "Cannot convert to `$Symbol`:\nConversion not implemented."))
     @test_err(Species([:a, :b, nothing]), # First time with a 1D uref.
         """
@@ -88,14 +88,14 @@ const Sp = CS.@PropertySpace(species, Network)
 
     @bpfails(Species([:a, :b, 'b']), # TODO: confusingly reports `Received: :b`.. fix?
         Species.Names, :construct,
-        (d, :b, (:u, (3,)), "Species 2 and 3 would both be named :b."))
+        (s, :b, (:u, (3,)), "Species 2 and 3 would both be named :b."))
 
     # It is (still) ok to break values checking afterwards..
     input[3] = :x
     # .. but then expansion fails.
     addfails.@check(Model(bp), [],
         (Species.Names, :early,
-            (d, :x, (:u, (3,)), "Species 2 and 3 would both be named :x.")))
+            (s, :x, (:u, (3,)), "Species 2 and 3 would both be named :x.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -127,12 +127,12 @@ const Sp = CS.@PropertySpace(species, Network)
 
     @bpfails(Species(-1),
         Species.Number, :construct,
-        (d, -1, :uwhole, "Cannot construct a negative number of species nodes."))
+        (s, -1, :uwhole, "Cannot construct a negative number of species nodes."))
 
     bp.n = -3
     addfails.@check(Model(bp), [],
         (Species.Number, :early,
-            (d, -3, :uwhole, "Cannot construct a negative number of species nodes.")))
+            (s, -3, :uwhole, "Cannot construct a negative number of species nodes.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -172,8 +172,8 @@ end
     @test m.species.mask == [1, 1, 1]
 
     # Types.
-    @test m.species.names isa Views.NodeNameView{D.Class(:species)[1]}
-    @test m.species.mask isa Views.NodeMaskView{D.Subclass(:species, nothing)[1]}
+    @test m.species.names isa Views.NodeNameView{SL.Class(:species)[1]}
+    @test m.species.mask isa Views.NodeMaskView{SL.Subclass(:species, nothing)[1]}
     @test m.species.names isa AbstractVector{Symbol}
     @test m.species.mask isa AbstractVector{Bool}
     @test m.species.index isa OrderedDict{Symbol,Int}
@@ -183,7 +183,7 @@ end
 
 @testset "Class components: names view" begin
 
-    View = Views.NodeNameView{d}
+    View = Views.NodeNameView{s}
     bp = Species([:a, :b, :c])
     m = Model(bp)
     v = m.species.names
@@ -225,10 +225,10 @@ end
     @test v[['c', 'b', 'b', 'a']] == [:c, :b, :b, :a]
 
     # Basic bound-checking is homemade.
-    @viewfails(v[-5], (d, -5, :uwhole, "There are 3 nodes in this class."))
-    @viewfails(v[5], (d, 5, :uwhole, "There are 3 nodes in this class."))
-    @viewfails(v[end+1], (d, 4, :uwhole, "There are 3 nodes in this class."))
-    @viewfails(v[:x], (d, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[-5], (s, -5, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[5], (s, 5, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[end+1], (s, 4, :uwhole, "There are 3 nodes in this class."))
+    @viewfails(v[:x], (s, :x, :uwhole, "No node in this class is labeled :x."))
     # TODO: either the reports tested here provide too much information (to be tested)
     # or that information should be better exploited to produce better report.
 

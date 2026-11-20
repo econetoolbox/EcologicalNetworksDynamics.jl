@@ -1,35 +1,35 @@
 "Direct dense view into nodes field data."
-struct NodeFieldView{d,T} <: AbstractVector{T} # d::D.NodeField
+struct NodeFieldView{s,T} <: AbstractVector{T} # s::S.NodeField
     model::Model
     view::N.NodeView{T}
 end
 
-function field_view(d::D.NodeField, m::Model)
-    view = N.nodes_view(N.network(m), D.classname(d), D.fieldname(d))
+function field_view(s::SL.NodeField, m::Model)
+    view = N.nodes_view(N.network(m), SL.classname(s), SL.fieldname(s))
     T = eltype(view)
-    NodeFieldView{d,T}(m, view)
+    NodeFieldView{s,T}(m, view)
 end
 
-let S = NodeFieldView
-    N.restriction(s::S) = N.class(s).restriction
-    Base.size(s::S) = (s |> N.view |> length,)
-    V.extract(s::S) = read(collect, N.entry(s))
-    N.class(s::S) = s |> N.view |> N.class
+let V = NodeFieldView
+    N.restriction(v::V) = N.class(v).restriction
+    Base.size(v::V) = (v |> N.view |> length,)
+    VW.extract(v::V) = read(collect, N.entry(v))
+    N.class(v::V) = v |> N.view |> N.class
 
     # Extract legacy sparse view.
-    function V.spextract(s::S, parent::Option{Symbol} = nothing)
-        nw, cl = N.network(s), N.class(s)
+    function VW.spextract(v::V, parent::Option{Symbol} = nothing)
+        nw, cl = N.network(v), N.class(v)
         par, rs = if isnothing(parent)
             # Default: pick direct parent from underlying model.
             isnothing(cl.parent) && argerr("Cannot sparse-extract from a root class: \
                                             $green$(repr(cl.name))$reset.")
             cl.parent, cl.restriction
         else
-            parent, N.restriction(nw, D.classname(s), parent)
+            parent, N.restriction(nw, SL.classname(v), parent)
         end
-        T = eltype(s)
+        T = eltype(v)
         n = length(N.class(nw, par))
-        read(N.entry(s)) do data
+        read(N.entry(v)) do data
             N.expand(T, rs, n, data)
         end
     end
@@ -39,46 +39,46 @@ end
 # Views into topology-related data, read-only.
 
 "View into network class label names, read-only."
-struct NodeNameView{d} <: AbstractVector{Symbol} # d::D.Class
+struct NodeNameView{s} <: AbstractVector{Symbol} # s::S.Class
     model::Model
     index::N.Index # Cache an alias to underlying class index.
 end
-function names_view(d::D.Class, m::Model)
-    index = N.class(N.network(m), D.classname(d)).index
-    NodeNameView{d}(m, index)
+function names_view(s::SL.Class, m::Model)
+    index = N.class(N.network(m), SL.classname(s)).index
+    NodeNameView{s}(m, index)
 end
-let S = NodeNameView
-    N.index(s::S) = getfield(s, :index)
-    Base.size(s::S) = (s |> N.index |> length,)
-    V.extract(s::S) = copy(N.index(s).reverse)
+let V = NodeNameView
+    N.index(v::V) = getfield(v, :index)
+    Base.size(v::V) = (v |> N.index |> length,)
+    VW.extract(v::V) = copy(N.index(v).reverse)
 end
 
 #-------------------------------------------------------------------------------------------
 "View into network class restriction mask, read-only."
-struct NodeMaskView{d} <: AbstractSparseVector{Bool,Int} # d::D.Subclass
+struct NodeMaskView{s} <: AbstractSparseVector{Bool,Int} # s::S.Subclass
     model::Model
     restriction::N.Restriction # Cache an alias to underlying restriction.
 end
-function mask_view(d::D.Subclass, m::Model)
-    r = N.restriction(N.network(m), D.classname(d), D.parentname(d))
-    NodeMaskView{d}(m, r)
+function mask_view(s::SL.Subclass, m::Model)
+    r = N.restriction(N.network(m), SL.classname(s), SL.parentname(s))
+    NodeMaskView{s}(m, r)
 end
-let S = NodeMaskView
-    N.restriction(s::S) = getfield(s, :restriction)
-    D.parentname(s::S) = s |> dispatcher |> D.parentname
-    function N.parent(s::S) # Return self-class if no parent.
-        p = D.parentname(s)
-        isnothing(p) ? N.class(s) : N.class(N.network(s), p)
+let V = NodeMaskView
+    N.restriction(v::V) = getfield(v, :restriction)
+    SL.parentname(v::V) = v |> selector |> SL.parentname
+    function N.parent(v::V) # Return self-class if no parent.
+        p = SL.parentname(v)
+        isnothing(p) ? N.class(v) : N.class(N.network(v), p)
     end
-    function Base.size(s::S)
-        net = N.network(s)
-        p = D.parentname(s)
+    function Base.size(v::V)
+        net = N.network(v)
+        p = SL.parentname(v)
         n = isnothing(p) ? N.n_nodes(net) : length(N.class(net, p))
         (n,)
     end
-    function V.extract(s::S)
-        res = spzeros(Bool, length(s))
-        for i in s |> N.restriction |> N.indices
+    function VW.extract(v::V)
+        res = spzeros(Bool, length(v))
+        for i in v |> N.restriction |> N.indices
             res[i] = true
         end
         res
@@ -88,14 +88,14 @@ end
 # ==========================================================================================
 # Abstract into categories.
 
-const NodeTopologyView{d} = Union{NodeNameView{d},NodeMaskView{d}}
-const DenseNodeView{d} = Union{NodeFieldView{d},NodeNameView{d},NodeMaskView{d}}
-const NodeView{d} = Union{NodeFieldView{d},NodeNameView{d},NodeMaskView{d}}
+const NodeTopologyView{s} = Union{NodeNameView{s},NodeMaskView{s}}
+const DenseNodeView{s} = Union{NodeFieldView{s},NodeNameView{s},NodeMaskView{s}}
+const NodeView{s} = Union{NodeFieldView{s},NodeNameView{s},NodeMaskView{s}}
 
-let S = NodeView
-    D.class(s::S) = s |> dispatcher |> D.class
-    D.classname(s::S) = s |> dispatcher |> D.classname
-    N.class(s::S) = N.class(NF.model(s), dispatcher(s))
-    N.index(s::S) = N.class(s).index
-    N.is_root(s::S) = s |> N.class |> N.is_root
+let V = NodeView
+    SL.class(v::V) = v |> selector |> SL.class
+    SL.classname(v::V) = v |> selector |> SL.classname
+    N.class(v::V) = N.class(NF.model(v), selector(v))
+    N.index(v::V) = N.class(v).index
+    N.is_root(v::V) = v |> N.class |> N.is_root
 end

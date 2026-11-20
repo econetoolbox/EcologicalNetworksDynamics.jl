@@ -3,15 +3,15 @@ module SubclassTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.NetworkFramework: D, Views
+using EcologicalNetworksDynamics.NetworkFramework: SL, Views
 using EcologicalNetworksDynamics.Tests:
     @test_err, @viewfails, @immutfails, @test_repr, @test_disp
 using OrderedCollections
 using SparseArrays
 using Test
 
-const d, _D = D.Subclass(:producers, :species)
-const View = Views.NodeMaskView{d} # Tested view type.
+const s, S = SL.Subclass(:producers, :species)
+const View = Views.NodeMaskView{s} # Tested view type.
 
 @testset "Subclass components: properties & views" begin
 
@@ -42,10 +42,10 @@ const View = Views.NodeMaskView{d} # Tested view type.
     @test v[[2, 4]] == [1, 0]
     @test v[['b', 'd']] == [1, 0]
 
-    @viewfails(v[-5], (d, -5, :uwhole, "There are 5 nodes in this class."))
-    @viewfails(v[6], (d, 6, :uwhole, "There are 5 nodes in this class."))
-    @viewfails(v[:x], (d, :x, :uwhole, "No node in this class is labeled :x."))
-    @viewfails(v[end+1], (d, 6, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[-5], (s, -5, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[6], (s, 6, :uwhole, "There are 5 nodes in this class."))
+    @viewfails(v[:x], (s, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[end+1], (s, 6, :uwhole, "There are 5 nodes in this class."))
 
     # Same guards as node names views.
     @test v isa AbstractSparseVector{Bool}

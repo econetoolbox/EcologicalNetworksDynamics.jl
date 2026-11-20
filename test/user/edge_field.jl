@@ -7,13 +7,13 @@ using EcologicalNetworksDynamics
 using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
-    EN, N, CS, NF, D, V,
+    EN, N, CS, NF, SL, V,
     @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails, SparseMatrix,
     @propfails, @test_err, @mutfails
 using Test
 
-const d, _D = D.EdgeField(:trophic, :efficiency)
-const View = V.SparseEdgeFieldView{d,Float64}
+const s, S = SL.EdgeField(:trophic, :efficiency)
+const View = V.SparseEdgeFieldView{s,Float64}
 # TODO: test for dense constructs when such a component shows up.
 
 @testset "EdgeField components: blueprints" begin
@@ -66,8 +66,8 @@ const View = V.SparseEdgeFieldView{d,Float64}
 
     invalid = [4, 5, :x]
     @bpfails(Efficiency.Raw(invalid), Efficiency.Raw, :construct,
-        (d, :x, (:u, (3,)), "Cannot convert to `$Float64`:\nConversion not implemented."))
-    @checkfails(Efficiency(invalid), d, invalid, :uwhole,
+        (s, :x, (:u, (3,)), "Cannot convert to `$Float64`:\nConversion not implemented."))
+    @checkfails(Efficiency(invalid), s, invalid, :uwhole,
         """
         Cannot convert input to either:
           - $(Float64)
@@ -80,7 +80,7 @@ const View = V.SparseEdgeFieldView{d,Float64}
     # In particular, reject non-1D arrays.
     invalid = [0.1 0.2; 0.3 0.4]
     @bpfails(Efficiency.Raw(invalid), Efficiency.Raw, :construct,
-        (d, invalid, :uwhole,
+        (s, invalid, :uwhole,
             "Cannot convert to `$(Vector{Float64})`:\n\
              Would not convert vector to matrix, vice-versa or etc."))
 
@@ -88,17 +88,17 @@ const View = V.SparseEdgeFieldView{d,Float64}
     # Early check.
 
     @bpfails(Efficiency([0.1, 1.5, 0.3]), Efficiency.Raw, :construct,
-        (d, 1.5, (:u, (2,)), "Value must belong to [0, 1]."))
+        (s, 1.5, (:u, (2,)), "Value must belong to [0, 1]."))
     alias[3] *= -1
     addfails.@check(base + bp, [],
-        (Efficiency.Raw, :early, (d, -0.8, (:u, (3,)), "Value must belong to [0, 1].")))
+        (Efficiency.Raw, :early, (s, -0.8, (:u, (3,)), "Value must belong to [0, 1].")))
 
     #---------------------------------------------------------------------------------------
     # Late check.
 
     addfails.@check(base + Efficiency([0.1, 0.2, 0.3]), [],
         (Efficiency.Raw, :late,
-            (d, [0.1, 0.2, 0.3], :mwhole,
+            (s, [0.1, 0.2, 0.3], :mwhole,
                 "There are 4 edges to valuate, but the vector is of size 3.")))
 
     #---------------------------------------------------------------------------------------
@@ -151,11 +151,11 @@ const View = V.SparseEdgeFieldView{d,Float64}
 
     invalid = [0.4 0.5; :x 0.8]
     @bpfails(Efficiency.Matrix(invalid), Efficiency.Matrix, :construct,
-        (d, :x, (:u, (2, 1)),
+        (s, :x, (:u, (2, 1)),
             "Cannot convert to `$(SparseMatrix{Float64})`:\n\
              Element cannot be compared to null/zero."))
 
-    @checkfails(Efficiency(invalid), d, invalid, :uwhole,
+    @checkfails(Efficiency(invalid), s, invalid, :uwhole,
         """
         Cannot convert input to either:
           - $(Float64)
@@ -169,18 +169,18 @@ const View = V.SparseEdgeFieldView{d,Float64}
     # Early check.
 
     @bpfails(Efficiency([0.1 0.2; 3 0.4]), Efficiency.Matrix, :construct,
-        (d, 3.0, (:u, (2, 1)), "Value must belong to [0, 1]."))
+        (s, 3.0, (:u, (2, 1)), "Value must belong to [0, 1]."))
     alias[4, 3] *= 10
     addfails.@check(base + bp, [],
         (Efficiency.Matrix, :early,
-            (d, 4.0, (:u, (4, 3)), "Value must belong to [0, 1].")))
+            (s, 4.0, (:u, (4, 3)), "Value must belong to [0, 1].")))
 
     #---------------------------------------------------------------------------------------
     # Late check.
 
     addfails.@check(base + Efficiency([0.1 0.2; 0.3 0.4]), [],
         (Efficiency.Matrix, :late,
-            (d, sparse([0.1 0.2; 0.3 0.4]), :mwhole,
+            (s, sparse([0.1 0.2; 0.3 0.4]), :mwhole,
                 "There are 4 sources and 4 targets, \
                  but the matrix received is of size (2, 2).")))
 
@@ -189,7 +189,7 @@ const View = V.SparseEdgeFieldView{d,Float64}
     droptol!(bp.e, 0)
     addfails.@check(base + bp, [],
         (Efficiency.Matrix, :late,
-            (d, bp.e, :mwhole,
+            (s, bp.e, :mwhole,
                 """
                 Missing: the trophic edge (2, :b) => (3, :c) exists, \
                 but no value is provided for it.
@@ -201,7 +201,7 @@ const View = V.SparseEdgeFieldView{d,Float64}
     droptol!(bp.e, 0)
     addfails.@check(base + bp, [], # (pluralized)
         (Efficiency.Matrix, :late,
-            (d, bp.e, :mwhole,
+            (s, bp.e, :mwhole,
                 """
                 Missing: the trophic edges (2, :b) => (3, :c) and (4, :d) => (3, :c) \
                 exist, but no value is provided for them.
@@ -213,7 +213,7 @@ const View = V.SparseEdgeFieldView{d,Float64}
     bp.e[2, 4] = 0.5
     addfails.@check(base + bp, [],
         (Efficiency.Matrix, :late,
-            (d, [(2, 4) => 0.5], :mwhole,
+            (s, [(2, 4) => 0.5], :mwhole,
                 "Received unexpected value: \
                  there is no such trophic edge: (2, :b) => (4, :d).")))
 
@@ -271,12 +271,12 @@ const View = V.SparseEdgeFieldView{d,Float64}
 
     invalid = [:a => 0.5]
     @bpfails(Efficiency.Adjacency(invalid), Efficiency.Adjacency, :construct,
-        (d, 0.5, (:u, [1, :right, 1]),
+        (s, 0.5, (:u, [1, :right, 1]),
             "Cannot interpret target reference as integer index or symbol label."))
     @bpfails(Efficiency.Adjacency([:a => (:b => :x)]), Efficiency.Adjacency, :construct,
-        (d, :x, (:u, [1, :right, :right]), "Could not convert to `Float64`."))
+        (s, :x, (:u, [1, :right, :right]), "Could not convert to `Float64`."))
 
-    @checkfails(Efficiency(invalid), d, invalid, :uwhole,
+    @checkfails(Efficiency(invalid), s, invalid, :uwhole,
         """
         Cannot convert input to either:
           - $(Float64)
@@ -290,9 +290,9 @@ const View = V.SparseEdgeFieldView{d,Float64}
     # Early check.
 
     @bpfails(Efficiency([:a => (:b, 5)]), Efficiency.Adjacency, :construct,
-        (d, 5.0, (:u, (:a, :b)), "Value must belong to [0, 1]."))
+        (s, 5.0, (:u, (:a, :b)), "Value must belong to [0, 1]."))
     @bpfails(Efficiency.Adjacency([1 => (2 => -1)]), Efficiency.Adjacency, :construct,
-        (d, -1.0, (:u, (1, 2)), "Value must belong to [0, 1]."))
+        (s, -1.0, (:u, (1, 2)), "Value must belong to [0, 1]."))
     @test_err(Efficiency([:a => (:b, 5)]),
         """
         While constructing blueprint Efficiency.Adjacency:
@@ -305,18 +305,18 @@ const View = V.SparseEdgeFieldView{d,Float64}
     bp_r.e[:d][:c] *= 10
     addfails.@check(base + bp_r, [],
         (Efficiency.Adjacency, :early,
-            (d, 4.0, (:u, (:d, :c)), "Value must belong to [0, 1].")))
+            (s, 4.0, (:u, (:d, :c)), "Value must belong to [0, 1].")))
 
     bp_i.e[4][3] *= 10
     addfails.@check(base + bp_i, [],
         (Efficiency.Adjacency, :early,
-            (d, 4.0, (:u, (4, 3)), "Value must belong to [0, 1].")))
+            (s, 4.0, (:u, (4, 3)), "Value must belong to [0, 1].")))
 
     bp_i.e[4][3] = 0.4 # Restore.
     bp_i.e[4][-1] = 0.4 # Re-break.
     addfails.@check(base + bp_i, [],
         (Efficiency.Adjacency, :early,
-            (d, -1, (:u, (4, -1)), "Integer reference must be a positive index.")))
+            (s, -1, (:u, (4, -1)), "Integer reference must be a positive index.")))
 
     #---------------------------------------------------------------------------------------
     # Late check.
@@ -328,7 +328,7 @@ const View = V.SparseEdgeFieldView{d,Float64}
     for (bp, (i, j)) in [(bp_r, (:b, :c)), (bp_i, (2, 3))]
         addfails.@check(base + bp, [],
             (Efficiency.Adjacency, :late,
-                (d, bp.e, :mwhole,
+                (s, bp.e, :mwhole,
                     "Missing: the trophic edge (2, :b) => (3, :c) exists, \
                      but no value is provided for it.\n\
                      To explicitly make it null, try something along \
@@ -341,7 +341,7 @@ const View = V.SparseEdgeFieldView{d,Float64}
     for (bp, (i, j)) in [(bp_r, (:a, :c)), (bp_i, (1, 3))]
         addfails.@check(base + bp, [],
             (Efficiency.Adjacency, :late,
-                (d, [(i, j) => 0.5], :mwhole,
+                (s, [(i, j) => 0.5], :mwhole,
                     "Received unexpected value: \
                      there is no such trophic edge: (1, :a) => (3, :c).")))
     end
@@ -351,10 +351,10 @@ const View = V.SparseEdgeFieldView{d,Float64}
 
     addfails.@check(base + bp_r, [],
         (Efficiency.Adjacency, :late,
-            (d, (:x, :c), (:u, (:x, :c)), "Not a species node label: :x.")))
+            (s, (:x, :c), (:u, (:x, :c)), "Not a species node label: :x.")))
     addfails.@check(base + bp_i, [],
         (Efficiency.Adjacency, :late,
-            (d, (5, 3), (:u, (5, 3)), "Not an index among 4 species nodes: 5.")))
+            (s, (5, 3), (:u, (5, 3)), "Not an index among 4 species nodes: 5.")))
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -403,17 +403,17 @@ const View = V.SparseEdgeFieldView{d,Float64}
         """)
 
     @bpfails(Efficiency.Flat(:x), Efficiency.Flat, :construct,
-        (d, :x, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
+        (s, :x, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
 
     #---------------------------------------------------------------------------------------
     # Early check.
 
     @bpfails(Efficiency(5), Efficiency.Flat, :construct,
-        (d, 5.0, :uwhole, "Value must belong to [0, 1]."))
+        (s, 5.0, :uwhole, "Value must belong to [0, 1]."))
 
     bp.e *= 3
     addfails.@check(base + bp, [],
-        (Efficiency.Flat, :early, (d, 1.5, :uwhole, "Value must belong to [0, 1].")))
+        (Efficiency.Flat, :early, (s, 1.5, :uwhole, "Value must belong to [0, 1].")))
 
     # TODO: any example flat blueprint with anything to late check?
     #---------------------------------------------------------------------------------------
@@ -509,13 +509,13 @@ end
     @test v[4] == 0.2
     @test v[[5, 6]] == [0.5, 0]
 
-    s, t = D.sides(d)
-    @viewfails(v[-5, 2], (s, -5, :uwhole, "There are 4 nodes in this class."))
-    @viewfails(v[6, 7], (s, 6, :uwhole, "There are 4 nodes in this class."))
-    @viewfails(v[4, 7], (t, 7, :uwhole, "There are 4 nodes in this class."))
-    @viewfails(v[:x, 3], (s, :x, :uwhole, "No node in this class is labeled :x."))
-    @viewfails(v[3, :y], (t, :y, :uwhole, "No node in this class is labeled :y."))
-    @viewfails(v[end+1, 2], (s, 5, :uwhole, "There are 4 nodes in this class."))
+    a, b = SL.sides(s)
+    @viewfails(v[-5, 2], (a, -5, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[6, 7], (a, 6, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[4, 7], (b, 7, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[:x, 3], (a, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[3, :y], (b, :y, :uwhole, "No node in this class is labeled :y."))
+    @viewfails(v[end+1, 2], (a, 5, :uwhole, "There are 4 nodes in this class."))
     @test_err(v[4, 6],
         """
         Cannot index into <species> with [6]:
@@ -611,13 +611,13 @@ end
     #---------------------------------------------------------------------------------------
     # Index-check.
 
-    s, t = D.sides(d)
-    @viewfails(v[-5, 2] = 8, (s, -5, :uwhole, "There are 4 nodes in this class."))
-    @viewfails(v[6, 7] = 8, (s, 6, :uwhole, "There are 4 nodes in this class."))
-    @viewfails(v[4, 6] = 8, (t, 6, :uwhole, "There are 4 nodes in this class."))
-    @viewfails(v[:x, 3] = 8, (s, :x, :uwhole, "No node in this class is labeled :x."))
-    @viewfails(v[3, :y] = 8, (t, :y, :uwhole, "No node in this class is labeled :y."))
-    @viewfails(v[end+1, 2] = 8, (s, 5, :uwhole, "There are 4 nodes in this class."))
+    src, tgt = SL.sides(s)
+    @viewfails(v[-5, 2] = 8, (src, -5, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[6, 7] = 8, (src, 6, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[4, 6] = 8, (tgt, 6, :uwhole, "There are 4 nodes in this class."))
+    @viewfails(v[:x, 3] = 8, (src, :x, :uwhole, "No node in this class is labeled :x."))
+    @viewfails(v[3, :y] = 8, (tgt, :y, :uwhole, "No node in this class is labeled :y."))
+    @viewfails(v[end+1, 2] = 8, (src, 5, :uwhole, "There are 4 nodes in this class."))
     @test_err(v[] = 8, "BoundsError: attempt to access 4×4 $View at index []")
     @test_err(v[1, 2, 3] = 8, "BoundsError: attempt to access 4×4 $View at index [1, 2, 3]")
     @test_err(v[true, false] = 8, "ArgumentError: invalid index: true of type Bool")
@@ -646,7 +646,7 @@ end
         (() -> v .= 5, ((1, :a), (1, :a))),
         (() -> v[6:8] .= 5, ((2, :b), (2, :b))),
     ]
-        @mutfails(inv(), (d, 5.0, (:m, ref), "Value must belong to [0, 1]."))
+        @mutfails(inv(), (s, 5.0, (:m, ref), "Value must belong to [0, 1]."))
     end
 
     # Matrix.
@@ -656,15 +656,15 @@ end
         0 0 0 0
         1 0 4 0
     ] / 10 |> sparse # (also covering sparse input)
-    @mutfails(m.efficiency = wrong, (d, 3.0, (:u, (2, 3)), "Value must belong to [0, 1]."))
+    @mutfails(m.efficiency = wrong, (s, 3.0, (:u, (2, 3)), "Value must belong to [0, 1]."))
 
     # Raw.
     @mutfails(m.efficiency = [5, 60, 7, 8] / 10,
-        (d, 6.0, (:u, (2,)), "Value must belong to [0, 1]."))
+        (s, 6.0, (:u, (2,)), "Value must belong to [0, 1]."))
 
     # Adjacency.
     @mutfails(m.efficiency = [:a => (; b = 0.1), :d => (:c, 2)],
-        (d, 2.0, (:u, (:d, :c)), "Value must belong to [0, 1]."))
+        (s, 2.0, (:u, (:d, :c)), "Value must belong to [0, 1]."))
 
     wrong = [1 => (-1 => 0.1), 4 => (3, 2)]
     @test_err(m.efficiency = wrong,
@@ -681,7 +681,7 @@ end
         """)
 
     # Flat.
-    @mutfails(m.efficiency = 9, (d, 9.0, :mwhole, "Value must belong to [0, 1]."))
+    @mutfails(m.efficiency = 9, (s, 9.0, :mwhole, "Value must belong to [0, 1]."))
 
     # Still unchanged (after failures).
     @test v == w == m.efficiency == 0.9 * m.trophic.mask
@@ -698,7 +698,7 @@ end
         1 0 4 0
     ] / 10
     @mutfails(m.efficiency = wrong,
-        (d, [(3, 4) => 0.9], :mwhole,
+        (s, [(3, 4) => 0.9], :mwhole,
             "Received unexpected value: \
              there is no such trophic edge: (3, :c) => (4, :d)."))
     wrong = [
@@ -708,7 +708,7 @@ end
         1 0 4 0
     ] / 10 |> sparse
     @mutfails(m.efficiency = wrong,
-        (d, wrong, :mwhole,
+        (s, wrong, :mwhole,
             "Missing: the trophic edge (2, :b) => (3, :c) exists, \
              but no value is provided for it.\n\
              To explicitly make it null, try something along \
@@ -717,26 +717,26 @@ end
     # Raw.
     wrong = [4, 5, 6] / 10
     @mutfails(m.efficiency = wrong,
-        (d, wrong, :mwhole, "There are 4 edges to valuate, but the vector is of size 3."))
+        (s, wrong, :mwhole, "There are 4 edges to valuate, but the vector is of size 3."))
 
     # Adjacency.
     wrong = [:a => (; c = 0.1), :d => (:c, 0.2)]
     @mutfails(m.efficiency = wrong,
-        (d, [(:a, :c) => 0.1], :mwhole,
+        (s, [(:a, :c) => 0.1], :mwhole,
             "Received unexpected value: \
              there is no such trophic edge: (1, :a) => (3, :c)."))
     wrong = [1 => (3 => 0.1), 4 => (3, 0.2)]
     @mutfails(m.efficiency = wrong,
-        (d, [(1, 3) => 0.1], :mwhole,
+        (s, [(1, 3) => 0.1], :mwhole,
             "Received unexpected value: \
              there is no such trophic edge: (1, :a) => (3, :c)."))
 
     wrong = [:a => (; x = 0.1), :d => (:c, 0.2)]
     @mutfails(m.efficiency = wrong,
-        (d, (:a, :x), (:u, (:a, :x)), "Not a species node label: :x."))
+        (s, (:a, :x), (:u, (:a, :x)), "Not a species node label: :x."))
 
     # Flat.
-    @mutfails(m.efficiency = 9, (d, 9.0, :mwhole, "Value must belong to [0, 1]."))
+    @mutfails(m.efficiency = 9, (s, 9.0, :mwhole, "Value must belong to [0, 1]."))
 
     # Still unchanged (after failures).
     @test v == w == m.efficiency == 0.9 * m.trophic.mask

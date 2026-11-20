@@ -47,15 +47,15 @@ Return that module.
 """
 function define_allometry_blueprints(
     mod::Module,
-    d::D.NodeField,
+    s::SL.NodeField,
     allometric_template::Allometry,
     temperature_template::@NamedTuple{E_a::Float64, allometry::Allometry},
 )
-    nc = D.class(d)
-    Class = D.CamelCaseSingular(nc)
-    class, field = D.content(d)
-    value, values, Value, Values, short = D.name_variants(d)
-    T = D.type(d)
+    nc = SL.class(s)
+    Class = SL.CamelCaseSingular(nc)
+    class, field = SL.content(s)
+    value, values, Value, Values, short = SL.name_variants(s)
+    T = SL.type(s)
     Value_ = Symbol(Value, :_)
     _Value = Symbol(:_, Value) # Component type name.
 
@@ -66,7 +66,7 @@ function define_allometry_blueprints(
                 module $Mod
                 using EcologicalNetworksDynamics.NetworkFramework:
                     EN, NF, Model, Allometry, @bp_construct
-                const d = $d
+                const s = $s
                 end
             end
         ).args |> last,
@@ -80,7 +80,7 @@ function define_allometry_blueprints(
                 @bp_construct Allometric
             end
             export Allometric
-            NF.register_blueprint(Allometric, "allometric rates"; d,
+            NF.register_blueprint(Allometric, "allometric rates"; s,
                 depends = [EN.BodyMass, EN.MetabolicClass])
             NF.allometry_template(::Type{Allometric}) = $allometric_template
         end)
@@ -95,7 +95,7 @@ function define_allometry_blueprints(
             end
             export Temperature
             NF.register_blueprint(Temperature,
-                "allometric rates and activation energy"; d,
+                "allometric rates and activation energy"; s,
                 depends = [EN.BodyMass, EN.MetabolicClass, EN.Temperature])
             NF.allometry_template(::Type{Temperature}) = $(last(temperature_template))
         end)
@@ -139,12 +139,12 @@ allometry_template(bp::AllometricBlueprint) = unimplemented(allometry_template, 
 data(bp::AllometryBlueprint) = bp.allometry
 
 function cst_early_check( BP::Type{<:AllometryBlueprint}, allometry)
-    d = dispatcher(BP)
+    s = selector(BP)
     template = allometry_template(BP)
     (; isin, shortest, display_short) = AliasingDicts
     MC = MetabolicClassDict
     AP = AllometricParametersDict
-    field = D.snake_case_plural(d)
+    field = SL.snake_case_plural(s)
     gr, yl, cy = col.((green, yellow, cyan))
 
     expected_classes = Set(k for (k, sub) in template if !isempty(sub))
@@ -201,20 +201,20 @@ end
 #-------------------------------------------------------------------------------------------
 # Expand.
 
-expand!(md::Model, bp::AllometricBlueprint, al) = expand!(md, dispatcher(bp), al)
+expand!(md::Model, bp::AllometricBlueprint, al) = expand!(md, selector(bp), al)
 function expand!(md::Model, bp::TemperatureAllometricBlueprint, allometry)
-    d = dispatcher(bp)
+    s = selector(bp)
     (; E_a) = bp
     (; T) = md
-    expand!(md, d, allometry; E_a, T)
+    expand!(md, s, allometry; E_a, T)
 end
 
-function expand!(md::Model, d::D.NodeField, al::Allometry; kwargs...)
-    f = D.fieldname(d)
-    M, mc = if N.is_root(md, d)
+function expand!(md::Model, s::SL.NodeField, al::Allometry; kwargs...)
+    f = SL.fieldname(s)
+    M, mc = if N.is_root(md, s)
         md.M, md.metabolic_class
     else
-        cl = N.class(md, d)
+        cl = N.class(md, s)
         rs = cl.restriction
         inds = N.indices(rs)
         # Filter out relevant values.

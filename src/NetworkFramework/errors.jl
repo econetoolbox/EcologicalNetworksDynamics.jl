@@ -26,7 +26,7 @@ mutable struct CheckError <: LibError
     The kind of data being reported.
     Unknown when emitted from an independent default impl.
     """
-    d::Option{Dispatcher}
+    s::Option{Selector}
     """
     The problematic value to be reported.
     Either directly taken from user input or from lowered data.
@@ -58,14 +58,14 @@ mutable struct CheckError <: LibError
     mess::String
     function CheckError(value, mess::String; kwargs...)
         @kwargs_helpers kwargs
-        d = take_or!(:d, nothing, Option{Dispatcher})
+        s = take_or!(:s, nothing, Option{Selector})
         ref = take_either!(
             :uref => UserRef,
             :mref => ModelRef;
             none = () -> UserRef(wholedata),
         )
         no_unused_arguments()
-        new(d, value, ref, mess)
+        new(s, value, ref, mess)
     end
 end
 "Upgrade underlying errors."
@@ -136,11 +136,11 @@ end
 
 "Upgrade from either to both."
 to_mref(uref::Ref, ix::N.Index) = (N.to_index(ix, uref), N.to_label(ix, uref))
-to_mref((i,)::Tuple{Ref}, md::Model, d::D.NodeLevel) =
-    ModelRef((to_mref(i, N.class(md, d).index),))
-to_mref((i, j)::Tuple{Ref,Ref}, md::Model, d::D.EdgeLevel) =
-    ModelRef(to_mref.((i, j), map(cl -> cl.index, N.sides(md, d))))
-to_mref(::WholeData, ::Model, ::Dispatcher) = ModelRef(wholedata)
+to_mref((i,)::Tuple{Ref}, md::Model, s::SL.NodeLevel) =
+    ModelRef((to_mref(i, N.class(md, s).index),))
+to_mref((i, j)::Tuple{Ref,Ref}, md::Model, s::SL.EdgeLevel) =
+    ModelRef(to_mref.((i, j), map(cl -> cl.index, N.sides(md, s))))
+to_mref(::WholeData, ::Model, ::Selector) = ModelRef(wholedata)
 
 "Upgrade underlying error with outer uref context."
 urefguard(fn::Function, uref) =
@@ -158,30 +158,30 @@ urefguard(fn::Function, uref) =
 # Display.
 
 function Base.showerror(io::IO, e::CheckError)
-    (; mess, value, d, ref) = e
+    (; mess, value, s, ref) = e
     at(::Union{UserRef{WholeData},ModelRef}) = "" # (reported as mref then)
     at(uref) = " at $cyan$(print_ref(uref))$reset"
     targetting(::Nothing, _) = ""
     targetting(_, ::UserRef) = ""
     targetting(::Nothing, ::UserRef) = ""
-    targetting(d::Dispatcher, mref::ModelRef) = " targetting " * modelvalue(d, mref)
+    targetting(s::Selector, mref::ModelRef) = " targetting " * modelvalue(s, mref)
     for_d(::Nothing) = ""
-    for_d(d) = " for $green$d$reset"
-    skip = isnothing(d) && ref.ref == wholedata # Uninformative line then.
-    skip || println(io, "In the provided input$(at(ref))$(targetting(d, ref))$(for_d(d)):")
+    for_d(s) = " for $green$s$reset"
+    skip = isnothing(s) && ref.ref == wholedata # Uninformative line then.
+    skip || println(io, "In the provided input$(at(ref))$(targetting(s, ref))$(for_d(s)):")
     println(io, mess)
     render_input(io, value)
 end
 
 modelvalue(::Nothing, mref) = print_ref(mref)
-modelvalue(::D.GraphField, ::ModelRef{WholeData}) = "network value"
-modelvalue(::D.Class, ::ModelRef{WholeData}) = "node values"
-modelvalue(::D.Web, ::ModelRef{WholeData}) = "edge values"
-modelvalue(::D.Class, mref) = "name for node $cyan$(print_ref(mref))$reset"
-modelvalue(::D.Web, mref) = "topology for edge $cyan$(print_ref(mref))$reset"
-modelvalue(d::D.AbstractField, ::ModelRef{WholeData}) = "$(D.level(d)) values"
-function modelvalue(d::D.AbstractField, mref)
-    level = D.level(d)
+modelvalue(::SL.GraphField, ::ModelRef{WholeData}) = "network value"
+modelvalue(::SL.Class, ::ModelRef{WholeData}) = "node values"
+modelvalue(::SL.Web, ::ModelRef{WholeData}) = "edge values"
+modelvalue(::SL.Class, mref) = "name for node $cyan$(print_ref(mref))$reset"
+modelvalue(::SL.Web, mref) = "topology for edge $cyan$(print_ref(mref))$reset"
+modelvalue(s::SL.AbstractField, ::ModelRef{WholeData}) = "$(SL.level(s)) values"
+function modelvalue(s::SL.AbstractField, mref)
+    level = SL.level(s)
     mr = print_ref(mref)
     "$level value $cyan$mr$reset"
 end

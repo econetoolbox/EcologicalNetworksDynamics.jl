@@ -10,12 +10,12 @@ abstract type ClassNames <: ClassBlueprint end
 abstract type ClassNumber <: ClassBlueprint end
 
 "Typical setup for a component bringing a new class to the network."
-function define_class_component(mod::Module, d::D.Class)
-    _D = typeof(d)
-    short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
+function define_class_component(mod::Module, s::SL.Class)
+    S = typeof(s)
+    short_prefix, singular, plural, Singular, Plural = SL.name_variants(s)
     Plural_ = Symbol(Plural, :_) # Blueprints module name.
     _Plural = Symbol(:_, Plural) # Component type name.
-    s, S, short_prefix = Meta.quot.((plural, Plural, short_prefix)) # Symbol names.
+    h, H, short_prefix = Meta.quot.((plural, Plural, short_prefix)) # Symbol names.
 
     # ======================================================================================
     # Blueprints for the component.
@@ -25,9 +25,8 @@ function define_class_component(mod::Module, d::D.Class)
         (
             quote
                 module $Plural_
-                import EcologicalNetworksDynamics.NetworkFramework:
-                    NF, D, Model, @bp_construct
-                const d = $d
+                import EcologicalNetworksDynamics.NetworkFramework: NF, Model, @bp_construct
+                const s = $s
                 end
             end
         ).args |> last,
@@ -41,7 +40,7 @@ function define_class_component(mod::Module, d::D.Class)
             @bp_construct Names
         end
         export Names
-        $NF.register_blueprint(Names, "raw $($s) names"; d)
+        $NF.register_blueprint(Names, "raw $($h) names"; s)
     end)
 
     #---------------------------------------------------------------------------------------
@@ -52,7 +51,7 @@ function define_class_component(mod::Module, d::D.Class)
             @bp_construct Number
         end
         export Number
-        $NF.register_blueprint(Number, "number of $($s)"; d)
+        $NF.register_blueprint(Number, "number of $($h)"; s)
     end)
 
     # ======================================================================================
@@ -66,7 +65,7 @@ function define_class_component(mod::Module, d::D.Class)
 
     # Dispatch to correct constructor depending on input given to direct call on component.
     NF.eval(quote
-        D.component(::$_D) = $cp
+        SL.component(::$S) = $cp
         (::$CP)(n::Integer) = $cp.Number(n)
         (::$CP)(names::AbstractVector) = $cp.Names(names)
         (::$CP)(names::String) = $cp.Names(names)
@@ -74,19 +73,19 @@ function define_class_component(mod::Module, d::D.Class)
 
     # Display.
     NF.eval(quote
-        CS.shortline(io::IO, model::Model, ::$CP) = class_shortline($d, io, model)
+        CS.shortline(io::IO, model::Model, ::$CP) = class_shortline($s, io, model)
     end)
 
-    define_class_properties(mod, d; depends = [CP])
+    define_class_properties(mod, s; depends = [CP])
 
     (cp, CP)
 end
 
 # ==========================================================================================
 
-function define_class_properties(mod::Module, d::D.Class; depends = [])
-    c = D.classname(d)
-    short_prefix, singular, plural, Singular, Plural = D.name_variants(d)
+function define_class_properties(mod::Module, s::SL.Class; depends = [])
+    c = SL.classname(s)
+    short_prefix, singular, plural, Singular, Plural = SL.name_variants(s)
 
     NF.define_propspace(plural)
     defmeth(fn, s) = NF.define_method(fn; depends, read_as = [:($plural.$s)])
@@ -99,9 +98,9 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework: N, V, D, Network, Model
+                using EcologicalNetworksDynamics.NetworkFramework: N, V, SL, Network, Model
                 using OrderedCollections
-                const defmeth, d, c = $defmeth, $d, $(Meta.quot(c))
+                const defmeth, s, c = $defmeth, $s, $(Meta.quot(c))
 
                 # Ordered index.
                 ref_index(nw::Network) = N.class(nw, c).index
@@ -112,13 +111,13 @@ function define_class_properties(mod::Module, d::D.Class; depends = [])
                 # The 'ref' variant is more efficient but unexposed.
                 get_number(nw::Network) = N.n_nodes(nw, c)
                 ref_names(nw::Network) = ref_index(nw).reverse
-                get_names(::Network, md::Model) = V.names_view(d, md)
+                get_names(::Network, md::Model) = V.names_view(s, md)
 
                 # Mask within parent class.
                 get_parent_index(nw::Network) =
                     OrderedDict(l => i for (l, i) in zip(ref_names(nw), indices(nw)))
                 mask(nw::Network, md::Model) =
-                    V.mask_view(D.subclass(c, N.class(nw, c).parent), md)
+                    V.mask_view(SL.subclass(c, N.class(nw, c).parent), md)
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)
@@ -148,11 +147,11 @@ construct(BP::Type{<:ClassNames}, first, second, rest...) =
 # Early check.
 
 # Names: forbid duplicates (triangular check).
-function early_check(d::D.Class, names::Vector{Symbol})
+function early_check(s::SL.Class, names::Vector{Symbol})
     already = OrderedDict{Symbol,Int}() # {name: index}
     for (i, name) in enumerate(names)
         if haskey(already, name)
-            Class = D.CamelCaseSingular(d)
+            Class = SL.CamelCaseSingular(s)
             j = already[name]
             checkerr(name,
                 "$Class $j and $i would both be named $cyan$(repr(name))$reset.";
@@ -164,9 +163,9 @@ function early_check(d::D.Class, names::Vector{Symbol})
 end
 
 # Number: forbid negative number of nodes.
-function early_check(d::D.Class, n::Int)
+function early_check(s::SL.Class, n::Int)
     n >= 0 && return n
-    class = D.snake_case_plural(d)
+    class = SL.snake_case_plural(s)
     checkerr(n, "Cannot construct a negative number of $class nodes.")
 end
 
@@ -174,18 +173,18 @@ end
 # Expand.
 
 # From names.
-function expand!(md::Model, d::D.Class, names)
-    c = D.classname(d)
+function expand!(md::Model, s::SL.Class, names)
+    c = SL.classname(s)
     nw = N.network(md)
     N.add_class!(nw, c, names)
 end
 
 # From number (generate names).
 function expand!(md::Model, bp::ClassNumber, n)
-    d = dispatcher(bp)
-    prefix = D.short_prefix(d)
+    s = selector(bp)
+    prefix = SL.short_prefix(s)
     names = (Symbol(prefix, i) for i in 1:n)
-    expand!(md, d, names)
+    expand!(md, s, names)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -198,10 +197,10 @@ obtain(vw::V.NodeMaskView, (r,)::Tuple{Int}) = r in N.class(vw).restriction
 #-------------------------------------------------------------------------------------------
 # Display.
 
-function class_shortline(d::D.Class, io::IO, md::Model)
+function class_shortline(s::SL.Class, io::IO, md::Model)
     cc, fc, rs = CS.component_color, CS.field_color, reset
-    class = D.snake_case_plural(d)
-    Class = D.CamelCaseSingular(d)
+    class = SL.snake_case_plural(s)
+    Class = SL.CamelCaseSingular(s)
     names = getproperty(md, class)._names
     n = length(names)
     names = join_elided(names, ", "; coleach = green)

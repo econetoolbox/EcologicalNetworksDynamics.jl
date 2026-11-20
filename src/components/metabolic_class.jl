@@ -12,22 +12,22 @@ module MetabolicClassDef
 
 using EcologicalNetworksDynamics: Foodweb
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, D, N, CS, NF, AD, Blueprint, Model, MetabolicClassDict, @bp_construct
+    EN, SL, N, CS, NF, AD, Blueprint, Model, MetabolicClassDict, @bp_construct
 using EcologicalNetworksDynamics.Display: cyan, reset
 
-const d, _D = D.NodeField(:species, :metabolic_class)
-D.name_variants(::_D) =
+const s, S = SL.NodeField(:species, :metabolic_class)
+SL.name_variants(::S) =
     (:metabolic_class, :metabolic_classes, :MetabolicClass, :MetabolicClasses, :class)
-D.type(::_D) = Symbol
+SL.type(::S) = Symbol
 
 # ==========================================================================================
 # Value checking.
 
 # Inputs are checked and expanded against aliasing dict.
-NF.early_check(::_D, class::Symbol) = NF.aliasing_symbol(MetabolicClassDict, class)
+NF.early_check(::S, class::Symbol) = NF.aliasing_symbol(MetabolicClassDict, class)
 
 # When a model value is available, check against species trophic status.
-function NF.late_check(md::Model, ::_D, class, (_, sp)::Tuple{Int, Symbol})
+function NF.late_check(md::Model, ::S, class, (_, sp)::Tuple{Int, Symbol})
     nw = N.network(md)
     is_producer = N.is_label(nw, sp, :producers)
     prod_class = AD.is(class, :producer, MetabolicClassDict)
@@ -45,7 +45,7 @@ end
 # Blueprints.
 
 # Forbid flattening of classes because it r(b)arely makes sense.
-NF.flat(::_D) = nothing
+NF.flat(::S) = nothing
 
 # Instead, have a blueprint *favouring* one consumer class over the other(s).
 function check_favour(s)
@@ -58,21 +58,21 @@ mutable struct Favour <: Blueprint
     favourite::Symbol
     @bp_construct Favour
 end
-NF.register_blueprint(Favour, "favourite consumer class"; d)
+NF.register_blueprint(Favour, "favourite consumer class"; s)
 NF.construct(::Type{Favour}, input) = (check_favour(input),)
 NF.bp_early_check(bp::Favour) = check_favour(bp.favourite)
 
 function NF.expand!(md::Model, ::Favour, favourite)
     f = favourite == :all_invertebrates ? :invertebrate : :ectotherm
     classes = [(is_prod ? :producer : f) for is_prod in md.producers.mask]
-    NF.expand!(md, d, classes)
+    NF.expand!(md, s, classes)
 end
 
 # ==========================================================================================
 # Component.
 
 const MetabolicClass, _MetabolicClass = NF.define_node_field_component(
-    EN, d; requires = [Foodweb], blueprints = [Favour])
+    EN, s; requires = [Foodweb], blueprints = [Favour])
 
 # Dispatch constructor to the extra blueprint.
 (::_MetabolicClass)(f::Union{Symbol,AbstractString}) = Favour(f)
