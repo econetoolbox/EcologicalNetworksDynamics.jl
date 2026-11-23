@@ -2,7 +2,7 @@ module MortalityTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.Tests: SL, SparseVector, @test_repr, @bpfails
+using EcologicalNetworksDynamics.Tests: SL, @test_repr, @bpfails
 using Test
 
 const s, S = SL.NodeField(:species, :mortality)
@@ -14,7 +14,7 @@ const s, S = SL.NodeField(:species, :mortality)
     @bpfails(Mortality(-1),
         Mortality.Flat, :construct, (s, -1.0, :uwhole, "Value cannot be negative."))
 
-    base = Model(Species("abc"), Foodweb([:a => [:b, :c], :b => :c]))
+    base = Model(Foodweb([:a => [:b, :c], :b => :c]))
     m = base + Mortality([5, 8, 13])
     @test m.d == m.mortality == [5, 8, 13]
 

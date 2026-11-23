@@ -19,16 +19,18 @@ include("edge_field.jl")
 include("kwargs.jl")
 
 # Components particularities, not already tested by the above.
-include("data_components/body_mass.jl")
+include("data_components/temperature.jl")      #
+include("data_components/species.jl")          #
+include("data_components/foodweb.jl")          # Run these first
+include("data_components/body_mass.jl")        # because they extend the above.
+include("data_components/metabolic_class.jl")  #
+include("data_components/growth_rate.jl")      #
+include("data_components/efficiency.jl")       #
+
 include("data_components/carrying_capacity.jl")
-include("data_components/efficiency.jl")
-include("data_components/foodweb.jl")
-include("data_components/growth_rate.jl")
 include("data_components/hill_exponent.jl")
-include("data_components/metabolic_class.jl")
+include("data_components/maximum_consumption.jl")
 include("data_components/metabolism.jl")
 include("data_components/mortality.jl")
-include("data_components/species.jl")
-include("data_components/temperature.jl")
 
 end

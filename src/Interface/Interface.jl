@@ -209,8 +209,8 @@ aliasing_symbol(dict, input) =
     try
         AD.standardize(input, dict)
     catch e
-        e isa AD.AliasingError || rethrow(e)
-        checkerr(input, e, rethrow) # TODO: this will fail. Newtype in an IT.RootCause?
+        e isa AD.AliasError || rethrow(e)
+        checkerr(input, sprint(showerror, e), rethrow)
     end
 
 using .Views

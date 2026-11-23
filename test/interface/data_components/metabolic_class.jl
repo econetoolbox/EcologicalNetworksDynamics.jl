@@ -37,6 +37,10 @@ const s, S = SL.NodeField(:species, :metabolic_class)
         """)
     @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]
 
+    @bpfails(MetabolicClass([:x]), MetabolicClass.Raw, :construct,
+        (s, :x, (:u, (1,)),
+            "In aliasing system for \"metabolic class\": Invalid reference: 'x'."))
+
     # Mutable classes, with expansion/conversion on.
     m.metabolic_class[1] = :e
     m.metabolic_class[:b] = 'i'
