@@ -1,4 +1,4 @@
-module TestUser
+module Interface
 
 # XXX: translate or clear previous tests under onhold/ folder.
 

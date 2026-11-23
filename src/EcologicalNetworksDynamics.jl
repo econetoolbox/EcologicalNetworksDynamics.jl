@@ -25,10 +25,6 @@ include("./codegen.jl")
 include("Storage/Storage.jl")
 const ST = Storage
 
-#  # Code: efficient model simulation.
-#  include("Differentials/Differentials.jl")
-#  using .Differentials # XXX: move after components definitions so they may rely on dispatchers?
-
 #  # Interface: ergonomic model manipulation.
 include("./ComponentsSystems/ComponentsSystems.jl")
 const CS = ComponentsSystems
@@ -48,6 +44,10 @@ const IT = Interface
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
 include("./components/main.jl")
+
+#  # Code: efficient model simulation.
+#  include("Codegen/Codegen.jl")
+#  const CG = Codegen
 
 #=
 #-------------------------------------------------------------------------------------------

@@ -40,14 +40,14 @@ This module is where most of the biological *meaning* of the package,
 with all its quirks and freedom, is implemented,
 although blurred by ad-hoc performance tricks.
 """
-module Differentials
+module Codegen
 
 using ..Display
 using ..Networks
 using Crayons
 using MacroTools
 
-const D = Differentials
+const CG = Codegen
 const I = Iterators
 
 include("./errors.jl")
@@ -119,7 +119,7 @@ function codegen(n::Network)
     # Generate simulation method.
     parnames = map(first, all_parameters)
     code = quote
-        function D.dudt!(dU, U, p::P, time)
+        function CG.dudt!(dU, U, p::P, time)
 
             # Destructure input data into variables used within generated pieces.
             (; $(parnames...)) = p
@@ -153,7 +153,7 @@ function codegen(n::Network)
             $code
         end)
         type = invokelatest() do # (just created)
-            getfield(D, name)
+            getfield(CG, name)
         end
         GEN_TYPES[key] = type
         GEN_CODE[type] = key
