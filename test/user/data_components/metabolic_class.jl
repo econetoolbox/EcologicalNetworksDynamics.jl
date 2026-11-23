@@ -3,7 +3,7 @@ module MetabolicClassTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    CS, N, SL, @test_repr, @test_disp, @test_err, @bpfails, @mutfails, addfails
+    CS, ST, SL, @test_repr, @test_disp, @test_err, @bpfails, @mutfails, addfails
 using Test
 
 const s, S = SL.NodeField(:species, :metabolic_class)
@@ -13,7 +13,7 @@ const s, S = SL.NodeField(:species, :metabolic_class)
     @test MetabolicClass isa Component
     @test_disp(MetabolicClass, # (opted-out of the 'Flat' blueprint)
         """
-        MetabolicClass (component for EcologicalNetworksDynamics.Networks.Network, expandable from:
+        MetabolicClass (component for $(ST.Network), expandable from:
           Raw: raw values,
           Map: [species => metabolic_class] map,
           Favour: favourite consumer class,
@@ -30,7 +30,7 @@ const s, S = SL.NodeField(:species, :metabolic_class)
     m = base + bp # Only then does symbols expansion happen.
     @test_disp(m,
         """
-        Model (alias for $(CS.System){$(N.Network)}) with 3 components:
+        Model (alias for $Model) with 3 components:
           - Species: 3 (:a, :b, :c)
           - Foodweb: 2 links, 1 producer, 2 consumers, 2 preys, 1 top.
           - MetabolicClass: [:invertebrate, :ectotherm, :producer]\

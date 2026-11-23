@@ -27,10 +27,10 @@ include("./errors.jl")
 const T = Tests
 
 using EcologicalNetworksDynamics:
-    EN, N, CS, I, SparseMatrix, SparseVector, errwith, withcontext
+    EN, ST, CS, I, SparseMatrix, SparseVector, errwith, withcontext
 using EcologicalNetworksDynamics.Display:
     rept, render_input, yellow, black, cyan, reset, italics
-using EcologicalNetworksDynamics.NetworkFramework: NF, SL, V, AD
+using EcologicalNetworksDynamics.NetworkFramework: NF, SL, VW, AD
 
 using .Strings:
     showcompare,
@@ -60,8 +60,8 @@ const mess = FieldsCompare.message
 )
 
 # Network errors.
-@genfailsmacro netfails EN.Networks.NetworkError
-@genfailsmacro labelfails EN.Networks.LabelError (; index = nothing)
+@genfailsmacro stofails EN.Storage.StorageError
+@genfailsmacro labelfails EN.Storage.LabelError (; index = nothing)
 
 # API utils errors.
 @genfailsmacro aliasfails EN.AliasingDicts.AliasError (; mess)
@@ -243,8 +243,8 @@ macro labelfails end
 macro listfails end
 macro methfails end
 macro mutfails end
-macro netfails end
 macro propfails end
+macro stofails end
 macro viewfails end
 
 end

@@ -7,13 +7,13 @@ using EcologicalNetworksDynamics
 using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
-    EN, N, CS, NF, SL, V,
+    EN, ST, CS, NF, SL, VW,
     @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails, SparseMatrix,
     @propfails, @test_err, @mutfails
 using Test
 
 const s, S = SL.EdgeField(:trophic, :efficiency)
-const View = V.SparseEdgeFieldView{s,Float64}
+const View = VW.SparseEdgeFieldView{s,Float64}
 # TODO: test for dense constructs when such a component shows up.
 
 @testset "EdgeField components: blueprints" begin
@@ -21,7 +21,7 @@ const View = V.SparseEdgeFieldView{s,Float64}
     @test Efficiency isa Component
     @test_disp(Efficiency,
         """
-        Efficiency (component for $(N.Network), expandable from:
+        Efficiency (component for $(ST.Network), expandable from:
           Raw: raw values,
           Matrix: a sparse matrix,
           Adjacency: [species => [species => efficiency]] adjacency list,

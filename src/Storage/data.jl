@@ -58,7 +58,7 @@ Extract a reference to underlying entry data for mutable access during transacti
 Triggers COW if needed.
 """
 function ref_for_mutating(e::Entry)
-    field = N.field(e)
+    field = ST.field(e)
     v = value(field)
     if n_networks(field) == 1
         v # The field is not shared: just extract.
@@ -76,7 +76,7 @@ Basic transactional reassignment through an entry, triggering COW if needed.
 (See module-level doc.)
 """
 function reassign!(e::Entry{T}, new::T) where {T}
-    field = N.field(e)
+    field = ST.field(e)
     if n_networks(field) == 1
         setfield!(field, :value, new)
     else
@@ -118,7 +118,7 @@ function mix!(f!, write::Entries, read::Entries, assign::Entries)
     res, new = try
         f!(write, read)
     catch e
-        e isa NetworkError && rethrow(e) # Trust local errors.
+        e isa StorageError && rethrow(e) # Trust local errors.
         throw(Corrupt())
     end
 

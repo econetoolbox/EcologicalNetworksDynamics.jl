@@ -25,7 +25,8 @@ function define_class_component(mod::Module, s::SL.Class)
         (
             quote
                 module $Plural_
-                import EcologicalNetworksDynamics.NetworkFramework: NF, Model, @bp_construct
+                import EcologicalNetworksDynamics.NetworkFramework:
+                    NF, Model, @bp_construct
                 const s = $s
                 end
             end
@@ -98,26 +99,27 @@ function define_class_properties(mod::Module, s::SL.Class; depends = [])
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework: N, V, SL, Network, Model
+                using EcologicalNetworksDynamics.NetworkFramework:
+                    ST, VW, SL, Network, Model
                 using OrderedCollections
                 const defmeth, s, c = $defmeth, $s, $(Meta.quot(c))
 
                 # Ordered index.
-                ref_index(nw::Network) = N.class(nw, c).index
+                ref_index(nw::Network) = ST.class(nw, c).index
                 get_index(nw::Network) = deepcopy(ref_index(nw).forward)
-                indices(nw::Network) = N.node_indices(nw, c)
+                indices(nw::Network) = ST.node_indices(nw, c)
 
                 # Nodes counts and nodes labels.
                 # The 'ref' variant is more efficient but unexposed.
-                get_number(nw::Network) = N.n_nodes(nw, c)
+                get_number(nw::Network) = ST.n_nodes(nw, c)
                 ref_names(nw::Network) = ref_index(nw).reverse
-                get_names(::Network, md::Model) = V.names_view(s, md)
+                get_names(::Network, md::Model) = VW.names_view(s, md)
 
                 # Mask within parent class.
                 get_parent_index(nw::Network) =
                     OrderedDict(l => i for (l, i) in zip(ref_names(nw), indices(nw)))
                 mask(nw::Network, md::Model) =
-                    V.mask_view(SL.subclass(c, N.class(nw, c).parent), md)
+                    VW.mask_view(SL.subclass(c, ST.class(nw, c).parent), md)
 
                 defmeth(get_number, :number)
                 defmeth(ref_names, :_names)
@@ -175,8 +177,8 @@ end
 # From names.
 function expand!(md::Model, s::SL.Class, names)
     c = SL.classname(s)
-    nw = N.network(md)
-    N.add_class!(nw, c, names)
+    nw = ST.network(md)
+    ST.add_class!(nw, c, names)
 end
 
 # From number (generate names).
@@ -190,9 +192,9 @@ end
 #-------------------------------------------------------------------------------------------
 # Query.
 
-obtain(vw::V.NodeNameView, (r,)::Tuple{Ref}) = N.to_label(N.class(vw).index, r)
-obtain(vw::V.NodeMaskView, (r,)::Tuple{Symbol}) = N.is_ref(N.class(vw).index, r)
-obtain(vw::V.NodeMaskView, (r,)::Tuple{Int}) = r in N.class(vw).restriction
+obtain(vw::VW.NodeNameView, (r,)::Tuple{Ref}) = ST.to_label(ST.class(vw).index, r)
+obtain(vw::VW.NodeMaskView, (r,)::Tuple{Symbol}) = ST.is_ref(ST.class(vw).index, r)
+obtain(vw::VW.NodeMaskView, (r,)::Tuple{Int}) = r in ST.class(vw).restriction
 
 #-------------------------------------------------------------------------------------------
 # Display.

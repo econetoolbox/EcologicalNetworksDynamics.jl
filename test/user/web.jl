@@ -7,12 +7,12 @@ using SparseArrays
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @bpfails, @checkfails, addfails, @propfails,
     @viewfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework: EN, SL, N, CS, NF, Views, SparseMatrix
+using EcologicalNetworksDynamics.NetworkFramework: EN, SL, ST, CS, NF, Views, SparseMatrix
 using OrderedCollections
 using Test
 
 const s, S = SL.Web(:trophic)
-const Tr = CS.@PropertySpace(trophic, N.Network)
+const Tr = CS.@PropertySpace(trophic, ST.Network)
 const View = Views.EdgeMaskView{s}
 
 @testset "Web components: blueprints" begin
@@ -20,7 +20,7 @@ const View = Views.EdgeMaskView{s}
     @test Foodweb isa Component
     @test_disp(Foodweb,
         """
-        Foodweb (component for $(N.Network), expandable from:
+        Foodweb (component for $(ST.Network), expandable from:
           Matrix: boolean matrix of foodweb links,
           Adjacency: adjacency list of foodweb links,
         )\

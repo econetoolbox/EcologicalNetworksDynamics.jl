@@ -34,7 +34,7 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics:
-    EN, N, CS, I, Networks, NetworkFramework, Option, Display, SparseMatrix, errwith, argerr
+    EN, ST, CS, I, Storage, NetworkFramework, Option, Display, SparseMatrix, errwith, argerr
 import .Display: join_elided, render_input, ns, reset, cyan, green, yellow, nsa
 import .NetworkFramework:
     NF, SL, Model, can_convert, CheckError, checkerr, LibError, selector, Ref,
@@ -93,8 +93,8 @@ const TopologyView{s} = Union{NodeTopologyView{s},EdgeMaskView{s}}
 const FieldView{s,T} = Union{NodeFieldView{s,T},EdgeFieldView{s,T}}
 let V = FieldView
     SL.fieldname(v::V) = v |> selector |> SL.fieldname # Associated fieldname.
-    N.view(v::V) = getfield(v, :view) # Underlying network data view.
-    N.entry(v::V) = v |> N.view |> N.entry # Corresponding entry.
+    ST.view(v::V) = getfield(v, :view) # Underlying network data view.
+    ST.entry(v::V) = v |> ST.view |> ST.entry # Corresponding entry.
 end
 
 #  Common to all views.
@@ -108,7 +108,7 @@ let V = AbstractView
 
     # Underlying model and network.
     NF.model(v::V) = getfield(v, :model)
-    N.network(v::V) = v |> NF.model |> N.network
+    ST.network(v::V) = v |> NF.model |> ST.network
 
     # Forbid any property access.
     Base.setproperty!(v::V, y::Symbol) = getproperty(v, y)

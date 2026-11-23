@@ -147,10 +147,10 @@ function define_web_field_component(
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework: V, NF, SL, Network, Model
+                using EcologicalNetworksDynamics.NetworkFramework: VW, NF, SL, Network, Model
                 const s, prop, CP = $s, $prop, $CP
-                SL.viewtype(::typeof(s)) = V.EdgeFieldView
-                get_value(::Network, md::Model) = V.field_view(s, md)
+                SL.viewtype(::typeof(s)) = VW.EdgeFieldView
+                get_value(::Network, md::Model) = VW.field_view(s, md)
                 NF.define_method(get_value; read_as = prop, depends = [CP])
                 if !SL.readonly(s)
                     set_value!(::Network, md::Model, input) =
@@ -391,8 +391,8 @@ _late_check(md::Model, s::SL.EdgeField, x, mref::EdgeMRef) =
 # When obtaining a raw vector.
 function late_check(md::Model, s::SL.EdgeField, vec::Vector)
     # Check plain number of provided values.
-    wb = N.web(md, s)
-    exp, act = N.n_edges(wb), length(vec)
+    wb = ST.web(md, s)
+    exp, act = ST.n_edges(wb), length(vec)
     if exp != act
         gr, cy = col.((green, cyan))
         _, s, are = nsa(exp)
@@ -404,8 +404,8 @@ function late_check(md::Model, s::SL.EdgeField, vec::Vector)
     end
     # Then check values one by one.
     tp = wb.topology
-    map(zip(N.edges(tp), vec)) do ((i, j), x)
-        a, b = N.to_label(md, s, i, j)
+    map(zip(ST.edges(tp), vec)) do ((i, j), x)
+        a, b = ST.to_label(md, s, i, j)
         _late_check(md, s, x, ((i, a), (j, b)))
     end
 end
@@ -413,7 +413,7 @@ end
 # When obtaining a matrix.
 function late_check(md::Model, s::SL.EdgeField, mat::AbstractMatrix)
     # Check dimensions.
-    (src, tgt) = N.sides(md, s)
+    (src, tgt) = ST.sides(md, s)
     exp, act = length.((src, tgt)), size(mat)
     if exp != act
         (ns, ss), (nt, st) = NF.ns.(exp)
@@ -435,7 +435,7 @@ mut_late_check(md::Model, s::SL.EdgeField, adj::Adjacency) =
 function late_lower(md::Model, s::SL.EdgeField, mat::Matrix)
     map(pairs(mat)) do (ij, x) # Column-major as expected.
         (i, j) = tuple(ij)
-        a, b = N.to_label(md, s, i, j)
+        a, b = ST.to_label(md, s, i, j)
         _late_check(md, s, x, ((i, a), (i, b)))
     end
 end
@@ -450,13 +450,13 @@ function late_lower(
 ) where complete
     T = SL.type(sl)
     # Expected set of edges.
-    tp = N.web(md, sl).topology
-    exp = tp |> N.edges |> Set
+    tp = ST.web(md, sl).topology
+    exp = tp |> ST.edges |> Set
     # Actual set of edges.
     act = Dict{Tuple{Int,Int},valtype(data)}()
     # Collect into a lower vector.
     lower = data isa SparseMatrix
-    low = lower ? sizehint!(T[], N.n_edges(tp)) : nothing
+    low = lower ? sizehint!(T[], ST.n_edges(tp)) : nothing
     for (i, j, x) in actual_edges(md, sl, data)
         act[(i, j)] = x
         lower || continue
@@ -464,7 +464,7 @@ function late_lower(
     end
     function render(set)
         pairs = I.map(set) do (i, j)
-            a, b = N.to_label(md, sl, i, j)
+            a, b = ST.to_label(md, sl, i, j)
             (i, a) => (j, b)
         end |> collect |> sort!
         join_elided(pairs, ", ", " and "; coleach = green)
@@ -494,7 +494,7 @@ function late_lower(
         nosuch = render(unexp)
         unexp = I.map(unexp) do (i, j)
             pair = if data isa Adjacency{<:Any,Symbol}
-                N.to_label(md, sl, i, j)
+                ST.to_label(md, sl, i, j)
             else
                 (i, j)
             end
@@ -512,13 +512,13 @@ function explicit_null(::Model, ::SL.EdgeField, ::Adjacency{<:Any,Int}, f, src, 
     "$f[$(repr(src))][$(repr(tgt))] = 0"
 end
 function explicit_null(md::Model, s::SL.EdgeField, ::Adjacency{<:Any,Symbol}, f, src, tgt)
-    a, b = N.to_label(md, s, src, tgt)
+    a, b = ST.to_label(md, s, src, tgt)
     "$f[$(repr(a))][$(repr(b))] = 0"
 end
 
 actual_edges(::Model, ::SL.EdgeField, spm::SparseMatrix) = zip(findnz(spm)...)
 function actual_edges(md::Model, s::SL.EdgeField, adj::Adjacency{<:Any,Int})
-    src, tgt = N.sides(md, s)
+    src, tgt = ST.sides(md, s)
     I.map(iter(adj)) do (i, j, x)
         map(zip((i, j), (src, tgt))) do (index, cl)
             n = length(cl)
@@ -533,11 +533,11 @@ function actual_edges(md::Model, s::SL.EdgeField, adj::Adjacency{<:Any,Int})
 end
 
 function actual_edges(md::Model, s::SL.EdgeField, adj::Adjacency{<:Any,Symbol})
-    src, tgt = N.sides(md, s)
+    src, tgt = ST.sides(md, s)
     I.map(iter(adj)) do (a, b, x)
         (i, j) = map(zip((a, b), (src, tgt))) do (l, cl)
             ix = cl.index
-            l in ix && return N.to_index(ix, l)
+            l in ix && return ST.to_index(ix, l)
             c = "$green$(cl.name)$reset"
             checkerr((a, b), "Not a $c node label: $cyan$(repr(l))$reset."; uref = (a, b))
         end
@@ -550,28 +550,28 @@ end
 
 # Data should have already been lowered to the correct vector at this point.
 function expand!(md::Model, s::SL.EdgeField, vec::Vector)
-    wb, f = N.web(md, s), SL.fieldname(s)
-    N.add_field!(wb, f, vec)
+    wb, f = ST.web(md, s), SL.fieldname(s)
+    ST.add_field!(wb, f, vec)
 end
 
 # Lowering adjacency lists, assuming everything checked.
 function expand!(md::Model, s::SL.EdgeField, adj::Adjacency)
     # Reorder values into canonical edge order.
     R = reftype(adj)
-    tp = N.web(md, s).topology
+    tp = ST.web(md, s).topology
     vec = [
         begin
-            i, j = N.to_ref(R, md, s, i, j)
+            i, j = ST.to_ref(R, md, s, i, j)
             adj[i][j]
         end
-        for (i, j) in N.edges(tp)
+        for (i, j) in ST.edges(tp)
     ]
     expand!(md, s, vec)
 end
 
 # Lowering flat values.
 function expand!(md::Model, s::SL.EdgeField, flat)
-    n = N.n_edges(N.web(md, s))
+    n = ST.n_edges(ST.web(md, s))
     vec = fill(flat, n)
     expand!(md, s, vec)
 end
@@ -580,23 +580,23 @@ end
 function expand!(md::Model, s::SL.EdgeField, mat::AbstractMatrix)
     SL.is_dense(s) && return mat[:]
     mat isa SparseMatrix && return nonzeros(mat)
-    tp = N.web(md, s).topology
-    vec = [mat[i, j] for (i, j) in N.edges(tp)]
+    tp = ST.web(md, s).topology
+    vec = [mat[i, j] for (i, j) in ST.edges(tp)]
     expand!(md, s, vec)
 end
 
 #-------------------------------------------------------------------------------------------
 # Obtain.
 
-function obtain(vw::V.EdgeFieldView, (a, b)::Tuple{Ref,Ref})
-    tp = N.topology(vw)
-    i, j = N.to_index(vw, a, b)
-    if SL.is_sparse(vw) && !N.is_edge(tp, i, j)
+function obtain(vw::VW.EdgeFieldView, (a, b)::Tuple{Ref,Ref})
+    tp = ST.topology(vw)
+    i, j = ST.to_index(vw, a, b)
+    if SL.is_sparse(vw) && !ST.is_edge(tp, i, j)
         T = eltype(vw)
         zero(T)
     else
-        i_raw = N.edge(tp, i, j)
-        read(N.entry(vw)) do data
+        i_raw = ST.edge(tp, i, j)
+        read(ST.entry(vw)) do data
             data[i_raw]
         end
     end
@@ -619,18 +619,18 @@ end
 
 # Complete.
 function mutate!(md::Model, s::SL.EdgeField, ::WholeData, raw) # (vec or flat)
-    N.mutate!(N.entry(md, s)) do edges
+    ST.mutate!(ST.entry(md, s)) do edges
         edges .= raw
     end
 end
 
 # Maybe incomplete.
 function mutate!(md::Model, s::SL.EdgeField, ::WholeData, adj::Adjacency)
-    tp = N.web(md, s).topology
-    src, tgt = map(s -> s.index, N.sides(md, s))
-    N.mutate!(N.entry(md, s)) do edges
+    tp = ST.web(md, s).topology
+    src, tgt = map(s -> s.index, ST.sides(md, s))
+    ST.mutate!(ST.entry(md, s)) do edges
         for (s, t, x) in iter(adj)
-            i = N.edge(tp, N.to_index.((src, tgt), (s, t)))
+            i = ST.edge(tp, ST.to_index.((src, tgt), (s, t)))
             edges[i] = x
         end
     end
@@ -638,9 +638,9 @@ end
 
 # Single-edge.
 function mutate!(md::Model, s::SL.EdgeField, (i, j)::Tuple{Int,Int}, x)
-    tp = N.web(md, s).topology
-    i_edge = N.edge(tp, i, j)
-    N.mutate!(N.entry(md, s)) do edges
+    tp = ST.web(md, s).topology
+    i_edge = ST.edge(tp, i, j)
+    ST.mutate!(ST.entry(md, s)) do edges
         edges[i_edge] = x
     end
 end
@@ -652,8 +652,8 @@ function edges_shortline(io::IO, md::Model, sl::SL.EdgeField)
     cc, fc, rs = CS.component_color, CS.field_color, reset
     fr(x) = "$fc$x$rs"
     Field = SL.CamelCaseSingular(sl)
-    n, s = N.web(md, sl).topology |> N.n_edges |> ns
-    N.read(N.entry(md, sl)) do data
+    n, s = ST.web(md, sl).topology |> ST.n_edges |> ns
+    ST.read(ST.entry(md, sl)) do data
         min, max = extrema(data)
         vals = min == max ? fr(min) : "$(fr(min)) to $(fr(max))"
         print(io, "$cc$Field$rs: $vals ($(fr(n)) value$s).")

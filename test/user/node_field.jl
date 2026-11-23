@@ -5,16 +5,16 @@ module NodeFieldTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.NetworkFramework: EN, N, CS, NF, SL, V
+using EcologicalNetworksDynamics.NetworkFramework: EN, ST, CS, NF, SL, VW
 using EcologicalNetworksDynamics.Tests:
     @test_err, @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
-    @propfails, @viewfails, @mutfails, @viewfails, @argfails, @netfails
+    @propfails, @viewfails, @mutfails, @viewfails, @argfails, @stofails
 using OrderedCollections
 using SparseArrays
 using Test
 
 const s, S = SL.NodeField(:species, :body_mass)
-const View = V.NodeFieldView{s,Float64}
+const View = VW.NodeFieldView{s,Float64}
 
 @testset "NodeField components: blueprints" begin
 
@@ -22,7 +22,7 @@ const View = V.NodeFieldView{s,Float64}
     @test BodyMass.Z <: Blueprint # Extension point for extra BP worked, but test Z later.
     @test_disp(BodyMass,
         """
-        BodyMass (component for $(N.Network), expandable from:
+        BodyMass (component for $(ST.Network), expandable from:
           Raw: raw values,
           Map: [species => body_mass] map,
           Flat: uniform value,
@@ -472,8 +472,8 @@ end
     @test e isa SparseVector{Float64}
     @test e == [0, 5, 0, 8]
 
-    @netfails(spextract(m.producers.growth, :x), "Not a class in the network: :x.")
-    @netfails(spextract(m.producers.growth, :tops),
+    @stofails(spextract(m.producers.growth, :x), "Not a class in the network: :x.")
+    @stofails(spextract(m.producers.growth, :tops),
         "Node class :tops does not superclass :producers.")
     @argfails(spextract(m.body_mass), "Cannot sparse-extract from a root class: :species.")
 

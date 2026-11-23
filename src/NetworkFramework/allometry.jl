@@ -211,12 +211,12 @@ end
 
 function expand!(md::Model, s::SL.NodeField, al::Allometry; kwargs...)
     f = SL.fieldname(s)
-    M, mc = if N.is_root(md, s)
+    M, mc = if ST.is_root(md, s)
         md.M, md.metabolic_class
     else
-        cl = N.class(md, s)
+        cl = ST.class(md, s)
         rs = cl.restriction
-        inds = N.indices(rs)
+        inds = ST.indices(rs)
         # Filter out relevant values.
         M = read(md._body_mass) do M
             [M[i] for i in inds]
@@ -227,7 +227,7 @@ function expand!(md::Model, s::SL.NodeField, al::Allometry; kwargs...)
         M, mc
     end
     data = allometric_rates(al, M, mc; kwargs...)
-    N.add_field!(cl, f, data)
+    ST.add_field!(cl, f, data)
 end
 
 #-------------------------------------------------------------------------------------------

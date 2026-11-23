@@ -7,7 +7,7 @@ by specializing implementations for their particular component.
 """
 module Selectors
 
-using EcologicalNetworksDynamics: N, Networks, Display, unimplemented, Option
+using EcologicalNetworksDynamics: ST, Storage, Display, unimplemented, Option
 using EcologicalNetworksDynamics.NetworkFramework: Model, Ref
 using .Display: cyan, reset
 
@@ -257,35 +257,35 @@ target(s::S) = s |> targetname |> class
 # ==========================================================================================
 # Use selector as static index into underlying data.
 
-N.class(md::Model, s::NodeLevel) = N.class(N.network(md), classname(s))
-N.web(md::Model, s::EdgeLevel) = N.web(N.network(md), webname(s))
-N.sides(md::Model, s::EdgeLevel) = N.sides(N.network(md), webname(s))
-N.source(md::Model, s::EdgeLevel) = N.source(N.network(md), webname(s))
-N.target(md::Model, s::EdgeLevel) = N.target(N.network(md), webname(s))
-N.entry(md::Model, s::GraphField) = N.network(md).data[fieldname(s)]
-N.entry(md::Model, s::NodeField) = N.class(md, s).data[fieldname(s)]
-N.entry(md::Model, s::EdgeField) = N.web(md, s).data[fieldname(s)]
+ST.class(md::Model, s::NodeLevel) = ST.class(ST.network(md), classname(s))
+ST.web(md::Model, s::EdgeLevel) = ST.web(ST.network(md), webname(s))
+ST.sides(md::Model, s::EdgeLevel) = ST.sides(ST.network(md), webname(s))
+ST.source(md::Model, s::EdgeLevel) = ST.source(ST.network(md), webname(s))
+ST.target(md::Model, s::EdgeLevel) = ST.target(ST.network(md), webname(s))
+ST.entry(md::Model, s::GraphField) = ST.network(md).data[fieldname(s)]
+ST.entry(md::Model, s::NodeField) = ST.class(md, s).data[fieldname(s)]
+ST.entry(md::Model, s::EdgeField) = ST.web(md, s).data[fieldname(s)]
 
 # TODO: this should resolve statically without a query to `md` :\
-N.is_root(md::Model, s::NodeLevel) = N.class(md, s) |> N.is_root
+ST.is_root(md::Model, s::NodeLevel) = ST.class(md, s) |> ST.is_root
 
 "In this context, root classes admit themselves as their own parents."
-function N.parent(md::Model, s::Subclass)
+function ST.parent(md::Model, s::Subclass)
     p = parentname(s)
     par = isnothing(p) ? classname(s) : p
-    N.class(N.network(md), par)
+    ST.class(ST.network(md), par)
 end
 
 # Use it to shorten these frequent ones.
-N.to_label(md::Model, s::NodeLevel, i) = N.to_label(N.class(md, s).index, i)
-N.to_index(md::Model, s::NodeLevel, a) = N.to_index(N.class(md, s).index, a)
-N.to_label(md::Model, s::EdgeLevel, i, j) =
-    N.to_label.(map(cl -> cl.index, N.sides(md, s)), (i, j))
-N.to_index(md::Model, s::EdgeLevel, a, b) =
-    N.to_index.(map(cl -> cl.index, N.sides(md, s)), (a, b))
-N.to_ref(R::Type, md::Model, s::Selector, u) = N.to_ref(R, N.class(md, s).index, u)
-N.to_ref(R::Type, md::Model, s::Selector, u, v) =
-    N.to_ref.((R,), map(cl -> cl.index, N.sides(md, s)), (u, v))
+ST.to_label(md::Model, s::NodeLevel, i) = ST.to_label(ST.class(md, s).index, i)
+ST.to_index(md::Model, s::NodeLevel, a) = ST.to_index(ST.class(md, s).index, a)
+ST.to_label(md::Model, s::EdgeLevel, i, j) =
+    ST.to_label.(map(cl -> cl.index, ST.sides(md, s)), (i, j))
+ST.to_index(md::Model, s::EdgeLevel, a, b) =
+    ST.to_index.(map(cl -> cl.index, ST.sides(md, s)), (a, b))
+ST.to_ref(R::Type, md::Model, s::Selector, u) = ST.to_ref(R, ST.class(md, s).index, u)
+ST.to_ref(R::Type, md::Model, s::Selector, u, v) =
+    ST.to_ref.((R,), map(cl -> cl.index, ST.sides(md, s)), (u, v))
 
 # Wide display.
 Base.show(io::IO, ::MIME"text/plain", s::Selector) = print(io, "$cyan$s$reset")

@@ -1,4 +1,4 @@
-using .Networks: Network
+using .Storage: Network
 using .ComponentsSystems: define_conflicts, has_component
 export has_component
 
@@ -14,7 +14,7 @@ const Model = CS.System{Network}
 export Model
 
 # Access underlying network or model.
-N.network(m::Model) = CS.value(m)
+ST.network(m::Model) = CS.value(m)
 model(m::Model) = m # (override for views, solutions etc.)
 
 # Define items, always for the 'Network' type.

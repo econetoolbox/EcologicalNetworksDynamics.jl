@@ -90,12 +90,12 @@ Don't produce views into mutable data that could otherwise break the COW-pattern
 [Boxing]: https://en.wikipedia.org/wiki/Boxing_(computer_programming)
 """
 
-module Networks
+module Storage
 
 import EcologicalNetworksDynamics:
     EN, I, errwrap, Display, Option, SparseMatrix, unimplemented, stopwhen
 import .Display: join_elided, rept
-const N = Networks
+const ST = Storage
 
 using Crayons
 using OrderedCollections

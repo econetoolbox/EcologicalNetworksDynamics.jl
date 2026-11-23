@@ -1,9 +1,9 @@
 module Cow
 
-using EcologicalNetworksDynamics: Networks, N
-using .Networks
+using EcologicalNetworksDynamics.Storage
+using EcologicalNetworksDynamics.Storage: ST
 
-using EcologicalNetworksDynamics.Tests: T, @test_repr, @test_disp, @netfails
+using EcologicalNetworksDynamics.Tests: T, @test_repr, @test_disp, @stofails
 using Test
 
 @testset "Basic network COW." begin
@@ -15,7 +15,7 @@ using Test
     add_field!(n, :a, 5)
     add_field!(n, :b, 8)
     add_field!(n, :v, Int[1, 2, 3])
-    @netfails add_field!(n, :v, nothing) "Network already contains a field :v."
+    @stofails add_field!(n, :v, nothing) "Network already contains a field :v."
 
     @test_disp(n, strip("""
         Network with 3 fields:
@@ -32,7 +32,7 @@ using Test
     # Reassign.
     reassign!(graph_view(n, :a), 8)
     reassign!(graph_view(n, :b), 13)
-    @netfails(
+    @stofails(
         reassign!(graph_view(n, :a), "a"),
         "Cannot assign to field of type $Int:\n\
          \"a\" ::String"
@@ -64,13 +64,13 @@ using Test
     @test_disp(m, either)
 
     # .. and is underlying aliasing..
-    field(v) = N.field(N.entry(v)) # /!\ Private. Only used here for testing.
+    field(v) = ST.field(ST.entry(v)) # /!\ Private. Only used here for testing.
     na, nb, nv = graph_view.((n,), (:a, :b, :v))
     ma, mb, mv = graph_view.((m,), (:a, :b, :v))
     @test field(ma) === field(na)
     @test field(mb) === field(nb)
     @test field(mv) === field(nv)
-    @test N.value(field(mv)) === N.value(field(nv))
+    @test ST.value(field(mv)) === ST.value(field(nv))
 
     # .. until mutation.
     reassign!(ma, ma * 10) # TODO: have this work as `ma .*= 10` ? Or is it a bad idea?
@@ -95,9 +95,9 @@ using Test
     @test !(field(ma) === field(na))
     @test field(mb) === field(nb)
     @test !(field(mv) === field(nv))
-    @test !(N.value(field(mv)) === N.value(field(nv)))
+    @test !(ST.value(field(mv)) === ST.value(field(nv)))
 
-    @netfails(graph_view(n, :bok), "There is no data :bok in the network.")
+    @stofails(graph_view(n, :bok), "There is no data :bok in the network.")
 
 end
 
@@ -109,7 +109,7 @@ end
     # Two views, same value.
     u = graph_view(n, :a)
     v = graph_view(n, :a)
-    View = nameof(N.GraphView)
+    View = nameof(ST.GraphView)
     @test_repr(u, "$View($Int[])")
     @test_repr(v, "$View($Int[])")
 

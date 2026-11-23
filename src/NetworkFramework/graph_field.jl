@@ -12,7 +12,7 @@ function define_graph_field(mod::Module, s::SL.GraphField)
     Singular_ = Symbol(Singular, :_)
 
     T = SL.type(s)
-    N.is_deep_immutable(T) || throw(
+    ST.is_deep_immutable(T) || throw(
         "Cannot pick this type for graph-level scalar data because it is mutable: $T.",
     )
 
@@ -91,20 +91,20 @@ end
 # because it has been checked for immutability anyway.
 
 function expand!(md::Model, s::SL.GraphField, low)
-    nw, f = N.network(md), SL.fieldname(s)
-    N.add_field!(nw, f, low)
+    nw, f = ST.network(md), SL.fieldname(s)
+    ST.add_field!(nw, f, low)
 end
 
 function get_value(md::Model, s::SL.GraphField)
-    entry = N.entry(md, s)
-    N.read(entry) do value
+    entry = ST.entry(md, s)
+    ST.read(entry) do value
         value # Just leak it: immutable.
     end
 end
 
 function mutate!(md::Model, s::SL.GraphField, ::WholeData, low)
-    entry = N.entry(md, s)
-    N.reassign!(entry, low)
+    entry = ST.entry(md, s)
+    ST.reassign!(entry, low)
 end
 
 #-------------------------------------------------------------------------------------------
@@ -114,7 +114,7 @@ function graph_scalar_shortline(s::SL.GraphField, io, md::Model)
     cc = CS.component_color
     fc = CS.field_color
     Field = SL.CamelCaseSingular(s)
-    entry = N.entry(md, s)
+    entry = ST.entry(md, s)
     read(entry) do value
         print(io, "$cc$Field$reset: $fc$(repr(value))$reset")
     end

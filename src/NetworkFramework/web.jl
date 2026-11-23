@@ -112,13 +112,13 @@ function define_web_properties(mod::Module, s::SL.Web; depends = [])
             quote
                 module $M
                 using EcologicalNetworksDynamics.NetworkFramework:
-                    I, N, V, SL, Network, Model
+                    I, ST, VW, SL, Network, Model
                 const s, defmeth, w = $s, $defmeth, $(Meta.quot(w))
 
-                web(nw::Network) = N.web(nw, w)
+                web(nw::Network) = ST.web(nw, w)
                 topology(nw::Network) = web(nw).topology
-                number(nw::Network) = nw |> topology |> N.n_edges
-                mask(::Network, md::Model) = V.mask_view(s, md)
+                number(nw::Network) = nw |> topology |> ST.n_edges
+                mask(::Network, md::Model) = VW.mask_view(s, md)
 
                 defmeth(topology, [:_topology])
                 defmeth(mask, [:mask, :matrix])
@@ -127,30 +127,30 @@ function define_web_properties(mod::Module, s::SL.Web; depends = [])
                 #---------------------------------------------------------------------------
                 # Edges iterators.
 
-                edges(nw::Network) = nw |> topology |> N.edges
-                forward(nw::Network) = nw |> topology |> N.forward
-                backward(nw::Network) = nw |> topology |> N.backward
+                edges(nw::Network) = nw |> topology |> ST.edges
+                forward(nw::Network) = nw |> topology |> ST.forward
+                backward(nw::Network) = nw |> topology |> ST.backward
 
                 # Variants: reverse or skip empty subgroups.
-                edges_transposed(nw::Network) = nw |> topology |> N.edges_transposed
-                forward_skip(nw::Network) = N.forward(topology(nw), skip = true)
-                backward_skip(nw::Network) = N.backward(topology(nw), skip = true)
+                edges_transposed(nw::Network) = nw |> topology |> ST.edges_transposed
+                forward_skip(nw::Network) = ST.forward(topology(nw), skip = true)
+                backward_skip(nw::Network) = ST.backward(topology(nw), skip = true)
 
                 # Produce labeled variants.
                 function labeled_flat(fn::Function)
                     function labeled(nw::Network)
-                        index = N.source(nw, w).index
+                        index = ST.source(nw, w).index
                         I.map(fn(nw)) do (i, j)
-                            N.to_label.((index,), (i, j))
+                            ST.to_label.((index,), (i, j))
                         end
                     end
                 end
                 function labeled_nested(fn::Function)
                     function labeled(nw::Network)
-                        index = N.source(nw, w).index
+                        index = ST.source(nw, w).index
                         I.map(fn(nw)) do (i, sub)
-                            (N.to_label(index, i), I.map(sub) do (j, e)
-                                (N.to_label(index, j), e)
+                            (ST.to_label(index, i), I.map(sub) do (j, e)
+                                (ST.to_label(index, j), e)
                             end)
                         end
                     end
@@ -271,7 +271,7 @@ function late_check(md::Model, s::SL.Web, adj::BinAdjacency{Symbol})
     class = SL.sourcename(s)
     index = getproperty(md, class)._index
     check_refs(s, adj) do side, lab
-        N.is_label(index, lab) ||
+        ST.is_label(index, lab) ||
             checkerr(lab, "Not a $side label among $(repr(class)).")
     end
 end
@@ -281,7 +281,7 @@ function late_check(md::Model, s::SL.Web, adj::BinAdjacency{Int})
     index = getproperty(md, class)._index
     n = length(index)
     check_refs(s, adj) do side, i
-        N.is_index(index, i) ||
+        ST.is_index(index, i) ||
             checkerr(i, "Not a valid $side $(repr(class)) index among $n nodes.")
     end
 end
@@ -315,7 +315,7 @@ end
 # Expand.
 
 function expand!(md::Model, s::SL.Web, A::AbstractSparseMatrix)
-    topology = N.SparseReflexive(A)
+    topology = ST.SparseReflexive(A)
     expand!(md, s, topology)
 end
 
@@ -323,8 +323,8 @@ function expand!(md::Model, s::SL.Web, adj::BinAdjacency)
     c = SL.sourcename(s)
     ix = getproperty(md, c)._index
     n = length(ix)
-    to_i(l) = N.to_index(ix, l)
-    topology = N.SparseReflexive(n, I.map(adj) do (src, sub)
+    to_i(l) = ST.to_index(ix, l)
+    topology = ST.SparseReflexive(n, I.map(adj) do (src, sub)
         (to_i(src), I.map(to_i, sub))
     end)
     expand!(md, s, topology)
@@ -333,8 +333,8 @@ end
 function expand!(md::Model, s::SL.Web, top::Topology)
     c = SL.sourcename(s)
     w = SL.webname(s)
-    network = N.network(md)
-    N.add_web!(network, w, (c, c), top)
+    network = ST.network(md)
+    ST.add_web!(network, w, (c, c), top)
     post_expand!(md, s)
 end
 
@@ -345,8 +345,8 @@ post_expand!(::Model, ::SL.Web) = nothing
 # Obtain.
 
 function obtain(md::Model, s::SL.Web, (i, j)::Tuple{Int,Int})
-    top = N.web(md, s).topology
-    N.is_edge(top, i, j)
+    top = ST.web(md, s).topology
+    ST.is_edge(top, i, j)
 end
 
 # Accept mixtures of ranges and scalars.

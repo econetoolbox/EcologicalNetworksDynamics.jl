@@ -135,11 +135,11 @@ function print_ref(io::IO, mref::ModelRef{Tuple})
 end
 
 "Upgrade from either to both."
-to_mref(uref::Ref, ix::N.Index) = (N.to_index(ix, uref), N.to_label(ix, uref))
+to_mref(uref::Ref, ix::ST.Index) = (ST.to_index(ix, uref), ST.to_label(ix, uref))
 to_mref((i,)::Tuple{Ref}, md::Model, s::SL.NodeLevel) =
-    ModelRef((to_mref(i, N.class(md, s).index),))
+    ModelRef((to_mref(i, ST.class(md, s).index),))
 to_mref((i, j)::Tuple{Ref,Ref}, md::Model, s::SL.EdgeLevel) =
-    ModelRef(to_mref.((i, j), map(cl -> cl.index, N.sides(md, s))))
+    ModelRef(to_mref.((i, j), map(cl -> cl.index, ST.sides(md, s))))
 to_mref(::WholeData, ::Model, ::Selector) = ModelRef(wholedata)
 
 "Upgrade underlying error with outer uref context."

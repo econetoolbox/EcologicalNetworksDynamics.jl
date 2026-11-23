@@ -4,7 +4,7 @@
 
 module EdgeDataImports
 
-using ..Networks
+using ..Storage
 
 using SparseArrays
 const I = Iterators

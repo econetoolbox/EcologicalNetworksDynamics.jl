@@ -132,12 +132,12 @@ The library should catch it and append relevant context before it bubbles up to 
 module NetworkFramework
 
 using EcologicalNetworksDynamics:
-    EN, Networks, N, ComponentsSystems, CS, I, argerr, SparseMatrix, Option, AD,
+    EN, Storage, ST, ComponentsSystems, CS, I, argerr, SparseMatrix, Option, AD,
     FailedAttempts, Display, errwith, unimplemented, paste_paths, AliasingDicts, zip_longest
 using .Display:
     render_input, yellow, green, cyan, black, reset, join_elided, rept, ns, nsa, col, colr
 using EcologicalNetworksDynamics.KwargsHelpers
-using .Networks: Topology
+using .Storage: Topology
 using .ComponentsSystems: bpdisplay, bpcol
 
 using Crayons
@@ -165,7 +165,7 @@ include("./lists.jl")
 
 # View types.
 include("./Views/Views.jl")
-const V = Views
+const VW = Views
 
 # With all this set up, components can now be authored.
 # But most of them look very much alike,

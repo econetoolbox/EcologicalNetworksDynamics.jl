@@ -3,7 +3,7 @@ module BodyMassTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    SL, N, @test_disp, @test_repr, addfails, @test_err, @bpfails, @argfails
+    SL, ST, @test_disp, @test_repr, addfails, @test_err, @bpfails, @argfails
 using Test
 
 const s, S = SL.NodeField(:species, :body_mass)

@@ -58,8 +58,8 @@ for i in collect(Iterators.product(repeat([(true, false)], 3)...))
     any(i) || continue
     (ew, vw), (er, vr), (ea, va) = (s ? (Entry, View) : (Entries, Views) for s in i)
     w, r, a = (s ? :(($n,)) : n for (s, n) in zip(i, (:w, :r, :a)))
-    me(xp) = :($Base.map($N.entry, $xp))
-    N.eval(quote
+    me(xp) = :($Base.map($ST.entry, $xp))
+    ST.eval(quote
         """
         Elide tuple for singleton entries (see `mix!`). # (on entries)
         """
@@ -74,7 +74,7 @@ for i in collect(Iterators.product(repeat([(true, false)], 3)...))
     #---------------------------------------------------------------------------------------
     # Add additional convenience when one of the tuples is empty.
     if ew === Entry #  (to not repeat the same definition)
-        N.eval(quote
+        ST.eval(quote
             """
             Transactional `mix!` without "mutated" entries (see `mix!`).
             """
@@ -87,7 +87,7 @@ for i in collect(Iterators.product(repeat([(true, false)], 3)...))
     end
 
     if er === Entry
-        N.eval(quote
+        ST.eval(quote
             """
             Transactional `mix!` without "read-only" entries (see `mix!`).
             """
@@ -103,7 +103,7 @@ for i in collect(Iterators.product(repeat([(true, false)], 3)...))
         """
         Transactional `mix!` without "reassigned" entries (see `mix!`).
         """
-        N.eval(quote
+        ST.eval(quote
             mix!(f!, w::$vw, r::$vr) = mix!(f!, $(me(w)), $(me(r)))
             mix!(f!, w::$ew, r::$er) =
                 mix!($w, $r, ()) do $w, $r

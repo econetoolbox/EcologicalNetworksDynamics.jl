@@ -1,4 +1,4 @@
-module Networks
+module Storage
 
 include("./cow.jl")
 include("./restrictions.jl")

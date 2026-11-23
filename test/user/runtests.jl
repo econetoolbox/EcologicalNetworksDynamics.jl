@@ -17,6 +17,8 @@ include("node_field.jl")
 include("allometric_node_field.jl")
 include("edge_field.jl")
 include("kwargs.jl")
+
+# Components particularities.
 include("components.jl")
 
 end

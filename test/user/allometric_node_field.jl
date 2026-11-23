@@ -9,7 +9,7 @@ module AllometricBlueprintTest
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    N, SL, AD, @test_repr, @test_disp, addfails, @bpfails, @checkfails
+    ST, SL, AD, @test_repr, @test_disp, addfails, @bpfails, @checkfails
 using Test
 
 const s, S = SL.NodeField(:producers, :growth)
@@ -19,7 +19,7 @@ const s, S = SL.NodeField(:producers, :growth)
     # Defined on the same existing component.
     @test_disp(GrowthRate,
         """
-        GrowthRate (component for $(N.Network), expandable from:
+        GrowthRate (component for $(ST.Network), expandable from:
           Raw: raw values,
           Map: [producers => growth] map,
           Flat: uniform value,

@@ -18,7 +18,7 @@ query_check(vw::EdgeView, q) = edge_check(NF.model(vw), selector(vw), q)
 
 # Views into subclasses are indexed within their parents.
 query_check(vw::NodeMaskView, q) =
-    node_check(NF.model(vw), selector(vw), q; refclass = N.parent)
+    node_check(NF.model(vw), selector(vw), q; refclass = ST.parent)
 
 # These ones, apparently specialized within julia, need disambiguation?
 # TODO: that is fragile to internal julia changes,
@@ -33,17 +33,17 @@ for Q in (Integer, AbstractVector{Bool}, AbstractVector, UnitRange)
 end
 
 # Single-value access, using either indices or labels.
-function node_check(md::Model, sl::SL.NodeLevel, (i,)::Tuple{Int}; refclass = N.class)
+function node_check(md::Model, sl::SL.NodeLevel, (i,)::Tuple{Int}; refclass = ST.class)
     n = length(refclass(md, sl))
     1 <= i <= n && return (i,)
     n, s, are = nsa(n)
     throw(VW.Error((i,), CheckError(i, "There $are $n node$s in this class."; s = sl)))
 end
 
-function node_check(md::Model, s::SL.NodeLevel, (q,)::Tuple{Label}; refclass = N.class)
+function node_check(md::Model, s::SL.NodeLevel, (q,)::Tuple{Label}; refclass = ST.class)
     l = Symbol(q)
     ix = refclass(md, s).index
-    N.is_ref(ix, l) && return (N.to_index(ix, l),)
+    ST.is_ref(ix, l) && return (ST.to_index(ix, l),)
     throw(
         VW.Error((l,), CheckError(l, "No node in this class is labeled $(repr(l))."; s)),
     )
@@ -60,17 +60,17 @@ function node_check(
     md::Model,
     s::SL.NodeLevel,
     (labels,)::Tuple{AbstractVector{<:Label}};
-    refclass = N.class,
+    refclass = ST.class,
 )
     ix = refclass(md, s).index
     res = sizehint!(Int[], length(labels))
     for (i, raw) in pairs(labels)
         l = Symbol(raw)
-        N.is_ref(ix, l) || throw(
+        ST.is_ref(ix, l) || throw(
             VW.Error((labels,),
                 CheckError(raw, "No node in this class is labeled $(repr(l)).";
                     s, uref = (1, (i,)))))
-        push!(res, N.to_index(ix, l))
+        push!(res, ST.to_index(ix, l))
     end
     (res,)
 end

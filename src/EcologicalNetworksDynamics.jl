@@ -22,16 +22,16 @@ include("./codegen.jl")
 #-------------------------------------------------------------------------------------------
 # XXX: whenever ready, big rename:
 #   [x] (Framework, F) -> (ComponentsSystems, CS)
-#   [.] (Dispatchers, D) -> (Selectors, SL)
-#   [ ] (Networks, N) -> (Data, D) 💥
-#   [ ] (NetworkFramework, NF) -> (Frontend, F) 💥
-#   [ ] (Simulation/Code) -> (Backend, B)
+#   [x] (Dispatchers, D) -> (Selectors, SL)
+#   [.] (Networks, N) -> (Storage, ST) # HERE: next up :)
+#   [ ] (NetworkFramework, NF) -> (Interface, IT)
+#   [ ] (Simulation/Code) -> (Codegen, CG)
 #
 #   => Library: list of components.
 
 # Data: parsimonious model memory representation.
-include("Networks/Networks.jl")
-const N = Networks
+include("Storage/Storage.jl")
+const ST = Storage
 
 #  # Code: efficient model simulation.
 #  include("Differentials/Differentials.jl")

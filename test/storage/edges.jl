@@ -1,10 +1,10 @@
 module Edges
 
-using EcologicalNetworksDynamics.Networks
+using EcologicalNetworksDynamics.Storage
 using SparseArrays
 using OrderedCollections
 
-using EcologicalNetworksDynamics.Tests: T, SparseMatrix, @test_repr, @test_disp, @netfails
+using EcologicalNetworksDynamics.Tests: T, SparseMatrix, @test_repr, @test_disp, @stofails
 using Test
 
 @testset "Setting webs and data." begin
@@ -44,11 +44,11 @@ using Test
           intensity: [1, 3, 4, 5, 7, 2, 9, 8]
     """))
 
-    @netfails(
+    @stofails(
         add_web!(n, :reverse, (:species, :nutrient), flow),
         "Nodes in class :species: 5, but 3 in topology sources."
     )
-    @netfails(
+    @stofails(
         add_field!(n, :flow, :too_small, [1, 2, 3]),
         "The given vector (size 3) does not match the :flow web size (8)."
     )
@@ -210,9 +210,9 @@ end
     @test c[(2, 5)] == c[(5, 2)]
 
     # Can't index outside topology.
-    @netfails(c[(9, 2)], "Not an index for :compete web with 5 sources: 9.")
-    @netfails(c[(1, 2)], "Not an edge in :compete web: (1, 2).")
-    @netfails(c[(:a, :b)], "Not an edge in :compete web: (:a, :b).")
+    @stofails(c[(9, 2)], "Not an index for :compete web with 5 sources: 9.")
+    @stofails(c[(1, 2)], "Not an edge in :compete web: (1, 2).")
+    @stofails(c[(:a, :b)], "Not an edge in :compete web: (:a, :b).")
 
     # Mutate.
     c[1] *= 2

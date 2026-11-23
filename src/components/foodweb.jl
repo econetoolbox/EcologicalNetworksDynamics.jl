@@ -1,6 +1,6 @@
 module FoodwebDef
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, N, CS, NF, SL, V, Network, Model, @alias, argerr
+    EN, ST, CS, NF, SL, VW, Network, Model, @alias, argerr
 using EcologicalNetworksDynamics.KwargsHelpers
 using EcologicalNetworksDynamics.Display: reset
 
@@ -33,44 +33,44 @@ const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, s)
 # Web-derived classes and webs.
 
 function NF.post_expand!(md::Model, s::S)
-    nw = N.network(md)
-    topology = N.web(md, s).topology
+    nw = ST.network(md)
+    topology = ST.web(md, s).topology
 
     # Every node becomes associated with a trophic level.
-    A = N.to_mask(topology)
+    A = ST.to_mask(topology)
     levels = trophic_levels(A)
-    N.add_field!(nw, :species, :trophic_level, levels)
+    ST.add_field!(nw, :species, :trophic_level, levels)
 
     # The foodweb defines new categories of species.
-    N.add_subclass!(nw, :tops, :species, N.sources_mask(topology))
-    N.add_subclass!(nw, :producers, :species, N.sinks_mask(topology))
-    N.add_subclass!(nw, :preys, :species, N.nonsources_mask(topology))
-    N.add_subclass!(nw, :consumers, :species, N.nonsinks_mask(topology))
+    ST.add_subclass!(nw, :tops, :species, ST.sources_mask(topology))
+    ST.add_subclass!(nw, :producers, :species, ST.sinks_mask(topology))
+    ST.add_subclass!(nw, :preys, :species, ST.nonsources_mask(topology))
+    ST.add_subclass!(nw, :consumers, :species, ST.nonsinks_mask(topology))
 
     # And also new webs with special trophic links highlighted.
     (; S) = md
 
     # Producers matrix.
-    prods = N.node_indices(nw, :producers)
+    prods = ST.node_indices(nw, :producers)
     mat = spzeros(Bool, S, S)
     for i in prods, j in prods
         mat[i, j] = true
     end
-    N.add_web!(nw, :producers_web, (:species, :species), N.SparseSymmetric(mat))
+    ST.add_web!(nw, :producers_web, (:species, :species), ST.SparseSymmetric(mat))
 
     # Herbivory matrix: consumers-to-producers.
     mat = spzeros(Bool, S, S)
-    for (pred, prey) in N.edges(topology)
-        N.is_sink(topology, prey) && (mat[pred, prey] = true)
+    for (pred, prey) in ST.edges(topology)
+        ST.is_sink(topology, prey) && (mat[pred, prey] = true)
     end
-    N.add_web!(nw, :herbivory, (:species, :species), N.SparseReflexive(mat))
+    ST.add_web!(nw, :herbivory, (:species, :species), ST.SparseReflexive(mat))
 
     # Carnivory matrix: consumers-to-consumers.
     mat = spzeros(Bool, S, S)
-    for (pred, prey) in N.edges(topology)
-        N.is_sink(topology, prey) || (mat[pred, prey] = true)
+    for (pred, prey) in ST.edges(topology)
+        ST.is_sink(topology, prey) || (mat[pred, prey] = true)
     end
-    N.add_web!(nw, :carnivory, (:species, :species), N.SparseReflexive(mat))
+    ST.add_web!(nw, :carnivory, (:species, :species), ST.SparseReflexive(mat))
 end
 
 depends = (Foodweb,)
@@ -126,9 +126,9 @@ end
 const l, _L = SL.NodeField(:species, :trophic_level)
 SL.type(::_L) = Float64
 SL.readonly(::_L) = true
-SL.viewtype(::_L) = V.NodeFieldView # TODO: why is that necessary?
-level(::Network, md::Model) = V.field_view(l, md)
-level_entry(nw::Network) = N.class(nw, :species).data[:trophic_level]
+SL.viewtype(::_L) = VW.NodeFieldView # TODO: why is that necessary?
+level(::Network, md::Model) = VW.field_view(l, md)
+level_entry(nw::Network) = ST.class(nw, :species).data[:trophic_level]
 NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
 NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])
 

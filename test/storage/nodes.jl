@@ -1,11 +1,11 @@
 module Nodes
 
-using EcologicalNetworksDynamics.Networks
+using EcologicalNetworksDynamics.Storage
 using OrderedCollections
 using SparseArrays
 
 using EcologicalNetworksDynamics.Tests:
-    @test_disp, @test_repr, @netfails, @labelfails, @test_err
+    @test_disp, @test_repr, @stofails, @labelfails, @test_err
 using Test
 
 @testset "Nodes classes hierarchy." begin
@@ -105,19 +105,19 @@ using Test
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
 
-    @netfails(add_class!(n, :species, "xyz"), "There is already a class named :species.")
-    @netfails(add_class!(n, :consumers, "abc"), "There is already a node labeled :a.")
-    @netfails(add_subclass!(n, :producers, :species, Bool[]),
+    @stofails(add_class!(n, :species, "xyz"), "There is already a class named :species.")
+    @stofails(add_class!(n, :consumers, "abc"), "There is already a node labeled :a.")
+    @stofails(add_subclass!(n, :producers, :species, Bool[]),
         "There is already a class named :producers.")
 
     add_field!(n, :top, collect(reverse(1:5)))
-    @netfails(add_field!(n, :top, collect(reverse(1:5))),
+    @stofails(add_field!(n, :top, collect(reverse(1:5))),
         "Network already contains a field :top.")
 
-    @netfails(add_field!(n, :producers, :growth, Int[]),
+    @stofails(add_field!(n, :producers, :growth, Int[]),
         "Class :producers already contains a field :growth.")
 
-    @netfails(add_field!(n, :producers, :spin, [1, 2]),
+    @stofails(add_field!(n, :producers, :spin, [1, 2]),
         "The given vector (size 2) does not match the :producers class size (3).")
 
     @test_err(add_field!(n, :producers, :growth, []),
@@ -200,8 +200,8 @@ end
                    mortality: [0.1, 0.2, 0.3, 0.4, 0.5]
              """))
 
-    @netfails(nodes_view(n, :bak, :growth), "There is no class :bak in the network.")
-    @netfails(nodes_view(n, :producers, :bok), "There is no data :bok in class :producers.")
+    @stofails(nodes_view(n, :bak, :growth), "There is no class :bak in the network.")
+    @stofails(nodes_view(n, :producers, :bok), "There is no data :bok in class :producers.")
     @labelfails(c[:x], :x, :mineral_bound)
     @labelfails((c[:x] = 1), :x, :mineral_bound)
 

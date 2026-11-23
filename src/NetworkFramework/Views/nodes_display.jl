@@ -44,7 +44,7 @@ type_info(v::AbstractView) = type_info(typeof(v))
 function Base.show(io::IO, v::NodeFieldView)
     print(io, inline_info(v))
     print(io, '[')
-    read(N.entry(v)) do raw
+    read(ST.entry(v)) do raw
         for (i, v) in enumerate(raw)
             print(io, repr(v))
             if i < length(raw)
@@ -58,7 +58,7 @@ end
 function Base.show(io::IO, v::NodeNameView)
     print(io, inline_info(v))
     print(io, '[')
-    for (i, name) in enumerate(N.index(v).reverse)
+    for (i, name) in enumerate(ST.index(v).reverse)
         print(io, repr(name))
         if i < length(v)
             print(io, ", ")
@@ -71,7 +71,7 @@ function Base.show(io::IO, v::NodeMaskView)
     print(io, inline_info(v))
     print(io, '[')
     n = length(v)
-    r = N.restriction(v)
+    r = ST.restriction(v)
     for i_parent in 1:n
         if i_parent in r
             print(io, '1')
@@ -90,7 +90,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodeFieldView)
     n, s = ns(length(v))
     w = SL.readonly(v) ? " readonly" : ""
     print(io, " ($n$w value$s)")
-    read(N.entry(v)) do raw
+    read(ST.entry(v)) do raw
         for v in raw
             print(io, "\n ")
             print(io, repr(v))
@@ -102,7 +102,7 @@ function Base.show(io::IO, ::MIME"text/plain", v::NodeNameView)
     print(io, display_info(v))
     n, s = ns(length(v))
     print(io, " ($n value$s)")
-    for name in N.index(v).reverse
+    for name in ST.index(v).reverse
         print(io, "\n ")
         print(io, repr(name))
     end
@@ -110,7 +110,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", v::NodeMaskView)
     print(io, display_info(v))
-    r = N.restriction(v)
+    r = ST.restriction(v)
     n, _ = ns(length(v))
     (nr, s) = ns(length(r))
     print(io, " ($nr/$n value$s)")

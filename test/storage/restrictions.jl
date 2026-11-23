@@ -1,8 +1,8 @@
 module Restrictions
 
-using EcologicalNetworksDynamics.Networks
-using .Networks:
-    Full, Range, Sparse, SparseRanges, restriction_from_mask, indices, toparent, tolocal
+using EcologicalNetworksDynamics.Storage:
+    Full, Range, Sparse, SparseRanges, restriction_from_mask, indices, toparent, tolocal,
+    expand
 using SparseArrays
 
 using Test

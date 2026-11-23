@@ -21,7 +21,7 @@ include("./tests.jl")
 include("./shared.jl")
 
 sep("Internal model representation.")
-include("./networks/runtests.jl")
+include("./storage/runtests.jl")
 
 sep("Components/Systems framework.")
 include("./components_systems/runtests.jl")

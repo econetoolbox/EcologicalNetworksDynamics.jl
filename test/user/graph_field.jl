@@ -8,7 +8,7 @@ module GraphField
 using EcologicalNetworksDynamics
 
 using EcologicalNetworksDynamics.Tests:
-    EN, N, SL, CS, @jl_basic_callfails, @test_repr, @test_disp, @test_err, @bpfails,
+    EN, ST, SL, CS, @jl_basic_callfails, @test_repr, @test_disp, @test_err, @bpfails,
     @mutfails,
     addfails
 using Test
@@ -26,11 +26,11 @@ const s, S = SL.GraphField(:temperature)
     @test_repr(Temperature, "$EN._Temperature($EN.Temperature_.Raw)")
 
     # These ones may be fancy.
-    @test_disp(typeof(Temperature), "<Temperature> (component type for $(N.Network))")
+    @test_disp(typeof(Temperature), "<Temperature> (component type for $(ST.Network))")
     @test_disp(
         Temperature,
         """
-        Temperature (component for $(N.Network), expandable from:
+        Temperature (component for $(ST.Network), expandable from:
           Raw: raw temperature value,
         )\
         """,
@@ -66,7 +66,7 @@ const s, S = SL.GraphField(:temperature)
     @test_disp(
         m,
         """
-        Model (alias for $(CS.System){$(N.Network)}) with 1 component:
+        Model (alias for $(CS.System){$(ST.Network)}) with 1 component:
           - Temperature: 215.0\
         """,
     )

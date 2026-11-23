@@ -12,7 +12,7 @@ module MetabolicClassDef
 
 using EcologicalNetworksDynamics: Foodweb
 using EcologicalNetworksDynamics.NetworkFramework:
-    EN, SL, N, CS, NF, AD, Blueprint, Model, MetabolicClassDict, @bp_construct
+    EN, SL, ST, CS, NF, AD, Blueprint, Model, MetabolicClassDict, @bp_construct
 using EcologicalNetworksDynamics.Display: cyan, reset
 
 const s, S = SL.NodeField(:species, :metabolic_class)
@@ -28,8 +28,8 @@ NF.early_check(::S, class::Symbol) = NF.aliasing_symbol(MetabolicClassDict, clas
 
 # When a model value is available, check against species trophic status.
 function NF.late_check(md::Model, ::S, class, (_, sp)::Tuple{Int, Symbol})
-    nw = N.network(md)
-    is_producer = N.is_label(nw, sp, :producers)
+    nw = ST.network(md)
+    is_producer = ST.is_label(nw, sp, :producers)
     prod_class = AD.is(class, :producer, MetabolicClassDict)
     if prod_class && !is_producer
         NF.checkerr(class,

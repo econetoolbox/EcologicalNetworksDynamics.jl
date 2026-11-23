@@ -26,8 +26,8 @@ type_info(::Type{<:EdgeMaskView}) = "edges mask"
 
 function Base.show(io::IO, v::EdgeFieldView)
     print(io, inline_info(v))
-    raw = N.entry(v)
-    l, (m, n) = N.n_edges(v), size(v)
+    raw = ST.entry(v)
+    l, (m, n) = ST.n_edges(v), size(v)
     if l == 0
         print(io, "($m×$n: no values)")
     elseif l == 1
@@ -42,7 +42,7 @@ end
 
 function Base.show(io::IO, v::EdgeMaskView)
     print(io, inline_info(v))
-    l, (m, n) = N.n_edges(N.web(v)), size(v)
+    l, (m, n) = ST.n_edges(ST.web(v)), size(v)
     print(io, "($m×$n: ")
     if l == 0
         print(io, "no edges")
@@ -56,17 +56,17 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", v::EdgeFieldView)
     print(io, display_info(v))
-    l, (m, n) = N.n_edges(v), size(v)
+    l, (m, n) = ST.n_edges(v), size(v)
     l, s = ns(l)
-    top = N.topology(v)
+    top = ST.topology(v)
     print(io, " ($m×$n: $l value$s)")
     widths = zeros(Int, n)
     lines = []
-    view = N.view(v)
+    view = ST.view(v)
     for i in 1:m
         line = []
         for j in 1:n
-            f = if N.is_edge(top, i, j)
+            f = if ST.is_edge(top, i, j)
                 x = view[(i, j)]
                 repr(x)
             else
@@ -88,16 +88,16 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", v::EdgeMaskView)
     print(io, display_info(v))
-    l, (m, n) = N.n_edges(N.web(v)), size(v)
+    l, (m, n) = ST.n_edges(ST.web(v)), size(v)
     l, s = ns(l)
-    top = N.topology(v)
+    top = ST.topology(v)
     print(io, " ($m×$n: $l edge$s)")
     widths = zeros(Int, n)
     lines = []
     for i in 1:m
         line = []
         for j in 1:n
-            f = if N.is_edge(top, i, j)
+            f = if ST.is_edge(top, i, j)
                 "1"
             else
                 "·"

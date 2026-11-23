@@ -1,6 +1,6 @@
 module Topologies
 
-using EcologicalNetworksDynamics.Networks
+using EcologicalNetworksDynamics.Storage
 using SparseArrays
 
 using Test
