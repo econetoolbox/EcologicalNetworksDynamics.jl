@@ -166,7 +166,7 @@ mut_lower(md::Model, s::Selector, _ref, ld) = lower(md, s, ld)
 "Final stage of blueprint expansion."
 expand!(md::Model, s::Selector, low) = unimplemented(expand!, md, s, low)
 expand!(md::Model, bp::Blueprint, late) =
-    expand!(md, selector(bp), NF.bp_lower(md, bp, late))
+    expand!(md, selector(bp), IT.bp_lower(md, bp, late))
 
 # ==========================================================================================
 # Query values.
@@ -232,19 +232,19 @@ function register_blueprint(
             eval(
                 quote
                     CS.implied_blueprint_for(bp::$BP, ::Type{$CPI}) =
-                        NF.implied($s, $cpi, bp)
+                        IT.implied($s, $cpi, bp)
                 end,
             )
         end
     end
     eval(quote
-        CS.early_check(bp::$BP) = NF._bp_early_check(bp)
-        CS.late_check(md::Model, bp::$BP, data) = NF._bp_late_check(md, bp, data)
-        CS.expand!(md::Model, bp::$BP, late) = NF.expand!(md, bp, late)
+        CS.early_check(bp::$BP) = IT._bp_early_check(bp)
+        CS.late_check(md::Model, bp::$BP, data) = IT._bp_late_check(md, bp, data)
+        CS.expand!(md::Model, bp::$BP, late) = IT.expand!(md, bp, late)
     end)
     isnothing(s) && return
     eval(quote
-        NF.selector(::Type{$BP}) = $s
+        IT.selector(::Type{$BP}) = $s
     end)
 end
 
@@ -252,6 +252,6 @@ end
 macro bp_construct(BP)
     BP, new = esc.((BP, :new))
     quote
-        $BP(args...; kwargs...) = $new($NF._construct($BP, args...; kwargs...)...)
+        $BP(args...; kwargs...) = $new($IT._construct($BP, args...; kwargs...)...)
     end
 end

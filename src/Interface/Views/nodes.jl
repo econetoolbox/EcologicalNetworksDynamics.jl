@@ -95,7 +95,7 @@ const NodeView{s} = Union{NodeFieldView{s},NodeNameView{s},NodeMaskView{s}}
 let V = NodeView
     SL.class(v::V) = v |> selector |> SL.class
     SL.classname(v::V) = v |> selector |> SL.classname
-    ST.class(v::V) = ST.class(NF.model(v), selector(v))
+    ST.class(v::V) = ST.class(IT.model(v), selector(v))
     ST.index(v::V) = ST.class(v).index
     ST.is_root(v::V) = v |> ST.class |> ST.is_root
 end

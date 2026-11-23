@@ -25,8 +25,8 @@ function define_class_component(mod::Module, s::SL.Class)
         (
             quote
                 module $Plural_
-                import EcologicalNetworksDynamics.NetworkFramework:
-                    NF, Model, @bp_construct
+                import EcologicalNetworksDynamics.Interface:
+                    IT, Model, @bp_construct
                 const s = $s
                 end
             end
@@ -36,28 +36,28 @@ function define_class_component(mod::Module, s::SL.Class)
     #---------------------------------------------------------------------------------------
     # Construct from a given set of names.
     bpmod.eval(quote
-        mutable struct Names <: NF.ClassNames
+        mutable struct Names <: IT.ClassNames
             names::Vector{Symbol}
             @bp_construct Names
         end
         export Names
-        $NF.register_blueprint(Names, "raw $($h) names"; s)
+        $IT.register_blueprint(Names, "raw $($h) names"; s)
     end)
 
     #---------------------------------------------------------------------------------------
     # Construct from a plain number and generate dummy names.
     bpmod.eval(quote
-        mutable struct Number <: NF.ClassNumber
+        mutable struct Number <: IT.ClassNumber
             n::Int
             @bp_construct Number
         end
         export Number
-        $NF.register_blueprint(Number, "number of $($h)"; s)
+        $IT.register_blueprint(Number, "number of $($h)"; s)
     end)
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
-    cp = NF.eval(
+    cp = IT.eval(
         quote
             define_component($(Meta.quot(Plural)), $mod; blueprints = ($bpmod,))
         end,
@@ -65,7 +65,7 @@ function define_class_component(mod::Module, s::SL.Class)
     CP = typeof(cp)
 
     # Dispatch to correct constructor depending on input given to direct call on component.
-    NF.eval(quote
+    IT.eval(quote
         SL.component(::$S) = $cp
         (::$CP)(n::Integer) = $cp.Number(n)
         (::$CP)(names::AbstractVector) = $cp.Names(names)
@@ -73,7 +73,7 @@ function define_class_component(mod::Module, s::SL.Class)
     end)
 
     # Display.
-    NF.eval(quote
+    IT.eval(quote
         CS.shortline(io::IO, model::Model, ::$CP) = class_shortline($s, io, model)
     end)
 
@@ -88,8 +88,8 @@ function define_class_properties(mod::Module, s::SL.Class; depends = [])
     c = SL.classname(s)
     short_prefix, singular, plural, Singular, Plural = SL.name_variants(s)
 
-    NF.define_propspace(plural)
-    defmeth(fn, s) = NF.define_method(fn; depends, read_as = [:($plural.$s)])
+    IT.define_propspace(plural)
+    defmeth(fn, s) = IT.define_method(fn; depends, read_as = [:($plural.$s)])
 
     # Wrap all within a separate module
     # or identical definitions end up being considered the same functions.
@@ -99,7 +99,7 @@ function define_class_properties(mod::Module, s::SL.Class; depends = [])
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework:
+                using EcologicalNetworksDynamics.Interface:
                     ST, VW, SL, Network, Model
                 using OrderedCollections
                 const defmeth, s, c = $defmeth, $s, $(Meta.quot(c))

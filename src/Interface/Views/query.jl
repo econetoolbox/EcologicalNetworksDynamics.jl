@@ -13,12 +13,12 @@ _query_check(vw::EdgeView, q::Tuple{Label,Label}) = query_check(vw, q)
 _query_check(vw::NodeView, q::Tuple{AbstractVector{<:Label}}) = query_check(vw, q)
 
 # Large underlying dispatch point (largest possible to avoid duplicating code).
-query_check(vw::NodeView, q) = node_check(NF.model(vw), selector(vw), q)
-query_check(vw::EdgeView, q) = edge_check(NF.model(vw), selector(vw), q)
+query_check(vw::NodeView, q) = node_check(IT.model(vw), selector(vw), q)
+query_check(vw::EdgeView, q) = edge_check(IT.model(vw), selector(vw), q)
 
 # Views into subclasses are indexed within their parents.
 query_check(vw::NodeMaskView, q) =
-    node_check(NF.model(vw), selector(vw), q; refclass = ST.parent)
+    node_check(IT.model(vw), selector(vw), q; refclass = ST.parent)
 
 # These ones, apparently specialized within julia, need disambiguation?
 # TODO: that is fragile to internal julia changes,
@@ -82,7 +82,7 @@ Contextualize failure within input meant to *query* data within the model.
 TODO: this error type was designed to cover much more cases that it is covering now.
 I think it may me much simplified.
 """
-mutable struct Error <: NF.LibError
+mutable struct Error <: IT.LibError
     "The total, initial query *e.g.* typical arguments to julia indexing syntax `[...]`."
     query::Tuple
     "Underlying report."
@@ -110,7 +110,7 @@ function Base.showerror(io::IO, e::Error)
                     else
                         print(io, "In element ")
                     end
-                    NF.print_ref(io, UserRef(rest...))
+                    IT.print_ref(io, UserRef(rest...))
                     print(io, " within the index")
                 end
                 println(io, ":")

@@ -129,7 +129,7 @@ and are exposed as possible extension points to component authors.
 When implementing `*_check()` steps, raise using the simplest exception message.
 The library should catch it and append relevant context before it bubbles up to user.
 """
-module NetworkFramework
+module Interface
 
 using EcologicalNetworksDynamics:
     EN, Storage, ST, ComponentsSystems, CS, I, argerr, SparseMatrix, Option, AD,
@@ -144,7 +144,7 @@ using Crayons
 using OrderedCollections
 using SparseArrays
 
-const NF = NetworkFramework
+const IT = Interface
 
 # Dedicate framework to the specific `Network` value.
 include("framework.jl")
@@ -210,7 +210,7 @@ aliasing_symbol(dict, input) =
         AD.standardize(input, dict)
     catch e
         e isa AD.AliasingError || rethrow(e)
-        checkerr(input, e, rethrow) # TODO: this will fail. Newtype in an NF.RootCause?
+        checkerr(input, e, rethrow) # TODO: this will fail. Newtype in an IT.RootCause?
     end
 
 using .Views

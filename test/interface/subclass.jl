@@ -3,7 +3,7 @@ module SubclassTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.NetworkFramework: SL, Views
+using EcologicalNetworksDynamics.Interface: SL, Views
 using EcologicalNetworksDynamics.Tests:
     @test_err, @viewfails, @immutfails, @test_repr, @test_disp
 using OrderedCollections

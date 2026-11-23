@@ -31,7 +31,7 @@ include("./aliasing_dicts.jl")
 include("./multiplex_api.jl")
 
 sep("Test user-facing behaviour.")
-include("./user/runtests.jl") # TODO: reframe as 'UI'?
+include("./interface/runtests.jl") # TODO: reframe as 'UI'?
 
 #= Silent all this during internals refactoring.
 

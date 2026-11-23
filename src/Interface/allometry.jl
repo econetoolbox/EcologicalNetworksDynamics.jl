@@ -64,8 +64,8 @@ function define_allometry_blueprints(
         (
             quote
                 module $Mod
-                using EcologicalNetworksDynamics.NetworkFramework:
-                    EN, NF, Model, Allometry, @bp_construct
+                using EcologicalNetworksDynamics.Interface:
+                    EN, IT, Model, Allometry, @bp_construct
                 const s = $s
                 end
             end
@@ -75,29 +75,29 @@ function define_allometry_blueprints(
     # Base allometry relations.
     bpmod.eval(
         quote
-            mutable struct Allometric <: NF.AllometricBlueprint
+            mutable struct Allometric <: IT.AllometricBlueprint
                 allometry::Allometry
                 @bp_construct Allometric
             end
             export Allometric
-            NF.register_blueprint(Allometric, "allometric rates"; s,
+            IT.register_blueprint(Allometric, "allometric rates"; s,
                 depends = [EN.BodyMass, EN.MetabolicClass])
-            NF.allometry_template(::Type{Allometric}) = $allometric_template
+            IT.allometry_template(::Type{Allometric}) = $allometric_template
         end)
 
     # Temperature-dependent allometry relations.
     bpmod.eval(
         quote
-            mutable struct Temperature <: NF.TemperatureAllometricBlueprint
+            mutable struct Temperature <: IT.TemperatureAllometricBlueprint
                 E_a::Float64
                 allometry::Allometry
                 @bp_construct Temperature
             end
             export Temperature
-            NF.register_blueprint(Temperature,
+            IT.register_blueprint(Temperature,
                 "allometric rates and activation energy"; s,
                 depends = [EN.BodyMass, EN.MetabolicClass, EN.Temperature])
-            NF.allometry_template(::Type{Temperature}) = $(last(temperature_template))
+            IT.allometry_template(::Type{Temperature}) = $(last(temperature_template))
         end)
 
     bpmod
@@ -119,7 +119,7 @@ function construct(BP::Type{<:AllometricBlueprint}; kw...)
 end
 
 function construct(BP::Type{<:TemperatureAllometricBlueprint}, E_a, al::Allometry)
-    E_a = NF.convert(Float64, E_a)
+    E_a = IT.convert(Float64, E_a)
     al = cst_early_check(BP, al)
     (E_a, al)
 end

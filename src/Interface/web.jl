@@ -30,8 +30,8 @@ function define_reflexive_web_component(mod::Module, s::SL.Web)
         (
             quote
                 module $Web_
-                using EcologicalNetworksDynamics.NetworkFramework:
-                    NF, SparseMatrix, BinAdjacency, Model, @bp_construct
+                using EcologicalNetworksDynamics.Interface:
+                    IT, SparseMatrix, BinAdjacency, Model, @bp_construct
                 const s, src, Class = $s, $src, $Class
                 end
             end
@@ -42,12 +42,12 @@ function define_reflexive_web_component(mod::Module, s::SL.Web)
     # From matrix.
     bpmod.eval(
         quote
-            mutable struct Matrix <: NF.ReflexiveWebMatrixBlueprint
+            mutable struct Matrix <: IT.ReflexiveWebMatrixBlueprint
                 A::SparseMatrix{Bool}
                 @bp_construct Matrix
             end
             export Matrix
-            NF.register_blueprint(Matrix, "boolean matrix of $($w) links"; s,
+            IT.register_blueprint(Matrix, "boolean matrix of $($w) links"; s,
                 implied = [Class], # Infer number of class nodes from matrix size.
             )
         end,
@@ -57,12 +57,12 @@ function define_reflexive_web_component(mod::Module, s::SL.Web)
     # From ajacency list.
     bpmod.eval(
         quote
-            mutable struct Adjacency <: NF.ReflexiveWebAdjacencyBlueprint
+            mutable struct Adjacency <: IT.ReflexiveWebAdjacencyBlueprint
                 A::BinAdjacency
                 @bp_construct Adjacency
             end
             export Adjacency
-            NF.register_blueprint(Adjacency, "adjacency list of $($w) links"; s,
+            IT.register_blueprint(Adjacency, "adjacency list of $($w) links"; s,
                 implied = [Class], # Infer number or names of class nodes from the lists.
             )
         end,
@@ -71,7 +71,7 @@ function define_reflexive_web_component(mod::Module, s::SL.Web)
     # ======================================================================================
     # Component and generic constructors.
 
-    cp = NF.eval(
+    cp = IT.eval(
         quote
             define_component(
                 $(Meta.quot(Web)),
@@ -82,9 +82,9 @@ function define_reflexive_web_component(mod::Module, s::SL.Web)
         end,
     )
     CP = typeof(cp)
-    NF.eval(quote
+    IT.eval(quote
         $SL.component(::$S) = $cp
-        (::$CP)(args...; kwargs...) = NF.construct($s, $cp, args...; kwargs...)
+        (::$CP)(args...; kwargs...) = IT.construct($s, $cp, args...; kwargs...)
     end)
 
     define_web_properties(mod, s; depends = [CP])
@@ -99,19 +99,19 @@ function define_web_properties(mod::Module, s::SL.Web; depends = [])
     web, Web = SL.name_variants(s)
     prop, Prop = SL.propnames(s)
 
-    NF.define_propspace(prop)
-    NF.define_propspace(:($prop.iter))
-    NF.define_propspace(:($prop.iter.index))
-    NF.define_propspace(:($prop.iter.label))
+    IT.define_propspace(prop)
+    IT.define_propspace(:($prop.iter))
+    IT.define_propspace(:($prop.iter.index))
+    IT.define_propspace(:($prop.iter.label))
     defmeth(fn, s) =
-        NF.define_method(fn; depends, read_as = map(s -> paste_paths(prop, s), s))
+        IT.define_method(fn; depends, read_as = map(s -> paste_paths(prop, s), s))
 
     M = Symbol(Web, :Methods)
     mod.eval(
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework:
+                using EcologicalNetworksDynamics.Interface:
                     I, ST, VW, SL, Network, Model
                 const s, defmeth, w = $s, $defmeth, $(Meta.quot(w))
 
@@ -229,12 +229,12 @@ implied(s::SL.Web, Class::Component, bp::ReflexiveWebAdjacencyBlueprint) =
     implied(s, Class, bp.A) # Dispatch over ref type: indices or labels.
 
 function implied(::SL.Web, Class::Component, adj::BinAdjacency{Symbol})
-    refs = NF.all_refs(adj)
+    refs = IT.all_refs(adj)
     Class.Names(collect(refs))
 end
 
 function implied(::SL.Web, Class::Component, adj::BinAdjacency{Int})
-    refs = NF.all_refs(adj)
+    refs = IT.all_refs(adj)
     Class.Number(last(refs))
 end
 

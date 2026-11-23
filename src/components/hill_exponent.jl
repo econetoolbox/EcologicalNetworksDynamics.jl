@@ -6,17 +6,17 @@ export HillExponent
 
 module HillExponentDef
 
-using EcologicalNetworksDynamics: EN, D, NF
+using EcologicalNetworksDynamics: EN, D, IT
 
 const d = D.GraphField(:hill_exponent)
 const DT = typeof(d)
 
 D.name_variants(::DT) = (:h, :hill_exponent, :HillExponent)
 D.type(::DT) = Float64
-NF.check(::DT, input) = NF.non_negative(Float64, input)
+IT.check(::DT, input) = IT.non_negative(Float64, input)
 
 # Codegen + exec.
-NF.define_graph_scalar(EN, d)
+IT.define_graph_scalar(EN, d)
 using .EN: HillExponent, _HillExponent
 
 end

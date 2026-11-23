@@ -20,14 +20,6 @@ include("./errors.jl")
 include("./codegen.jl")
 
 #-------------------------------------------------------------------------------------------
-# XXX: whenever ready, big rename:
-#   [x] (Framework, F) -> (ComponentsSystems, CS)
-#   [x] (Dispatchers, D) -> (Selectors, SL)
-#   [.] (Networks, N) -> (Storage, ST) # HERE: next up :)
-#   [ ] (NetworkFramework, NF) -> (Interface, IT)
-#   [ ] (Simulation/Code) -> (Codegen, CG)
-#
-#   => Library: list of components.
 
 # Data: parsimonious model memory representation.
 include("Storage/Storage.jl")
@@ -50,8 +42,8 @@ const AD = AliasingDicts
 include("./multiplex_api.jl")
 
 # Bring this all together into a library for component authors.
-include("./NetworkFramework/NetworkFramework.jl")
-const NF = NetworkFramework
+include("./Interface/Interface.jl")
+const IT = Interface
 
 # The actual user-facing components of the package are defined there,
 # connecting them to the internals via the framework.
@@ -90,7 +82,7 @@ include("Tests/Tests.jl")
 using .MultiplexApi
 export interactions_names, multiplex_parameters_names
 
-using .NetworkFramework
+using .Interface
 export Blueprint, Component, Model, has_component, Allometry
 export extract, spextract
 

@@ -30,7 +30,7 @@ using EcologicalNetworksDynamics:
     EN, ST, CS, I, SparseMatrix, SparseVector, errwith, withcontext
 using EcologicalNetworksDynamics.Display:
     rept, render_input, yellow, black, cyan, reset, italics
-using EcologicalNetworksDynamics.NetworkFramework: NF, SL, VW, AD
+using EcologicalNetworksDynamics.Interface: IT, SL, VW, AD
 
 using .Strings:
     showcompare,
@@ -90,7 +90,7 @@ end
 
 "Test various possible failures during `Framework.add!()`."
 module addfails
-    using ..T: T, I, CS, NF, @genfailsmacro, mess, rept, WrongField, italics, reset
+    using ..T: T, I, CS, IT, @genfailsmacro, mess, rept, WrongField, italics, reset
     # (erroring here is always in the context of rethrowing from `catch`ing the checked err)
     reerrwith(args...; kwargs...) = T.errwith(args..., rethrow; kwargs...)
     "The `node` fields on `AddError` is easily tested as a *path* of blueprint types."
@@ -135,7 +135,7 @@ module addfails
     # That one is more involved..
     @genfailsmacro check CS.HookCheckFailure (;
         # ..because it's forwarding underlying library exception..
-        err = T.errfield(NF.BlueprintError),
+        err = T.errfield(IT.BlueprintError),
         # ..so this should always be redundant with the above's :early vs :late 'step':
         late = nothing,
         # .. and the first element in the path should always be redundant with BP type:
@@ -151,13 +151,13 @@ end
 """
 Test report ref values,
 using `:u` and `:m` to refer to either `UserRef` or `ModelRef`,
-and `:whole` to expect `$(NF.wholedata)`.
+and `:whole` to expect `$(IT.wholedata)`.
 """
 function compare_refs((type, ref)::Tuple{Symbol,Any}, act)
     T = if type == :u
-        NF.UserRef
+        IT.UserRef
     elseif type == :m
-        NF.ModelRef
+        IT.ModelRef
     else
         errwith("Invalid expected input reference qualifier:", rethrow) do io
             showcompare(io, "$cyan:u$reset (`UserRef`) or $cyan:r$reset (`ModelRef`)", type)
@@ -167,7 +167,7 @@ function compare_refs((type, ref)::Tuple{Symbol,Any}, act)
         showcompare(io, T, act)
     end
     if ref == :whole
-        ref = NF.wholedata
+        ref = IT.wholedata
     end
     FieldsCompare.value(ref, act.ref)
 end
@@ -195,32 +195,32 @@ test_selector(exp::Tuple{Vararg{Symbol}}, act::SL.Selector) =
 
 const ref = compare_refs
 
-FieldsCompare.default(exp::NamedTuple, act::NF.Allometry) =
-    FieldsCompare.default(NF.Allometry(; exp...), act)
+FieldsCompare.default(exp::NamedTuple, act::IT.Allometry) =
+    FieldsCompare.default(IT.Allometry(; exp...), act)
 
 #-------------------------------------------------------------------------------------------
 # Exposed library errors.
 
-@genfailsmacro convfails NF.ConvertError (; mess, ref)
-@genfailsmacro listfails NF.ListError (;
+@genfailsmacro convfails IT.ConvertError (; mess, ref)
+@genfailsmacro listfails IT.ListError (;
     mess, tag = nothing, path = FieldsCompare.value)
-@genfailsmacro checkfails NF.CheckError (; mess, ref)
+@genfailsmacro checkfails IT.CheckError (; mess, ref)
 
-const src = T.errfield(NF.CheckError)
-@genfailsmacro bpfails NF.BlueprintError (; src)
-@genfailsmacro mutfails NF.MutationError (; src)
+const src = T.errfield(IT.CheckError)
+@genfailsmacro bpfails IT.BlueprintError (; src)
+@genfailsmacro mutfails IT.MutationError (; src)
 
-@genfailsmacro viewfails NF.Views.Error (; src, query = nothing)
+@genfailsmacro viewfails IT.Views.Error (; src, query = nothing)
 #                                               ^^^^^ (redundant with test lhs)
-@genfailsmacro immutfails NF.Views.ImmutableError
+@genfailsmacro immutfails IT.Views.ImmutableError
 
 # Systematic redirection of `src` field testing for these type.
 # (useful to have addfails.@check invocations correctly forward flow)
-T.test_errsource(err, E::Type{NF.CheckError}, fields, checks = (;)) =
+T.test_errsource(err, E::Type{IT.CheckError}, fields, checks = (;)) =
     @invoke T.test_errsource(err, E::Type, fields, (; mess, ref, checks...))
-T.test_errsource(err, E::Type{NF.BlueprintError}, fields, checks = (;)) =
+T.test_errsource(err, E::Type{IT.BlueprintError}, fields, checks = (;)) =
     @invoke T.test_errsource(err, E::Type, fields,
-        (; src = T.errfield(NF.CheckError), checks...))
+        (; src = T.errfield(IT.CheckError), checks...))
 
 #-------------------------------------------------------------------------------------------
 # (reassure JuliaLS)

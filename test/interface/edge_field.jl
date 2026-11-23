@@ -7,7 +7,7 @@ using EcologicalNetworksDynamics
 using SparseArrays
 
 import EcologicalNetworksDynamics.Tests:
-    EN, ST, CS, NF, SL, VW,
+    EN, ST, CS, IT, SL, VW,
     @test_repr, @test_disp, @bpfails, addfails, @viewfails, @checkfails, SparseMatrix,
     @propfails, @test_err, @mutfails
 using Test
@@ -72,8 +72,8 @@ const View = VW.SparseEdgeFieldView{s,Float64}
         Cannot convert input to either:
           - $(Float64)
           - $(Vector{Float64})
-          - $(NF.SparseMatrix{Float64})
-          - $(NF.Adjacency{Float64})
+          - $(IT.SparseMatrix{Float64})
+          - $(IT.Adjacency{Float64})
         (see attempts down the stacktrace)\
         """)
 
@@ -132,7 +132,7 @@ const View = VW.SparseEdgeFieldView{s,Float64}
     # Construct.
 
     bp = Efficiency.Matrix(e)
-    @test bp.e isa NF.SparseMatrix{Float64}
+    @test bp.e isa IT.SparseMatrix{Float64}
     @test bp == Efficiency(e)
     @test Efficiency.Matrix(Bool[0 1; 1 0]).e == [0 1; 1 0]
     @test Efficiency(Bool[0 1; 1 0]).e == [0 1; 1 0]
@@ -160,8 +160,8 @@ const View = VW.SparseEdgeFieldView{s,Float64}
         Cannot convert input to either:
           - $(Float64)
           - $(Vector{Float64})
-          - $(NF.SparseMatrix{Float64})
-          - $(NF.Adjacency{Float64})
+          - $(IT.SparseMatrix{Float64})
+          - $(IT.Adjacency{Float64})
         (see attempts down the stacktrace)\
         """)
 
@@ -242,8 +242,8 @@ const View = VW.SparseEdgeFieldView{s,Float64}
 
     bp_r = Efficiency.Adjacency(adj_r)
     bp_i = Efficiency.Adjacency(adj_i)
-    @test bp_r.e isa NF.Adjacency{Float64,Symbol}
-    @test bp_i.e isa NF.Adjacency{Float64,Int}
+    @test bp_r.e isa IT.Adjacency{Float64,Symbol}
+    @test bp_i.e isa IT.Adjacency{Float64,Int}
     @test bp_r == Efficiency(adj_r)
     @test bp_i == Efficiency(adj_i)
     @test_repr(bp_r,
@@ -281,8 +281,8 @@ const View = VW.SparseEdgeFieldView{s,Float64}
         Cannot convert input to either:
           - $(Float64)
           - $(Vector{Float64})
-          - $(NF.SparseMatrix{Float64})
-          - $(NF.Adjacency{Float64})
+          - $(IT.SparseMatrix{Float64})
+          - $(IT.Adjacency{Float64})
         (see attempts down the stacktrace)\
         """)
 
@@ -424,7 +424,7 @@ const View = VW.SparseEdgeFieldView{s,Float64}
     @test has_component(m, Efficiency)
     @test_disp(m, # Special flat-display.
         """
-        Model (alias for $(NF.Model)) with 3 components:
+        Model (alias for $(IT.Model)) with 3 components:
           - Species: 4 (:a, :b, :c, :d)
           - Foodweb: 4 links, 1 producer, 3 consumers, 3 preys, 1 top.
           - Efficiency: 0.8 (4 values).\
@@ -675,7 +675,7 @@ end
           - $Float64
           - $(Vector{Float64})
           - $(SparseMatrix{Float64})
-          - $(NF.Adjacency{Float64})
+          - $(IT.Adjacency{Float64})
         (see attempts down the stacktrace)
         Received: $wrong  ::$(typeof(wrong))\
         """)

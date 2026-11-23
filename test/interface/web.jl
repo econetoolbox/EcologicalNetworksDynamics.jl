@@ -7,7 +7,7 @@ using SparseArrays
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @bpfails, @checkfails, addfails, @propfails,
     @viewfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework: EN, SL, ST, CS, NF, Views, SparseMatrix
+using EcologicalNetworksDynamics.Interface: EN, SL, ST, CS, IT, Views, SparseMatrix
 using OrderedCollections
 using Test
 
@@ -70,7 +70,7 @@ const View = Views.EdgeMaskView{s}
     @bpfails(Foodweb.Matrix(:a),
         Foodweb.Matrix, :construct,
         (s, :a, :uwhole,
-            "Cannot convert to `$(NF.SparseMatrix{Bool})`:\n\
+            "Cannot convert to `$(IT.SparseMatrix{Bool})`:\n\
              Would not convert to a sparse structure when the input has no `size`."))
 
     #---------------------------------------------------------------------------------------
@@ -232,8 +232,8 @@ const View = Views.EdgeMaskView{s}
     @checkfails(Foodweb(input), s, input, :uwhole,
         """
         Cannot convert input to either:
-          - $(NF.SparseMatrix{Bool})
-          - $(NF.BinAdjacency)
+          - $(IT.SparseMatrix{Bool})
+          - $(IT.BinAdjacency)
         (see attempts down the stacktrace)\
         """)
 

@@ -40,7 +40,7 @@ function define_web_field_component(
         (
             quote
                 module $Value_
-                import EcologicalNetworksDynamics.NetworkFramework: NF, SL, @bp_construct
+                import EcologicalNetworksDynamics.Interface: IT, SL, @bp_construct
                 const w, s, T, sparse, Mat = $w, $s, $T, $sparse, $Mat
                 const Web = SL.component(w)
                 const _Web = typeof(Web)
@@ -53,12 +53,12 @@ function define_web_field_component(
     # From raw values.
 
     bpmod.eval(quote
-        mutable struct Raw <: NF.EdgeFieldRawBlueprint
+        mutable struct Raw <: IT.EdgeFieldRawBlueprint
             $short::Vector{T}
             @bp_construct Raw
         end
         export Raw
-        NF.register_blueprint(Raw, "raw values"; s)
+        IT.register_blueprint(Raw, "raw values"; s)
     end)
 
     #---------------------------------------------------------------------------------------
@@ -66,12 +66,12 @@ function define_web_field_component(
 
     bpmod.eval(
         quote
-            mutable struct Matrix <: NF.EdgeFieldMatrixBlueprint
+            mutable struct Matrix <: IT.EdgeFieldMatrixBlueprint
                 $short::Mat{T}
                 @bp_construct Matrix
             end
             export Matrix
-            NF.register_blueprint(Matrix, "a $(sparse ? "sparse " : "")matrix"; s,
+            IT.register_blueprint(Matrix, "a $(sparse ? "sparse " : "")matrix"; s,
                 implied = [Web], # Imply web from matrix structure.
             )
         end,
@@ -82,12 +82,12 @@ function define_web_field_component(
 
     bpmod.eval(
         quote
-            mutable struct Adjacency <: NF.EdgeFieldAdjacencyBlueprint
-                $short::NF.Adjacency{T}
+            mutable struct Adjacency <: IT.EdgeFieldAdjacencyBlueprint
+                $short::IT.Adjacency{T}
                 @bp_construct Adjacency
             end
             export Adjacency
-            NF.register_blueprint(Adjacency,
+            IT.register_blueprint(Adjacency,
                 $"[$src => [$tgt => $field]] adjacency list"; s,
                 implied = [Web], # Imply web from adjacency list keys.
             )
@@ -100,12 +100,12 @@ function define_web_field_component(
     if may_flat(s)
         bpmod.eval(
             quote
-                mutable struct Flat <: NF.EdgeFieldFlatBlueprint
+                mutable struct Flat <: IT.EdgeFieldFlatBlueprint
                     $short::T
                     @bp_construct Flat
                 end
                 export Flat
-                NF.register_blueprint(Flat, "uniform value"; s)
+                IT.register_blueprint(Flat, "uniform value"; s)
             end,
         )
     end
@@ -116,7 +116,7 @@ function define_web_field_component(
     S = typeof(s)
     cp = mod.eval(
         quote
-            NF.define_component(
+            IT.define_component(
                 $(Meta.quot(Value)),
                 $mod;
                 requires = ($Web, $(requires...)),
@@ -147,15 +147,15 @@ function define_web_field_component(
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework: VW, NF, SL, Network, Model
+                using EcologicalNetworksDynamics.Interface: VW, IT, SL, Network, Model
                 const s, prop, CP = $s, $prop, $CP
                 SL.viewtype(::typeof(s)) = VW.EdgeFieldView
                 get_value(::Network, md::Model) = VW.field_view(s, md)
-                NF.define_method(get_value; read_as = prop, depends = [CP])
+                IT.define_method(get_value; read_as = prop, depends = [CP])
                 if !SL.readonly(s)
                     set_value!(::Network, md::Model, input) =
-                        NF.mut_set!(md, s, NF.wholedata, input)
-                    NF.define_method(set_value!; write_as = prop, depends = [CP])
+                        IT.mut_set!(md, s, IT.wholedata, input)
+                    IT.define_method(set_value!; write_as = prop, depends = [CP])
                 end
                 end
             end
@@ -163,7 +163,7 @@ function define_web_field_component(
     )
 
     # Display.
-    NF.eval(
+    IT.eval(
         quote
             CS.shortline(io::IO, md::Model, ::$CP) = edges_shortline(io, md, $s)
         end,
@@ -260,7 +260,7 @@ edge_pairs(adj::Adjacency) = I.map(((src, tgt, x),) -> ((src, tgt), x), iter(adj
 function bp_early_check(
     bp::Union{EdgeFieldRawBlueprint,EdgeFieldMatrixBlueprint,EdgeFieldAdjacencyBlueprint},
 )
-    s, data = selector(bp), NF.data(bp)
+    s, data = selector(bp), IT.data(bp)
     SL.is_symmetric(SL.web(s)) && check_symmetric(s, data)
     early_lower(s, data) do ref, x
         urefguard(ref) do
@@ -416,7 +416,7 @@ function late_check(md::Model, s::SL.EdgeField, mat::AbstractMatrix)
     (src, tgt) = ST.sides(md, s)
     exp, act = length.((src, tgt)), size(mat)
     if exp != act
-        (ns, ss), (nt, st) = NF.ns.(exp)
+        (ns, ss), (nt, st) = IT.ns.(exp)
         gr, cy = col.((green, cyan))
         checkerr(mat,
             "There are $(gr(ns)) source$ss and $(gr(nt)) target$st, \

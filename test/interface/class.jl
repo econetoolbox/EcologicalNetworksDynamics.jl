@@ -6,7 +6,7 @@ using EcologicalNetworksDynamics
 using EcologicalNetworksDynamics.Tests:
     @test_repr, @test_disp, @test_err, @jl_basic_callfails, @bpfails,
     @viewfails, @propfails, addfails, @immutfails
-using EcologicalNetworksDynamics.NetworkFramework: SL, CS, NF, Network, Views
+using EcologicalNetworksDynamics.Interface: SL, CS, IT, Network, Views
 using OrderedCollections
 using SparseArrays
 using Test

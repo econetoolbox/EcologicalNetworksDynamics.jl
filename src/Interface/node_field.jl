@@ -49,7 +49,7 @@ function define_node_field_component(
         (
             quote
                 module $Singular_
-                import EcologicalNetworksDynamics.NetworkFramework: NF, SL, @bp_construct
+                import EcologicalNetworksDynamics.Interface: IT, SL, @bp_construct
                 const s, T, Class = $s, $T, $Class
                 end
             end
@@ -61,12 +61,12 @@ function define_node_field_component(
 
     bpmod.eval(
         quote
-            mutable struct Raw <: NF.NodeFieldRawBlueprint
+            mutable struct Raw <: IT.NodeFieldRawBlueprint
                 $short::Vector{T}
                 @bp_construct Raw
             end
             export Raw
-            NF.register_blueprint(Raw, "raw values"; s,
+            IT.register_blueprint(Raw, "raw values"; s,
                 implied = [Class], # Infer number of class nodes from vector size.
             )
         end,
@@ -77,12 +77,12 @@ function define_node_field_component(
 
     bpmod.eval(
         quote
-            mutable struct Map <: NF.NodeFieldMapBlueprint
-                $short::NF.Map{T}
+            mutable struct Map <: IT.NodeFieldMapBlueprint
+                $short::IT.Map{T}
                 @bp_construct Map
             end
             export Map
-            NF.register_blueprint(Map, $"[$class => $field] map"; s,
+            IT.register_blueprint(Map, $"[$class => $field] map"; s,
                 implied = [Class], # Infer class nodes from map keys.
             )
         end,
@@ -94,12 +94,12 @@ function define_node_field_component(
     if may_flat(s)
         bpmod.eval(
             quote
-                mutable struct Flat <: NF.NodeFieldFlatBlueprint
+                mutable struct Flat <: IT.NodeFieldFlatBlueprint
                     $short::T
                     @bp_construct Flat
                 end
                 export Flat
-                NF.register_blueprint(Flat, "uniform value"; s, depends = [Class])
+                IT.register_blueprint(Flat, "uniform value"; s, depends = [Class])
             end,
         )
     end
@@ -107,7 +107,7 @@ function define_node_field_component(
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
-    cp = NF.eval(
+    cp = IT.eval(
         quote
             define_component(
                 $(Meta.quot(Singular)),
@@ -118,17 +118,17 @@ function define_node_field_component(
         end,
     )
     CP = typeof(cp)
-    NF.eval(
+    IT.eval(
         quote
             $SL.component(::$S) = $cp
             (::$CP)($short, args...; kwargs...) =
-                NF.construct($s, $cp, $short, args...; kwargs...)
+                IT.construct($s, $cp, $short, args...; kwargs...)
         end,
     )
 
     if may_flat(s)
         R = flat(s) # Receiver type.
-        NF.eval(quote
+        IT.eval(quote
             (::$CP)($short::$R) = $cp.Flat($short)
         end)
     end
@@ -140,18 +140,18 @@ function define_node_field_component(
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework:
-                    VW, ST, NF, SL, Network, Model
+                using EcologicalNetworksDynamics.Interface:
+                    VW, ST, IT, SL, Network, Model
                 const s, prop, CP = $s, $prop, $CP
                 SL.viewtype(::typeof(s)) = VW.NodeFieldView
                 get_value(::Network, md::Model) = VW.field_view(s, md)
                 get_entry(::Network, md::Model) = ST.entry(md, s)
-                NF.define_method(get_value; read_as = prop, depends = [CP])
-                NF.define_method(get_entry; read_as = Symbol.((:_,), prop), depends = [CP])
+                IT.define_method(get_value; read_as = prop, depends = [CP])
+                IT.define_method(get_entry; read_as = Symbol.((:_,), prop), depends = [CP])
                 if !SL.readonly(s)
                     set_value!(::Network, md::Model, input) =
-                        NF.mut_set!(md, s, NF.wholedata, input)
-                    NF.define_method(set_value!; write_as = prop, depends = [CP])
+                        IT.mut_set!(md, s, IT.wholedata, input)
+                    IT.define_method(set_value!; write_as = prop, depends = [CP])
                 end
                 end
             end
@@ -159,7 +159,7 @@ function define_node_field_component(
     )
 
     # Display.
-    NF.eval(
+    IT.eval(
         quote
             CS.shortline(io::IO, md::Model, ::$CP) = nodes_shortline(io, md, $s)
         end,
@@ -214,7 +214,7 @@ implied(s::SL.NodeField, Class::Component, bp::NodeFieldMapBlueprint) =
     implied(s, Class, data(bp)) # Dispatch to either symbol or integer refs.
 
 function implied(::SL.NodeField, Class::Component, map::Map{<:Any,Symbol})
-    refs = NF.keys(map)
+    refs = IT.keys(map)
     Class.Names(collect(refs))
 end
 
@@ -249,7 +249,7 @@ end
 
 # On expansion, checked values (possibly lowered) are collected.
 function bp_early_check(bp::Union{NodeFieldRawBlueprint,NodeFieldMapBlueprint})
-    s, data = selector(bp), NF.data(bp)
+    s, data = selector(bp), IT.data(bp)
     early_lower(s, data) do ref, x
         urefguard((ref,)) do
             check_dense_ref(typeof(bp), ref, data)

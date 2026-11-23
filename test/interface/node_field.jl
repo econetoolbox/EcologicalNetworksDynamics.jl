@@ -5,7 +5,7 @@ module NodeFieldTest
 
 using EcologicalNetworksDynamics
 
-using EcologicalNetworksDynamics.NetworkFramework: EN, ST, CS, NF, SL, VW
+using EcologicalNetworksDynamics.Interface: EN, ST, CS, IT, SL, VW
 using EcologicalNetworksDynamics.Tests:
     @test_err, @test_repr, @test_disp, @jl_basic_callfails, @checkfails, addfails, @bpfails,
     @propfails, @viewfails, @mutfails, @viewfails, @argfails, @stofails
@@ -66,7 +66,7 @@ const View = VW.NodeFieldView{s,Float64}
         Cannot convert input to either:
           - $(Float64)
           - $(Vector{Float64})
-          - $(NF.Map{Float64})
+          - $(IT.Map{Float64})
         (see attempts down the stacktrace)\
         """)
 

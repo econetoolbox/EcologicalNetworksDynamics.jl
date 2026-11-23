@@ -8,7 +8,7 @@ by specializing implementations for their particular component.
 module Selectors
 
 using EcologicalNetworksDynamics: ST, Storage, Display, unimplemented, Option
-using EcologicalNetworksDynamics.NetworkFramework: Model, Ref
+using EcologicalNetworksDynamics.Interface: Model, Ref
 using .Display: cyan, reset
 
 "For convenience, initial constructors (from symbols) return both instance and type."

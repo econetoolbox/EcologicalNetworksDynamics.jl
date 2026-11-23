@@ -34,10 +34,10 @@ so their behaviour can be fine-tuned by downstream component authors.
 module Views
 
 import EcologicalNetworksDynamics:
-    EN, ST, CS, I, Storage, NetworkFramework, Option, Display, SparseMatrix, errwith, argerr
+    EN, ST, CS, I, Storage, Interface, Option, Display, SparseMatrix, errwith, argerr
 import .Display: join_elided, render_input, ns, reset, cyan, green, yellow, nsa
-import .NetworkFramework:
-    NF, SL, Model, can_convert, CheckError, checkerr, LibError, selector, Ref,
+import .Interface:
+    IT, SL, Model, can_convert, CheckError, checkerr, LibError, selector, Ref,
     wholedata, WholeData, UserRef, ModelRef
 const VW = Views
 
@@ -101,14 +101,14 @@ end
 const AbstractView{s} = Union{NodeView{s},EdgeView{s}}
 let V = AbstractView
     # Extract selector and delegate some basic selector interface.
-    NF.selector(::Type{<:V{s}}) where {s} = s
-    NF.selector(v::V) = v |> typeof |> selector
+    IT.selector(::Type{<:V{s}}) where {s} = s
+    IT.selector(v::V) = v |> typeof |> selector
     SL.readonly(v::V) = v |> selector |> SL.readonly
     SL.type(v::V) = v |> selector |> SL.type
 
     # Underlying model and network.
-    NF.model(v::V) = getfield(v, :model)
-    ST.network(v::V) = v |> NF.model |> ST.network
+    IT.model(v::V) = getfield(v, :model)
+    ST.network(v::V) = v |> IT.model |> ST.network
 
     # Forbid any property access.
     Base.setproperty!(v::V, y::Symbol) = getproperty(v, y)
@@ -128,7 +128,7 @@ include("query.jl")
 
 function Base.getindex(vw::AbstractView, query...)
     # (Pretty-much hand-made dispatching, right?)
-    md, s = NF.model(vw), selector(vw)
+    md, s = IT.model(vw), selector(vw)
     # Check whether we have specialized for this query type,
     # or else just resort to AbstractArray implementation.
     ref = if applicable(_query_check, vw, query)
@@ -139,14 +139,14 @@ function Base.getindex(vw::AbstractView, query...)
     end
     # Same here, either there is specialization how to obtain the value
     # or we just loop back in with the checked query.
-    if applicable(NF.obtain, vw, ref)
-        NF.obtain(vw, ref)
-    elseif applicable(NF.obtain, md, s, ref)
-        NF.obtain(md, s, ref)
+    if applicable(IT.obtain, vw, ref)
+        IT.obtain(vw, ref)
+    elseif applicable(IT.obtain, md, s, ref)
+        IT.obtain(md, s, ref)
     else
         # .. careful though.
         if typeof(ref) == typeof(query)
-            fn = "$NF.$(NF.obtain)"
+            fn = "$IT.$(IT.obtain)"
             V = typeof(vw)
             Q = typeof(query)
             errwith("Preventing infinite loop?") do io
@@ -174,8 +174,8 @@ function Base.setindex!(vw::FieldView, rhs, query...)
 end
 # Circle back as long as the ref is not just two local integers.
 _mut_set!(vw::FieldView, ref, rhs) = setindex!(vw, rhs, ref...)
-_mut_set!(vw::FieldView, ref::NF.TrustedIndexRef, rhs) =
-    NF.mut_set!(NF.model(vw), selector(vw), ref, rhs)
+_mut_set!(vw::FieldView, ref::IT.TrustedIndexRef, rhs) =
+    IT.mut_set!(IT.model(vw), selector(vw), ref, rhs)
 
 "Views into topological information cannot be used to mutate it."
 Base.setindex!(vw::TopologyView, _...) = throw(ImmutableError(typeof(vw)))

@@ -1,6 +1,6 @@
 module FoodwebDef
-using EcologicalNetworksDynamics.NetworkFramework:
-    EN, ST, CS, NF, SL, VW, Network, Model, @alias, argerr
+using EcologicalNetworksDynamics.Interface:
+    EN, ST, CS, IT, SL, VW, Network, Model, @alias, argerr
 using EcologicalNetworksDynamics.KwargsHelpers
 using EcologicalNetworksDynamics.Display: reset
 
@@ -22,7 +22,7 @@ SL.propnames(::S) = (:trophic, :Trophic)
 SL.is_symmetric(::S) = false
 SL.is_sparse(::S) = true
 
-const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, s)
+const Foodweb, _Foodweb = IT.define_reflexive_web_component(EN, s)
 
 # Community consistency aliases.
 @alias foodweb trophic
@@ -32,7 +32,7 @@ const Foodweb, _Foodweb = NF.define_reflexive_web_component(EN, s)
 # ==========================================================================================
 # Web-derived classes and webs.
 
-function NF.post_expand!(md::Model, s::S)
+function IT.post_expand!(md::Model, s::S)
     nw = ST.network(md)
     topology = ST.web(md, s).topology
 
@@ -84,10 +84,10 @@ SL.name_variants(::_C) = (:_, :consumer, :consumers, :Consumer, :Consumers)
 SL.name_variants(::_T) = (:_, :top, :tops, :Top, :Tops)
 SL.name_variants(::_R) = (:_, :prey, :preys, :Preys, :Preys)
 SL.component(::Union{_P,_C,_T,_R}) = Foodweb
-NF.define_class_properties(EN, p; depends)
-NF.define_class_properties(EN, c; depends)
-NF.define_class_properties(EN, t; depends)
-NF.define_class_properties(EN, r; depends)
+IT.define_class_properties(EN, p; depends)
+IT.define_class_properties(EN, c; depends)
+IT.define_class_properties(EN, t; depends)
+IT.define_class_properties(EN, r; depends)
 
 p, _P = SL.Web(:producers_web)
 h, _H = SL.Web(:herbivory)
@@ -97,9 +97,9 @@ SL.name_variants(::_H) = (:herbivory, :Herbivory)
 SL.name_variants(::_C) = (:carnivory, :Carnivory)
 SL.component(::Union{_P, _H, _C}) = Foodweb
 SL.sidenames(::Union{_P, _H, _C}) = (:species, :species)
-NF.define_web_properties(EN, p; depends)
-NF.define_web_properties(EN, h; depends)
-NF.define_web_properties(EN, c; depends)
+IT.define_web_properties(EN, p; depends)
+IT.define_web_properties(EN, h; depends)
+IT.define_web_properties(EN, c; depends)
 
 @alias producers.matrix producers_web.matrix
 @alias trophic.herbivory herbivory
@@ -129,8 +129,8 @@ SL.readonly(::_L) = true
 SL.viewtype(::_L) = VW.NodeFieldView # TODO: why is that necessary?
 level(::Network, md::Model) = VW.field_view(l, md)
 level_entry(nw::Network) = ST.class(nw, :species).data[:trophic_level]
-NF.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
-NF.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])
+IT.define_method(level; read_as = [:(trophic.level)], depends = [Foodweb])
+IT.define_method(level_entry; read_as = [:(trophic._level)], depends = [Foodweb])
 
 # ==========================================================================================
 # Construct Matrix blueprint from a random model.
@@ -147,7 +147,7 @@ function (::_Foodweb)(model::Union{Symbol,AbstractString}; kwargs...)
     rd = take_or!(:reject_if_disconnected, true)
     max = take_or!(:max_iterations, 10^5)
 
-    A = NF.from_name(
+    A = IT.from_name(
         model,
 
         #-----------------------------------------------------------------------------------

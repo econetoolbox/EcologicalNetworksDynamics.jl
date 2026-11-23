@@ -5,7 +5,7 @@ module Symbols
 using EcologicalNetworksDynamics
 
 # Additional imports only used here for testing purpose.
-using EcologicalNetworksDynamics.NetworkFramework: Network
+using EcologicalNetworksDynamics.Interface: Network
 using EcologicalNetworksDynamics.Tests: @test_repr, @test_disp
 using Test
 

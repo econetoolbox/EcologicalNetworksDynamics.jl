@@ -1,7 +1,7 @@
 module Lists
 
-using EcologicalNetworksDynamics.NetworkFramework:
-    NF, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency, convert, try_convert
+using EcologicalNetworksDynamics.Interface:
+    IT, SparseMatrix, Map, Adjacency, BinMap, BinAdjacency, convert, try_convert
 # /!\ `convert !== Base.convert` in this module.
 
 using EcologicalNetworksDynamics.Tests: @test_err, @checkfails, @listfails

@@ -102,10 +102,10 @@ let V = EdgeView
         end)
     end
 
-    ST.web(v::V) = ST.web(NF.model(v), selector(v))
+    ST.web(v::V) = ST.web(IT.model(v), selector(v))
     ST.topology(v::V) = ST.web(v).topology
-    ST.to_index(v::V, a...; k...) = ST.to_index(NF.model(v), selector(v), a...; k...)
-    ST.to_label(v::V, a...; k...) = ST.to_label(NF.model(v), selector(v), a...; k...)
+    ST.to_index(v::V, a...; k...) = ST.to_index(IT.model(v), selector(v), a...; k...)
+    ST.to_label(v::V, a...; k...) = ST.to_label(IT.model(v), selector(v), a...; k...)
     Base.size(v::V) = v |> ST.web |> size
     ST.n_edges(v::V) = v |> ST.topology |> ST.n_edges
     ST.edges(v::V) = v |> ST.topology |> ST.edges

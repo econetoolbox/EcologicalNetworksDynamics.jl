@@ -25,15 +25,15 @@ function define_graph_field(mod::Module, s::SL.GraphField)
         (
             quote
                 module $Singular_
-                import EcologicalNetworksDynamics.NetworkFramework: NF, @bp_construct
+                import EcologicalNetworksDynamics.Interface: IT, @bp_construct
                 const s, T = $s, $T
 
-                mutable struct Raw <: NF.GraphScalarBlueprint
+                mutable struct Raw <: IT.GraphScalarBlueprint
                     $field::T
                     @bp_construct Raw
                 end
                 export Raw
-                NF.register_blueprint(Raw, "raw $($("$singular")) value"; s)
+                IT.register_blueprint(Raw, "raw $($("$singular")) value"; s)
 
                 end
             end
@@ -43,13 +43,13 @@ function define_graph_field(mod::Module, s::SL.GraphField)
     # ======================================================================================
     # The component itself.
 
-    cp = NF.eval(
+    cp = IT.eval(
         quote # Need to reach toplevel first to access generated values.
             define_component($(Meta.quot(Singular)), $mod; blueprints = ($bpmod,))
         end,
     )
     CP = typeof(cp)
-    NF.eval(
+    IT.eval(
         quote
             SL.component(::$S) = $cp
             (::$CP)(input) = $cp.Raw(input)
@@ -66,15 +66,15 @@ function define_graph_field(mod::Module, s::SL.GraphField)
         (
             quote
                 module $M
-                using EcologicalNetworksDynamics.NetworkFramework:
-                    NF, SL, Network, Model
+                using EcologicalNetworksDynamics.Interface:
+                    IT, SL, Network, Model
                 const s, CP, props = $s, $CP, $props
-                get_value(::Network, md::Model) = NF.get_value(md, s)
-                NF.define_method(get_value; read_as = props, depends = [CP])
+                get_value(::Network, md::Model) = IT.get_value(md, s)
+                IT.define_method(get_value; read_as = props, depends = [CP])
                 if !SL.readonly(s)
                     set_value!(::Network, md::Model, input) =
-                        NF.mut_set!(md, s, NF.wholedata, input)
-                    NF.define_method(set_value!; write_as = props, depends = [CP])
+                        IT.mut_set!(md, s, IT.wholedata, input)
+                    IT.define_method(set_value!; write_as = props, depends = [CP])
                 end
                 end
             end

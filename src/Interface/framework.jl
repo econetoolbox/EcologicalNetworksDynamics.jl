@@ -42,7 +42,7 @@ Base.propertynames(p::CS.PropertySpace{name,P,Network}) where {name,P} = propert
 # Property spaces default to Network.
 function define_propspace(path)
     get = Symbol(:get_, path)
-    NF.eval(quote
+    IT.eval(quote
         $get(::Network, s::Model) = CS.@PropertySpace($path, Network)(s)
         CS.define_method($get, Network; read_as = [$(Meta.quot(path))])
     end)
