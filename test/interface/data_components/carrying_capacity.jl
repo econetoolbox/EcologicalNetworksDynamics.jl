@@ -28,6 +28,10 @@ const s, S = SL.NodeField(:producers, :carrying_capacity)
     m = base + Temperature(; celc = 20) + bp
     @test m.carrying_capacity ≈ [3, 3]
 
+    # Rescue old test to try non-degenerated case.
+    m = base + Temperature(298.5) + CarryingCapacity(:Binzer2016)
+    @test m.carrying_capacity == [1.8127671052326149, 1.8127671052326149]
+
 end
 
 end

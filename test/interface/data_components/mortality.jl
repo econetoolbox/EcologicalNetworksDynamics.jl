@@ -29,6 +29,14 @@ const s, S = SL.NodeField(:species, :mortality)
     m = base + bp
     @test m.mortality ≈ [0.0314, 0.0314, 0.0138]
 
+    # Rescued old test to try a non-degenerated case.
+    m = Model(
+        Foodweb([:a => [:b, :c], :b => :c]),
+        BodyMass(1.5),
+        MetabolicClass(:all_invertebrates),
+        Mortality(:Miele2019)
+    )
+    @test m.mortality == [0.028373102913349126, 0.028373102913349126, 0.012469707649815859]
 end
 
 end
