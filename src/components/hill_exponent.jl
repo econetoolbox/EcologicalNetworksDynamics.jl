@@ -1,5 +1,3 @@
-# Hill exponent is a single graph-level scalar
-# useful to calculate allometric values for various biorates.
 module HillExponentDef
 
 using EcologicalNetworksDynamics.Interface: EN, IT, SL

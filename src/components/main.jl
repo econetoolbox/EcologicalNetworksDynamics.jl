@@ -40,6 +40,9 @@ include("./efficiency.jl")
 # Graph-level data.
 include("./hill_exponent.jl")
 
+# Subnode-level data.
+include("./carrying_capacity.jl")
+
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
 # Helpers.
@@ -52,7 +55,6 @@ include("./hill_exponent.jl")
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
-#  include("./carrying_capacity.jl")
 #  include("./mortality.jl")
 #  include("./metabolism.jl")
 #  include("./maximum_consumption.jl")

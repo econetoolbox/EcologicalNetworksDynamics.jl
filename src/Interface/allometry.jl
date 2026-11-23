@@ -47,9 +47,9 @@ Return that module.
 """
 function define_allometry_blueprints(
     mod::Module,
-    s::SL.NodeField,
-    allometric_template::Allometry,
-    temperature_template::@NamedTuple{E_a::Float64, allometry::Allometry},
+    s::SL.NodeField;
+    base::Option{Allometry} = nothing,
+    temperature::Option{@NamedTuple{E_a::Float64,allometry::Allometry}} = nothing,
 )
     nc = SL.class(s)
     Class = SL.CamelCaseSingular(nc)
@@ -73,32 +73,36 @@ function define_allometry_blueprints(
     )
 
     # Base allometry relations.
-    bpmod.eval(
-        quote
-            mutable struct Allometric <: IT.AllometricBlueprint
-                allometry::Allometry
-                @bp_construct Allometric
-            end
-            export Allometric
-            IT.register_blueprint(Allometric, "allometric rates"; s,
-                depends = [EN.BodyMass, EN.MetabolicClass])
-            IT.allometry_template(::Type{Allometric}) = $allometric_template
-        end)
+    if !isnothing(base)
+        bpmod.eval(
+            quote
+                mutable struct Allometric <: IT.AllometricBlueprint
+                    allometry::Allometry
+                    @bp_construct Allometric
+                end
+                export Allometric
+                IT.register_blueprint(Allometric, "allometric rates"; s,
+                    depends = [EN.BodyMass, EN.MetabolicClass])
+                IT.allometry_template(::Type{Allometric}) = $base
+            end)
+    end
 
     # Temperature-dependent allometry relations.
-    bpmod.eval(
-        quote
-            mutable struct Temperature <: IT.TemperatureAllometricBlueprint
-                E_a::Float64
-                allometry::Allometry
-                @bp_construct Temperature
-            end
-            export Temperature
-            IT.register_blueprint(Temperature,
-                "allometric rates and activation energy"; s,
-                depends = [EN.BodyMass, EN.MetabolicClass, EN.Temperature])
-            IT.allometry_template(::Type{Temperature}) = $(last(temperature_template))
-        end)
+    if !isnothing(temperature)
+        bpmod.eval(
+            quote
+                mutable struct Temperature <: IT.TemperatureAllometricBlueprint
+                    E_a::Float64
+                    allometry::Allometry
+                    @bp_construct Temperature
+                end
+                export Temperature
+                IT.register_blueprint(Temperature,
+                    "allometric rates and activation energy"; s,
+                    depends = [EN.BodyMass, EN.MetabolicClass, EN.Temperature])
+                IT.allometry_template(::Type{Temperature}) = $(last(temperature))
+            end)
+    end
 
     bpmod
 end
@@ -138,7 +142,7 @@ allometry_template(bp::AllometricBlueprint) = unimplemented(allometry_template, 
 
 data(bp::AllometryBlueprint) = bp.allometry
 
-function cst_early_check( BP::Type{<:AllometryBlueprint}, allometry)
+function cst_early_check(BP::Type{<:AllometryBlueprint}, allometry)
     s = selector(BP)
     template = allometry_template(BP)
     (; isin, shortest, display_short) = AliasingDicts

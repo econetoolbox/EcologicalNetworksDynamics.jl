@@ -8,7 +8,7 @@ using Test
 
 const s, S = SL.NodeField(:species, :body_mass)
 
-@testset "Body mass component." begin
+@testset "BodyMass." begin
 
     # Bodymass is a regular node field component.
     m = Model(BodyMass([1, 2, 3]))

@@ -55,6 +55,13 @@
   ```julia
   spextract(m.growth_rate) # Sparse view: [·, 5.0, ·, 8.0].
   ```
+  In particular, the following legacy input format for `K` won't work anymore:
+  ```julia
+  K = CarryingCapacity([nothing, 8.0, nothing, 5.0]) # Won't work.
+  K = CarryingCapacity([8, 5]) # Do this instead.
+  m.K # Dense view: [8.0, 5.0].
+  spextract(m.K) # Sparse view: [·, 5.0, ·, 8.0].
+  ```
 
 - `Raw` blueprint for edge fields now expect a dense *vector* or raw values.
   If you want to input a matrix instead. Use the `Matrix` blueprint.

@@ -20,7 +20,7 @@ IT.early_check(::S, growth::Real) = IT.non_negative(Float64, growth)
 miele2019() = Allometry(; producer = (a = 1, b = -1 / 4))
 binzer2016() =
     (E_a = -0.84, allometry = Allometry(; producer = (a = exp(-15.68), b = -0.25)))
-albp = IT.define_allometry_blueprints(EN, s, miele2019(), binzer2016())
+albp = IT.define_allometry_blueprints(EN, s; base = miele2019(), temperature = binzer2016())
 
 IT.construct(::Type{albp.Allometric}, lit::Symbol) =
     (IT.from_name(lit, :Miele2019 => miele2019),)
@@ -33,6 +33,7 @@ IT.construct(::Type{albp.Temperature}, lit::Symbol) =
 const GrowthRate, _GrowthRate = IT.define_node_field_component(EN, s; blueprints = [albp])
 
 @alias producers.growth growth_rate
+# TODO: is 'r' desired as an alias?
 
 # Default constructor.
 (::_GrowthRate)(default::Symbol) = IT.from_name(default,

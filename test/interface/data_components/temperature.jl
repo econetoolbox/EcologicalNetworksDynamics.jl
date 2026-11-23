@@ -7,7 +7,7 @@ using Test
 
 const s, S = SL.GraphField(:temperature)
 
-@testset "Temperature component." begin
+@testset "Temperature." begin
 
     # Only test default, value,
     # all the rest having been tested in the context of generic GraphScalar components.

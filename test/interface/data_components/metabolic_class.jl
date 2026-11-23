@@ -8,7 +8,7 @@ using Test
 
 const s, S = SL.NodeField(:species, :metabolic_class)
 
-@testset "Metabolic class component." begin
+@testset "MetabolicClass." begin
 
     @test MetabolicClass isa Component
     @test_disp(MetabolicClass, # (opted-out of the 'Flat' blueprint)

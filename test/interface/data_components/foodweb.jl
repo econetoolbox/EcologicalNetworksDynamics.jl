@@ -7,7 +7,7 @@ using Random
 using EcologicalNetworksDynamics.Tests: EN, ST, CS, IT, VW, SL, @immutfails, @test_disp
 using Test
 
-@testset "Foodweb component." begin
+@testset "Foodweb." begin
     # Very structuring, the foodweb does provide a lot of properties.
 
     A = Bool[

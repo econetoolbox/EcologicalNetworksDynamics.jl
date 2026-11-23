@@ -4,7 +4,7 @@ using EcologicalNetworksDynamics
 
 using Test
 
-@testset "Species component." begin
+@testset "Species." begin
 
     # Nothing much specific to test about species,
     # which is a rather regular node class component.

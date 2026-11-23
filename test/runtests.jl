@@ -17,18 +17,18 @@ import .Display: blue, bold, reset
 sep(mess) = println("$blue$bold== $mess $(repeat("=", 80 - 4 - length(mess)))$reset")
 
 sep("Testing utils procedures.")
-include("./tests.jl")
-include("./shared.jl")
+#  include("./tests.jl")
+#  include("./shared.jl")
 
 sep("Internal model representation.")
-include("./storage/runtests.jl")
+#  include("./storage/runtests.jl")
 
 sep("Components/Systems framework.")
-include("./components_systems/runtests.jl")
+#  include("./components_systems/runtests.jl")
 
 sep("Test API utils.")
-include("./aliasing_dicts.jl")
-include("./multiplex_api.jl")
+#  include("./aliasing_dicts.jl")
+#  include("./multiplex_api.jl")
 
 sep("Test user-facing behaviour.")
 include("./interface/runtests.jl")

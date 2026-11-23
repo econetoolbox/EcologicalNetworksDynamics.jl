@@ -7,7 +7,7 @@ using Test
 
 const s, S = SL.GraphField(:hill_exponent)
 
-@testset "HillExponent component." begin
+@testset "HillExponent." begin
 
     @test HillExponent isa Component
 

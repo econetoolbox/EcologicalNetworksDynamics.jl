@@ -8,7 +8,7 @@ using Test
 
 const s, S = SL.EdgeField(:trophic, :efficiency)
 
-@testset "Efficiency component." begin
+@testset "Efficiency." begin
 
     @test Efficiency isa Component
 
