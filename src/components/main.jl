@@ -40,6 +40,9 @@ include("./efficiency.jl")
 # Graph-level data.
 include("./hill_exponent.jl")
 
+# Node-level data.
+include("./mortality.jl")
+
 # Subnode-level data.
 include("./carrying_capacity.jl")
 
@@ -55,7 +58,6 @@ include("./carrying_capacity.jl")
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
-#  include("./mortality.jl")
 #  include("./metabolism.jl")
 #  include("./maximum_consumption.jl")
 #  include("./producers_competition.jl")

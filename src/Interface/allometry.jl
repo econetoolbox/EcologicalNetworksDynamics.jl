@@ -41,6 +41,8 @@ activation energy and the model's temperature.
 """
 abstract type TemperatureAllometricBlueprint <: AllometryBlueprint end
 
+const TAllometry = @NamedTuple{E_a::Float64, allometry::Allometry}
+const Named{A} = Pair{Symbol,A}
 """
 Produce two blueprints within a module named after the component.
 Return that module.
@@ -48,8 +50,8 @@ Return that module.
 function define_allometry_blueprints(
     mod::Module,
     s::SL.NodeField;
-    base::Option{Allometry} = nothing,
-    temperature::Option{@NamedTuple{E_a::Float64,allometry::Allometry}} = nothing,
+    base::Option{Named{Allometry}} = nothing,
+    temperature::Option{Named{TAllometry}} = nothing,
 )
     nc = SL.class(s)
     Class = SL.CamelCaseSingular(nc)
@@ -74,6 +76,8 @@ function define_allometry_blueprints(
 
     # Base allometry relations.
     if !isnothing(base)
+        default, base = base
+        default = Meta.quot(default)
         bpmod.eval(
             quote
                 mutable struct Allometric <: IT.AllometricBlueprint
@@ -84,11 +88,16 @@ function define_allometry_blueprints(
                 IT.register_blueprint(Allometric, "allometric rates"; s,
                     depends = [EN.BodyMass, EN.MetabolicClass])
                 IT.allometry_template(::Type{Allometric}) = $base
+                # Construct named default.
+                IT.construct(::Type{Allometric}, lit::Symbol) =
+                    (IT.from_name(lit, $default => () -> $base),)
             end)
     end
 
     # Temperature-dependent allometry relations.
     if !isnothing(temperature)
+        default, temperature = temperature
+        default = Meta.quot(default)
         bpmod.eval(
             quote
                 mutable struct Temperature <: IT.TemperatureAllometricBlueprint
@@ -101,6 +110,8 @@ function define_allometry_blueprints(
                     "allometric rates and activation energy"; s,
                     depends = [EN.BodyMass, EN.MetabolicClass, EN.Temperature])
                 IT.allometry_template(::Type{Temperature}) = $(last(temperature))
+                IT.construct(::Type{Temperature}, lit::Symbol) =
+                    IT.from_name(lit, $default => () -> $temperature)
             end)
     end
 
@@ -214,11 +225,10 @@ function expand!(md::Model, bp::TemperatureAllometricBlueprint, allometry)
 end
 
 function expand!(md::Model, s::SL.NodeField, al::Allometry; kwargs...)
-    f = SL.fieldname(s)
+    f, cl = SL.fieldname(s), ST.class(md, s)
     M, mc = if ST.is_root(md, s)
         md.M, md.metabolic_class
     else
-        cl = ST.class(md, s)
         rs = cl.restriction
         inds = ST.indices(rs)
         # Filter out relevant values.

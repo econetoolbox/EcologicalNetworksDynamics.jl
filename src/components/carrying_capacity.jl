@@ -17,9 +17,7 @@ IT.early_check(::S, K::Real) = IT.non_negative(Float64, K)
 # TODO: since only producers are involved,
 # does it make sense to receive and process a full allometric dict here?
 binzer2016() = (E_a = 0.71, allometry = Allometry(; producer = (a = 3, b = 0.28)))
-albp = IT.define_allometry_blueprints(EN, s; temperature = binzer2016())
-IT.construct(::Type{albp.Temperature}, lit::Symbol) =
-    IT.from_name(lit, :Binzer2016 => binzer2016)
+albp = IT.define_allometry_blueprints(EN, s; temperature = :Binzer2016 => binzer2016())
 
 const CarryingCapacity, _CarryingCapacity =
     IT.define_node_field_component(EN, s; blueprints = [albp])

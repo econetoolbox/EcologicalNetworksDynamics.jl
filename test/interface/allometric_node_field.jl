@@ -194,8 +194,6 @@ end
     addfails.@missing(Model(fw, bm, mc) + bp,
         Temperature, nothing, [GrowthRate.Temperature], nothing)
 
-    # XXX: also test with an allometric blueprint bringing *dense* data.
-
 end
 
 end

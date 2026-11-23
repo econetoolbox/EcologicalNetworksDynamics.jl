@@ -14,6 +14,7 @@ include("data_components/efficiency.jl")
 include("data_components/hill_exponent.jl")
 include("data_components/growth_rate.jl")
 include("data_components/carrying_capacity.jl")
+include("data_components/mortality.jl")
 
 # XXX: check that no test file is left unrun.
 
