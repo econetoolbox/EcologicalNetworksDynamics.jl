@@ -1,22 +1,19 @@
 # Hill exponent is a single graph-level scalar
 # useful to calculate allometric values for various biorates.
-
-(false) && (local HillExponent, _HillExponent) # (reassure JuliaLS)
-export HillExponent
-
 module HillExponentDef
 
-using EcologicalNetworksDynamics: EN, D, IT
+using EcologicalNetworksDynamics.Interface: EN, IT, SL
 
-const d = D.GraphField(:hill_exponent)
-const DT = typeof(d)
+const s, S = SL.GraphField(:hill_exponent)
+SL.name_variants(::S) = (:h, :hill_exponent, :HillExponent)
+SL.type(::S) = Float64
+IT.early_check(::S, input) = IT.non_negative(Float64, input)
 
-D.name_variants(::DT) = (:h, :hill_exponent, :HillExponent)
-D.type(::DT) = Float64
-IT.check(::DT, input) = IT.non_negative(Float64, input)
+const HillExponent, _HillExponent = IT.define_graph_field(EN, s)
 
-# Codegen + exec.
-IT.define_graph_scalar(EN, d)
-using .EN: HillExponent, _HillExponent
+# Default.
+(::_HillExponent)() = HillExponent.Raw(2)
 
 end
+local HillExponent, _HillExponent # (reassure JuliaLS)
+export HillExponent

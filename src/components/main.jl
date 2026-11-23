@@ -3,17 +3,14 @@
 # Mostly, separate "data" components (typically, biorates)
 # from "functional" components (typically functional responses):
 # data components bring data to the model (≈ fields in `Network`),
-# while functional components specify the behaviour of the model (≈ code in `Differentials`)
+# while functional components specify the behaviour of the model (≈ code in `Codegen`)
 # based on the data they depend on.
-# TODO: reify these two sorts of components in `NetworkFramework`?
+# TODO: reify these two sorts of components in `Interface`?
 #       In the end: data requires behaviour and other data to be *built*,
 #       so it's a blueprint expansion requirement,
 #       but behaviour requires data to be *ran*, so it's a true component requirement?
 
-# To best understand subsequent code,
-# and until proper documentation is written,
-# I would advise that the following files be read in order
-# as later comments build upon earlier ones.
+# To best understand subsequent code, read following files in order.
 
 # First example graph-level data.
 include("./temperature.jl")
@@ -37,14 +34,15 @@ include("./growth_rate.jl")
 # First example of edges data.
 include("./efficiency.jl")
 
+# ==========================================================================================
+# Grow the components library, not illustrating anymore.
+
 # Graph-level data.
-#  include("./hill_exponent.jl")
+include("./hill_exponent.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
 # Helpers.
-#  include("./macros_keywords.jl")
-#  include("./shared.jl")
 
 # Behaviour blueprints typically "optionally bring" other blueprints.
 # This utils factorizes how args/kwargs are passed from its inner constructor
