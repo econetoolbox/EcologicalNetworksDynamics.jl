@@ -43,10 +43,13 @@ include("./hill_exponent.jl")
 # Node-level data.
 include("./mortality.jl")
 include("./metabolism.jl")
-include("./maximum_consumption.jl")
 
 # Subnode-level data.
 include("./carrying_capacity.jl")
+include("./maximum_consumption.jl")
+
+# Edge-level data.
+include("./producers_competition.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
@@ -60,7 +63,6 @@ include("./carrying_capacity.jl")
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
-#  include("./producers_competition.jl")
 #  include("./consumers_preferences.jl")
 #  include("./handling_time.jl")
 #  include("./attack_rate.jl")

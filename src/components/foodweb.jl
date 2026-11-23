@@ -51,12 +51,8 @@ function IT.post_expand!(md::Model, s::S)
     (; S) = md
 
     # Producers matrix.
-    prods = ST.node_indices(nw, :producers)
-    mat = spzeros(Bool, S, S)
-    for i in prods, j in prods
-        mat[i, j] = true
-    end
-    ST.add_web!(nw, :producers_web, (:species, :species), ST.SparseSymmetric(mat))
+    n = ST.class(nw, :producers) |> length
+    ST.add_web!(nw, :inter_producers, (:producers, :producers), ST.FullReflexive(n))
 
     # Herbivory matrix: consumers-to-producers.
     mat = spzeros(Bool, S, S)
@@ -89,19 +85,25 @@ IT.define_class_properties(EN, c; depends)
 IT.define_class_properties(EN, t; depends)
 IT.define_class_properties(EN, r; depends)
 
-p, _P = SL.Web(:producers_web)
+p, _P = SL.Web(:inter_producers)
+SL.name_variants(::_P) = (:inter_producers, :InterProducers)
+SL.sidenames(::_P) = (:producers, :producers)
+SL.is_sparse(::_P) = false
+SL.is_symmetric(::_P) = false
+IT.define_web_properties(EN, p; depends)
+@alias producers.matrix inter_producers.matrix
+
 h, _H = SL.Web(:herbivory)
 c, _C = SL.Web(:carnivory)
-SL.name_variants(::_P) = (:producers_web, :ProducersWeb)
 SL.name_variants(::_H) = (:herbivory, :Herbivory)
 SL.name_variants(::_C) = (:carnivory, :Carnivory)
 SL.component(::Union{_P, _H, _C}) = Foodweb
-SL.sidenames(::Union{_P, _H, _C}) = (:species, :species)
-IT.define_web_properties(EN, p; depends)
+SL.sidenames(::Union{_H, _C}) = (:species, :species)
+SL.is_sparse(::Union{_H, _C}) = true
+SL.is_symmetric(::Union{_H, _C}) = false
 IT.define_web_properties(EN, h; depends)
 IT.define_web_properties(EN, c; depends)
 
-@alias producers.matrix producers_web.matrix
 @alias trophic.herbivory herbivory
 @alias trophic.carnivory carnivory
 

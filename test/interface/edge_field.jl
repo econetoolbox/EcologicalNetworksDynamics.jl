@@ -14,7 +14,7 @@ using Test
 
 const s, S = SL.EdgeField(:trophic, :efficiency)
 const View = VW.SparseEdgeFieldView{s,Float64}
-# TODO: test for dense constructs when such a component shows up.
+# TODO: test for dense constructs when such a component shows up: nutrients-to-consumers?
 
 @testset "EdgeField components: blueprints" begin
 

@@ -24,8 +24,6 @@ const s, S = SL.EdgeField(:trophic, :efficiency)
     @test bp.e_herbivorous isa Float64
     @test bp.e_carnivorous isa Float64
     @test bp == Efficiency.Miele2019(; herb = 0.2, carn = 0.4)
-    @test bp == Efficiency(:Miele2019; e_herbivorous = 0.2, e_carnivorous = 0.4)
-    @test bp == Efficiency(:Miele2019; herb = 0.2, carn = 0.4)
     @test_repr(bp, "<Efficiency>:Miele2019(e_herbivorous: 0.2, e_carnivorous: 0.4)")
     @test_disp(bp,
         """
@@ -41,13 +39,11 @@ const s, S = SL.EdgeField(:trophic, :efficiency)
     @test bp.e_carnivorous == 0.85
     @test bp == Efficiency.Miele2019(; herb = 0.45)
     @test bp == Efficiency.Miele2019(; carn = 0.85)
-    @test bp == Efficiency(:Miele2019; herb = 0.45)
-    @test bp == Efficiency(:Miele2019; carn = 0.85)
-    @test bp == Efficiency(:Miele2019)
 
     @argfails(Efficiency.Miele2019(0.2, 0.4),
         """
-        Unexpected positional argument. Expected keyword arguments, for instance:
+        Unexpected positional argument: 0.2  ::$Float64
+        Expected keyword arguments, for instance:
           e_carnivorous = 0.85 (or carn)
           e_herbivorous = 0.45 (or herb)\
         """)
@@ -57,7 +53,7 @@ const s, S = SL.EdgeField(:trophic, :efficiency)
     #---------------------------------------------------------------------------------------
     # Early check.
 
-    @bpfails(Efficiency(:Miele2019; herb = 2), Efficiency.Miele2019, :construct,
+    @bpfails(Efficiency.Miele2019(; herb = 2), Efficiency.Miele2019, :construct,
         (s, 2.0, :uwhole, "Value must belong to [0, 1]."))
     bp.e_carnivorous = 5
     addfails.@check(base + bp, [], # TODO: report field name instead of 'efficiency'?

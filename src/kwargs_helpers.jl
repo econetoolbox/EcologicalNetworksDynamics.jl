@@ -55,7 +55,8 @@ which gets consumed during the analysis.
 module KwargsHelpers
 
 import EcologicalNetworksDynamics: argerr
-import EcologicalNetworksDynamics.Display: join_elided, green, cyan, black, reset, colr
+import EcologicalNetworksDynamics.Display:
+    join_elided, green, cyan, black, reset, colr, rept
 
 const K = KwargsHelpers
 
@@ -215,17 +216,18 @@ macro kwargs_helpers(kwargs)
         function $no_positional(args)
             isempty(args) && return
             mess = IOBuffer()
-            print(mess, "Unexpected positional argument.")
+            print(mess, "Unexpected positional argument: " * rept(first(args)))
+            # TODO: always display at least some example arguments?
             if isempty(kw)
-                println(mess)
+                print(mess)
             else
-                print(mess, " Expected keyword arguments, for instance:")
+                print(mess, "\nExpected keyword arguments, for instance:")
                 for (k, v) in kw
                     print(mess, "\n  $black$k$reset = $v")
                     if haskey(als, k)
                         print(mess, " (or ")
-                        print(mess,
-                            join_elided(als[k], ", ", " or "; coleach = black, repr = false))
+                        print(mess, join_elided( als[k],
+                                ", ", " or "; coleach = black, repr = false))
                         print(mess, ")")
                     end
                     haskey(als, k) || continue

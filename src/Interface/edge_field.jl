@@ -21,7 +21,7 @@ function define_web_field_component(
     requires = [], # Extra requirements for the component.
 )
     w = SL.web(s)
-    Web = SL.CamelCase(w)
+    Web = SL.component(w)
     web, field = SL.content(s)
     src, tgt = SL.sourcename(w), SL.targetname(w)
     value, values, Value, Values, short = SL.name_variants(s)
@@ -41,8 +41,7 @@ function define_web_field_component(
             quote
                 module $Value_
                 import EcologicalNetworksDynamics.Interface: IT, SL, @bp_construct
-                const w, s, T, sparse, Mat = $w, $s, $T, $sparse, $Mat
-                const Web = SL.component(w)
+                const w, s, T, sparse, Mat, Web = $w, $s, $T, $sparse, $Mat, $Web
                 const _Web = typeof(Web)
                 end
             end
@@ -336,7 +335,7 @@ check_dense_ref(::Type{<:EdgeFieldBlueprint}, ref, _) = ref # (nothing to check 
 # TODO: skip reallocation if the early_check extension point does not convert values?
 
 early_lower(fn::Function, ::SL.EdgeField, data::Union{Vector,Matrix}) =
-    [fn((i,), x) for (i, x) in pairs(data)]
+    [fn(Tuple(i), x) for (i, x) in pairs(data)]
 
 function early_lower(fn::Function, ::SL.EdgeField, spm::SparseMatrix)
     res = similar(spm)
@@ -433,11 +432,14 @@ mut_late_check(md::Model, s::SL.EdgeField, adj::Adjacency) =
 
 # No topology check required for dense matrices.
 function late_lower(md::Model, s::SL.EdgeField, mat::Matrix)
-    map(pairs(mat)) do (ij, x) # Column-major as expected.
-        (i, j) = tuple(ij)
-        a, b = ST.to_label(md, s, i, j)
-        _late_check(md, s, x, ((i, a), (i, b)))
-    end
+    [
+        begin
+            (i, j) = Tuple(ij)
+            a, b = ST.to_label(md, s, i, j)
+            _late_check(md, s, x, ((i, a), (i, b)))
+        end
+        for (ij, x) in pairs(mat) # Column-major as expected.
+    ]
 end
 
 # Check edges consistency,
@@ -578,10 +580,14 @@ end
 
 # If not, then just trust whoever only lowered to a matrix yet.
 function expand!(md::Model, s::SL.EdgeField, mat::AbstractMatrix)
-    SL.is_dense(s) && return mat[:]
-    mat isa SparseMatrix && return nonzeros(mat)
-    tp = ST.web(md, s).topology
-    vec = [mat[i, j] for (i, j) in ST.edges(tp)]
+    vec = if SL.is_dense(s)
+        mat[:]
+    elseif mat isa SparseMatrix
+        nonzeros(mat)
+    else
+        tp = ST.web(md, s).topology
+        [mat[i, j] for (i, j) in ST.edges(tp)]
+    end
     expand!(md, s, vec)
 end
 

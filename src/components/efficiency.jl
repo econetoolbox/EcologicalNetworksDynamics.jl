@@ -8,7 +8,6 @@ using EcologicalNetworksDynamics.KwargsHelpers
 const s, S = SL.EdgeField(:trophic, :efficiency)
 SL.name_variants(::S) = (:efficiency, :efficiencies, :Efficiency, :Efficiencies, :e)
 SL.type(::S) = Float64
-SL.is_sparse(::S) = true
 IT.early_check(::S, eff::Real) = IT.fraction(Float64, eff)
 
 miele2019() = (; e_herbivorous = 0.45, e_carnivorous = 0.85)
@@ -48,9 +47,6 @@ end
 const Efficiency, _Efficiency = IT.define_web_field_component(EN, s;
     blueprints = [Miele2019])
 @alias e efficiency
-
-(::_Efficiency)(default::Symbol; kw...) =
-    IT.from_name(default, :Miele2019 => () -> Miele2019(; kw...); s)
 
 end
 

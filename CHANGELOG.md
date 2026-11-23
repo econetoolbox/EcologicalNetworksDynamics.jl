@@ -103,6 +103,16 @@
   so `Species(Dict([:a => 1, :b => 2]))` stops working.
   But any iterator is accepted now like `Species("sp_$i" for i in 1:5)`.
 
+- `model.producers.matrix` is not a fundamental web anymore,
+  because it is nothing but a sparse perspective of an underlying web
+  that is *dense* within producers, viewed from the super class of all species.
+  TODO: feature a simple way to reconstruct the sparse matrix if needed.
+  TODO: feature a simple way to (pre?)process sparse input for blueprints
+  of this kind, *eg.* ProducersCompetition?
+
+- `Efficiency(:Miele2019; kwargs...)` is replaced by the less-magic
+  `Efficiency.Miele2019(; kwargs...)`.
+
 # Bugfixes
 
 - Fix world count in Framework `@conflicts` macro with Julia 1.12.
@@ -162,6 +172,8 @@ m.M = [1, 2, 3] # Reset all values.
 m.M = [:a => 3, :b => 2, :c => 1] # Map-form allowed.
 m.M = 5 # Allowed at least for component with a .Flat blueprint.
 ```
+
+TODO: feature 'count' as an alias to 'number'.
 
 TODO: extract adjacency lists with *e.g.* `m.trophic.adjacency`.
 

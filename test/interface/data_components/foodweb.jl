@@ -40,12 +40,11 @@ using Test
     @test m.consumers.mask == [0, 1, 0, 1]
 
     # Webs brought by the web.
-    @test m.producers_web.matrix == [
-        1 0 1 0
-        0 0 0 0
-        1 0 1 0
-        0 0 0 0
+    @test m.inter_producers.matrix == [ # Useless, but consistent and not stored.
+        1 1
+        1 1
     ]
+
     @test m.herbivory.matrix == [
         0 0 0 0
         1 0 0 0
@@ -60,7 +59,7 @@ using Test
     ]
 
     # Aliases.
-    @test m.producers.matrix == m.producers_web.matrix
+    @test m.producers.matrix == m.inter_producers.matrix
     @test m.trophic.herbivory == m.herbivory
     @test m.trophic.carnivory == m.carnivory
 

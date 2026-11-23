@@ -1,167 +1,78 @@
-@testset "ProducersCompetition component." begin
+module ProducersCompetitionTest
 
-    # Mostly duplicated from Efficiency.
+using EcologicalNetworksDynamics
 
-    base = Model(Foodweb([:a => [:b, :c]]))
+using EcologicalNetworksDynamics.Tests:
+    SL, @test_repr, @test_disp, @argfails, @bpfails, addfails
+using Test
 
-    #---------------------------------------------------------------------------------------
-    # From raw values.
+const s, S = SL.EdgeField(:inter_producers, :competition)
 
-    # Matrix.
-    pc = ProducersCompetition([
-        0 0 0
-        0 1 3
-        0 2 4
-    ])
-    m = base + pc
-    @test m.producers.competition.matrix == [
-        0 0 0
-        0 1 3
-        0 2 4
-    ]
-    @test m.producers.competition.mask == [
-        0 0 0
-        0 1 1
-        0 1 1
-    ]
-    @test typeof(pc) === ProducersCompetition.Raw
+@testset "ProducersCompetition" begin
 
-    # Adjacency list.
-    m = base + ProducersCompetition([:b => [:b => 1, :c => 3], :c => [:c => 4]])
-    @test m.producers.competition.matrix == [
-        0 0 0
-        0 1 3
-        0 0 4
-    ]
-    @test typeof(pc) == ProducersCompetition.Raw
+    @test ProducersCompetition isa Component
 
-    # Scalar.
-    pc = ProducersCompetition(2)
-    m = base + pc
-    @test m.producers.competition.matrix == [
-        0 0 0
-        0 2 2
-        0 2 2
-    ]
-    @test typeof(pc) == ProducersCompetition.Flat
+    base = Model(Species("abcd"), Foodweb([:a => [:b, :c]]))
+
+    # One extra blueprint has it build from a diagonal matrix.
+    @test ProducersCompetition.Diagonal <: Blueprint
 
     #---------------------------------------------------------------------------------------
-    # Construct from diagonal matrix.
+    # Construct.
 
-    pc = ProducersCompetition(; diag = 1, off = 2)
-    m = base + pc
-    @test m.producers.competition.matrix == [
-        0 0 0
-        0 1 2
-        0 2 1
+    bp = ProducersCompetition.Diagonal(; diag = 5, off = 8)
+    @test bp.diag isa Float64
+    @test bp.off isa Float64
+    @test (bp.diag, bp.off) == (5, 8)
+    @test bp == ProducersCompetition(; diag = 5, off = 8)
+    @test bp == ProducersCompetition(; d = 5, o = 8) # ((quite) some aliases)
+    @test bp == ProducersCompetition(; diagonal = 5, offdiagonal = 8)
+    @test bp == ProducersCompetition(; d = 5, rest = 8)
+    @test bp == ProducersCompetition(; d = 5, nondiagonal = 8)
+    @test bp == ProducersCompetition(; d = 5, nd = 8)
+    @test_repr(bp, "<ProducersCompetition>:Diagonal(diag: 5.0, off: 8.0)")
+    @test_disp(bp,
+        """
+        blueprint for <ProducersCompetition>: Diagonal {
+          diag: 5.0,
+          off: 8.0,
+        }\
+        """)
+
+    # Default values.
+    bp = ProducersCompetition.Diagonal()
+    @test bp == ProducersCompetition(; diag = 1, off = 0)
+    @test bp == ProducersCompetition(; diag = 1)
+    @test bp == ProducersCompetition(; off = 0)
+
+    @argfails(ProducersCompetition.Diagonal(5), "Unexpected positional argument: 5  ::$Int")
+    @argfails(ProducersCompetition.Diagonal(; x = 5), "Unexpected argument: x = 5.")
+
+    #---------------------------------------------------------------------------------------
+    # Early check.
+    @bpfails(ProducersCompetition.Diagonal(; diag = -2),
+        ProducersCompetition.Diagonal, :construct,
+        (s, -2.0, :uwhole, "Value cannot be negative."))
+    bp.off -= 5
+    addfails.@check(base + bp, [],
+        (ProducersCompetition.Diagonal, :early,
+            (s, -5.0, :uwhole, "Value cannot be negative.")))
+    # TODO: report field name instead. Introduce IT.fields_check(::Type{BP})?
+
+    #---------------------------------------------------------------------------------------
+    # Expand.
+
+    bp = ProducersCompetition.Diagonal(; diag = 7, off = 8)
+    m = base + bp
+    @test m.producers.competition == m.producers_competition == [
+        7 8 8
+        8 7 8
+        8 8 7
     ]
-    # Fancy input aliases.
-    @test pc == ProducersCompetition(; diagonal = 1, nondiagonal = 2)
-    @test pc == ProducersCompetition(; diagonal = 1, offdiagonal = 2)
-    @test pc == ProducersCompetition(; diag = 1, offdiag = 2)
-    @test pc == ProducersCompetition(; diag = 1, rest = 2)
-    @test pc == ProducersCompetition(; d = 1, o = 2)
-    @test pc == ProducersCompetition(; d = 1, nd = 2)
-    @test typeof(pc) == ProducersCompetition.Diagonal
 
-    # ======================================================================================
-    # Input guards.
+    addfails.@missing(Model(bp),
+        Foodweb, ProducersCompetition, [ProducersCompetition.Diagonal], nothing)
 
-    #---------------------------------------------------------------------------------------
-    # Invalid arguments.
-
-    @argfails(ProducersCompetition(), "No input provided to specify producers competition.")
-    @argfails(
-        ProducersCompetition(nothing),
-        "No input provided to specify producers competition."
-    )
-
-    @argfails(ProducersCompetition(; d = 1, o = 2, x = 3), "Unexpected argument: x = 3.")
-
-    @argfails(
-        ProducersCompetition(0.2; a = 5),
-        "No need to provide both alpha matrix and keyword arguments."
-    )
-
-    @argfails(
-        ProducersCompetition(; diag = 1, off = 2, d = 3),
-        "Cannot specify both aliases :d and :diag arguments."
-    )
-
-    #---------------------------------------------------------------------------------------
-    # Invalid values.
-
-    @sysfails(
-        base + ProducersCompetition([
-            0 0 0
-            0 1 3
-            0 -2 4
-        ]),
-        Check(
-            early,
-            [ProducersCompetition.Raw],
-            "Not a positive value: alpha[3, 2] = -2.0.",
-        )
-    )
-
-    @sysfails(
-        base + ProducersCompetition([:b => [:c => -5]]),
-        Check(
-            early,
-            [ProducersCompetition.Adjacency],
-            "Not a positive value: alpha[:b, :c] = -5.0.",
-        )
-    )
-
-    @sysfails(
-        base + ProducersCompetition(-5),
-        Check(early, [ProducersCompetition.Flat], "Not a positive value: alpha = -5.0.")
-    )
-
-    @sysfails(
-        base + ProducersCompetition(; d = -5),
-        Check(
-            early,
-            [ProducersCompetition.Diagonal],
-            "Not a positive value: alpha[:diag] = -5.0.",
-        )
-    )
-
-    @sysfails(
-        base + ProducersCompetition(; d = 5, o = -3),
-        Check(
-            early,
-            [ProducersCompetition.Diagonal],
-            "Not a positive value: alpha[:off] = -3.0.",
-        )
-    )
-
-    #---------------------------------------------------------------------------------------
-    # Respect template.
-
-    @sysfails(
-        base + ProducersCompetition([
-            0 0 0
-            5 1 3
-            0 2 4
-        ]),
-        Check(
-            late,
-            [ProducersCompetition.Raw],
-            "Non-missing value found for 'alpha' at edge index [2, 1] (5.0), \
-             but the template for 'producers links' only allows values \
-             at the following indices:\n  [(2, 2), (3, 2), (2, 3), (3, 3)]",
-        )
-    )
-
-    @sysfails(
-        base + ProducersCompetition([:b => [:a => 5]]),
-        Check(
-            late,
-            [ProducersCompetition.Adjacency],
-            "Invalid 'producers link' edge label in 'alpha': [:b, :a] (5.0). \
-             Valid edges target labels for source [:b] in this template are:\n  [:b, :c]",
-        )
-    )
+end
 
 end
