@@ -49,7 +49,8 @@ include("./carrying_capacity.jl")
 include("./maximum_consumption.jl")
 
 # Edge-level data.
-include("./producers_competition.jl")
+include("./producer_competition.jl")
+include("./consumer_preference.jl")
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
@@ -63,7 +64,6 @@ include("./producers_competition.jl")
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
-#  include("./consumers_preferences.jl")
 #  include("./handling_time.jl")
 #  include("./attack_rate.jl")
 #  include("./half_saturation_density.jl")

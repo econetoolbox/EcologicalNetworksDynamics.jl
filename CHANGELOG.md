@@ -110,8 +110,9 @@
   TODO: feature a simple way to (pre?)process sparse input for blueprints
   of this kind, *eg.* ProducersCompetition?
 
-- `Efficiency(:Miele2019; kwargs...)` is replaced by the less-magic
-  `Efficiency.Miele2019(; kwargs...)`.
+- `Efficiency(:Miele2019; kwargs...)`, `ConsumerPreference(:homogeneous)` *etc.*
+  are replaced by the less-magic
+  `Efficiency.Miele2019(; kwargs...)`, `ConsumerPreference.Homogeneous()` *etc.*
 
 # Bugfixes
 

@@ -1,20 +1,19 @@
-module ProducersCompetitionDef
+module ProducerCompetitionDef
 
 using EcologicalNetworksDynamics.Interface:
     EN, SL, IT, @bp_construct, Model, argerr, Adjacency, Blueprint, @alias
 using EcologicalNetworksDynamics.KwargsHelpers
 using LinearAlgebra
 
-const s, S = SL.EdgeField(:inter_producers, :competition)
+const s, S = SL.EdgeField(:inter_producer, :competition)
 SL.name_variants(::S) = (
-    :producers_competition,
-    :producers_competition,
-    :ProducersCompetition,
-    :ProducersCompetition,
+    :producer_competition,
+    :producer_competition,
+    :ProducerCompetition,
+    :ProducerCompetition,
     :alpha,
 )
 SL.type(::S) = Float64
-SL.is_sparse(::S) = false # All producer-to-producer edges are reified.
 IT.early_check(::S, alpha::Real) = IT.non_negative(Float64, alpha)
 
 # ==========================================================================================
@@ -45,27 +44,27 @@ function IT.expand!(md::Model, ::Diagonal, (diag, off))
 end
 # ==========================================================================================
 
-const ProducersCompetition, _ProducersCompetition =
+const ProducerCompetition, _ProducerCompetition =
     IT.define_web_field_component(EN, s; blueprints = [Diagonal])
 
 # Single-entry constructor.
-function (::_ProducersCompetition)(alpha = nothing; kwargs...)
+function (::_ProducerCompetition)(alpha = nothing; kwargs...)
     if isempty(kwargs)
-        isnothing(alpha) && argerr("No input provided to specify producers competition.")
+        isnothing(alpha) && argerr("No input provided to specify producer competition.")
         return IT.try_convert(alpha,
-            Float64 => ProducersCompetition.Flat,
-            Vector{Float64} => ProducersCompetition.Raw,
-            Matrix{Float64} => ProducersCompetition.Matrix,
-            Adjacency{<:Any,Float64} => ProducersCompetition.Adjacency,
+            Float64 => ProducerCompetition.Flat,
+            Vector{Float64} => ProducerCompetition.Raw,
+            Matrix{Float64} => ProducerCompetition.Matrix,
+            Adjacency{<:Any,Float64} => ProducerCompetition.Adjacency,
         )
     end
     isnothing(alpha) ||
         argerr("No need to provide both alpha matrix and keyword arguments.")
-    ProducersCompetition.Diagonal(; kwargs...)
+    ProducerCompetition.Diagonal(; kwargs...)
 end
 
-@alias producers.competition producers_competition
+@alias producers.competition producer_competition
 
 end
-local ProducersCompetition, _ProducersCompetition # (reassure JuliaLS)
-export ProducersCompetition
+local ProducerCompetition, _ProducerCompetition # (reassure JuliaLS)
+export ProducerCompetition

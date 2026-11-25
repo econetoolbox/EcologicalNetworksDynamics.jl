@@ -52,7 +52,7 @@ function IT.post_expand!(md::Model, s::S)
 
     # Producers matrix.
     n = ST.class(nw, :producers) |> length
-    ST.add_web!(nw, :inter_producers, (:producers, :producers), ST.FullReflexive(n))
+    ST.add_web!(nw, :inter_producer, (:producers, :producers), ST.FullReflexive(n))
 
     # Herbivory matrix: consumers-to-producers.
     mat = spzeros(Bool, S, S)
@@ -85,13 +85,13 @@ IT.define_class_properties(EN, c; depends)
 IT.define_class_properties(EN, t; depends)
 IT.define_class_properties(EN, r; depends)
 
-p, _P = SL.Web(:inter_producers)
-SL.name_variants(::_P) = (:inter_producers, :InterProducers)
+p, _P = SL.Web(:inter_producer)
+SL.name_variants(::_P) = (:inter_producer, :InterProducers)
 SL.sidenames(::_P) = (:producers, :producers)
 SL.is_sparse(::_P) = false
 SL.is_symmetric(::_P) = false
 IT.define_web_properties(EN, p; depends)
-@alias producers.matrix inter_producers.matrix
+@alias producers.matrix inter_producer.matrix
 
 h, _H = SL.Web(:herbivory)
 c, _C = SL.Web(:carnivory)

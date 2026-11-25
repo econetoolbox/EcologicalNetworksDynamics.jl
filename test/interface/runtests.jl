@@ -32,6 +32,7 @@ include("data_components/hill_exponent.jl")
 include("data_components/maximum_consumption.jl")
 include("data_components/metabolism.jl")
 include("data_components/mortality.jl")
-include("data_components/producers_competition.jl")
+include("data_components/producer_competition.jl")
+include("data_components/consumer_preference.jl")
 
 end

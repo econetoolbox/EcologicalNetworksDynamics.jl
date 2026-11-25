@@ -42,12 +42,6 @@ mut_convert(s::Selector, input) =
 "Default early check, for either pipeline."
 early_check(::Selector, data) = data # Defaults to just accepting & aliasing the value.
 
-"""
-Early check for blueprint construction: must alias.
-(only useful if relying on the default `construct` implementation)
-"""
-cst_early_check(BP::Type{<:Blueprint}, data) = early_check(selector(BP), data)
-
 "Early check for blueprint expansion: may start lowering."
 bp_early_check(bp::Blueprint) = cst_early_check(typeof(bp), data(bp))
 
@@ -72,17 +66,31 @@ _bp_early_check(bp::Blueprint) = # Entry point: the framework calls in there.
 Determine main blueprint data value and data type if any (expect *static* answer).
 Defaults to first field type.
 """
-datatype(BP::Type{<:Blueprint}) = first(fieldtypes(BP))
+datatype(BP::Type{<:Blueprint}) = firstfieldtype(BP, fieldtypes(BP))
 datatype(bp::Blueprint) = typeof(data(bp))
 
 """
 Extract main blueprint data if any (expect *static* answer).
 Defaults to first field.
 """
-data(bp::Blueprint) = getfield(bp, first(fieldnames(typeof(bp))))
+data(bp::Blueprint) = firstfieldvalue(bp, fieldnames(typeof(bp)))
+
+# Mark blueprints with no field.
+struct NoField end
+firstfieldtype(::Type{<:Blueprint}, t::Tuple) = first(t)
+firstfieldtype(::Type{<:Blueprint}, ::Tuple{}) = NoField()
+firstfieldvalue(bp::Blueprint, t::Tuple) = getfield(bp, first(t))
+firstfieldvalue(::Blueprint, ::Tuple{}) = NoField()
 
 # Get the core corresponding field type.
 SL.type(BP::Type{<:Blueprint}) = SL.type(selector(BP))
+
+"""
+Early check for blueprint construction: must alias.
+(only useful if relying on the default `construct` implementation)
+"""
+cst_early_check(BP::Type{<:Blueprint}, data) = early_check(selector(BP), data)
+cst_early_check(::Type{<:Blueprint}, ::NoField) = nothing
 
 """
 Guarded entrypoint into blueprint construction.
