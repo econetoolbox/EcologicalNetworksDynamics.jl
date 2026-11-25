@@ -255,7 +255,7 @@ end
 edge_pairs(data) = pairs(data)
 edge_pairs(adj::Adjacency) = I.map(((src, tgt, x),) -> ((src, tgt), x), iter(adj))
 
-# On expansion, checked values (possibly lowered) are collected into a linearized vec.
+# On expansion, checked values (possibly lowered) are collected into a flattened matrix.
 function bp_early_check(
     bp::Union{EdgeFieldRawBlueprint,EdgeFieldMatrixBlueprint,EdgeFieldAdjacencyBlueprint},
 )
@@ -367,7 +367,7 @@ early_check_index(i, uref) =
 
 #-------------------------------------------------------------------------------------------
 # Late check.
-# Take this opportunity to lower into a linearized vector.
+# Take this opportunity to lower into a flattened matrix.
 
 const EdgeMRef = Tuple{MRef,MRef}
 
@@ -421,7 +421,7 @@ function late_check(md::Model, s::SL.EdgeField, mat::AbstractMatrix)
             "There are $(gr(ns)) source$ss and $(gr(nt)) target$st, \
              but the matrix received is of size $(cy(act)).")
     end
-    # Then check values one by one as we lower into a linear vector.
+    # Then check values one by one as we lower into a flattened matrix.
     late_lower(md, s, mat)
 end
 

@@ -10,6 +10,7 @@ SL.name_variants(::S) = (:efficiency, :efficiencies, :Efficiency, :Efficiencies,
 SL.type(::S) = Float64
 IT.early_check(::S, eff::Real) = IT.fraction(Float64, eff)
 
+#-------------------------------------------------------------------------------------------
 miele2019() = (; e_herbivorous = 0.45, e_carnivorous = 0.85)
 
 "Build from herbivorous/carnivourous rates."
@@ -42,8 +43,8 @@ function IT.expand!(md::Model, ::Miele2019, (eh, ec))
     e = eh * hA + ec * cA
     IT.expand!(md, s, e) # .. then rely on framework impl to lower further.
 end
+#-------------------------------------------------------------------------------------------
 
-# Codegen + exec.
 const Efficiency, _Efficiency = IT.define_web_field_component(EN, s;
     blueprints = [Miele2019])
 @alias e efficiency

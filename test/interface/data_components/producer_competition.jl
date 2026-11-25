@@ -8,7 +8,7 @@ using Test
 
 const s, S = SL.EdgeField(:inter_producer, :competition)
 
-@testset "ProducerCompetition" begin
+@testset "ProducerCompetition." begin
 
     @test ProducerCompetition isa Component
 

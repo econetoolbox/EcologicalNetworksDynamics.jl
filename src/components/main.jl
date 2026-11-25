@@ -51,6 +51,7 @@ include("./maximum_consumption.jl")
 # Edge-level data.
 include("./producer_competition.jl")
 include("./consumer_preference.jl")
+include("./handling_time.jl") # First example allometry on *edges* field.
 
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
@@ -64,7 +65,6 @@ include("./consumer_preference.jl")
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
-#  include("./handling_time.jl")
 #  include("./attack_rate.jl")
 #  include("./half_saturation_density.jl")
 #  include("./intraspecific_interference.jl")

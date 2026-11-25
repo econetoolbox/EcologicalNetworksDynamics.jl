@@ -1,10 +1,9 @@
 """
-Test all aspects of typical allometric blueprints, using producer growth as an example.
+Test all aspects of typical allometric blueprints for a node field,
+using producer growth as an example.
 Anything generic to how aliasing dicts work has already been tested.
 """
-module AllometricBlueprintTest
-
-# Much inspired by `NodeFieldTest`.
+module AllometricBlueprintNodeFieldTest
 
 using EcologicalNetworksDynamics
 
@@ -14,7 +13,7 @@ using Test
 
 const s, S = SL.NodeField(:producers, :growth)
 
-@testset "Nodefield components: allometry blueprint" begin
+@testset "Allometry blueprint: nodefield." begin
 
     # Defined on the same existing component.
     @test_disp(GrowthRate,
@@ -73,8 +72,11 @@ const s, S = SL.NodeField(:producers, :growth)
 
     for (invalid, mess) in [
         ((;),
-            "Missing allometric parameter a (prefactor) for producer, \
-            required to calculate growth_rates."),
+            "Missing allometric rates for metabolic class producer, \
+             required to calculate growth_rates."),
+        ((; p_a = 1),
+            "Missing allometric parameter b (source_exponent) for producer, \
+             required to calculate growth_rates."),
         ((; p = (a = 1, b = 2, c = 3)),
             "Allometric parameter c (target_exponent) for producer is meaningless \
              in the context of calculating growth_rates: 3.0."),
@@ -91,7 +93,6 @@ const s, S = SL.NodeField(:producers, :growth)
         addfails.@check(base + bp, [],
             (GrowthRate.Allometric, :early, (s, invalid, :uwhole, mess)))
     end
-    # XXX cannot obtain 'Missing allometric rates' with growth_rate, test with another.
 
     #---------------------------------------------------------------------------------------
     # Expand.
@@ -110,7 +111,7 @@ const s, S = SL.NodeField(:producers, :growth)
 
 end
 
-@testset "Nodefield components: temperature-allometry blueprint" begin
+@testset "Temperature-allometry blueprints: nodefield." begin
 
     # Much inspired from the above.
 
@@ -158,7 +159,10 @@ end
     E_a = -0.84
     for (invalid, mess) in [
         ((;),
-            "Missing allometric parameter a (prefactor) for producer, \
+            "Missing allometric rates for metabolic class producer, \
+             required to calculate growth_rates."),
+        ((; p_a = 1),
+            "Missing allometric parameter b (source_exponent) for producer, \
              required to calculate growth_rates."),
         ((; p = (a = 1, b = 2, c = 3)),
             "Allometric parameter c (target_exponent) for producer is meaningless \
@@ -173,7 +177,6 @@ end
         addfails.@check(base + Temperature() + bp, [],
             (GrowthRate.Temperature, :early, (s, invalid, :uwhole, mess)))
     end
-    # XXX cannot obtain 'Missing allometric rates' with growth_rate, test with another.
 
     #---------------------------------------------------------------------------------------
     # Expand.

@@ -20,12 +20,23 @@ function boltzmann(Ea, T; T0 = 293.15)
     exp(Ea * (normalised_T / denom))
 end
 
-# Construct vector of allometric rates based on the given data.
-function allometric_rates(al::Allometry, masses, classes; E_a = 0, T = 1)
+"Construct vector of allometric rates based on the given data."
+function allometric_rates(al::Allometry, masses, classes;
+    E_a = 0, T = 1)
     bz = boltzmann(E_a, T)
     map(zip(masses, classes)) do (M, class)
         a, b = al[class][:a], al[class][:b]
         bz * a * M^b
+    end
+end
+
+"Construct flattened matrix based on ordered paired data for edge fields."
+function paired_allometric_rates(al::Allometry, paired_masses, paired_classes;
+    E_a = 0, T = 1)
+    bz = boltzmann(E_a, T)
+    map(zip(paired_masses, paired_classes)) do ((M_i, M_j), (class_i, class_j))
+        a_i, b_i, c_j = al[class_i][:a], al[class_i][:b], al[class_j][:c]
+        bz * a_i * M_i^b_i * M_j^c_j
     end
 end
 
@@ -49,13 +60,10 @@ Return that module.
 """
 function define_allometry_blueprints(
     mod::Module,
-    s::SL.NodeField;
+    s::Union{SL.NodeField,SL.EdgeField};
     base::Option{Named{Allometry}} = nothing,
     temperature::Option{Named{TAllometry}} = nothing,
 )
-    nc = SL.class(s)
-    Class = SL.CamelCaseSingular(nc)
-    class, field = SL.content(s)
     value, values, Value, Values, short = SL.name_variants(s)
     T = SL.type(s)
     Value_ = Symbol(Value, :_)
@@ -167,6 +175,7 @@ function cst_early_check(BP::Type{<:AllometryBlueprint}, allometry)
 
         # Check against unexpected metabolic classes.
         if isin(mc, expected_classes, MC)
+            isempty(sub) && continue # Cannot exactly be considered 'found' then.
             pop!(expected_classes, mc)
         else
             isempty(sub) || checkerr(
@@ -244,37 +253,14 @@ function expand!(md::Model, s::SL.NodeField, al::Allometry; kwargs...)
     ST.add_field!(cl, f, data)
 end
 
-#-------------------------------------------------------------------------------------------
-
-# XXX: reuse for allometric blueprint for edges when it's time.
-
-# Same for edges, using both source 'b' and target 'c' exponents.
-function fill_edges_allometry!(mat, al::Allometry, indices, masses, classes; E_a = 0, T = 1)
-    bz = boltzmann(E_a, T)
-    for (i, j) in indices
-        class_i, class_j = classes[i], classes[j]
-        Mi, Mj = masses[i], masses[j]
-        ai, bi, cj = al[class_i][:a], al[class_i][:b], al[class_j][:c]
-        mat[i, j] = bz * ai * Mi^bi * Mj^cj
+function expand!(md::Model, s::SL.EdgeField, al::Allometry; kwargs...)
+    f, wb = SL.fieldname(s), ST.web(md, s)
+    edges = ST.edges(wb.topology)
+    data = read(md._body_mass, md._metabolic_class) do M, mc
+        paired_allometric_rates(al,
+            ((M[i], M[j]) for (i, j) in edges),
+            ((mc[i], mc[j]) for (i, j) in edges),
+            ; kwargs...)
     end
-    mat
-end
-
-function dense_edges_allometry(al::Allometry, masses, classes; kwargs...)
-    S = length(masses)
-    mat = zeros((S, S))
-    fill_edges_allometry!(mat, al, Iterators.product(1:S, 1:S), masses, classes; kwargs...)
-end
-
-function sparse_edges_allometry(
-    al::Allometry,
-    only::SparseMatrix{Bool},
-    masses,
-    classes;
-    kwargs...,
-)
-    S = length(masses)
-    mat = spzeros((S, S))
-    sources, targets, _ = findnz(only)
-    fill_edges_allometry!(mat, al, zip(sources, targets), masses, classes; kwargs...)
+    ST.add_field!(wb, f, data)
 end

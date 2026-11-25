@@ -26,11 +26,11 @@ sep("Internal model representation.")
 sep("Components/Systems framework.")
 #  include("./components_systems/runtests.jl")
 
-sep("Test API utils.")
+sep("Test interface utils.")
 #  include("./aliasing_dicts.jl")
 #  include("./multiplex_api.jl")
 
-sep("Test user-facing behaviour.")
+sep("Test exposed interface.")
 include("./interface/runtests.jl")
 
 #= Silent all this during internals refactoring.

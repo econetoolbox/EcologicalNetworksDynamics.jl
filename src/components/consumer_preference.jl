@@ -14,7 +14,7 @@ SL.name_variants(::S) = (
 SL.type(::S) = Float64
 IT.early_check(::S, w::Real) = IT.non_negative(Float64, w)
 
-# ==========================================================================================
+#-------------------------------------------------------------------------------------------
 """
 Build so that preferences are "homogeneous",
 meaning that the predator evenly splits its resource among its preys.
@@ -41,6 +41,7 @@ function IT.expand!(md::Model, ::Homogeneous, _)
     end
     IT.expand!(md, s, w)
 end
+#-------------------------------------------------------------------------------------------
 
 const ConsumerPreference, _ConsumerPreference =
     IT.define_web_field_component(EN, s; blueprints = [Homogeneous])

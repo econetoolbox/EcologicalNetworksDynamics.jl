@@ -38,8 +38,8 @@
 #     - Run the late `check`.
 #     - Expand the blueprint into a component.
 #     - Execute possible triggers.
-const cd = compdisplay
-const bd = bpdisplay
+cd(a...) = compdisplay(a...; color = true)
+bd(a...) = bpdisplay(a...; color = true)
 
 # Prepare thorough analysis of recursive sub-blueprints possibly implied
 # by the blueprints received.

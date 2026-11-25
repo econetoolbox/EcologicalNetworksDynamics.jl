@@ -16,7 +16,7 @@ SL.name_variants(::S) = (
 SL.type(::S) = Float64
 IT.early_check(::S, alpha::Real) = IT.non_negative(Float64, alpha)
 
-# ==========================================================================================
+#-------------------------------------------------------------------------------------------
 "Build from diagonal-symmetric matrix: 1 value for self-competition, 1 for inter-producers."
 mutable struct Diagonal <: Blueprint
     diag::Float64 # Diagonal value.
@@ -42,7 +42,7 @@ function IT.expand!(md::Model, ::Diagonal, (diag, off))
     alpha = diag * I(n) + off * (ones((n, n)) - I(n))
     IT.expand!(md, s, alpha)
 end
-# ==========================================================================================
+#-------------------------------------------------------------------------------------------
 
 const ProducerCompetition, _ProducerCompetition =
     IT.define_web_field_component(EN, s; blueprints = [Diagonal])
