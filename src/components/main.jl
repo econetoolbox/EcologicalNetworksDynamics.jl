@@ -47,6 +47,7 @@ include("./metabolism.jl")
 # Subnode-level data.
 include("./carrying_capacity.jl")
 include("./maximum_consumption.jl")
+include("./half_saturation_density.jl")
 
 # Edge-level data.
 include("./producer_competition.jl")
@@ -66,7 +67,6 @@ include("./attack_rate.jl")
 #  # Replicated/adapted from the above.
 #  # TODO: factorize subsequent repetitions there.
 #  # Easier once the Internals become more consistent?
-#  include("./half_saturation_density.jl")
 #  include("./intraspecific_interference.jl")
 #  include("./consumption_rate.jl")
 
