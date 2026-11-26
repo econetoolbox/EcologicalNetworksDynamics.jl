@@ -26,8 +26,6 @@ function define_web_field_component(
     src, tgt = SL.sourcename(w), SL.targetname(w)
     value, values, Value, Values, short = SL.name_variants(s)
     T = SL.type(s)
-    Value_ = Symbol(Value, :_) # Blueprints module name.
-    _Value = Symbol(:_, Value) # Component type name.
 
     # First attempt to polymorphism over sparsity.
     sparse = SL.is_sparse(s)
@@ -36,10 +34,11 @@ function define_web_field_component(
     # ======================================================================================
     # Blueprints for the component.
 
+    Blueprints = Symbol(Value, :_)
     bpmod = mod.eval(
         (
             quote
-                module $Value_
+                module $Blueprints
                 import EcologicalNetworksDynamics.Interface: IT, SL, @bp_construct
                 const w, s, T, sparse, Mat, Web = $w, $s, $T, $sparse, $Mat, $Web
                 const _Web = typeof(Web)
@@ -127,7 +126,7 @@ function define_web_field_component(
     mod.eval(
         quote
             $SL.component(::$S) = $cp
-            (::$_Value)($short, args...; kwargs...) =
+            (::$CP)($short, args...; kwargs...) =
                 $construct($s, $Value, $short, args...; kwargs...)
         end,
     )
@@ -135,7 +134,7 @@ function define_web_field_component(
     if may_flat(s)
         R = flat(s) # Receiver type.
         mod.eval(quote
-            (::$_Value)($short::$R) = $Value.Flat($short)
+            (::$CP)($short::$R) = $Value.Flat($short)
         end)
     end
 

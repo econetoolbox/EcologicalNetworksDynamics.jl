@@ -43,4 +43,8 @@ include("data_components/half_saturation_density.jl")
 include("data_components/intraspecific_interference.jl")
 include("data_components/consumption_rate.jl")
 
+module Nutrients
+    include("data_components/nutrients/nodes.jl")
+end
+
 end

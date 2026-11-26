@@ -228,10 +228,10 @@ end
 function CS.shortline(io::IO, model::Model, ::_Foodweb)
     cc, fc, rs = CS.component_color, CS.field_color, reset
     l = model.trophic.n_links
-    p = model.producers.number
-    c = model.consumers.number
-    r = model.preys.number
-    t = model.tops.number
+    p = model.producers.count
+    c = model.consumers.count
+    r = model.preys.count
+    t = model.tops.count
     n(n) = n > 0 ? "$n" : "no"
     s(n) = n > 1 ? "s" : ""
     print(

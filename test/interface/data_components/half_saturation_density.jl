@@ -1,4 +1,4 @@
-module HalfSaturationDensityDef
+module HalfSaturationDensityTest
 
 using EcologicalNetworksDynamics
 

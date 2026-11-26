@@ -10,21 +10,20 @@ abstract type ClassNames <: ClassBlueprint end
 abstract type ClassNumber <: ClassBlueprint end
 
 "Typical setup for a component bringing a new class to the network."
-function define_class_component(mod::Module, s::SL.Class)
+function define_class_component(mod::Module, s::SL.Class; blueprints = [])
     S = typeof(s)
     short_prefix, singular, plural, Singular, Plural = SL.name_variants(s)
-    Plural_ = Symbol(Plural, :_) # Blueprints module name.
-    _Plural = Symbol(:_, Plural) # Component type name.
     h, H, short_prefix = Meta.quot.((plural, Plural, short_prefix)) # Symbol names.
 
     # ======================================================================================
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
+    Blueprints = Symbol(Plural, :Blueprints)
     bpmod = mod.eval(
         (
             quote
-                module $Plural_
+                module $Blueprints
                 import EcologicalNetworksDynamics.Interface:
                     IT, Model, @bp_construct
                 const s = $s
@@ -57,9 +56,10 @@ function define_class_component(mod::Module, s::SL.Class)
 
     # ======================================================================================
     # The component itself and generic blueprints constructors.
+    CPname = s |> SL.componentname |> Meta.quot
     cp = IT.eval(
         quote
-            define_component($(Meta.quot(Plural)), $mod; blueprints = ($bpmod,))
+            define_component($CPname, $mod; blueprints = [$bpmod, $blueprints...])
         end,
     )
     CP = typeof(cp)
@@ -94,13 +94,13 @@ function define_class_properties(mod::Module, s::SL.Class; depends = [])
     # Wrap all within a separate module
     # or identical definitions end up being considered the same functions.
     # https://julialang.zulipchat.com/#narrow/channel/137791-general/topic/Identity.20of.20local.20functions.2E/with/590238482
-    M = Symbol(Plural, :Methods)
+    Methods = Symbol(Plural, :Methods)
     mod.eval(
         (
             quote
-                module $M
+                module $Methods
                 using EcologicalNetworksDynamics.Interface:
-                    ST, VW, SL, Network, Model
+                    ST, VW, SL, CS, Network, Model, @alias
                 using OrderedCollections
                 const defmeth, s, c = $defmeth, $s, $(Meta.quot(c))
 
@@ -129,6 +129,8 @@ function define_class_properties(mod::Module, s::SL.Class; depends = [])
                 defmeth(indices, :indices)
                 defmeth(get_parent_index, :parent_index)
                 defmeth(mask, :mask)
+
+                @alias $c.count $c.number
                 end
             end
         ).args |> last,
@@ -182,8 +184,7 @@ function expand!(md::Model, s::SL.Class, names)
 end
 
 # From number (generate names).
-function expand!(md::Model, bp::ClassNumber, n)
-    s = selector(bp)
+function expand!(md::Model, s::SL.Class, n::Int)
     prefix = SL.short_prefix(s)
     names = (Symbol(prefix, i) for i in 1:n)
     expand!(md, s, names)

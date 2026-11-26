@@ -64,12 +64,10 @@ function define_allometry_blueprints(
     base::Option{Named{Allometry}} = nothing,
     temperature::Option{Named{TAllometry}} = nothing,
 )
-    value, values, Value, Values, short = SL.name_variants(s)
+    singular, plural, Singular, Plural, short = SL.name_variants(s)
     T = SL.type(s)
-    Value_ = Symbol(Value, :_)
-    _Value = Symbol(:_, Value) # Component type name.
 
-    Mod = Symbol(Values, :Allometry_)
+    Mod = Symbol(Plural, :Allometry)
     bpmod = mod.eval(
         (
             quote

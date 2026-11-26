@@ -9,7 +9,6 @@ Returns the defined component and its type.
 function define_graph_field(mod::Module, s::SL.GraphField)
     S = typeof(s)
     shortname, singular, Singular = SL.name_variants(s)
-    Singular_ = Symbol(Singular, :_)
 
     T = SL.type(s)
     ST.is_deep_immutable(T) || throw(
@@ -20,11 +19,12 @@ function define_graph_field(mod::Module, s::SL.GraphField)
     # Only one blueprint for now.
 
     # Prepare dedicated blueprints module and populate namespace.
+    Blueprints = Symbol(Singular, :Blueprints)
     field = shortname
     bpmod = mod.eval(
         (
             quote
-                module $Singular_
+                module $Blueprints
                 import EcologicalNetworksDynamics.Interface: IT, @bp_construct
                 const s, T = $s, $T
 
@@ -43,9 +43,10 @@ function define_graph_field(mod::Module, s::SL.GraphField)
     # ======================================================================================
     # The component itself.
 
+    CPname = s |> SL.componentname |> Meta.quot
     cp = IT.eval(
         quote # Need to reach toplevel first to access generated values.
-            define_component($(Meta.quot(Singular)), $mod; blueprints = ($bpmod,))
+            define_component($CPname, $mod; blueprints = ($bpmod,))
         end,
     )
     CP = typeof(cp)
@@ -60,12 +61,12 @@ function define_graph_field(mod::Module, s::SL.GraphField)
     # ======================================================================================
     # Queries.
 
-    M = Symbol(Singular, :Methods)
+    Methods = Symbol(Singular, :Methods)
     props = [SL.fieldname(s), shortname]
     mod.eval(
         (
             quote
-                module $M
+                module $Methods
                 using EcologicalNetworksDynamics.Interface:
                     IT, SL, Network, Model
                 const s, CP, props = $s, $CP, $props

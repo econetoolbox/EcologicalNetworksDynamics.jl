@@ -18,18 +18,17 @@ function define_reflexive_web_component(mod::Module, s::SL.Web)
     class, same = SL.sidenames(s)
     same == class || argerr("Reflexive webs must match source and target, \
                              here $(repr(class)) != $(repr(same)).")
-    Web_ = Symbol(Web, :_) # Blueprints module name.
-    _Web = Symbol(:_, Web) # Component type name.
     w = Meta.quot(web) # Symbol names.
 
     # ======================================================================================
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
+    Blueprints = Symbol(Web, :Blueprints)
     bpmod = mod.eval(
         (
             quote
-                module $Web_
+                module $Blueprints
                 using EcologicalNetworksDynamics.Interface:
                     IT, SparseMatrix, BinAdjacency, Model, @bp_construct
                 const s, src, Class = $s, $src, $Class
@@ -71,14 +70,10 @@ function define_reflexive_web_component(mod::Module, s::SL.Web)
     # ======================================================================================
     # Component and generic constructors.
 
+    CPname = s |> SL.componentname |> Meta.quot
     cp = IT.eval(
         quote
-            define_component(
-                $(Meta.quot(Web)),
-                $mod;
-                requires = ($Class,),
-                blueprints = ($bpmod,),
-            )
+            define_component($CPname, $mod; requires = ($Class,), blueprints = ($bpmod,))
         end,
     )
     CP = typeof(cp)
@@ -106,11 +101,11 @@ function define_web_properties(mod::Module, s::SL.Web; depends = [])
     defmeth(fn, s) =
         IT.define_method(fn; depends, read_as = map(s -> paste_paths(prop, s), s))
 
-    M = Symbol(Web, :Methods)
+    Methods = Symbol(Web, :Methods)
     mod.eval(
         (
             quote
-                module $M
+                module $Methods
                 using EcologicalNetworksDynamics.Interface:
                     I, ST, VW, SL, Network, Model
                 const s, defmeth, w = $s, $defmeth, $(Meta.quot(w))

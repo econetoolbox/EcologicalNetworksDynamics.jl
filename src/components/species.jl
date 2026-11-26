@@ -7,7 +7,7 @@ SL.name_variants(::S) = (:s, :species, :species, :Species, :Species)
 const Species, _Species = IT.define_class_component(EN, s)
 
 # Extra aliases used by the community.
-@alias S species.number
+@alias S species.count
 @alias richness S
 @alias species.richness S
 

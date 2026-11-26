@@ -23,7 +23,7 @@ const s, S = SL.GraphField(:temperature)
     # These representations used to be fancy, leading to confusing errors and reports.
     # Avoid piracy and use default display instead.
     @test_repr(typeof(Temperature), "$EN._Temperature")
-    @test_repr(Temperature, "$EN._Temperature($EN.Temperature_.Raw)")
+    @test_repr(Temperature, "$EN._Temperature($EN.TemperatureBlueprints.Raw)")
 
     # These ones may be fancy.
     @test_disp(typeof(Temperature), "<Temperature> (component type for $(ST.Network))")

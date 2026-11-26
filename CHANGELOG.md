@@ -175,7 +175,12 @@ m.M = [:a => 3, :b => 2, :c => 1] # Map-form allowed.
 m.M = 5 # Allowed at least for component with a .Flat blueprint.
 ```
 
-TODO: feature 'count' as an alias to 'number'.
+The 'number' of nodes in a(ny) class is now also available as 'count'.
+```julia
+@test m.species.count == m.species.number
+@test m.producers.count == m.producers.number
+@test m.nutrients.count == m.nutrients.number
+```
 
 TODO: extract adjacency lists with *e.g.* `m.trophic.adjacency`.
 

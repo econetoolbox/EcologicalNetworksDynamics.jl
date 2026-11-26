@@ -163,7 +163,7 @@ end
     # Names view (tested further below).
     @test m.species.names == [:a, :b, :c]
     # Number of nodes in the class.
-    @test m.species.number == 3
+    @test m.species.number == m.species.count == 3
     # Index to map labels to canonical order.
     @test m.species.index == OrderedDict(:a => 1, :b => 2, :c => 3)
     # Same within the parent class (no parent class for this root example).
@@ -293,7 +293,7 @@ end
               - Species: 0 ()\
             """)
         @test m.species.names == []
-        @test m.species.number == 0
+        @test m.species.count == 0
         @test m.species.index == OrderedDict()
         @test m.species.parent_index == OrderedDict()
         @test m.species.mask == []

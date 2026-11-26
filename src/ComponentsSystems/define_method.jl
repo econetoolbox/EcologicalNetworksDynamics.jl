@@ -401,7 +401,8 @@ macro alias(new, old, V)
     end
 end
 export @alias
-function alias_property!(a, b, V)
+Path = Union{Symbol,Expr}
+function alias_property!(a::Path, b::Path, V::Type)
     # Extract original.
     (A, B) = property_space_type.((a, b), (V,))
     (Pa, Pb) = super.((A, B))

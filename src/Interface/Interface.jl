@@ -147,7 +147,7 @@ using SparseArrays
 const IT = Interface
 
 # Dedicate framework to the specific `Network` value.
-include("framework.jl")
+include("model.jl")
 
 # Define extension points to customize the data flow behaviour with fine grain.
 include("selectors.jl")

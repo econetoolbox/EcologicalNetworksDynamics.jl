@@ -37,18 +37,15 @@ function define_node_field_component(
     singular, plural, Singular, Plural, short = SL.name_variants(s)
     T = SL.type(s)
 
-    # Use it to generate adequate code.
-    Singular_ = Symbol(Singular, :_) # Blueprints module name.
-    _Singular = Symbol(:_, Singular) # Component type name.
-
     # ======================================================================================
     # Blueprints for the component.
 
     # Prepare dedicated blueprints module and populate namespace.
+    Blueprints = Symbol(Singular, :Blueprints)
     bpmod = mod.eval(
         (
             quote
-                module $Singular_
+                module $Blueprints
                 import EcologicalNetworksDynamics.Interface: IT, SL, @bp_construct
                 const s, T, Class = $s, $T, $Class
                 end
@@ -107,14 +104,12 @@ function define_node_field_component(
     # ======================================================================================
     # The component itself and generic blueprints constructors.
 
+    CPname = s |> SL.componentname |> Meta.quot
     cp = IT.eval(
         quote
-            define_component(
-                $(Meta.quot(Singular)),
-                $mod;
+            define_component($CPname, $mod;
                 requires = ($Class, $(requires...)),
-                blueprints = ($bpmod, $(blueprints...)),
-            )
+                blueprints = ($bpmod, $(blueprints...)))
         end,
     )
     CP = typeof(cp)
@@ -134,12 +129,12 @@ function define_node_field_component(
     end
 
     # Queries.
-    M = Symbol(Plural, :_Methods)
+    Methods = Symbol(Plural, :Methods)
     prop = [singular]
     mod.eval(
         (
             quote
-                module $M
+                module $Methods
                 using EcologicalNetworksDynamics.Interface:
                     VW, ST, IT, SL, Network, Model
                 const s, prop, CP = $s, $prop, $CP
@@ -325,7 +320,12 @@ end
 # Late check, when obtaining maps.
 
 "Check (only) label references against the model."
-function late_check_refs(md::Model, l::SL.NodeField, map::Map{<:Any,Symbol}; complete = true)
+function late_check_refs(
+    md::Model,
+    l::SL.NodeField,
+    map::Map{<:Any,Symbol};
+    complete = true,
+)
     ix = ST.class(md, l).index
     labels = ST.labels(ix)
     exp = Set(labels)

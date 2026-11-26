@@ -38,7 +38,7 @@ end
 IT.bp_early_check(bp::Diagonal) = IT.early_check.((s,), (bp.diag, bp.off))
 
 function IT.expand!(md::Model, ::Diagonal, (diag, off))
-    n = md.producers.number
+    n = md.producers.count
     alpha = diag * I(n) + off * (ones((n, n)) - I(n))
     IT.expand!(md, s, alpha)
 end

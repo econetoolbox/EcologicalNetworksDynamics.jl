@@ -45,6 +45,7 @@ CamelCasePlural(s::S) = name_variants(s)[5]
 
 "Obtain the component providing the class."
 component(s::S) = throw("Component unspeficied for $s.")
+componentname(s::S) = CamelCasePlural(s) # To be overriden.
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -111,6 +112,7 @@ propnames(s::S) = (snake_case(s), CamelCase(s))
 
 "Obtain the component providing the web."
 component(s::S) = throw("Component unspecified for $s.")
+componentname(s::S) = CamelCase(s) # To be overriden.
 
 "Names of the (source, target) classes."
 sidenames(s::S) = throw("Source and target classes unspecified for $s.")
@@ -145,6 +147,7 @@ name_variants(s::S) = throw("Name variants unspecified for $s.")
 shortname(s::S) = name_variants(s)[1]
 snake_case_singular(s::S) = name_variants(s)[2]
 CamelCaseSingular(s::S) = name_variants(s)[3]
+componentname(s::S) = CamelCaseSingular(s) # To be overriden.
 
 # Display.
 function Base.show(io::IO, s::S)
@@ -229,6 +232,7 @@ snake_case_plural(s::S) = name_variants(s)[2]
 CamelCaseSingular(s::S) = name_variants(s)[3]
 CamelCasePlural(s::S) = name_variants(s)[4]
 short_field_name(s::S) = name_variants(s)[5]
+componentname(s::S) = CamelCaseSingular(s) # To be overriden.
 
 # ==========================================================================================
 # Abstract over topology-related data.

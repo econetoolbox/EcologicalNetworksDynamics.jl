@@ -20,6 +20,8 @@ include("./species.jl")
 
 # First example of an edges web.
 include("./foodweb.jl")
+# HERE: introduce properly orthogonal (:producer/:consumer) orthogonal component..
+# unless it's already :metabolic_class?
 
 # First example of nodes data.
 include("./body_mass.jl")
@@ -57,6 +59,10 @@ include("./consumer_preference.jl")
 include("./handling_time.jl") # First example allometry on *edges* field.
 include("./attack_rate.jl")
 
+# Introduce nutrients: a second class of nodes, and corresponding fields.
+include("./nutrients.jl")
+export Nutrients
+
 # XXX: On hold beyond this line, reintroduce as needed after internals refactoring.
 # ==========================================================================================
 # Helpers.
@@ -71,8 +77,6 @@ include("./attack_rate.jl")
 #  # Easier once the Internals become more consistent?
 
 #  # Namespace nutrients data.
-#  include("./nutrients/main.jl")
-#  export Nutrients
 
 #  include("./nontrophic_layers/main.jl")
 #  using .NontrophicInteractions
