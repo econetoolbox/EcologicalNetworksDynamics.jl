@@ -113,6 +113,7 @@
 - `Efficiency(:Miele2019; kwargs...)`, `ConsumerPreference(:homogeneous)` *etc.*
   are replaced by the less-magic
   `Efficiency.Miele2019(; kwargs...)`, `ConsumerPreference.Homogeneous()` *etc.*
+  TODO: also `BodyMass(; Z = 1)` should become `BodyMass.Z(1)`.
 
 # Bugfixes
 
@@ -180,6 +181,11 @@ TODO: extract adjacency lists with *e.g.* `m.trophic.adjacency`.
 
 Temperature can now be set using standard Celcius unit:
 *e.g.* `Temperature(; celc = 20)`.
+
+Introduce a proper `Mobility` component to build `AttackRate.Miele2019` upon.
+This defaults to *producers* being considered `:sessile`
+and *consumers* being considered `:mobile` as before,
+but it may be used to explicitly choose mobility independent of the foodweb.
 
 ## Improvements
 

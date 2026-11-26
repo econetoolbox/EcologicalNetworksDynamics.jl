@@ -15,7 +15,7 @@ IT.early_check(::S, h_t::Real) = IT.non_negative(Float64, h_t)
 
 #-------------------------------------------------------------------------------------------
 """
-Calculate handling time of a predator-prey couple from by their body masses,
+Calculate handling time of predator-prey couples from their body masses,
 formally: ``h_{t,ij} = 0.3 m_i^{-0.48} m_j^{-0.66}``.
 This formula is taken from Miele et al. 2019 (PLOS Computational)
 and Rall et al. 2012 (Phil. Tran. R. Soc. B).
@@ -39,7 +39,7 @@ end
 handling_time(pred_mass, prey_mass) = 0.3 * pred_mass^(-0.48) * prey_mass^(-0.66)
 
 #-------------------------------------------------------------------------------------------
-# Allometry.
+# Temperature-allometry.
 binzer2016() = (
     E_a = 0.26,
     allometry = Allometry(;
