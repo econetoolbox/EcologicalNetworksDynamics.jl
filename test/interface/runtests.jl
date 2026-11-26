@@ -40,5 +40,6 @@ include("data_components/consumer_preference.jl")
 include("data_components/handling_time.jl")
 include("data_components/attack_rate.jl")
 include("data_components/half_saturation_density.jl")
+include("data_components/intraspecific_interference.jl")
 
 end
