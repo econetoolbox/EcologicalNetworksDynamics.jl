@@ -46,7 +46,7 @@ end
 const ConsumerPreference, _ConsumerPreference =
     IT.define_web_field_component(EN, s; blueprints = [Homogeneous])
 
-@alias w consumer_preference
+@alias w trophic.consumer_preference
 @alias consumers.preference w
 
 end

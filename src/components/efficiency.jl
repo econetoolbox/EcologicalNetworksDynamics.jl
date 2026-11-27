@@ -47,7 +47,7 @@ end
 
 const Efficiency, _Efficiency = IT.define_web_field_component(EN, s;
     blueprints = [Miele2019])
-@alias e efficiency
+@alias e trophic.efficiency
 
 end
 

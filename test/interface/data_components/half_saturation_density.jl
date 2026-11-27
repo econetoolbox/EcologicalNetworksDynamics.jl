@@ -15,8 +15,8 @@ const s, S = SL.NodeField(:consumers, :half_saturation_density)
         (s, -5.0, (:u, (1,)), "Value cannot be negative."))
 
     m = Model(Foodweb([:a => :b, :b => :c]), HalfSaturationDensity(5))
-    @test m.half_saturation_density == [5, 5]
-    @test spextract(m.half_saturation_density) == [5, 5, 0]
+    @test m.consumers.half_saturation_density == [5, 5]
+    @test spextract(m.consumers.half_saturation_density) == [5, 5, 0]
 
 end
 

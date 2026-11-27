@@ -17,7 +17,7 @@ albp = IT.define_allometry_blueprints(EN, s; base = :Miele2019 => miele2019())
 
 const Mortality, _Mortality = IT.define_node_field_component(EN, s; blueprints = [albp])
 
-@alias d mortality
+@alias d species.mortality
 
 (::_Mortality)(default::Symbol) = IT.from_name(default,
     :Miele2019 => () -> Mortality.Allometric(default),

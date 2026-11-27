@@ -89,7 +89,7 @@ function define_class_properties(mod::Module, s::SL.Class; depends = [])
     short_prefix, singular, plural, Singular, Plural = SL.name_variants(s)
 
     IT.define_propspace(plural)
-    defmeth(fn, s) = IT.define_method(fn; depends, read_as = [:($plural.$s)])
+    defmeth(fn, prop) = IT.define_method(fn; depends, read_as = [:($plural.$prop)])
 
     # Wrap all within a separate module
     # or identical definitions end up being considered the same functions.

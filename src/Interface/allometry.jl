@@ -234,15 +234,15 @@ end
 function expand!(md::Model, s::SL.NodeField, al::Allometry; kwargs...)
     f, cl = SL.fieldname(s), ST.class(md, s)
     M, mc = if ST.is_root(md, s)
-        md.M, md.metabolic_class
+        md.M, md.species.metabolic_class
     else
         rs = cl.restriction
         inds = ST.indices(rs)
         # Filter out relevant values.
-        M = read(md._body_mass) do M
+        M = read(md.species._body_mass) do M
             [M[i] for i in inds]
         end
-        mc = read(md._metabolic_class) do mc
+        mc = read(md.species._metabolic_class) do mc
             [mc[i] for i in inds]
         end
         M, mc
@@ -254,7 +254,7 @@ end
 function expand!(md::Model, s::SL.EdgeField, al::Allometry; kwargs...)
     f, wb = SL.fieldname(s), ST.web(md, s)
     edges = ST.edges(wb.topology)
-    data = read(md._body_mass, md._metabolic_class) do M, mc
+    data = read(md.species._body_mass, md.species._metabolic_class) do M, mc
         paired_allometric_rates(al,
             ((M[i], M[j]) for (i, j) in edges),
             ((mc[i], mc[j]) for (i, j) in edges),

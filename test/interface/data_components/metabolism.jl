@@ -15,7 +15,7 @@ const s, S = SL.NodeField(:species, :metabolism)
 
     base = Model(Species("abcd"), Foodweb([:a => [:b, :c], :b => :c]))
     m = base + Metabolism([4, 5, 6, 7])
-    @test m.x == m.metabolism == [4, 5, 6, 7] # Convenience alias.
+    @test m.x == m.species.metabolism == [4, 5, 6, 7] # Convenience alias.
 
     # From allometric rates.
     base += BodyMass(; Z = 1) + MetabolicClass(:all_invertebrates)
@@ -25,7 +25,7 @@ const s, S = SL.NodeField(:species, :metabolism)
     @test_repr(bp.allometry,
         "Allometry(p: (a: 0.0, b: 0.0), i: (a: 0.314, b: -0.25), e: (a: 0.88, b: -0.25))")
     m = base + bp
-    @test m.metabolism == [0.314, 0.314, 0, 0]
+    @test m.x == [0.314, 0.314, 0, 0]
 
     # With temperature.
     a = 6.557967639824989e-8
@@ -36,7 +36,7 @@ const s, S = SL.NodeField(:species, :metabolism)
                i: (a: $a, b: -0.31), \
                e: (a: $a, b: -0.31))")
     m = base + Temperature() + bp
-    @test m.metabolism ≈ [a, a, 0, 0]
+    @test m.x ≈ [a, a, 0, 0]
 
     # Rescuing older tests to try non-degenerated cases
     base = Model(
@@ -45,9 +45,9 @@ const s, S = SL.NodeField(:species, :metabolism)
         MetabolicClass(:all_invertebrates),
     )
     m = base + Metabolism(:Miele2019)
-    @test m.metabolism ≈ [0.2837310291334913, 0.2837310291334913, 0.0]
+    @test m.x ≈ [0.2837310291334913, 0.2837310291334913, 0.0]
     m = base + Temperature(; celc = 20) + Metabolism(:Binzer2016)
-    @test m.metabolism == [5.7833700154794104e-8, 5.7833700154794104e-8, 0.0]
+    @test m.x == [5.7833700154794104e-8, 5.7833700154794104e-8, 0.0]
 
 end
 

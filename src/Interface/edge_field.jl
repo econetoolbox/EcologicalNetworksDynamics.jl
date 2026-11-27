@@ -24,7 +24,7 @@ function define_web_field_component(
     Web = SL.component(w)
     web, field = SL.content(s)
     src, tgt = SL.sourcename(w), SL.targetname(w)
-    value, values, Value, Values, short = SL.name_variants(s)
+    singular, plural, Singular, Plural, short = SL.name_variants(s)
     T = SL.type(s)
 
     # First attempt to polymorphism over sparsity.
@@ -34,7 +34,7 @@ function define_web_field_component(
     # ======================================================================================
     # Blueprints for the component.
 
-    Blueprints = Symbol(Value, :_)
+    Blueprints = Symbol(Singular, :_)
     bpmod = mod.eval(
         (
             quote
@@ -115,7 +115,7 @@ function define_web_field_component(
     cp = mod.eval(
         quote
             IT.define_component(
-                $(Meta.quot(Value)),
+                $(Meta.quot(Singular)),
                 $mod;
                 requires = ($Web, $(requires...)),
                 blueprints = [$bpmod, $(blueprints...)],
@@ -127,33 +127,39 @@ function define_web_field_component(
         quote
             $SL.component(::$S) = $cp
             (::$CP)($short, args...; kwargs...) =
-                $construct($s, $Value, $short, args...; kwargs...)
+                $construct($s, $Singular, $short, args...; kwargs...)
         end,
     )
 
     if may_flat(s)
         R = flat(s) # Receiver type.
         mod.eval(quote
-            (::$CP)($short::$R) = $Value.Flat($short)
+            (::$CP)($short::$R) = $Singular.Flat($short)
         end)
     end
 
     # Queries.
-    M = Symbol(Values, :_Methods)
-    prop = [value]
+    prefix(p) = paste_paths(SL.webname(s), p)
+    defmeth(fn; read = [], write = []) = IT.define_method(fn;
+        read_as = map(prefix, read),
+        write_as = map(prefix, write),
+        depends = [CP],
+    )
+    M = Symbol(Plural, :_Methods)
+    prop = s |> SL.fieldname |> Meta.quot
     mod.eval(
         (
             quote
                 module $M
                 using EcologicalNetworksDynamics.Interface: VW, IT, SL, Network, Model
-                const s, prop, CP = $s, $prop, $CP
+                const s, prop, defmeth = $s, $prop, $defmeth
                 SL.viewtype(::typeof(s)) = VW.EdgeFieldView
                 get_value(::Network, md::Model) = VW.field_view(s, md)
-                IT.define_method(get_value; read_as = prop, depends = [CP])
+                defmeth(get_value; read = [prop])
                 if !SL.readonly(s)
                     set_value!(::Network, md::Model, input) =
                         IT.mut_set!(md, s, IT.wholedata, input)
-                    IT.define_method(set_value!; write_as = prop, depends = [CP])
+                    defmeth(set_value!; write = [prop])
                 end
                 end
             end

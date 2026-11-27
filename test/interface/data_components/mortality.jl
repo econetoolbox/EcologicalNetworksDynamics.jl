@@ -16,7 +16,7 @@ const s, S = SL.NodeField(:species, :mortality)
 
     base = Model(Foodweb([:a => [:b, :c], :b => :c]))
     m = base + Mortality([5, 8, 13])
-    @test m.d == m.mortality == [5, 8, 13]
+    @test m.d == m.species.mortality == [5, 8, 13]
 
     # From allometry.
     base += BodyMass(; Z = 1) + MetabolicClass(:all_invertebrates)
@@ -27,7 +27,7 @@ const s, S = SL.NodeField(:species, :mortality)
                    i: (a: 0.0314, b: -0.25), \
                    e: (a: 0.0314, b: -0.25))")
     m = base + bp
-    @test m.mortality ≈ [0.0314, 0.0314, 0.0138]
+    @test m.d ≈ [0.0314, 0.0314, 0.0138]
 
     # Rescued old test to try a non-degenerated case.
     m = Model(
@@ -36,7 +36,7 @@ const s, S = SL.NodeField(:species, :mortality)
         MetabolicClass(:all_invertebrates),
         Mortality(:Miele2019)
     )
-    @test m.mortality == [0.028373102913349126, 0.028373102913349126, 0.012469707649815859]
+    @test m.d == [0.028373102913349126, 0.028373102913349126, 0.012469707649815859]
 end
 
 end

@@ -15,8 +15,8 @@ const s, S = SL.NodeField(:consumers, :consumption_rate)
         (s, -5.0, (:u, (1,)), "Value cannot be negative."))
 
     m = Model(Foodweb([:a => :b, :b => :c]), ConsumptionRate(5))
-    @test m.alpha == m.consumption_rate == [5, 5]
-    @test spextract(m.consumption_rate) == [5, 5, 0]
+    @test m.alpha == m.consumers.consumption_rate == [5, 5]
+    @test spextract(m.alpha) == [5, 5, 0]
 
 end
 

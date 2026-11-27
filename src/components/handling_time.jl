@@ -25,11 +25,11 @@ IT.register_blueprint(Miele2019, "body masses"; s, depends = [EN.BodyMass])
 
 function IT.expand!(md::Model, ::Miele2019, _)
     # Directly lower to a flattened matrix.
-    (; body_mass) = md
+    (; M) = md
     tp = ST.web(md, s).topology
     vec = sizehint!(Float64[], ST.n_edges(tp))
     for (i, j) in ST.edges(tp)
-        pred, prey = body_mass[i], body_mass[j]
+        pred, prey = M[i], M[j]
         ht = handling_time(pred, prey)
         push!(vec, ht)
     end

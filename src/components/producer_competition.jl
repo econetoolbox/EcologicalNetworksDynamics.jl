@@ -63,7 +63,7 @@ function (::_ProducerCompetition)(alpha = nothing; kwargs...)
     ProducerCompetition.Diagonal(; kwargs...)
 end
 
-@alias producers.competition producer_competition
+@alias producers.competition inter_producer.competition
 
 end
 local ProducerCompetition, _ProducerCompetition # (reassure JuliaLS)

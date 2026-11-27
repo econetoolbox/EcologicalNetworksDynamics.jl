@@ -16,7 +16,7 @@ const s, S = SL.NodeField(:producers, :carrying_capacity)
 
     base = Model(Species("abcd"), Foodweb([:a => [:b, :c], :b => :c]))
     m = base + CarryingCapacity([5, 8])
-    @test m.K == m.carrying_capacity == m.producers.carrying_capacity == [5, 8]
+    @test m.K == m.producers.carrying_capacity == [5, 8]
     @test spextract(m.K) isa SparseVector{Float64}
     @test spextract(m.K) == [0, 0, 5, 8]
 
@@ -26,11 +26,11 @@ const s, S = SL.NodeField(:producers, :carrying_capacity)
     @test bp == CarryingCapacity(:Binzer2016)
     @test_repr(bp.allometry, "Allometry(p: (a: 3.0, b: 0.28), i: (), e: ())")
     m = base + Temperature(; celc = 20) + bp
-    @test m.carrying_capacity ≈ [3, 3]
+    @test m.K ≈ [3, 3]
 
     # Rescue old test to try non-degenerated case.
     m = base + Temperature(298.5) + CarryingCapacity(:Binzer2016)
-    @test m.carrying_capacity == [1.8127671052326149, 1.8127671052326149]
+    @test m.K == [1.8127671052326149, 1.8127671052326149]
 
 end
 

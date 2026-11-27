@@ -23,7 +23,7 @@ const s, S = SL.EdgeField(:trophic, :consumer_preference)
     @test_disp(bp, "blueprint for <ConsumerPreference>: Homogeneous {}")
 
     m = base + bp
-    @test m.w == m.consumers.preference == m.consumer_preference ==
+    @test m.w == m.consumers.preference == m.trophic.consumer_preference ==
           map(
               x -> x > 0 ? 1 / x : 0,
               [

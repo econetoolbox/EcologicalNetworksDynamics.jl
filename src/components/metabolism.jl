@@ -28,7 +28,7 @@ albp = IT.define_allometry_blueprints(EN, s;
 
 const Metabolism, _Metabolism = IT.define_node_field_component(EN, s; blueprints = [albp])
 
-@alias x metabolism
+@alias x species.metabolism
 
 (::_Metabolism)(default::Symbol) = IT.from_name(default,
     :Miele2019 => () -> Metabolism.Allometric(default),

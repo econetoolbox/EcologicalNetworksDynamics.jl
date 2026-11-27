@@ -27,7 +27,7 @@ include("data_components/species.jl")          #
 include("data_components/foodweb.jl")          # Run these first
 include("data_components/body_mass.jl")        # because they were examples in the above.
 include("data_components/metabolic_class.jl")  #
-include("data_components/growth_rate.jl")      #
+include("data_components/growth.jl")           #
 include("data_components/efficiency.jl")       #
 
 include("data_components/carrying_capacity.jl")
@@ -45,6 +45,7 @@ include("data_components/consumption_rate.jl")
 
 module Nutrients
     include("data_components/nutrients/nodes.jl")
+    include("data_components/nutrients/turnover.jl")
 end
 
 end

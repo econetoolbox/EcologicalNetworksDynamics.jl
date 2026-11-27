@@ -14,7 +14,7 @@ const s, S = SL.NodeField(:species, :body_mass)
     m = Model(BodyMass([1, 2, 3]))
 
     # Legacy alias.
-    @test m.body_mass === m.M
+    @test m.M === m.species.body_mass
     @test BodyMass(; M = [4, 5, 6]) == BodyMass.Raw([4, 5, 6])
     @test BodyMass(; M = 2) == BodyMass.Flat(2)
 
@@ -33,7 +33,7 @@ const s, S = SL.NodeField(:species, :body_mass)
     fw = Foodweb([:a => [:b, :c], :b => :c])
     m = Model(fw, bp)
     @test m.trophic.level == [2.5, 2, 1]
-    @test m.body_mass == [2.8^1.5, 2.8, 1]
+    @test m.M == [2.8^1.5, 2.8, 1]
 
     # Expansion failures.
     noneg = "Cannot calculate body masses from trophic levels with a negative value of Z."

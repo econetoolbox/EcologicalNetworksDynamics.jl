@@ -18,7 +18,7 @@ const s, S = SL.EdgeField(:trophic, :handling_time)
     bp = HandlingTime.Miele2019()
 
     m = base + BodyMass(; Z = 1) + bp
-    @test m.handling_time == [
+    @test m.trophic.handling_time == [
         0 3 3
         0 0 3
         0 0 0

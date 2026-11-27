@@ -21,7 +21,7 @@ albp = IT.define_allometry_blueprints(EN, s; base = :Miele2019 => miele2019())
 const MaximumConsumption, _MaximumConsumption =
     IT.define_node_field_component(EN, s; blueprints = [albp])
 
-@alias y maximum_consumption
+@alias y consumers.maximum_consumption
 
 (::_MaximumConsumption)(default::Symbol) = IT.from_name(default,
     :Miele2019 => () -> MaximumConsumption.Allometric(default),

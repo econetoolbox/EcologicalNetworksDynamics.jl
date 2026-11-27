@@ -14,7 +14,7 @@ SL.type(::S) = Float64
 IT.early_check(::S, alpha::Real) = IT.non_negative(Float64, alpha)
 
 const ConsumptionRate, _ConsumptionRate = IT.define_node_field_component(EN, s)
-@alias alpha consumption_rate
+@alias alpha consumers.consumption_rate
 
 end
 local ConsumptionRate, _ConsumptionRate # (reassure JuliaLS)

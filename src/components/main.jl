@@ -31,7 +31,7 @@ include("./metabolic_class.jl")
 
 # Nodes data only relevant to a sub-class.
 # Possibly constructed from allometric blueprints.
-include("./growth_rate.jl")
+include("./growth.jl")
 
 # First example of edges data.
 include("./efficiency.jl")

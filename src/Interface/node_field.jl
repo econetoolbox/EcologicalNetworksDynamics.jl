@@ -32,7 +32,6 @@ function define_node_field_component(
     S = typeof(s)
     cl = SL.class(s)
     Class = SL.component(cl)
-    _Class = typeof(Class)
     class, field = SL.content(s)
     singular, plural, Singular, Plural, short = SL.name_variants(s)
     T = SL.type(s)
@@ -129,24 +128,31 @@ function define_node_field_component(
     end
 
     # Queries.
+    prefix(p) = paste_paths(SL.classname(s), p)
+    defmeth(fn; read = [], write = []) = IT.define_method(fn;
+        read_as = map(prefix, read),
+        write_as = map(prefix, write),
+        depends = [CP],
+    )
     Methods = Symbol(Plural, :Methods)
-    prop = [singular]
+    prop = singular |> Meta.quot
     mod.eval(
         (
             quote
                 module $Methods
                 using EcologicalNetworksDynamics.Interface:
                     VW, ST, IT, SL, Network, Model
-                const s, prop, CP = $s, $prop, $CP
+                const s, prop, defmeth = $s, $prop, $defmeth
+                const _prop = Symbol(:_, prop)
                 SL.viewtype(::typeof(s)) = VW.NodeFieldView
                 get_value(::Network, md::Model) = VW.field_view(s, md)
                 get_entry(::Network, md::Model) = ST.entry(md, s)
-                IT.define_method(get_value; read_as = prop, depends = [CP])
-                IT.define_method(get_entry; read_as = Symbol.((:_,), prop), depends = [CP])
+                defmeth(get_value; read = [prop])
+                defmeth(get_entry; read = [_prop])
                 if !SL.readonly(s)
                     set_value!(::Network, md::Model, input) =
                         IT.mut_set!(md, s, IT.wholedata, input)
-                    IT.define_method(set_value!; write_as = prop, depends = [CP])
+                    defmeth(set_value!; write = [prop])
                 end
                 end
             end

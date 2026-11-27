@@ -169,7 +169,6 @@ S = NodeField # 'Self'
 content(::S{class,field}) where {class,field} = (class, field)
 classname(s::S) = first(content(s))
 fieldname(s::S) = last(content(s))
-type(s::S) = throw("Data type unspecified for $s.") # Underlying data type.
 
 "Obtain selector to underlying class."
 class(s::S) = s |> classname |> class
@@ -216,6 +215,7 @@ const AbstractField{field} =
 S = AbstractField
 readonly(::S) = false # By default, or specialize.
 viewtype(s::S) = unimplemented(viewtype, s) # The data view for this field.
+type(s::S) = throw("Data type unspecified for $s.") # Underlying data type.
 
 """
 Obtain name variants for the data points, in order:

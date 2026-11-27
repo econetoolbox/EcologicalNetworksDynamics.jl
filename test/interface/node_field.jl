@@ -273,7 +273,7 @@ end
 @testset "NodeField components: views" begin
 
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
-    v = m.body_mass
+    v = m.M
     @test v isa View
 
     @test_repr(v, "<species:body_mass>[4.0, 5.0, 6.0]")
@@ -285,7 +285,7 @@ end
          6.0\
         """)
 
-    @propfails(Model().body_mass, Model, :body_mass,
+    @propfails(Model().M, Model, :M,
         "Component <BodyMass> is required to read this property.")
 
     e = extract(v)
@@ -337,57 +337,57 @@ end
 @testset "NodeField components: mutate" begin
 
     m = Model(Species("abc"), BodyMass([4, 5, 6]))
-    v = m.body_mass
+    v = m.M
 
     # The field is *mutable* through the view.
-    w = m.body_mass # Alternate view to the same model.
+    w = m.M # Alternate view to the same model.
     alt = copy(m) # Forked model.
-    a = alt.body_mass # Alternate view to the forked model.
+    a = alt.M # Alternate view to the forked model.
     @test v == w == a == [4, 5, 6] # All synced (same underlying storage).
 
     # Mutate, invoking COW.
     v[1] *= 10
     v[:b] += 100
-    @test v == w == m.body_mass == [40, 105, 6] # All views to model impacted, old and new.
-    @test a == alt.body_mass == [4, 5, 6] # Forked model unchanged, or any view to it.
+    @test v == w == m.M == [40, 105, 6] # All views to model impacted, old and new.
+    @test a == alt.M == [4, 5, 6] # Forked model unchanged, or any view to it.
 
     # Alternately use the whole property to mutate the 'reassign-like' way.
     input = [9, 5, 1]
-    m.body_mass = input
-    @test v == w == m.body_mass == [9, 5, 1]
+    m.M = input
+    @test v == w == m.M == [9, 5, 1]
     # This importantly leaks no reference within the model, so it's *not* actual reassign.
     input[1] *= 10
     @test input == [90, 5, 1]
-    @test v == w == m.body_mass == [9, 5, 1] # Unchanged.
+    @test v == w == m.M == [9, 5, 1] # Unchanged.
 
     # Sophisticated reassign: map-like.
-    m.body_mass = (; a = 7, c = 3) # (may be partial then)
-    @test v == w == m.body_mass == [7, 5, 3]
-    m.body_mass = [3 => 8, 1 => 9]
-    @test v == w == m.body_mass == [9, 5, 8]
+    m.M = (; a = 7, c = 3) # (may be partial then)
+    @test v == w == m.M == [7, 5, 3]
+    m.M = [3 => 8, 1 => 9]
+    @test v == w == m.M == [9, 5, 8]
 
     # Or flat-like.
-    m.body_mass = 2
-    @test v == w == m.body_mass == [2, 2, 2]
+    m.M = 2
+    @test v == w == m.M == [2, 2, 2]
 
     # AbstractArray also provides more sophisticated indexed mutation options.
     v[2:3] = [3, 4] # Ranges.
-    @test v == w == m.body_mass == [2, 3, 4]
+    @test v == w == m.M == [2, 3, 4]
     v[v .!= 3] = [8, 9] # Masks.
-    @test v == w == m.body_mass == [8, 3, 9]
+    @test v == w == m.M == [8, 3, 9]
     v[2:3] .= 7 # Broadcast.
-    @test v == w == m.body_mass == [8, 7, 7]
+    @test v == w == m.M == [8, 7, 7]
     v .= [1, 2, 3] # Broadcast to it all.
-    @test v == w == m.body_mass == [1, 2, 3]
+    @test v == w == m.M == [1, 2, 3]
     v[[2, 3, 1]] = [3, 5, 7] # Indices vector.
-    @test v == w == m.body_mass == [7, 3, 5]
+    @test v == w == m.M == [7, 3, 5]
 
     # One extension: accept labels vector.
     v[[:a, :c]] = [8, 9]
-    @test v == w == m.body_mass == [8, 3, 9]
+    @test v == w == m.M == [8, 3, 9]
 
     # Still unchanged.
-    @test a == alt.body_mass == [4, 5, 6]
+    @test a == alt.M == [4, 5, 6]
 
     # Index-checking is also enabled via `setindex!`.
     @viewfails(v[-5] = 8, (s, -5, :uwhole, "There are 3 nodes in this class."))
@@ -422,8 +422,8 @@ end
         "BoundsError: attempt to access 3-element $View at index [2-element Vector{Bool}]")
 
     # Still unchanged (after failures).
-    @test v == w == m.body_mass == [8, 3, 9]
-    @test a == alt.body_mass == [4, 5, 6]
+    @test v == w == m.M == [8, 3, 9]
+    @test a == alt.M == [4, 5, 6]
 
     # The value is still checked.
     @mutfails(v .= -5, (s, -5.0, (:m, ((1, :a),)), "Value cannot be negative."))
@@ -431,12 +431,12 @@ end
     @mutfails(v[2:3] = [1, -5], (s, -5.0, (:m, ((3, :c),)), "Value cannot be negative."))
 
     # On assignment.
-    @mutfails(m.body_mass = [1, 5],
+    @mutfails(m.M = [1, 5],
         (s, [1.0, 5.0], :mwhole, "Wrong number of values received: expected 3, got 2."))
     input = [:x => 1.0, :y => 2.0]
-    @mutfails(m.body_mass = input,
+    @mutfails(m.M = input,
         (s, OrderedDict(input), :mwhole, "Not species names: :x and :y."))
-    @mutfails(m.body_mass = [:a => 1, :c => -2],
+    @mutfails(m.M = [:a => 1, :c => -2],
         (s, -2.0, (:u, (:c,)), "Value cannot be negative."))
 
     @test_err(v[2:3] = [1, -5],
@@ -449,8 +449,8 @@ end
 
     # Although /!\ CAREFUL partial mutation may have been applied.
     #                                 *v*
-    @test v == w == m.body_mass == [8, 1, 9]
-    @test a == alt.body_mass == [4, 5, 6]
+    @test v == w == m.M == [8, 1, 9]
+    @test a == alt.M == [4, 5, 6]
     # Fixing that would require hooking all julia abstractarray interface, right?
 
 end
@@ -458,7 +458,7 @@ end
 @testset "NodeField components: sparse extract" begin
 
     # Obtain legacy sparse data from view into subnodes field.
-    m = Model(Foodweb([:a => :b, :c => (:b, :d)]), GrowthRate([5, 8]), BodyMass(2))
+    m = Model(Foodweb([:a => :b, :c => (:b, :d)]), Growth([5, 8]), BodyMass(2))
 
     @test m.producers.growth == [5, 8] # Dense.
 
@@ -475,7 +475,7 @@ end
     @stofails(spextract(m.producers.growth, :x), "Not a class in the network: :x.")
     @stofails(spextract(m.producers.growth, :tops),
         "Node class :tops does not superclass :producers.")
-    @argfails(spextract(m.body_mass), "Cannot sparse-extract from a root class: :species.")
+    @argfails(spextract(m.M), "Cannot sparse-extract from a root class: :species.")
 
 end
 

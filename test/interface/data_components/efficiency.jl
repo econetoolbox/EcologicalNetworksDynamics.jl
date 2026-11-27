@@ -66,12 +66,12 @@ const s, S = SL.EdgeField(:trophic, :efficiency)
     bp = Efficiency.Miele2019(; herb = 0.2, carn = 0.4)
     m = base + bp
     @test has_component(m, Efficiency)
-    @test m.efficiency == [
+    @test m.trophic.efficiency == [
         0 4 2
         0 0 2
         0 0 0
     ] / 10
-    @test m.efficiency === m.e # Alias.
+    @test m.e == m.trophic.efficiency # Alias.
 
     # The foodweb is therefore required for expansion.
     addfails.@missing(Model() + bp, Foodweb, Efficiency, [Efficiency.Miele2019], nothing)

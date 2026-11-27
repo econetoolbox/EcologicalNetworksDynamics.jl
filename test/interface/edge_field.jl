@@ -14,6 +14,7 @@ using Test
 
 const s, S = SL.EdgeField(:trophic, :efficiency)
 const View = VW.SparseEdgeFieldView{s,Float64}
+const Tr = CS.@PropertySpace(trophic, ST.Network)
 # TODO: test for dense constructs when such a component shows up: nutrients-to-consumers?
 
 @testset "EdgeField components: blueprints" begin
@@ -434,9 +435,7 @@ end
 
 @testset "EdgeField components: views" begin
 
-    # Inspired from Web views.
-
-    @propfails(Model().efficiency, Model, :efficiency,
+    @propfails(Model().trophic.efficiency, Tr, :efficiency,
         "Component <Efficiency> is required to read this property.")
 
     e = [
@@ -447,7 +446,7 @@ end
     ] / 10
     m = Model(Species("abcd"), Efficiency(e))
 
-    v = m.efficiency
+    v = m.trophic.efficiency
     @test v isa View
     @test_repr(v, "<trophic:efficiency>(4×4: 4 values ranging from 0.2 to 0.8)")
     @test_disp(v,
@@ -545,12 +544,12 @@ end
         2 0 4 0
     ] / 10
     m = Model(Species("abcd"), Efficiency(e))
-    v = m.efficiency
+    v = m.e
 
     # The field is *mutable* through the view.
-    w = m.efficiency # Alternate view to the same model.
+    w = m.e # Alternate view to the same model.
     alt = copy(m) # Forked model.
-    a = alt.efficiency # Alternate view to the forked model.
+    a = alt.e # Alternate view to the forked model.
     @test v == w == a == e # All synced (same underlying storage).
 
     #---------------------------------------------------------------------------------------
@@ -558,13 +557,13 @@ end
 
     v[1, 2] = 0.6
     v[:b, :c] = 0.7
-    @test v == w == m.efficiency == [
+    @test v == w == m.e == [
         0 6 0 0
         0 0 7 0
         0 0 0 0
         2 0 4 0
     ] / 10
-    @test a == alt.efficiency == e # Unchanged.
+    @test a == alt.e == e # Unchanged.
 
     # Alternately use the whole property to mutate the 'reassign-like' way.
     input = [
@@ -573,12 +572,12 @@ end
         0 0 0 0
         1 0 4 0
     ] / 10
-    m.efficiency = input
-    @test v == w == m.efficiency == input
+    m.e = input
+    @test v == w == m.e == input
 
     # Raw-vector style.
-    m.efficiency = [5, 6, 7, 8] / 10
-    @test v == w == m.efficiency == [
+    m.e = [5, 6, 7, 8] / 10
+    @test v == w == m.e == [
         0 6 0 0
         0 0 7 0
         0 0 0 0
@@ -586,15 +585,15 @@ end
     ] / 10
 
     # Sophisticated reassign, adjacency-like.
-    m.efficiency = [:a => (; b = 0.1), :d => (:c, 0.2)] # (may be partial then)
-    @test v == w == m.efficiency == [
+    m.e = [:a => (; b = 0.1), :d => (:c, 0.2)] # (may be partial then)
+    @test v == w == m.e == [
         0 1 0 0
         0 0 7 0
         0 0 0 0
         5 0 2 0
     ] / 10
-    m.efficiency = [1 => (2 => 0.8), 4 => (3, 0.3)]
-    @test v == w == m.efficiency == [
+    m.e = [1 => (2 => 0.8), 4 => (3, 0.3)]
+    @test v == w == m.e == [
         0 8 0 0
         0 0 7 0
         0 0 0 0
@@ -602,11 +601,11 @@ end
     ] / 10
 
     # Or flat-like.
-    m.efficiency = 0.9
-    @test v == w == m.efficiency == 0.9 * m.trophic.mask
+    m.e = 0.9
+    @test v == w == m.e == 0.9 * m.trophic.mask
 
     # Still unchanged.
-    @test a == alt.efficiency == e
+    @test a == alt.e == e
 
     #---------------------------------------------------------------------------------------
     # Index-check.
@@ -634,8 +633,8 @@ end
          is not supported; perhaps use broadcasting `.=` instead?")
 
     # Still unchanged (after failures).
-    @test v == w == m.efficiency == 0.9 * m.trophic.mask
-    @test a == alt.efficiency == e
+    @test v == w == m.e == 0.9 * m.trophic.mask
+    @test a == alt.e == e
 
     #---------------------------------------------------------------------------------------
     # Early-check.
@@ -656,18 +655,18 @@ end
         0 0 0 0
         1 0 4 0
     ] / 10 |> sparse # (also covering sparse input)
-    @mutfails(m.efficiency = wrong, (s, 3.0, (:u, (2, 3)), "Value must belong to [0, 1]."))
+    @mutfails(m.e = wrong, (s, 3.0, (:u, (2, 3)), "Value must belong to [0, 1]."))
 
     # Raw.
-    @mutfails(m.efficiency = [5, 60, 7, 8] / 10,
+    @mutfails(m.e = [5, 60, 7, 8] / 10,
         (s, 6.0, (:u, (2,)), "Value must belong to [0, 1]."))
 
     # Adjacency.
-    @mutfails(m.efficiency = [:a => (; b = 0.1), :d => (:c, 2)],
+    @mutfails(m.e = [:a => (; b = 0.1), :d => (:c, 2)],
         (s, 2.0, (:u, (:d, :c)), "Value must belong to [0, 1]."))
 
     wrong = [1 => (-1 => 0.1), 4 => (3, 2)]
-    @test_err(m.efficiency = wrong,
+    @test_err(m.e = wrong,
         """
         While mutating model:
         In the provided input targetting edge values for <trophic:efficiency>:
@@ -681,11 +680,11 @@ end
         """)
 
     # Flat.
-    @mutfails(m.efficiency = 9, (s, 9.0, :mwhole, "Value must belong to [0, 1]."))
+    @mutfails(m.e = 9, (s, 9.0, :mwhole, "Value must belong to [0, 1]."))
 
     # Still unchanged (after failures).
-    @test v == w == m.efficiency == 0.9 * m.trophic.mask
-    @test a == alt.efficiency == e
+    @test v == w == m.e == 0.9 * m.trophic.mask
+    @test a == alt.e == e
 
     #---------------------------------------------------------------------------------------
     # Late-check.
@@ -697,7 +696,7 @@ end
         0 0 0 9
         1 0 4 0
     ] / 10
-    @mutfails(m.efficiency = wrong,
+    @mutfails(m.e = wrong,
         (s, [(3, 4) => 0.9], :mwhole,
             "Received unexpected value: \
              there is no such trophic edge: (3, :c) => (4, :d)."))
@@ -707,7 +706,7 @@ end
         0 0 0 0
         1 0 4 0
     ] / 10 |> sparse
-    @mutfails(m.efficiency = wrong,
+    @mutfails(m.e = wrong,
         (s, wrong, :mwhole,
             "Missing: the trophic edge (2, :b) => (3, :c) exists, \
              but no value is provided for it.\n\
@@ -716,31 +715,31 @@ end
 
     # Raw.
     wrong = [4, 5, 6] / 10
-    @mutfails(m.efficiency = wrong,
+    @mutfails(m.e = wrong,
         (s, wrong, :mwhole, "There are 4 edges to valuate, but the vector is of size 3."))
 
     # Adjacency.
     wrong = [:a => (; c = 0.1), :d => (:c, 0.2)]
-    @mutfails(m.efficiency = wrong,
+    @mutfails(m.e = wrong,
         (s, [(:a, :c) => 0.1], :mwhole,
             "Received unexpected value: \
              there is no such trophic edge: (1, :a) => (3, :c)."))
     wrong = [1 => (3 => 0.1), 4 => (3, 0.2)]
-    @mutfails(m.efficiency = wrong,
+    @mutfails(m.e = wrong,
         (s, [(1, 3) => 0.1], :mwhole,
             "Received unexpected value: \
              there is no such trophic edge: (1, :a) => (3, :c)."))
 
     wrong = [:a => (; x = 0.1), :d => (:c, 0.2)]
-    @mutfails(m.efficiency = wrong,
+    @mutfails(m.e = wrong,
         (s, (:a, :x), (:u, (:a, :x)), "Not a species node label: :x."))
 
     # Flat.
-    @mutfails(m.efficiency = 9, (s, 9.0, :mwhole, "Value must belong to [0, 1]."))
+    @mutfails(m.e = 9, (s, 9.0, :mwhole, "Value must belong to [0, 1]."))
 
     # Still unchanged (after failures).
-    @test v == w == m.efficiency == 0.9 * m.trophic.mask
-    @test a == alt.efficiency == e
+    @test v == w == m.e == 0.9 * m.trophic.mask
+    @test a == alt.e == e
 
 end
 
@@ -755,7 +754,7 @@ end
     # Column-wise raw vector.
     bp = Efficiency.Raw([2, 5, 8, 4] / 10)
     m = base + bp
-    @test m.efficiency == [
+    @test m.e == [
         0 5 0 0
         0 0 8 0
         0 0 0 0
@@ -763,17 +762,17 @@ end
     ] / 10
 
     # Transparent matrix.
-    @test (base + Efficiency.Matrix(m.efficiency)).efficiency == m.efficiency
+    @test (base + Efficiency.Matrix(m.e)).e == m.e
 
     # Adjacency means source -> target.
     adj_r = [:a => (:b => 0.5), :b => (:c => 0.8), :d => (:a => 0.2, :c => 0.4)]
     adj_i = [1 => (2 => 0.5), 2 => (3 => 0.8), 4 => (1 => 0.2, 3 => 0.4)]
     mr = base + Efficiency(adj_r)
     mi = base + Efficiency(adj_i)
-    @test mi.efficiency == mr.efficiency == m.efficiency
+    @test mi.e == mr.e == m.e
 
     # Flat means all values are the same.
-    @test (base + Efficiency.Flat(0.9)).efficiency == [
+    @test (base + Efficiency.Flat(0.9)).e == [
         0 9 0 0
         0 0 9 0
         0 0 0 0

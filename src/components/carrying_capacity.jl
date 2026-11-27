@@ -26,8 +26,7 @@ const CarryingCapacity, _CarryingCapacity =
     :Binzer2016 => () -> CarryingCapacity.Temperature(default),
     ; s)
 
-@alias K carrying_capacity
-@alias producers.carrying_capacity K
+@alias K producers.carrying_capacity
 
 end
 local CarryingCapacity, _CarryingCapacity # (reassure JuliaLS)

@@ -64,7 +64,7 @@ const s, S = SL.EdgeField(:inter_producer, :competition)
 
     bp = ProducerCompetition.Diagonal(; diag = 7, off = 8)
     m = base + bp
-    @test m.producers.competition == m.producer_competition == [
+    @test m.producers.competition == m.inter_producer.competition == [
         7 8 8
         8 7 8
         8 8 7

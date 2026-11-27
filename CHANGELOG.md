@@ -79,6 +79,42 @@
   They can now only be implied instead.
   TODO: figure resulting interface change and attempt to keep ergonomics.
 
+- Class fields property accesses become namespaced by the class name:
+  ```julia
+  # Cannot name field directly.
+  m.body_mass # Removed.
+  m.carrying_capacity # Removed.
+  # Prefix with the corresponding class instead:
+  m.species.body_mass # Ok.
+  m.producers.carrying_capacity # Ok.
+  ```
+  This is to clear up global namespace and ease future components introduction.
+  Note that *some* fields may be aliased at toplevel for convenience
+  provided they are documentedly common enough, *e.g.*:
+  ```julia
+  # Convenience toplevel alias.
+  m.M == m.species.body_mass
+  m.K == m.producers.carrying_capacity
+  ```
+  The same also happens for edge fields.
+  ```julia
+  # Removed.
+  m.efficiency
+  m.consumers_preferences
+  # Ok.
+  m.trophic.efficiency
+  m.trophic.consumer_preference
+  # Aliases.
+  m.e == m.trophic.efficiency
+  m.w == m.consumers.preference == m.trophic.consumer_preference
+  ```
+
+- The above enforcement of context enables the shortening of names like
+  `GrowthRate` into `Growth`. This new alias is also available.
+  ```julia
+  m.r == m.producers.growth
+  ```
+
 - `model.trophic.levels` becomes `model.trophic.level` for consistency with
   other node properties being named with singular form.
 

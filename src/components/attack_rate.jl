@@ -59,7 +59,7 @@ IT.implied(::S, ::EN._Mobility, ::Miele2019) = EN.Mobility()
 
 function IT.expand!(md::Model, ::Miele2019, _)
     # Directly lower into a flattened matrix.
-    (; M, mobility) = md
+    M, mobility = md.M, md.species.mobility
     tp = ST.web(md, s).topology
     mob(i) = mobility[i] == :mobile # 0 = sessile, 1 = mobile
     vec = [

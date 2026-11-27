@@ -35,7 +35,7 @@ end
 # Define component.
 
 const BodyMass, _BodyMass = IT.define_node_field_component(EN, s; blueprints = [Z])
-@alias M body_mass
+@alias M species.body_mass
 
 # Extra constructor dispatch to the extra blueprint.
 function (::_BodyMass)(; M = nothing, Z = nothing)

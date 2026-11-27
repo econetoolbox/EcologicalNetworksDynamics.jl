@@ -24,8 +24,8 @@ using Test
 
     base = Model(Foodweb([:a => :b, :c => :d]))
     m = base + bp
-    @test eltype(m.mobility) === Symbol
-    @test m.mobility == [:mobile, :sessile, :mobile, :sessile]
+    @test eltype(m.species.mobility) === Symbol
+    @test m.species.mobility == [:mobile, :sessile, :mobile, :sessile]
 
 end
 
@@ -45,7 +45,7 @@ end
 
     base = Model(Foodweb([:a => :b, :b => :c]), BodyMass(; Z = 1))
     m = base + bp
-    @test m.attack_rate == [
+    @test m.trophic.attack_rate == [
         0 5 0
         0 0 5
         0 0 0
@@ -53,7 +53,7 @@ end
 
     # Mobility has been implied then.
     @test has_component(m, Mobility)
-    @test m.mobility == [:mobile, :mobile, :sessile]
+    @test m.species.mobility == [:mobile, :mobile, :sessile]
 
     # From temperature allometry.
     base = Model(Foodweb([:a => [:b, :c], :b => :c]), BodyMass(; Z = 1))
@@ -65,7 +65,7 @@ end
     base += MetabolicClass(:all_invertebrates) + Temperature(298.5)
     m = base + bp
     a = 2.678153116108099e-6
-    @test m.attack_rate ≈ [
+    @test m.trophic.attack_rate ≈ [
         0 a a
         0 0 a
         0 0 0

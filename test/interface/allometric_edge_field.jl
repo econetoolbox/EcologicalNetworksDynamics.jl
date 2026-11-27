@@ -85,7 +85,7 @@ const s, S = SL.EdgeField(:trophic, :handling_time)
 
     bp = HandlingTime(:Binzer2016)
     m = base + bp
-    @test m.handling_time ≈ [
+    @test m.trophic.handling_time ≈ [
         0 a a
         0 0 a
         0 0 0

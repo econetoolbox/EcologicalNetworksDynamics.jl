@@ -35,16 +35,17 @@ const s, S = SL.NodeField(:species, :metabolic_class)
           - Foodweb: 2 links, 1 producer, 2 consumers, 2 preys, 1 top.
           - MetabolicClass: [:invertebrate, :ectotherm, :producer]\
         """)
-    @test m.metabolic_class == [:invertebrate, :ectotherm, :producer]
+    @test m.species.metabolic_class == [:invertebrate, :ectotherm, :producer]
 
     @bpfails(MetabolicClass([:x]), MetabolicClass.Raw, :construct,
         (s, :x, (:u, (1,)),
             "In aliasing system for \"metabolic class\": Invalid reference: 'x'."))
 
     # Mutable classes, with expansion/conversion on.
-    m.metabolic_class[1] = :e
-    m.metabolic_class[:b] = 'i'
-    @test m.metabolic_class == [:ectotherm, :invertebrate, :producer]
+    mc = m.species.metabolic_class
+    mc[1] = :e
+    mc[:b] = 'i'
+    @test mc == [:ectotherm, :invertebrate, :producer]
 
     # Checked against the *whole model* for consistency.
     # NOTE: This is where per-value late_checking is tested (irrelevant for body_mass).
@@ -75,11 +76,10 @@ const s, S = SL.NodeField(:species, :metabolic_class)
         """)
 
     # Also checked on mutation pipeline.
-    @mutfails(m.metabolic_class[:c] = :i,
+    @mutfails(mc[:c] = :i,
         (s, :invertebrate, (:m, ((3, :c),)),
-            "Metabolic class cannot be :invertebrate for a producer species.")
-    )
-    @mutfails(m.metabolic_class[:a] = :p,
+            "Metabolic class cannot be :invertebrate for a producer species."))
+    @mutfails(mc[:a] = :p,
         (s, :producer, (:m, ((1, :a),)),
             "Metabolic class cannot be :producer for a consumer species."))
 
@@ -98,10 +98,10 @@ const s, S = SL.NodeField(:species, :metabolic_class)
         """)
 
     m = base + bp
-    @test m.metabolic_class == [:ectotherm, :ectotherm, :producer]
+    @test m.species.metabolic_class == [:ectotherm, :ectotherm, :producer]
 
     bp.favourite = :all_invertebrates
-    @test (base + bp).metabolic_class == [:invertebrate, :invertebrate, :producer]
+    @test (base + bp).species.metabolic_class == [:invertebrate, :invertebrate, :producer]
 
     #---------------------------------------------------------------------------------------
     # Early check.

@@ -16,9 +16,9 @@ const s, S = SL.NodeField(:producers, :growth)
 @testset "Allometry blueprint: nodefield." begin
 
     # Defined on the same existing component.
-    @test_disp(GrowthRate,
+    @test_disp(Growth,
         """
-        GrowthRate (component for $(ST.Network), expandable from:
+        Growth (component for $(ST.Network), expandable from:
           Raw: raw values,
           Map: [producers => growth] map,
           Flat: uniform value,
@@ -27,16 +27,16 @@ const s, S = SL.NodeField(:producers, :growth)
         )\
         """)
 
-    @test GrowthRate.Allometric <: Blueprint
+    @test Growth.Allometric <: Blueprint
 
     #---------------------------------------------------------------------------------------
     # Construct.
 
     # From a symbol or using the 2D kwargs interface.
-    bp = GrowthRate.Allometric(:Miele2019)
-    @test bp == GrowthRate(:Miele2019)
-    @test bp == GrowthRate.Allometric(; prod_a = 1, prod_b = -0.25)
-    @test bp == GrowthRate.Allometric(; p = (; prefactor = 1, source_exponent = -0.25))
+    bp = Growth.Allometric(:Miele2019)
+    @test bp == Growth(:Miele2019)
+    @test bp == Growth.Allometric(; prod_a = 1, prod_b = -0.25)
+    @test bp == Growth.Allometric(; p = (; prefactor = 1, source_exponent = -0.25))
 
     # The value inside the blueprint is an aliasing dict.
     @test bp.allometry isa Allometry
@@ -44,22 +44,22 @@ const s, S = SL.NodeField(:producers, :growth)
     @test bp.allometry[:prod][:source_exponent] == bp.allometry[:p][:b] == -0.25
 
     @test_repr(bp,
-        "<GrowthRate>:Allometric(allometry: \
-                                 Allometry(p: (a: 1.0, b: -0.25), i: (), e: ()))")
+        "<Growth>:Allometric(allometry: \
+                             Allometry(p: (a: 1.0, b: -0.25), i: (), e: ()))")
     @test_disp(bp,
         """
-        blueprint for <GrowthRate>: Allometric {
+        blueprint for <Growth>: Allometric {
           allometry: Allometry(p: (a: 1.0, b: -0.25), i: (), e: ()),
         }\
         """)
 
-    @bpfails(GrowthRate.Allometric(5),
-        GrowthRate.Allometric, :construct,
+    @bpfails(Growth.Allometric(5),
+        Growth.Allometric, :construct,
         (s, 5, :uwhole, "Cannot convert to `Allometry`:\nConversion not implemented."))
-    @bpfails(GrowthRate.Allometric(:nap),
-        GrowthRate.Allometric, :construct,
+    @bpfails(Growth.Allometric(:nap),
+        Growth.Allometric, :construct,
         (s, :nap, :uwhole, "Expected one of [:Miele2019]."))
-    @checkfails(GrowthRate(:nap),
+    @checkfails(Growth(:nap),
         s, :nap, :uwhole, "Expected one of [:Miele2019 or :Binzer2016].")
 
     #---------------------------------------------------------------------------------------
@@ -73,41 +73,39 @@ const s, S = SL.NodeField(:producers, :growth)
     for (invalid, mess) in [
         ((;),
             "Missing allometric rates for metabolic class producer, \
-             required to calculate growth_rates."),
+             required to calculate growth."),
         ((; p_a = 1),
             "Missing allometric parameter b (source_exponent) for producer, \
-             required to calculate growth_rates."),
+             required to calculate growth."),
         ((; p = (a = 1, b = 2, c = 3)),
             "Allometric parameter c (target_exponent) for producer is meaningless \
-             in the context of calculating growth_rates: 3.0."),
+             in the context of calculating growth: 3.0."),
         ((; p = (a = 1, b = 2), inv_a = 5),
             "Allometric rates for invertebrate are meaningless \
-             in the context of calculating growth_rates: (a: 5.0)."),
+             in the context of calculating growth: (a: 5.0)."),
     ]
         # On construction.
-        @bpfails(GrowthRate.Allometric(; invalid...),
-            GrowthRate.Allometric, :construct,
+        @bpfails(Growth.Allometric(; invalid...),
+            Growth.Allometric, :construct,
             (s, invalid, :uwhole, mess))
         # On expansion.
         bp.allometry = Allometry(; invalid...)
         addfails.@check(base + bp, [],
-            (GrowthRate.Allometric, :early, (s, invalid, :uwhole, mess)))
+            (Growth.Allometric, :early, (s, invalid, :uwhole, mess)))
     end
 
     #---------------------------------------------------------------------------------------
     # Expand.
 
-    bp = GrowthRate(:Miele2019)
+    bp = Growth(:Miele2019)
     m = base + bp
-    @test m.growth_rate == [1, 1]
+    @test m.r == [1, 1]
 
     # Required components.
-    addfails.@missing(Model() + bp,
-        Foodweb, GrowthRate, [GrowthRate.Allometric], nothing)
-    addfails.@missing(Model(fw) + bp,
-        BodyMass, nothing, [GrowthRate.Allometric], nothing)
+    addfails.@missing(Model() + bp, Foodweb, Growth, [Growth.Allometric], nothing)
+    addfails.@missing(Model(fw) + bp, BodyMass, nothing, [Growth.Allometric], nothing)
     addfails.@missing(Model(fw, M) + bp,
-        MetabolicClass, nothing, [GrowthRate.Allometric], nothing)
+        MetabolicClass, nothing, [Growth.Allometric], nothing)
 
 end
 
@@ -115,37 +113,37 @@ end
 
     # Much inspired from the above.
 
-    @test GrowthRate.Temperature <: Blueprint
+    @test Growth.Temperature <: Blueprint
 
     #---------------------------------------------------------------------------------------
     # Construct.
 
     a = exp(-15.68)
 
-    bp = GrowthRate.Temperature(:Binzer2016)
-    @test bp == GrowthRate(:Binzer2016)
-    @test bp == GrowthRate.Temperature(-0.84; p = (; a, b = -0.25))
+    bp = Growth.Temperature(:Binzer2016)
+    @test bp == Growth(:Binzer2016)
+    @test bp == Growth.Temperature(-0.84; p = (; a, b = -0.25))
 
     @test bp.E_a isa Float64
     @test bp.allometry isa Allometry
     @test bp.allometry == Allometry(; prod_a = a, prod_b = -0.25)
 
     @test_repr(bp,
-        "<GrowthRate>:Temperature(E_a: -0.84, allometry: \
-                                  Allometry(p: (a: $a, b: -0.25), i: (), e: ()))")
+        "<Growth>:Temperature(E_a: -0.84, allometry: \
+                                          Allometry(p: (a: $a, b: -0.25), i: (), e: ()))")
     @test_disp(bp,
         """
-        blueprint for <GrowthRate>: Temperature {
+        blueprint for <Growth>: Temperature {
           E_a: -0.84,
           allometry: Allometry(p: (a: $a, b: -0.25), i: (), e: ()),
         }\
         """)
 
-    @bpfails(GrowthRate.Temperature(5im),
-        GrowthRate.Temperature, :construct,
+    @bpfails(Growth.Temperature(5im),
+        Growth.Temperature, :construct,
         (s, 5im, :uwhole, "Cannot convert to `$Float64`:\nConversion not implemented."))
-    @bpfails(GrowthRate.Temperature(:nap),
-        GrowthRate.Temperature, :construct,
+    @bpfails(Growth.Temperature(:nap),
+        Growth.Temperature, :construct,
         (s, :nap, :uwhole, "Expected one of [:Binzer2016]."))
 
     #---------------------------------------------------------------------------------------
@@ -160,42 +158,42 @@ end
     for (invalid, mess) in [
         ((;),
             "Missing allometric rates for metabolic class producer, \
-             required to calculate growth_rates."),
+             required to calculate growth."),
         ((; p_a = 1),
             "Missing allometric parameter b (source_exponent) for producer, \
-             required to calculate growth_rates."),
+             required to calculate growth."),
         ((; p = (a = 1, b = 2, c = 3)),
             "Allometric parameter c (target_exponent) for producer is meaningless \
-             in the context of calculating growth_rates: 3.0."),
+             in the context of calculating growth: 3.0."),
         ((; p = (a = 1, b = 2), inv_a = 5),
             "Allometric rates for invertebrate are meaningless \
-             in the context of calculating growth_rates: (a: 5.0)."),
+             in the context of calculating growth: (a: 5.0)."),
     ]
-        @bpfails(GrowthRate.Temperature(E_a; invalid...),
-            GrowthRate.Temperature, :construct, (s, invalid, :uwhole, mess))
+        @bpfails(Growth.Temperature(E_a; invalid...),
+            Growth.Temperature, :construct, (s, invalid, :uwhole, mess))
         bp.allometry = Allometry(; invalid...)
         addfails.@check(base + Temperature() + bp, [],
-            (GrowthRate.Temperature, :early, (s, invalid, :uwhole, mess)))
+            (Growth.Temperature, :early, (s, invalid, :uwhole, mess)))
     end
 
     #---------------------------------------------------------------------------------------
     # Expand.
 
-    bp = GrowthRate(:Binzer2016)
+    bp = Growth(:Binzer2016)
     m = base + Temperature() + bp
-    @test m.growth_rate ≈ [a, a]
+    @test m.r ≈ [a, a]
 
     m = base + Temperature(298.5) + bp
     g = 2.812547966878026e-7
-    @test m.growth_rate ≈ [g, g]
+    @test m.r ≈ [g, g]
 
     # Required components.
-    addfails.@missing(Model() + bp, Foodweb, GrowthRate, [GrowthRate.Temperature], nothing)
-    addfails.@missing(Model(fw) + bp, BodyMass, nothing, [GrowthRate.Temperature], nothing)
+    addfails.@missing(Model() + bp, Foodweb, Growth, [Growth.Temperature], nothing)
+    addfails.@missing(Model(fw) + bp, BodyMass, nothing, [Growth.Temperature], nothing)
     addfails.@missing(Model(fw, bm) + bp,
-        MetabolicClass, nothing, [GrowthRate.Temperature], nothing)
+        MetabolicClass, nothing, [Growth.Temperature], nothing)
     addfails.@missing(Model(fw, bm, mc) + bp,
-        Temperature, nothing, [GrowthRate.Temperature], nothing)
+        Temperature, nothing, [Growth.Temperature], nothing)
 
 end
 

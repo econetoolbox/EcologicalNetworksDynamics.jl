@@ -15,7 +15,7 @@ const s, S = SL.NodeField(:consumers, :maximum_consumption)
 
     base = Model(Species("abcd"), Foodweb([:a => [:b, :c], :b => :c]))
     m = base + MaximumConsumption([5, 8])
-    @test m.y == m.maximum_consumption == [5, 8]
+    @test m.y == m.consumers.maximum_consumption == [5, 8]
     @test spextract(m.y) isa SparseVector{Float64}
     @test spextract(m.y) == [5, 8, 0, 0]
 
@@ -25,7 +25,7 @@ const s, S = SL.NodeField(:consumers, :maximum_consumption)
     @test bp == MaximumConsumption(:Miele2019)
     @test_repr(bp.allometry, "Allometry(p: (), i: (a: 8.0, b: 0.0), e: (a: 4.0, b: 0.0))")
     m = base + bp
-    @test m.maximum_consumption ≈ [8, 4]
+    @test m.y ≈ [8, 4]
 end
 
 end

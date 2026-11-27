@@ -98,8 +98,8 @@ function define_web_properties(mod::Module, s::SL.Web; depends = [])
     IT.define_propspace(:($prop.iter))
     IT.define_propspace(:($prop.iter.index))
     IT.define_propspace(:($prop.iter.label))
-    defmeth(fn, s) =
-        IT.define_method(fn; depends, read_as = map(s -> paste_paths(prop, s), s))
+    defmeth(fn, props) =
+        IT.define_method(fn; depends, read_as = map(p -> paste_paths(prop, p), props))
 
     Methods = Symbol(Web, :Methods)
     mod.eval(
