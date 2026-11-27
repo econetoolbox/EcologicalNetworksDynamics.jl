@@ -21,7 +21,7 @@ function define_web_field_component(
     requires = [], # Extra requirements for the component.
 )
     w = SL.web(s)
-    Web = SL.component(w)
+    implied = SL.has_component(w) ? [SL.component(w)] : []
     web, field = SL.content(s)
     src, tgt = SL.sourcename(w), SL.targetname(w)
     singular, plural, Singular, Plural, short = SL.name_variants(s)
@@ -40,8 +40,7 @@ function define_web_field_component(
             quote
                 module $Blueprints
                 import EcologicalNetworksDynamics.Interface: IT, SL, @bp_construct
-                const w, s, T, sparse, Mat, Web = $w, $s, $T, $sparse, $Mat, $Web
-                const _Web = typeof(Web)
+                const w, s, T, sparse, Mat, implied = $w, $s, $T, $sparse, $Mat, $implied
                 end
             end
         ).args |> last,
@@ -70,7 +69,7 @@ function define_web_field_component(
             end
             export Matrix
             IT.register_blueprint(Matrix, "a $(sparse ? "sparse " : "")matrix"; s,
-                implied = [Web], # Imply web from matrix structure.
+                implied, # Imply web from matrix structure.
             )
         end,
     )
@@ -87,7 +86,7 @@ function define_web_field_component(
             export Adjacency
             IT.register_blueprint(Adjacency,
                 $"[$src => [$tgt => $field]] adjacency list"; s,
-                implied = [Web], # Imply web from adjacency list keys.
+                implied, # Imply web from adjacency list keys.
             )
         end,
     )
@@ -112,12 +111,15 @@ function define_web_field_component(
     # The component itself and generic blueprints constructors.
 
     S = typeof(s)
+    if SL.has_component(w)
+        requires = [SL.component(w), requires...]
+    end
     cp = mod.eval(
         quote
             IT.define_component(
                 $(Meta.quot(Singular)),
                 $mod;
-                requires = ($Web, $(requires...)),
+                requires = $requires,
                 blueprints = [$bpmod, $(blueprints...)],
             )
         end,

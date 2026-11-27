@@ -114,6 +114,9 @@ propnames(s::S) = (snake_case(s), CamelCase(s))
 component(s::S) = throw("Component unspecified for $s.")
 componentname(s::S) = CamelCase(s) # To be overriden.
 
+"Lower if no or no single component exactly provides this web."
+has_component(::S) = true
+
 "Names of the (source, target) classes."
 sidenames(s::S) = throw("Source and target classes unspecified for $s.")
 

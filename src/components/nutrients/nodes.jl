@@ -25,11 +25,17 @@ end
 const Nodes, _Nodes = IT.define_class_component(Nutrients, s; blueprints = [PerProducer])
 
 # In the presence of trophic links, all producers become connected to all nutrient nodes.
-function nutrients_producers!(nw, md)
+# TODO: factorize most of the following?
+const np, NP = SL.Web(:nutrients_producers)
+SL.sidenames(::NP) = (:producers, :nutrients)
+SL.is_sparse(::NP) = false # All connected. TODO: unless undesired?
+SL.has_component(::NP) = false # So this web does not have exactly one component for it.
+function add_np!(nw, md)
     P, N = md.producers.count, md.nutrients.count
-    ST.add_web!(nw, :nutrients_producers, (:producers, :nutrients), ST.FullForeign(P, N))
+    ST.add_web!(nw, SL.webname(np), SL.sidenames(np), ST.FullForeign(P, N))
 end
-CS.add_trigger!([EN.Foodweb, Nodes], nutrients_producers!)
+CS.add_trigger!([EN.Foodweb, Nodes], add_np!)
+IT.define_propspace(SL.webname(np))
 
 end
 local Nodes, _Nodes # (reassure JuliaLS)

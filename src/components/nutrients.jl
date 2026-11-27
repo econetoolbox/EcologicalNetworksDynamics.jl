@@ -6,10 +6,10 @@ using EcologicalNetworksDynamics.Interface: IT
 include("nutrients/nodes.jl") # "Nodes" because "Nutrients" is already the module name.
 include("nutrients/turnover.jl")
 include("nutrients/supply.jl")
+include("nutrients/concentration.jl")
 
 # HERE: reintroduce the following fields.
 # Further node/edges components regarding this compartment.
-#  include("nutrients/concentration.jl")
 #  include("nutrients/half_saturation.jl")
 
 end
