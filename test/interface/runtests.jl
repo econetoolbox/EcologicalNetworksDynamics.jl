@@ -46,6 +46,7 @@ include("data_components/consumption_rate.jl")
 module Nutrients
     include("data_components/nutrients/nodes.jl")
     include("data_components/nutrients/turnover.jl")
+    include("data_components/nutrients/supply.jl")
 end
 
 end
